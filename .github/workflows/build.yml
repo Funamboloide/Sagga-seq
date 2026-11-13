@@ -7,6 +7,8 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+permissions:
+  contents: write          # (the package also goes to the branch "pacchetti")
 jobs:
   build:
     runs-on: ubuntu-22.04
@@ -70,3 +72,15 @@ jobs:
             build/build.log
             tools/fm1_install.py
           if-no-files-found: error
+      - name: the package on the branch "pacchetti" (the newest only; a link that does not expire)
+        run: |
+          V="${{ steps.v.outputs.version }}"
+          D=$(mktemp -d)
+          cp build/sagga-seq-*.fwsc tools/fm1_install.py "$D/"
+          cp "$D/sagga-seq-$V.fwsc" "$D/sagga-$V.fwsc"
+          printf 'SAGGA SEQ %s, built from %s\n\nInstall: py fm1_install.py sagga-%s.fwsc (FM-1 on the PC), or the Pi page (port 8090).\n' "$V" "$GITHUB_SHA" "$V" > "$D/LEGGIMI.txt"
+          cd "$D"
+          git init -q -b pacchetti
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" add -A
+          git -c user.name="github-actions[bot]" -c user.email="41898282+github-actions[bot]@users.noreply.github.com" commit -q -m "SAGGA SEQ $V package (${GITHUB_SHA::7})"
+          git push -f "https://x-access-token:${{ github.token }}@github.com/${{ github.repository }}.git" pacchetti
