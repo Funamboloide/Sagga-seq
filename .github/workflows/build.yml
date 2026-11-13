@@ -30,9 +30,22 @@ jobs:
           key: jieli-linux-toolchain-v1
       - run: '[ -x ~/.jieli/toolchain/pi32v2/bin/clang ] || sh tools/get_toolchain.sh'
       - name: JieLi AC79 SDK (the three files the package takes)
+        timeout-minutes: 20
         run: |
-          git clone --depth 1 --filter=blob:none --sparse https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK ~/fw-AC79_AIoT_SDK
-          git -C ~/fw-AC79_AIoT_SDK sparse-checkout set cpu/wl82/tools
+          # JieLi publishes the SDK on Gitee; the tested version first (V1.2.1), then its newest; only cpu/wl82/tools
+          SDK=~/fw-AC79_AIoT_SDK
+          export GIT_TERMINAL_PROMPT=0
+          ok=0
+          for url in https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK.git; do
+            for br in release/AC79NN_SDK_V1.2.1 AC79NN_SDK_V1.2.1 ""; do
+              rm -rf "$SDK"
+              if git clone --depth 1 --filter=blob:none --sparse ${br:+--branch "$br"} "$url" "$SDK" &&
+                 git -C "$SDK" sparse-checkout set cpu/wl82/tools && [ -f "$SDK/cpu/wl82/tools/uboot.boot" ]; then
+                echo "SDK: $url ${br:-(its default branch)}"; ok=1; break 2
+              fi
+            done
+          done
+          [ "$ok" = 1 ] || { echo "::error::the JieLi AC79 SDK could not be downloaded"; exit 1; }
           sha256sum ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg_tool.bin ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg/eq_cfg_hw.bin
       - name: build
         run: |
