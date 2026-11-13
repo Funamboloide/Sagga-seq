@@ -29,30 +29,39 @@ jobs:
           path: ~/.jieli
           key: jieli-linux-toolchain-v1
       - run: '[ -x ~/.jieli/toolchain/pi32v2/bin/clang ] || sh tools/get_toolchain.sh'
-      - name: JieLi AC79 SDK (the three files the package takes)
-        timeout-minutes: 20
+      - name: JieLi AC79 SDK (the three files the package takes, exactly the tested V1.2.1)
+        timeout-minutes: 25
         run: |
-          # JieLi publishes the SDK on Gitee; the tested version first (V1.2.1), then its newest; only cpu/wl82/tools
-          SDK=~/fw-AC79_AIoT_SDK
+          # JieLi publishes the SDK on Gitee. The package takes three of its files; they must be the ones of
+          # AC79NN_SDK_V1.2.1 (2023-12-13), the version SAGGA SEQ was tested with (tools/build.py SDK_SHA256):
+          # every commit of the SDK's history is searched for them by their SHA-256. Not found: no package.
           export GIT_TERMINAL_PROMPT=0
-          ok=0
-          for url in https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK.git; do
-            for br in release/AC79NN_SDK_V1.2.1 AC79NN_SDK_V1.2.1 ""; do
-              rm -rf "$SDK"
-              if git clone --depth 1 --filter=blob:none --sparse ${br:+--branch "$br"} "$url" "$SDK" &&
-                 git -C "$SDK" sparse-checkout set cpu/wl82/tools && [ -f "$SDK/cpu/wl82/tools/uboot.boot" ]; then
-                echo "SDK: $url ${br:-(its default branch)}"; ok=1; break 2
-              fi
-            done
+          R=~/sdk-repo SDK=~/fw-AC79_AIoT_SDK T=cpu/wl82/tools
+          U=4e3b4c220dc96641cb5a723f41e68ce41d5261ae9434bb33fbd7f2c59976ded4
+          C=276579954f076886a6a7694f65dc71c034a63a2c204b76749065c0ac7b010d1b
+          E=41167491bffed4651750719c973d2758adeb9021a5670d02d6a53c85ed80ea7d
+          git clone --filter=blob:none --no-checkout https://gitee.com/Jieli-Tech/fw-AC79_AIoT_SDK.git "$R"
+          cd "$R"
+          git fetch -q --tags origin '+refs/heads/*:refs/remotes/origin/*' || true
+          echo "branches and tags with 1.2 in the name:"; git for-each-ref --format='%(refname:short)' | grep -i '1\.2' || true
+          sha() { git show "$1" 2>/dev/null | sha256sum | cut -c1-64; }
+          found=""
+          for c in $(git log --all --format=%H -- "$T/uboot.boot" "$T/cfg/eq_cfg_hw.bin" "$T/cfg_tool.bin"); do
+            if [ "$(sha "$c:$T/uboot.boot")" = "$U" ] && [ "$(sha "$c:$T/cfg/eq_cfg_hw.bin")" = "$E" ] && [ "$(sha "$c:$T/cfg_tool.bin")" = "$C" ]; then
+              found=$c; break
+            fi
           done
-          [ "$ok" = 1 ] || { echo "::error::the JieLi AC79 SDK could not be downloaded"; exit 1; }
-          sha256sum ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg_tool.bin ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg/eq_cfg_hw.bin
+          [ -n "$found" ] || { echo "::error::the V1.2.1 files of the AC79 SDK are not in its history on Gitee: no package"; exit 1; }
+          echo "SDK files from commit $found:"; git log -1 --format='  %H %cd %s' "$found"; git branch -a --contains "$found" | head -5
+          mkdir -p "$SDK/$T/cfg"
+          for f in uboot.boot cfg_tool.bin cfg/eq_cfg_hw.bin; do git show "$found:$T/$f" > "$SDK/$T/$f"; done
+          sha256sum "$SDK/$T/uboot.boot" "$SDK/$T/cfg_tool.bin" "$SDK/$T/cfg/eq_cfg_hw.bin"
       - name: build
         run: |
           set -o pipefail
           ./build.sh --release "${{ steps.v.outputs.version }}" 2>&1 | tee build/build.log
           ls -l build/*.fwsc
-          if grep -q 'differs from AC79NN_SDK' build/build.log; then echo "::warning::the SDK files differ from the tested V1.2.1"; fi
+          if grep -q 'differs from AC79NN_SDK' build/build.log; then echo "::error::the SDK files differ from the tested V1.2.1: no package"; exit 1; fi
       - uses: actions/upload-artifact@v4
         with:
           name: sagga-seq-${{ steps.v.outputs.version }}
