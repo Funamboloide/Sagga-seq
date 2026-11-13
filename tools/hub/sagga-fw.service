@@ -1,0 +1,14 @@
+# SAGGA HUB: the firmware library web page, http://192.168.4.1:8090 on the hub's own WiFi.
+[Unit]
+Description=SAGGA HUB firmware library (web, port 8090)
+After=network.target
+
+[Service]
+Environment=FM1_INSTALL=/opt/sagga/fm1_install.py
+Environment=SAGGA_SGQMID=/opt/sagga/hub/sagga_sgqmid
+ExecStart=/usr/bin/python3 -u /opt/sagga/hub/sagga_fw.py --dir /boot/firmware/sagga/firmware --projects /boot/firmware/sagga --port 8090
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

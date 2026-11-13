@@ -1,0 +1,20 @@
+# SAGGA GRID bridge as a service on a Zynthian (docs/SAGGA-GRID-ZYNTHIAN.md): the two Launchpads and the FM-1's
+# port 2 on the same Pi that makes the sounds. Zynthian's file system is writable, so no rw / ro around the commands.
+#
+#   sudo cp /zynthian/sagga/sagga-grid-bridge-zynthian.service /etc/systemd/system/sagga-grid-bridge.service
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now sagga-grid-bridge
+[Unit]
+Description=SAGGA GRID bridge (two Launchpads <-> FM-1) on Zynthian
+After=zynthian.service sound.target
+Wants=zynthian.service
+
+[Service]
+# two red / green Launchpad Minis, the left one turned (--frame); a Mini MK3: remove "--model mini".
+# --port auto takes the FM-1's port 2 when it has two (USB PORTS 2); the projects go to /zynthian/sagga/projects.
+ExecStart=/usr/bin/python3 -u /zynthian/sagga/sagga_grid_bridge.py --model mini --frame --dump-dir /zynthian/sagga/projects
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

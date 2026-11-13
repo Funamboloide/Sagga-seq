@@ -1,0 +1,34 @@
+# SAGGA SEQ 0.11 progressions, UKFUNKY (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+SATISFYING	ii7 V7 Imaj7
+SATISFYING	IVmaj7 V7 Imaj7
+SATISFYING	Imaj7 IVmaj7 V7 Imaj7
+SATISFYING	ii9 V7 Imaj7 vi7
+SATISFYING	IV7 V7 iii7 vi7
+SATISFYING	iv7 V7 i7
+SATISFYING	bVImaj7 bVII7 i7
+SATISFYING	Imaj7 vi7 ii9 V7
+MELANCHOLY	i7 IV7 i7 IV7
+MELANCHOLY	i7 bIIImaj7 bVII7 IV7
+MELANCHOLY	vi7 IVmaj7 Imaj7 V7
+MELANCHOLY	i7 iv7 bVII7 bIIImaj7
+MELANCHOLY	ii7 iii7 vi7 vi7
+MELANCHOLY	i7 bVII7 IV7 i7
+MELANCHOLY	i7 bIIImaj7 IV7 iv7
+MELANCHOLY	vi7 iii7 IVmaj7 Imaj7
+ENERGETIC	i7:8 bVII7:8 bVImaj7:8 bVII7:8
+ENERGETIC	Imaj7:8 V7:8 vi7:8 IVmaj7:8
+ENERGETIC	i7:4 i7:4 bVII7:4 bVImaj7:4
+ENERGETIC	i7:8 bVII7:8
+ENERGETIC	Imaj7:8 bVII7:8 IVmaj7:16
+ENERGETIC	i7:8 iv7:8 bVImaj7:8 bVII7:8
+ENERGETIC	vi7:8 IVmaj7:8 Imaj7:8 V7:8
+DREAMY	Imaj7 IVmaj7
+DREAMY	Imaj9 vi9
+DREAMY	IVmaj7 iii7 ii7 Imaj7
+DREAMY	i9 bVImaj7
+DREAMY	Imaj7 bVIImaj7
+DREAMY	ii9 Imaj9
+DREAMY	bIIImaj7 bVImaj7 i9
+DREAMY	IVmaj9 Imaj9

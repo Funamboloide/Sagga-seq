@@ -1,0 +1,18 @@
+# SAGGA M8 LINK 0.5 on the Raspberry Pi (only for Bricks in "ffs" mode; "native" needs nothing on the Pi).
+# Two virtual cards, SAGGAM8A and SAGGAM8B: one per Brick (sagga_m8 name A / name B on the Bricks).
+#   rw
+#   sudo cp sagga_m8_host.py /opt/sagga/ && sudo cp sagga-m8-link.service /etc/systemd/system/
+#   sudo systemctl daemon-reload && sudo systemctl enable --now sagga-m8-link
+#   ro
+[Unit]
+Description=SAGGA M8 LINK (TrimUI Brick + M8 -> a virtual MIDI card for RaspiMIDIHub)
+Before=raspimidihub.service
+
+[Service]
+ExecStartPre=/sbin/modprobe snd-virmidi enable=1,1 midi_devs=1,1 id=SAGGAM8A,SAGGAM8B
+ExecStart=/usr/bin/python3 /opt/sagga/sagga_m8_host.py
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

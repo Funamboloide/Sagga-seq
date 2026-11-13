@@ -1,0 +1,251 @@
+#!/bin/sh
+# SAGGA M8 LINK 0.6.1 - the TrimUI Brick (KNULLI) as a USB-MIDI device for the Raspberry Pi (RaspiMIDIHub).
+#
+#   M8 headless --USB--> Brick (top port, host) ... Brick (bottom USB-C, device) --USB--> Raspberry Pi
+#
+# Two ways, chosen at start (MODE=auto, the default):
+#   native  the kernel's own USB-MIDI function (f_midi): the Pi sees a standard USB-MIDI device "SAGGA M8", nothing to
+#           install on the Pi; on the Brick the M8 and the gadget are joined with aconnect (kernel to kernel)
+#   ffs     the kernel has no f_midi: a vendor USB link through FunctionFS (sagga_m8_ffs.py, after ChatGPT's 0.3);
+#           the Pi needs sagga_m8_host.py, which shows the M8 to RaspiMIDIHub as a virtual MIDI card (snd-virmidi)
+#
+# KNULLI service: /userdata/system/services/sagga_m8   (knulli-services start|stop|status sagga_m8; enable: at boot;
+#                  on Gladiator II the command is batocera-services)
+# The gadget g1: KNULLI makes it only for ADB. With USB mode off (Scarab) there is none: the link makes its own and
+# removes it when it stops, so KNULLI's ADB finds the port as it left it.
+# MODE=native or MODE=ffs in /userdata/system/sagga_m8.conf forces one.
+# 0.5: NAME=A or NAME=B in the same file (sagga_m8 name B writes it): with two Bricks the Pi tells them apart by it
+#      (USB product "SAGGA M8 A", serial number "SAGGAM8-A"; in ffs mode the Pi gives each its own virtual card).
+# 0.6: a watchdog keeps the link on the port. Leaving and starting m8c (KNULLI going back to EmulationStation) unbinds
+#      the gadget from the USB controller, or takes the gadget away: the Pi lost the M8 until the link was restarted.
+#      Now the link binds itself again within two seconds (a port that KNULLI bound to something else is left alone).
+set -u
+G=${SAGGA_G:-/sys/kernel/config/usb_gadget/g1}
+CFG=$G/configs/b.1
+FN_MIDI=$G/functions/midi.sagga
+FN_FFS=$G/functions/ffs.sagga
+FFS=/dev/ffs-sagga
+RUN=${SAGGA_RUN:-/run/sagga_m8}
+STATE=$RUN/g1_state
+LOG=${SAGGA_LOG:-/userdata/system/logs/sagga_m8_link.log}
+DAEMON=/userdata/system/services/sagga_m8_ffs.py
+CONF=/userdata/system/sagga_m8.conf
+VID=0x1209
+PIDUSB=0x7a01
+MODE=auto
+NAME=A
+[ -f "$CONF" ] && . "$CONF"
+case "$NAME" in ''|*[!A-Z0-9]*) NAME=A ;; esac          # (letters and digits only, 1-4 of them)
+[ "${#NAME}" -le 4 ] || NAME=A
+
+log() { echo "$(date '+%F %T') $*" >> "$LOG"; }
+udc_name() { [ -n "${SAGGA_UDC:-}" ] && { echo "$SAGGA_UDC"; return; }; ls /sys/class/udc 2>/dev/null | head -n1; }
+m8_card() { sed -n 's/^ *\([0-9][0-9]*\) \[M8 *\].*/\1/p' /proc/asound/cards 2>/dev/null | head -n1; }
+alive() { [ -f "$1" ] && kill -0 "$(cat "$1")" 2>/dev/null; }
+copy() { [ -f "$1" ] && [ -e "$2" ] && cat "$1" > "$2" 2>/dev/null || :; }   # (a gadget KNULLI took away: nothing to write to)
+
+save_state() {
+    [ -d "$STATE" ] && return 0                            # (a state saved before is the original one: keep it)
+    mkdir -p "$STATE"
+    for f in idVendor idProduct bcdUSB bcdDevice; do copy "$G/$f" "$STATE/$f"; done
+    for f in manufacturer product serialnumber; do copy "$G/strings/0x409/$f" "$STATE/$f"; done
+    copy "$CFG/strings/0x409/configuration" "$STATE/configuration"
+    copy "$CFG/MaxPower" "$STATE/MaxPower"
+    if [ -L "$CFG/ffs.adb" ]; then echo 1 > "$STATE/adb"; else echo 0 > "$STATE/adb"; fi
+}
+
+restore_state() {
+    [ -d "$STATE" ] || return 0
+    for f in idVendor idProduct bcdUSB bcdDevice; do copy "$STATE/$f" "$G/$f"; done
+    for f in manufacturer product serialnumber; do copy "$STATE/$f" "$G/strings/0x409/$f"; done
+    copy "$STATE/configuration" "$CFG/strings/0x409/configuration"
+    copy "$STATE/MaxPower" "$CFG/MaxPower"
+    if [ "$(cat "$STATE/adb" 2>/dev/null || echo 0)" = 1 ] && [ -d "$G/functions/ffs.adb" ] && [ ! -L "$CFG/ffs.adb" ]; then
+        ln -s "$G/functions/ffs.adb" "$CFG/ffs.adb" 2>/dev/null || :
+    fi
+    rm -rf "$STATE"
+}
+
+identity() {                                              # what the Pi will see
+    echo "$VID" > "$G/idVendor"
+    echo "$PIDUSB" > "$G/idProduct"
+    echo 0x0200 > "$G/bcdUSB"
+    echo 0x0105 > "$G/bcdDevice"
+    mkdir -p "$G/strings/0x409" "$CFG/strings/0x409"
+    echo "SAGGA" > "$G/strings/0x409/manufacturer"
+    echo "SAGGA M8 $NAME" > "$G/strings/0x409/product"
+    echo "SAGGAM8-$NAME" > "$G/strings/0x409/serialnumber"
+    echo "M8 LINK" > "$CFG/strings/0x409/configuration"
+    echo 100 > "$CFG/MaxPower"
+}
+
+make_gadget() {                                           # (only when KNULLI made none: USB mode off)
+    [ -d "$G" ] && return 0
+    mkdir -p "$G" "$G/strings/0x409" "$CFG/strings/0x409" || return 1
+    touch "$RUN/own_g1"
+    log "gadget g1 made by the link (KNULLI had none)"
+}
+
+drop_gadget() {                                           # (undo make_gadget, in configfs order)
+    [ -f "$RUN/own_g1" ] || return 0
+    for l in "$CFG"/*; do [ -L "$l" ] && rm -f "$l"; done
+    rmdir "$CFG/strings/0x409" "$CFG/strings" "$CFG" 2>/dev/null || :
+    for f in "$G"/functions/*; do [ -d "$f" ] && rmdir "$f" 2>/dev/null || :; done
+    rmdir "$G/strings/0x409" "$G/strings" "$G/functions" "$G/configs" "$G" 2>/dev/null || :   # (functions and configs: configfs makes and takes them itself)
+    rm -f "$RUN/own_g1"
+}
+
+cleanup() {
+    for p in "$RUN/dog.pid"; do                           # (the watchdog first: it would bind the port again)
+        if alive "$p"; then kill "$(cat "$p")" 2>/dev/null || :; fi
+        rm -f "$p"
+    done
+    [ -f "$G/UDC" ] && echo "" > "$G/UDC" 2>/dev/null || :
+    for p in "$RUN/watch.pid" "$RUN/ffs.pid"; do
+        if alive "$p"; then kill "$(cat "$p")" 2>/dev/null || :; fi
+        rm -f "$p"
+    done
+    rm -f "$CFG/midi.sagga" "$CFG/ffs.sagga" 2>/dev/null || :
+    rmdir "$FN_MIDI" 2>/dev/null || :
+    grep -qs " $FFS functionfs " /proc/mounts && umount "$FFS" 2>/dev/null || :
+    rmdir "$FN_FFS" 2>/dev/null || :
+    restore_state
+    drop_gadget
+    rm -f "$RUN/mode"
+}
+
+# the M8 and the gadget's MIDI port joined both ways, again whenever one of them comes back (the M8 replugged)
+watch_native() {
+    while :; do
+        if [ -n "$(m8_card)" ] && aconnect -l 2>/dev/null | grep -q "'f_midi'"; then
+            aconnect M8:0 f_midi:0 2>/dev/null || :
+            aconnect f_midi:0 M8:0 2>/dev/null || :
+        fi
+        sleep 2
+    done
+}
+
+# 0.6: the port kept: every 2 s, if our function is in the gadget and the controller is free (someone wrote "" to UDC,
+# as KNULLI does when it goes back to EmulationStation), bind it again; if the gadget itself was taken away, or the
+# daemon died, start the whole link again. A port bound to something else (ADB switched on) is left to KNULLI.
+watchdog() {
+    fn=$1
+    while sleep "${SAGGA_DOG_S:-2}"; do
+        if [ ! -L "$CFG/$fn" ] || { [ "$fn" = ffs.sagga ] && ! alive "$RUN/ffs.pid"; }; then
+            log "watchdog: the link was taken apart (gadget or daemon gone): starting it again"
+            rm -f "$RUN/dog.pid"
+            ( sleep 1; "$SELF" restart >> "$LOG" 2>&1 ) &
+            exit 0
+        fi
+        b=$(cat "$G/UDC" 2>/dev/null || true)
+        if [ -z "$b" ]; then
+            u=$(udc_name)
+            if [ -n "$u" ] && echo "$u" > "$G/UDC" 2>/dev/null; then log "watchdog: the port was unbound: bound again on $u"; fi
+        fi
+    done
+}
+start_watchdog() {
+    watchdog "$1" >/dev/null 2>&1 &
+    echo $! > "$RUN/dog.pid"
+}
+
+start_native() {
+    mkdir "$FN_MIDI" 2>/dev/null || [ -d "$FN_MIDI" ] || return 1          # no f_midi in this kernel
+    echo 1 > "$FN_MIDI/in_ports" 2>/dev/null || :
+    echo 1 > "$FN_MIDI/out_ports" 2>/dev/null || :
+    echo SAGGAM8 > "$FN_MIDI/id" 2>/dev/null || :
+    save_state
+    [ -L "$CFG/ffs.adb" ] && rm -f "$CFG/ffs.adb"
+    identity
+    rm -f "$CFG/midi.sagga" 2>/dev/null || :                     # (one left over from a link KNULLI tore down)
+    ln -s "$FN_MIDI" "$CFG/midi.sagga" || { log "native: link failed"; cleanup; return 1; }
+    echo "$UDC" > "$G/UDC" || { log "native: UDC bind failed"; cleanup; return 1; }
+    watch_native >/dev/null 2>&1 &
+    echo $! > "$RUN/watch.pid"
+    echo native > "$RUN/mode"
+    start_watchdog midi.sagga
+    log "native f_midi gadget on $UDC"
+    echo "SAGGA M8 LINK $NAME started: native USB-MIDI \"SAGGA M8 $NAME\" (nothing to install on the Pi)"
+}
+
+start_ffs() {
+    [ -f "$DAEMON" ] || { echo "missing $DAEMON"; return 1; }
+    save_state
+    [ -L "$CFG/ffs.adb" ] && rm -f "$CFG/ffs.adb"
+    identity
+    mkdir "$FN_FFS" 2>/dev/null || [ -d "$FN_FFS" ] || { echo "could not create ffs.sagga"; cleanup; return 1; }
+    mkdir -p "$FFS"
+    grep -qs " $FFS functionfs " /proc/mounts || mount -t functionfs sagga "$FFS" || { echo "FunctionFS mount failed"; cleanup; return 1; }
+    python3 "$DAEMON" --ffs "$FFS" --name "$NAME" >> "$LOG" 2>&1 &
+    echo $! > "$RUN/ffs.pid"
+    i=0
+    while [ "$i" -lt 100 ]; do                            # (KNULLI 4.9 has no functions/ffs.sagga/ready: wait for ep1 / ep2)
+        [ -e "$FFS/ep1" ] && [ -e "$FFS/ep2" ] && break
+        alive "$RUN/ffs.pid" || { echo "daemon exited; see $LOG"; cleanup; return 1; }
+        i=$((i + 1)); sleep 0.05
+    done
+    [ -e "$FFS/ep1" ] && [ -e "$FFS/ep2" ] || { echo "FunctionFS endpoints did not appear; see $LOG"; cleanup; return 1; }
+    rm -f "$CFG/ffs.sagga" 2>/dev/null || :                      # (one left over from a link KNULLI tore down)
+    ln -s "$FN_FFS" "$CFG/ffs.sagga" || { echo "could not put the function in the configuration"; cleanup; return 1; }
+    echo "$UDC" > "$G/UDC" || { echo "could not bind the UDC"; cleanup; return 1; }
+    echo ffs > "$RUN/mode"
+    start_watchdog ffs.sagga
+    log "ffs vendor link on $UDC"
+    echo "SAGGA M8 LINK $NAME started: vendor link (the Pi needs sagga_m8_host.py)"
+}
+
+start_link() {
+    mkdir -p "$RUN" /userdata/system/logs
+    if alive "$RUN/watch.pid" || alive "$RUN/ffs.pid"; then
+        if [ -z "$(cat "$G/UDC" 2>/dev/null || true)" ] && [ -n "$(udc_name)" ]; then   # (running but unbound: bind it)
+            echo "$(udc_name)" > "$G/UDC" 2>/dev/null && log "start: the port was unbound: bound again"
+        fi
+        alive "$RUN/dog.pid" || start_watchdog "$( [ "$(cat "$RUN/mode" 2>/dev/null)" = native ] && echo midi.sagga || echo ffs.sagga )"
+        echo "SAGGA M8 LINK already running ($(cat "$RUN/mode" 2>/dev/null))"; return 0
+    fi
+    grep -qs " /sys/kernel/config configfs " /proc/mounts || mount -t configfs none /sys/kernel/config || return 1
+    make_gadget || { echo "could not make the USB gadget"; return 1; }
+    mkdir -p "$CFG/strings/0x409" 2>/dev/null || :
+    UDC=$(udc_name)
+    [ -n "$UDC" ] || { echo "no USB device controller"; return 1; }
+    B=$(cat "$G/UDC" 2>/dev/null || true)
+    [ -z "$B" ] || { echo "the USB port is in use by KNULLI ($B): set USB mode / ADB to off"; return 1; }
+    [ -n "$(m8_card)" ] || echo "note: no M8 now (plug it into the top port; the link waits for it)"
+    case "$MODE" in
+        native) start_native || { echo "native USB-MIDI not possible on this kernel"; return 1; } ;;
+        ffs) start_ffs ;;
+        *) start_native || start_ffs ;;
+    esac
+}
+
+set_name() {
+    n=$(echo "${1:-}" | tr 'a-z' 'A-Z')
+    case "$n" in ''|*[!A-Z0-9]*) echo "usage: $0 name A|B (letters and digits, up to 4)"; return 2 ;; esac
+    [ "${#n}" -le 4 ] || { echo "the name has at most 4 characters"; return 2; }
+    touch "$CONF"
+    grep -v '^NAME=' "$CONF" > "$CONF.tmp" 2>/dev/null || :
+    echo "NAME=$n" >> "$CONF.tmp"
+    mv "$CONF.tmp" "$CONF"
+    echo "this Brick is SAGGA M8 $n (restart the link: $0 restart)"
+}
+
+status_link() {
+    echo "name: SAGGA M8 $NAME"
+    echo "mode: $(cat "$RUN/mode" 2>/dev/null || echo stopped)"
+    echo "M8: $( [ -n "$(m8_card)" ] && echo "card $(m8_card)" || echo absent)"
+    b=$(cat "$G/UDC" 2>/dev/null || true)
+    echo "UDC: $(udc_name), bound: ${b:-no}"
+    echo "watchdog: $(alive "$RUN/dog.pid" && echo on || echo off)"
+    if [ "$(cat "$RUN/mode" 2>/dev/null)" = native ]; then aconnect -l 2>/dev/null | grep -A3 "'M8'\|'f_midi'"; fi
+    tail -n 8 "$LOG" 2>/dev/null || :
+}
+
+SELF=$(cd "$(dirname "$0")" && pwd)/$(basename "$0")
+case "${1:-}" in
+    start) start_link ;;
+    stop) cleanup; echo "SAGGA M8 LINK stopped" ;;
+    restart) cleanup; start_link ;;
+    status) status_link ;;
+    name) set_name "${2:-}" ;;
+    *) echo "usage: $0 {start|stop|restart|status|name A|B}"; exit 2 ;;
+esac

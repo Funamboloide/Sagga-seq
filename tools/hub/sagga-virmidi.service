@@ -1,0 +1,13 @@
+# SAGGA HUB: the virtual MIDI cards every link uses (snd-virmidi loads once, with all of them). Two for the Bricks
+# (SAGGAM8A, SAGGAM8B: tools/m8link), two for the PC port (SAGGAPC1, SAGGAPC2). The link services want this one.
+[Unit]
+Description=SAGGA HUB virtual MIDI cards
+Before=raspimidihub.service sagga-m8-link.service sagga-pc-link.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/sbin/modprobe snd-virmidi enable=1,1,1,1 midi_devs=1,1,1,1 id=SAGGAM8A,SAGGAM8B,SAGGAPC1,SAGGAPC2
+
+[Install]
+WantedBy=multi-user.target

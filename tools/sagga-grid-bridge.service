@@ -1,0 +1,26 @@
+# SAGGA GRID bridge as a service, for the Raspberry Pi that runs RaspiMIDIHub (docs/SAGGA-GRID.md, section 1.1).
+#
+#   rw
+#   sudo cp /opt/sagga/sagga-grid-bridge.service /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now sagga-grid-bridge
+#   ro
+#
+# It runs as root like raspimidihub.service itself. To run it as your own user, add under [Service]:
+#   User=<you>
+#   SupplementaryGroups=audio
+[Unit]
+Description=SAGGA GRID bridge (two Launchpads <-> FM-1)
+After=raspimidihub.service
+Wants=raspimidihub.service
+
+[Service]
+# your Launchpads: two red / green Launchpad Minis, the left one turned (--frame). A Mini MK3: remove "--model mini".
+# With USB PORTS 2 on the FM-1 the bridge takes its port 2 by itself (--port auto).
+ExecStart=/usr/bin/python3 -u /opt/sagga/sagga_grid_bridge.py --model mini --frame
+# the bridge ends with an error when a Launchpad or the FM-1 goes away (or is not there yet): try again
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

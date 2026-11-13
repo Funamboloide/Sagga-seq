@@ -1,0 +1,35 @@
+# SAGGA SEQ 0.11 progressions, DNB (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+MELANCHOLY	i7 IV9 i7 IV9
+MELANCHOLY	i7 bIIImaj9 bVII7 IV9
+MELANCHOLY	vi7 IVmaj9 Imaj7 V9
+MELANCHOLY	i7 iv9 bVII7 bIIImaj9
+MELANCHOLY	ii7 iii7 vi7 vi7
+MELANCHOLY	i7 bVII9 IV7 i9
+MELANCHOLY	i7 bIIImaj9 IV7 iv9
+MELANCHOLY	vi7 iii7 IVmaj7 Imaj9
+DREAMY	Imaj7 IVmaj7
+DREAMY	Imaj9 vi9
+DREAMY	IVmaj7 iii7 ii7 Imaj7
+DREAMY	i9 bVImaj7
+DREAMY	Imaj7 bVIImaj7
+DREAMY	ii9 Imaj9
+DREAMY	bIIImaj7 bVImaj7 i9
+DREAMY	IVmaj9 Imaj9
+SAD	i7 iv9 bVImaj7 v7
+SAD	i7 bVImaj9 iv7 v7
+SAD	i7 v7 bVImaj7 iv9
+SAD	i7 iv9 v7 i9
+SAD	i7 bVImaj9 bIIImaj7 v7
+SAD	i7 iv9 bVImaj7 bVII9
+SAD	i7 bVImaj9 iv7 i9
+SAD	iv7 i9 v7 i9
+EPIC	i7 bVImaj9 bVII7 i9
+EPIC	i7 bVImaj9 bIIImaj7 bVII9
+EPIC	bVImaj7 bVII9 i7 i9
+EPIC	i7 bVII9 bVImaj7 bVII9
+EPIC	i7 bVImaj9 bVII7 V7
+EPIC	iv7 bVImaj9 bVII7 i9
+EPIC	i7 bIIImaj9 bVII7 bVImaj9
+EPIC	bVImaj7 bIIImaj9 bVII7 i9

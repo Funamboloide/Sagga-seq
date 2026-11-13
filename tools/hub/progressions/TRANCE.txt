@@ -1,0 +1,35 @@
+# SAGGA SEQ 0.11 progressions, TRANCE (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+EPIC	iadd9 bVIadd9 bVII i
+EPIC	iadd9 bVIadd9 bIII bVIIadd9
+EPIC	bVI bVIIadd9 iadd9 i
+EPIC	iadd9 bVIIadd9 bVI bVIIadd9
+EPIC	iadd9 bVIadd9 bVII V
+EPIC	ivadd9 bVIadd9 bVII i
+EPIC	iadd9 bIIIadd9 bVII bVIadd9
+EPIC	bVI bIIIadd9 bVII i
+EUPHORIC	I Vadd9 viadd9 IVadd9
+EUPHORIC	viadd9 IVadd9 I Vadd9
+EUPHORIC	IV Iadd9 V vi
+EUPHORIC	I iii IV Vadd9
+EUPHORIC	I Vadd9 IV Vadd9
+EUPHORIC	IV Vadd9 viadd9 Iadd9
+EUPHORIC	I IVadd9 viadd9 Vadd9
+EUPHORIC	bVI bVII I Iadd9
+SAD	iadd9 iv bVI v
+SAD	iadd9 bVIadd9 ivadd9 v
+SAD	iadd9 v bVI iv
+SAD	iadd9 iv v i
+SAD	iadd9 bVIadd9 bIII v
+SAD	iadd9 iv bVI bVIIadd9
+SAD	iadd9 bVIadd9 ivadd9 i
+SAD	ivadd9 i v i
+SUSPENDED	Isus2 IVsus2
+SUSPENDED	Isus4 Iadd9
+SUSPENDED	Isus2 bVIsus2
+SUSPENDED	I9sus4 bVII9sus4
+SUSPENDED	Isus2 Vsus4
+SUSPENDED	I7sus4 bVII7sus4
+SUSPENDED	Isus4 IVsus2
+SUSPENDED	Isus2

@@ -1,0 +1,50 @@
+# SAGGA SEQ: the firmware package (.fwsc) built on GitHub's servers, no WSL needed.
+# Runs on every push to main and by hand (Actions -> build firmware -> Run workflow). The version is the
+# firmware's own (SQ_VERSION in firmware/src/dinghy.c). The package is at the bottom of the run's page,
+# under "Artifacts": sagga-seq-<version>.
+name: build firmware
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+jobs:
+  build:
+    runs-on: ubuntu-22.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+      - name: tools
+        run: sudo apt-get update && sudo apt-get install -y python3-pil xz-utils curl
+      - name: the version
+        id: v
+        run: echo "version=$(grep -o 'SQ_VERSION "[0-9.]*"' firmware/src/dinghy.c | grep -o '[0-9][0-9.]*')" >> "$GITHUB_OUTPUT"
+      - name: the firmware's core tests
+        run: |
+          mkdir -p build
+          cc -std=c11 -Wall -Wextra -Werror -Ifirmware/src tests/sagga_core_tests.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_core_tests
+          build/sagga_core_tests | tail -1
+      - name: JieLi toolchain (kept between runs)
+        uses: actions/cache@v4
+        with:
+          path: ~/.jieli
+          key: jieli-linux-toolchain-v1
+      - run: '[ -x ~/.jieli/toolchain/pi32v2/bin/clang ] || sh tools/get_toolchain.sh'
+      - name: JieLi AC79 SDK (the three files the package takes)
+        run: |
+          git clone --depth 1 --filter=blob:none --sparse https://github.com/Jieli-Tech/fw-AC79_AIoT_SDK ~/fw-AC79_AIoT_SDK
+          git -C ~/fw-AC79_AIoT_SDK sparse-checkout set cpu/wl82/tools
+          sha256sum ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/uboot.boot ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg_tool.bin ~/fw-AC79_AIoT_SDK/cpu/wl82/tools/cfg/eq_cfg_hw.bin
+      - name: build
+        run: |
+          set -o pipefail
+          ./build.sh --release "${{ steps.v.outputs.version }}" 2>&1 | tee build/build.log
+          ls -l build/*.fwsc
+          if grep -q 'differs from AC79NN_SDK' build/build.log; then echo "::warning::the SDK files differ from the tested V1.2.1"; fi
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sagga-seq-${{ steps.v.outputs.version }}
+          path: |
+            build/sagga-seq-*.fwsc
+            build/build.log
+            tools/fm1_install.py
+          if-no-files-found: error

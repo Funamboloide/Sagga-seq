@@ -1,0 +1,35 @@
+# SAGGA SEQ 0.11 progressions, AMAPIANO (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+DREAMY	Imaj7 IVmaj7
+DREAMY	Imaj9 vi9
+DREAMY	IVmaj7 iii7 ii7 Imaj7
+DREAMY	i9 bVImaj7
+DREAMY	Imaj7 bVIImaj7
+DREAMY	ii9 Imaj9
+DREAMY	bIIImaj7 bVImaj7 i9
+DREAMY	IVmaj9 Imaj9
+MELANCHOLY	i9 IV7 i9 IV7
+MELANCHOLY	i9 bIIImaj7 bVII9 IV7
+MELANCHOLY	vi9 IVmaj7 Imaj9 V7
+MELANCHOLY	i9 iv7 bVII9 bIIImaj7
+MELANCHOLY	ii7 iii7 vi7 vi7
+MELANCHOLY	i9 bVII7 IV9 i7
+MELANCHOLY	i9 bIIImaj7 IV9 iv7
+MELANCHOLY	vi9 iii7 IVmaj9 Imaj7
+SATISFYING	ii7 V7 Imaj7
+SATISFYING	IVmaj9 V7 Imaj9
+SATISFYING	Imaj9 IVmaj7 V9 Imaj7
+SATISFYING	ii9 V7 Imaj9 vi7
+SATISFYING	IV9 V7 iii7 vi7
+SATISFYING	iv9 V7 i9
+SATISFYING	bVImaj9 bVII7 i9
+SATISFYING	Imaj9 vi7 ii9 V7
+EUPHORIC	Imaj9 V7 vi9 IVmaj7
+EUPHORIC	vi9 IVmaj7 Imaj9 V7
+EUPHORIC	IVmaj9 Imaj7 V9 vi7
+EUPHORIC	Imaj9 iii7 IVmaj9 V7
+EUPHORIC	Imaj9 V7 IVmaj9 V7
+EUPHORIC	IVmaj9 V7 vi9 Imaj7
+EUPHORIC	Imaj9 IVmaj7 vi9 V7
+EUPHORIC	bVImaj7 bVII7 Imaj9 Imaj7

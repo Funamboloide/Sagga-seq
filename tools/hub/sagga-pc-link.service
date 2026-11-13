@@ -1,0 +1,14 @@
+# SAGGA HUB: the PC port (RP2040-Zero on the UART) <-> the virtual cards SAGGAPC1 / SAGGAPC2 in RaspiMIDIHub.
+[Unit]
+Description=SAGGA HUB PC port (RP2040 on the UART -> virtual MIDI cards)
+Requires=sagga-virmidi.service
+After=sagga-virmidi.service
+Before=raspimidihub.service
+
+[Service]
+ExecStart=/usr/bin/python3 -u /opt/sagga/hub/sagga_pc_host.py --port /dev/serial0 --baud 1000000
+Restart=always
+RestartSec=2
+
+[Install]
+WantedBy=multi-user.target

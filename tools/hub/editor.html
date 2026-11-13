@@ -1,0 +1,447 @@
+<!doctype html>
+<html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SAGGA editor</title><style>
+:root{--bg:#111;--panel:#1b1b1b;--line:#2c2c2c;--fg:#eee;--dim:#888;--on:#2a6;--acc:#58a;--warn:#c84;--sel:#fd5}
+*{box-sizing:border-box}body{font:14px/1.4 system-ui,sans-serif;margin:0;background:var(--bg);color:var(--fg)}
+header{background:#222;padding:8px 12px;display:flex;gap:8px;align-items:center;flex-wrap:wrap;position:sticky;top:0;z-index:5}
+header b{letter-spacing:.08em}a{color:#8bf}button,select,input{font:inherit}
+button{background:var(--on);color:#fff;border:0;border-radius:6px;padding:6px 10px;cursor:pointer}button.sec{background:#345}button.warn{background:var(--warn)}
+button[disabled]{background:#444;cursor:default}select,input{background:#222;color:var(--fg);border:1px solid #444;border-radius:5px;padding:3px 5px}
+input[type=number]{width:4.6em}input.w2{width:3.4em}#status{font-family:ui-monospace,monospace;font-size:12px;color:#9f9}#status.err{color:#f88}
+nav{display:flex;gap:4px;flex-wrap:wrap;padding:6px 12px;background:#181818;border-bottom:1px solid var(--line)}
+.tab{background:#2a2a2a;padding:5px 10px;border-radius:6px;cursor:pointer;user-select:none}.tab.on{background:var(--acc)}
+main{padding:10px 12px 60px}h3{margin:14px 0 6px;font-size:13px;letter-spacing:.06em;color:#bbb}small,.dim{color:var(--dim)}
+.row{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:4px 0}
+.grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:6px 12px}
+.grid label{display:flex;justify-content:space-between;align-items:center;gap:6px;background:var(--panel);padding:4px 6px;border-radius:5px}
+.ov{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:#0b0b0b}
+.tr{display:flex;align-items:center;height:22px}.tr .lb{position:sticky;left:0;background:#0b0b0b;min-width:150px;max-width:150px;padding:0 6px;font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1}
+.tr .lb.cur{color:var(--sel)}.c{width:15px;height:17px;margin:0 1px;border-radius:2px;background:#262626;flex:none;cursor:pointer;position:relative}
+.c.bar{margin-right:4px}.c.out{background:#151515}.c.on{background:var(--on)}.c.on.out{background:#164}.c.sel{outline:2px solid var(--sel)}
+.c.tie:after{content:'';position:absolute;right:-3px;top:7px;width:5px;height:3px;background:#9cf}.c.slide:after{background:#f9c}
+.c.lock:before{content:'';position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:2px;background:#fd5}
+.c.rat{box-shadow:inset 0 -3px 0 #f84}.tape{font-size:12px;color:var(--dim);padding-left:6px}
+table{border-collapse:collapse}td,th{padding:2px 5px;border-bottom:1px solid var(--line);text-align:left;font-weight:normal;font-size:13px}th{color:#aaa}
+.lane{display:flex;align-items:flex-end;height:160px;background:#0b0b0b;border:1px solid var(--line);border-radius:6px;padding:4px;touch-action:none;overflow-x:auto;user-select:none}
+.lane .b{flex:none;width:13px;margin:0 1px;height:100%;position:relative;background:#181818;border-radius:2px}.lane .b.out{background:#101010}
+.lane .b i{position:absolute;left:0;right:0;bottom:0;background:var(--acc);border-radius:2px}.lane .b.off i{background:transparent}.lane .b.stepon{box-shadow:inset 0 2px 0 var(--on)}
+.card{background:var(--panel);border-radius:8px;padding:8px 10px;margin:6px 0}.card.off{opacity:.65}
+@media (max-width:600px){.tr .lb{min-width:84px;max-width:84px;font-size:11px}main{padding:8px 6px 60px}}
+.chg{color:var(--sel)}.mono{font-family:ui-monospace,monospace}
+</style></head><body>
+<header><b>SAGGA EDITOR</b> <span id="pname" class="mono"></span>
+<button id="bsave" onclick="save()">Salva</button><button class="sec" onclick="undoOne()">Annulla</button><button class="sec" onclick="reload(true)">Ricarica</button>
+<button class="sec" onclick="sendFm1()">Manda all'FM-1</button><button class="sec" onclick="recvFm1()">Ricevi dall'FM-1</button>
+<select id="vers"><option value="">versioni</option></select><button class="sec" onclick="restore()">Ripristina</button>
+<a href="/">libreria</a><span id="status"></span></header>
+<nav id="tabs"></nav><main id="main">caricamento...</main>
+<script>
+'use strict';
+// ---- the lists of the FM-1's panel (firmware/src/dinghy.c, sagga_ui.c: tests/sagga_editor_tests.py checks them)
+const DIV = ['1/1','1/2','1/4.','1/4','1/8.','1/4T','1/8','1/16.','1/8T','1/16','1/16T','1/32','1/32T'];
+const DIR = ['FWD','REV','PING','RND'];
+const ARPM = ['BLOCK','UP','DOWN','UP-DN','DN-UP','UP&DN','CONV','DIV','RND','WALK','PLAYED','THUMB','PINKY'];
+const SHAPES = ['SINE','TRI','RAMP+','RAMP-','SQUARE','S&H','SMOOTH','DECAY'];
+const RATES = ['16 BAR','8 BAR','4 BAR','3 BAR','2 BAR','1.5 BAR','1 BAR','3/4 BAR','1/2 BAR','3/8 BAR','1/4 BAR','3/16','1/8 BAR','3/32','1/16','1/32','1/4T','1/8T','1/16T','1/32T'];
+const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING'];
+const QUANT = ['AUTO','NOW','BEAT','BAR','2 BARS','4 BARS','8 BARS'];
+const EVERY = ['BEAT','2 BEATS','BAR','2 BARS'];
+const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE'];
+const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
+const FOLLOW = ['HOLD','RETRIG','LEGATO'];
+const MASTERF = ['TEMPO','MORPH','FILTER'];
+const REMOTE = ['OFF','CH 14','13 + 14'];
+const KB = ['OFF','ALL','SPLIT C3'];
+const CLOCK = ['MASTER','SLAVE'];
+const ARPRATE = ['ROLL','1','2','3','4'];
+const MACROS = ['INTENSITY','GATE','SWING','FILTER'];
+const NN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const MODES = [['FREE',0],['IN KEY',1],['DRUM',2],['TAPE',0x20],['BREAK',0x40]];
+const MODE_BITS = 0x01 | 0x02 | 0x20 | 0x40;
+const ON = 1, SET = 2, LOCK = 4, XOFF = 8, TIE = 16, SLIDE = 32, F_CHAIN = 0x10, F_FOLLOW = 0x04, F_EUC = 0x08;
+const NONE = 255;
+const TABS = [['tracce','Tracce'],['traccia','Traccia'],['lane','Lane'],['scene','Scene'],['song','Song'],['catene','Catene'],['lfo','LFO'],['progetto','Progetto']];
+
+let NAME = decodeURIComponent(location.pathname.replace(/^\/edit\/?/, ''));
+let P = null, O = null, N = {};                       // the project, as read (O: untouched), the core's names
+let steps = new Map(), osteps = new Map();            // 't,p,s' -> step (only those not as a new project's)
+let changes = new Map(), undo = [];
+let V = {tab: 'tracce', pat: 0, t: 0, s: 0, toggle: true, scene: 0, lane: 0, erase: false};
+try { const v = JSON.parse(localStorage.getItem('sagga-ed-view') || '{}'); Object.assign(V, v); } catch (e) {}
+
+const $ = id => document.getElementById(id);
+const h = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
+const note = n => n === NONE ? '—' : NN[n % 12] + (Math.floor(n / 12) - 1);
+const clone = o => JSON.parse(JSON.stringify(o));
+function status(t, err) { const s = $('status'); s.textContent = t; s.className = err ? 'err' : ''; }
+function keepView() { try { localStorage.setItem('sagga-ed-view', JSON.stringify(V)); } catch (e) {} }
+
+// ---- the data: read, change, remember
+function stepOf(map, def, t, p, s) {
+  const k = t + ',' + p + ',' + s;
+  let st = map.get(k);
+  if (!st && map === steps) { st = clone(def); map.set(k, st); }
+  return st || def;
+}
+const getStep = (t, p, s) => stepOf(steps, P.step_default, t, p, s);
+const origStep = (t, p, s) => stepOf(osteps, O.step_default, t, p, s);
+function objOf(D, g, idx, orig) {
+  if (g === 'step') { const [t, p, s] = String(idx).split(',').map(Number); return orig ? origStep(t, p, s) : getStep(t, p, s); }
+  return idx === '-' ? D[g] : D[g][idx];
+}
+function get(g, idx, f, el) { const o = objOf(P, g, idx); return el === '-' ? o[f] : o[f][el]; }
+function getOrig(g, idx, f, el) { const o = objOf(O, g, idx, true); return el === '-' ? o[f] : o[f][el]; }
+function setRaw(g, idx, f, el, v) {
+  const o = objOf(P, g, idx);
+  if (el === '-') o[f] = v; else o[f][el] = v;
+  const k = [g, idx, f, el].join('|');
+  if (v === getOrig(g, idx, f, el)) changes.delete(k); else changes.set(k, v);
+}
+let batch = null;
+function set(g, idx, f, el, v) {
+  idx = String(idx); el = el === undefined || el === null ? '-' : String(el);
+  const old = get(g, idx, f, el);
+  if (old === v) return;
+  (batch || (batch = [])).push([g, idx, f, el, old]);
+  setRaw(g, idx, f, el, v);
+}
+function commit() { if (batch && batch.length) undo.push(batch); batch = null; if (undo.length > 300) undo.shift(); dirty(); }
+function undoOne() {
+  const b = undo.pop(); if (!b) return status('niente da annullare');
+  for (let i = b.length - 1; i >= 0; i--) setRaw(b[i][0], b[i][1], b[i][2], b[i][3], b[i][4]);
+  dirty(); render();
+}
+function dirty() { $('bsave').textContent = changes.size ? 'Salva (' + changes.size + ')' : 'Salva'; $('bsave').disabled = !changes.size; }
+
+function load(d) {
+  P = d; O = clone(d); N = d.names || {};
+  steps = new Map(); osteps = new Map();
+  for (const [t, p, s, st] of d.steps) { steps.set(t + ',' + p + ',' + s, clone(st)); osteps.set(t + ',' + p + ',' + s, clone(st)); }
+  changes = new Map(); undo = []; batch = null; NAME = d.name;
+  $('pname').textContent = d.name; document.title = 'SAGGA editor - ' + d.name;
+  history.replaceState(null, '', '/edit/' + encodeURIComponent(d.name));
+  dirty(); versions();
+}
+async function api(url, opt) {
+  const r = await fetch(url, opt);
+  if (!r.ok) throw new Error(await r.text() || r.statusText);
+  return r.json();
+}
+async function reload(ask) {
+  if (ask && changes.size && !confirm('Le modifiche non salvate si perdono. Ricarico?')) return;
+  try { load(await api('/api/project?file=' + encodeURIComponent(NAME))); status('aperto: ' + NAME); render(); }
+  catch (e) { status(e.message, 1); $('main').textContent = e.message; }
+}
+async function save() {
+  if (!changes.size) return status('niente da salvare');
+  const list = [...changes].map(([k, v]) => { const [g, i, f, e] = k.split('|'); return [g, i, f, e, v]; });
+  status('salvo...');
+  try {
+    const d = await api('/api/project?file=' + encodeURIComponent(NAME), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({changes: list, rev: P.rev})});
+    load(d);
+    const fixed = list.filter(([g, i, f, e, v]) => get(g, i, f, e) !== v).length;
+    status('salvato: ' + NAME + ' (' + list.length + ' modifiche' + (fixed ? ', ' + fixed + ' corrette dal firmware' : '') + ')');
+    render();
+  } catch (e) { status(e.message, 1); }
+}
+async function versions() {
+  try { const d = await api('/api/project/versions?file=' + encodeURIComponent(NAME));
+    $('vers').innerHTML = '<option value="">versioni (' + d.versions.length + ')</option>' + d.versions.map(v => '<option>' + h(v) + '</option>').join(''); } catch (e) {}
+}
+async function restore() {
+  const v = $('vers').value; if (!v) return status('scegli una versione');
+  if (!confirm('Torno alla versione ' + v + '? Quella di adesso va nelle versioni.')) return;
+  try { load(await api('/api/project/restore?file=' + encodeURIComponent(NAME) + '&v=' + encodeURIComponent(v), {method: 'POST'})); status('ripristinata ' + v); render(); }
+  catch (e) { status(e.message, 1); }
+}
+async function sendFm1() {
+  if (changes.size) { if (!confirm('Salvo le modifiche e mando il progetto all\'FM-1?')) return; await save(); if (changes.size) return; }
+  if (!confirm('Il progetto sostituisce quello che c\'è adesso sull\'FM-1 (fermo). SAVE sull\'FM-1 lo tiene. Mando?')) return;
+  status('mando all\'FM-1...');
+  try { const d = await api('/api/fm1/send?file=' + encodeURIComponent(NAME), {method: 'POST'}); status('FM-1: ' + d.msg); }
+  catch (e) { status(e.message, 1); }
+}
+async function recvFm1() {
+  if (!confirm('Il progetto che l\'FM-1 ha adesso (fermo) prende il posto di ' + NAME + ' (questo va nelle versioni). Ricevo?')) return;
+  status('chiedo all\'FM-1...');
+  try { load(await api('/api/fm1/receive?file=' + encodeURIComponent(NAME), {method: 'POST'})); status('ricevuto dall\'FM-1'); render(); }
+  catch (e) { status(e.message, 1); }
+}
+
+// ---- the form fields: data-* say what they change; one listener for all
+function opts(names, v, base) { return names.map((n, i) => '<option value="' + (i + (base || 0)) + '"' + (i + (base || 0) === v ? ' selected' : '') + '>' + h(n) + '</option>').join(''); }
+function at(g, i, f, e) { return 'data-g="' + g + '" data-i="' + i + '" data-f="' + f + '" data-e="' + (e === undefined ? '-' : e) + '"'; }
+function changed(g, i, f, e) { return changes.has([g, String(i), f, e === undefined ? '-' : String(e)].join('|')) ? ' chg' : ''; }
+function num(g, i, f, e, lo, hi, cls) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
+  return '<input type="number" class="' + (cls || '') + changed(g, i, f, e) + '" min="' + lo + '" max="' + hi + '" value="' + v + '" ' + at(g, i, f, e) + ' data-k="num" data-lo="' + lo + '" data-hi="' + hi + '">'; }
+function sel(g, i, f, e, names, base, extra) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
+  let o = (extra || []).map(([val, n]) => '<option value="' + val + '"' + (val === v ? ' selected' : '') + '>' + h(n) + '</option>').join('') + opts(names, v, base);
+  if (![...Array(names.length).keys()].map(x => x + (base || 0)).includes(v) && !(extra || []).some(x => x[0] === v)) o += '<option value="' + v + '" selected>' + v + '</option>';
+  return '<select class="' + changed(g, i, f, e) + '" ' + at(g, i, f, e) + ' data-k="sel">' + o + '</select>'; }
+function bit(g, i, f, e, mask) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
+  return '<input type="checkbox"' + (v & mask ? ' checked' : '') + ' ' + at(g, i, f, e) + ' data-k="bit" data-bit="' + mask + '">'; }
+function notesel(g, i, f, e, none) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
+  let o = none ? '<option value="255"' + (v === NONE ? ' selected' : '') + '>—</option>' : '';
+  for (let n = 0; n < 128; n++) o += '<option value="' + n + '"' + (n === v ? ' selected' : '') + '>' + note(n) + ' (' + n + ')</option>';
+  return '<select class="' + changed(g, i, f, e) + '" ' + at(g, i, f, e) + ' data-k="sel">' + o + '</select>'; }
+const L = (label, ctl) => '<label><span>' + label + '</span>' + ctl + '</label>';
+const range = (a, b, f) => Array.from({length: b - a + 1}, (_, k) => f ? f(a + k) : String(a + k));
+
+document.addEventListener('change', ev => {
+  const el = ev.target, d = el.dataset;
+  if (!d.g) return;
+  let v;
+  const special = SPECIAL[d.g + '.' + d.f];
+  if (d.k === 'num') { v = Math.round(Number(el.value)); if (!isFinite(v)) v = get(d.g, d.i, d.f, d.e); v = Math.max(Number(d.lo), Math.min(Number(d.hi), v)); }
+  else if (d.k === 'sel') v = Number(el.value);
+  else if (d.k === 'bit') { if (special) v = el.checked ? 1 : 0; else { const cur = get(d.g, d.i, d.f, d.e); v = el.checked ? cur | Number(d.bit) : cur & ~Number(d.bit); } }
+  else return;
+  if (special) special(d, v); else set(d.g, d.i, d.f, d.e, v);
+  commit(); render();
+});
+// fields whose change touches more than one value
+const SPECIAL = {
+  'track.mode': (d, v) => { const t = d.i, f = get('track', t, 'flags', '-'); set('track', t, 'flags', '-', (f & ~MODE_BITS) | v); },
+  'track.arpm': (d, v) => { const t = d.i, c = get('track', t, 'chord_mode', '-'); set('track', t, 'chord_mode', '-', (c & 0x30) | v); },
+  'track.arpo': (d, v) => { const t = d.i, c = get('track', t, 'chord_mode', '-'); set('track', t, 'chord_mode', '-', (c & 0x0F) | ((v - 1) << 4)); },
+  'chain.mode': (d, v) => { const t = d.i, f = get('track', t, 'flags', '-');
+    set('track', t, 'flags', '-', v === 1 ? f | F_CHAIN : f & ~F_CHAIN); set('chain', t, 'chain_on', '-', v === 2 ? 1 : 0); },
+  'scene.mute': (d, v) => { const s = d.i, m = get('scene', s, 'mute_mask', '-'), b = 1 << Number(d.e); set('scene', s, 'mute_mask', '-', v ? m | b : m & ~b); },
+  'key.cur': (d, v) => { set('project', '-', 'key_cur', '-', v); syncKey(); },
+};
+function syncKey() { const k = get('project', '-', 'key_cur', '-'); if (k < 16) { set('project', '-', 'key_root', '-', get('key', k, 'root', '-')); set('project', '-', 'key_scale', '-', get('key', k, 'scale', '-')); set('project', '-', 'key_shift', '-', get('key', k, 'shift', '-')); } }
+function vsel(g, i, f, e, names, v, base) {   // a select of a computed value (SPECIAL handles it)
+  return '<select ' + at(g, i, f, e) + ' data-k="sel">' + opts(names, v, base) + '</select>'; }
+
+// ---- steps
+function stepOn(t, p, s) { return getStep(t, p, s).flags & ON; }
+function toggleStep(t, p, s) {
+  const k = t + ',' + p + ',' + s, st = getStep(t, p, s);
+  if (st.flags & ON) { set('step', k, 'flags', '-', st.flags & ~ON); return; }
+  if (!(st.flags & SET)) { set('step', k, 'note', 0, P.track[t].pen); for (let j = 1; j < 4; j++) set('step', k, 'note', j, NONE); set('step', k, 'flags', '-', st.flags | ON | SET); }
+  else set('step', k, 'flags', '-', st.flags | ON);
+}
+function lenText(v) { return v <= 100 ? v + ' %' : v === 101 ? '1,5 step' : (v - 100) + ' step'; }
+function trackLabel(t) {
+  const c = P.track[t], f = c.flags, m = f & 0x20 ? 'TAPE' : f & 0x40 ? 'BREAK' : f & 2 ? 'DRUM' : f & 1 ? 'IN KEY' : 'FREE';
+  const role = (N.role || [])[c.role] || '';
+  return 'T' + (t + 1) + ' ch' + (c.channel + 1) + ' ' + (role && role !== 'NONE' ? role : m);
+}
+function modeOf(t) { const f = P.track[t].flags; return f & 0x20 ? 0x20 : f & 0x40 ? 0x40 : f & 2 ? 2 : f & 1 ? 1 : 0; }
+
+// ---- the tabs
+function render() {
+  $('tabs').innerHTML = TABS.map(([k, n]) => '<span class="tab' + (V.tab === k ? ' on' : '') + '" onclick="V.tab=\'' + k + '\';keepView();render()">' + n + '</span>').join('');
+  if (!P) return;
+  V.t = Math.min(15, Math.max(0, V.t)); V.pat = Math.min(7, Math.max(0, V.pat)); V.s = Math.min(63, Math.max(0, V.s));
+  $('main').innerHTML = ({tracce: rTracce, traccia: rTraccia, lane: rLane, scene: rScene, song: rSong, catene: rCatene, lfo: rLfo, progetto: rProgetto}[V.tab] || rTracce)();
+  if (V.tab === 'lane') laneEvents();
+}
+function patSel() { return '<select onchange="V.pat=+this.value;keepView();render()">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '"' + (i === V.pat ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'; }
+function trackSel() { return '<select onchange="V.t=+this.value;keepView();render()">' + range(0, 15).map(i => '<option value="' + i + '"' + (+i === V.t ? ' selected' : '') + '>' + h(trackLabel(+i)) + '</option>').join('') + '</select>'; }
+
+function rTracce() {
+  let on = 0, o = '<div class="row"><span>pattern</span>' + patSel() + '<label><input type="checkbox"' + (V.toggle ? ' checked' : '') + ' onchange="V.toggle=this.checked;keepView()"> un tocco accende / spegne</label>' +
+    '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') + '</small></div><div class="ov">';
+  for (let t = 0; t < 16; t++) {
+    const c = P.track[t];
+    o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="impostazioni della traccia">' + h(trackLabel(t)) + '</span>';
+    if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + P.tape_cnt[t] + ' note · <a href="/roll/' + encodeURIComponent(NAME) + '">piano roll</a></span></div>'; continue; }
+    for (let s = 0; s < 64; s++) {
+      const st = getStep(t, V.pat, s), out = s < c.start || s >= c.length;
+      let cl = 'c';
+      if (st.flags & ON) { cl += ' on'; if (!out) on++; }
+      if (out) cl += ' out';
+      if (s % 4 === 3) cl += ' bar';
+      if (st.flags & TIE) cl += ' tie'; if (st.flags & SLIDE) cl += ' tie slide';
+      if (st.lane.some(x => x !== NONE)) cl += ' lock';
+      if (st.ratchet > 1) cl += ' rat';
+      if (t === V.t && s === V.s) cl += ' sel';
+      o += '<span class="' + cl + '" data-ts="' + t + ',' + s + '"></span>';
+    }
+    o += '</div>';
+  }
+  o += '</div><small>' + on + ' step accesi nel P' + (V.pat + 1) + ' · scuro: fuori dal loop · puntino giallo: lock · linea arancio: ratchet · trattino: TIE / SLIDE</small>';
+  return o + rStep();
+}
+document.addEventListener('click', ev => {
+  const c = ev.target.closest && ev.target.closest('.c[data-ts]');
+  if (!c) return;
+  const [t, s] = c.dataset.ts.split(',').map(Number);
+  V.t = t; V.s = s; keepView();
+  if (V.toggle) { toggleStep(t, V.pat, s); commit(); }
+  render();
+});
+function rStep() {
+  const t = V.t, p = V.pat, s = V.s, k = t + ',' + p + ',' + s, st = getStep(t, p, s), c = P.track[t];
+  let o = '<h3>STEP ' + (s + 1) + ' · ' + h(trackLabel(t)) + ' · P' + (p + 1) + '</h3><div class="row"><button onclick="toggleStep(' + t + ',' + p + ',' + s + ');commit();render()">' + (st.flags & ON ? 'Spegni' : 'Accendi') + '</button>' +
+    '<button class="sec" onclick="V.s=Math.max(0,V.s-1);keepView();render()">◀</button><button class="sec" onclick="V.s=Math.min(63,V.s+1);keepView();render()">▶</button>' +
+    '<button class="sec" onclick="clip=clone(getStep(' + t + ',' + p + ',' + s + '));status(\'step copiato\')">Copia</button><button class="sec" onclick="pasteStep()">Incolla</button>' +
+    '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button></div><div class="grid">';
+  for (let j = 0; j < 4; j++) o += L('nota ' + (j + 1), notesel('step', k, 'note', j, j > 0));
+  o += L('velocity', num('step', k, 'velocity', '-', 1, 127)) + L('gate <small>' + lenText(st.length) + '</small>', num('step', k, 'length', '-', 1, 164)) +
+    L('chance %', num('step', k, 'chance', '-', 0, 100)) + L('ratchet', num('step', k, 'ratchet', '-', 1, 8)) +
+    L('condizione', sel('step', k, 'condition', '-', N.condition || [])) + L('nudge %', num('step', k, 'nudge', '-', -50, 50)) + L('ramp', num('step', k, 'ramp', '-', -100, 100)) +
+    L('TIE', bit('step', k, 'flags', '-', TIE)) + L('SLIDE', bit('step', k, 'flags', '-', SLIDE)) + L('PLAIN (no EXPO)', bit('step', k, 'flags', '-', XOFF)) + L('LOCK (dadi, EVOLVE)', bit('step', k, 'flags', '-', LOCK));
+  for (let j = 0; j < 6; j++) {
+    const cc = c.lane_cc[j];
+    o += L('lane ' + (j + 1) + ' <small>' + (cc === NONE ? 'spenta' : cc === 128 ? 'BEND' : cc === 129 ? 'AFTERT' : 'CC ' + cc) + '</small>', sel('step', k, 'lane', j, range(0, 127), 0, [[NONE, '—']]));
+  }
+  return o + '</div>';
+}
+let clip = null;
+function pasteStep() { if (!clip) return status('prima Copia'); const k = V.t + ',' + V.pat + ',' + V.s; copyInto(k, clip); commit(); render(); }
+function copyInto(k, src) { for (const f in src) { if (Array.isArray(src[f])) src[f].forEach((v, j) => set('step', k, f, j, v)); else set('step', k, f, '-', src[f]); } }
+function clearStep(t, p, s) { copyInto(t + ',' + p + ',' + s, P.step_default); commit(); render(); }
+
+function rTraccia() {
+  const t = V.t, c = P.track[t], g = 'track';
+  let o = '<div class="row">' + trackSel() + '</div><h3>TRACCIA</h3><div class="grid">' +
+    L('modo', vsel(g, t, 'mode', '-', MODES.map(m => m[0]), MODES.findIndex(m => m[1] === modeOf(t)))) +
+    L('canale', sel(g, t, 'channel', '-', range(1, 16))) + L('ruolo', sel(g, t, 'role', '-', N.role || [])) + L('nota PEN', notesel(g, t, 'pen')) +
+    L('lunghezza', num(g, t, 'length', '-', 1, 64)) + L('primo step', num(g, t, 'start', '-', 0, 63)) + L('divisione', sel(g, t, 'division', '-', DIV)) +
+    L('direzione', sel(g, t, 'direction', '-', DIR)) + L('pattern iniziale', sel(g, t, 'initial_pattern', '-', range(1, 8))) +
+    L('trasposizione', num(g, t, 'transpose', '-', -48, 48)) + L('ottava', num(g, t, 'octave', '-', -3, 3)) + L('swing %', num(g, t, 'swing', '-', 50, 75)) +
+    L('velocity +/-', num(g, t, 'vel_offset', '-', -63, 63)) + L('umano: tempo', num(g, t, 'hum_time', '-', 0, 50)) + L('umano: velocity', num(g, t, 'hum_vel', '-', 0, 50)) +
+    L('ritardo ms', num(g, t, 'delay_ms', '-', -30, 30)) + L('chiave', sel(g, t, 'key_slot', '-', range(1, 16, n => 'slot ' + n), 0, [[NONE, 'quella che suona']])) +
+    L('FOLLOW armonia', bit(g, t, 'flags', '-', F_FOLLOW)) + L('FOLLOW: le note', sel(g, t, 'follow_mode', '-', FOLLOW)) +
+    '</div><h3>ACCORDI E ARPEGGIO</h3><div class="grid">' +
+    L('accordo', sel(g, t, 'chord', '-', N.chord || [])) + L('accordo e chiave', sel(g, t, 'chord_key', '-', N.chord_key || [])) +
+    L('voicing', sel(g, t, 'voicing', '-', VOICE)) + L('strum %', num(g, t, 'strum', '-', -50, 50)) +
+    L('arpeggio', vsel(g, t, 'arpm', '-', ARPM, c.chord_mode & 15)) + L('ottave', vsel(g, t, 'arpo', '-', ['1', '2', '3', '4'], ((c.chord_mode >> 4) & 3) + 1, 1)) +
+    L('rate', sel(g, t, 'arp_rate', '-', ARPRATE)) +
+    '</div><h3>MIDI FX, EUCLID, LUNGHEZZE</h3><div class="grid">' +
+    L('MIDI FX', sel(g, t, 'mfx', '-', MFX)) + L('quantità', num(g, t, 'mfx_amt', '-', -12, 12)) + L('tempo / step', num(g, t, 'mfx_time', '-', 0, 7)) + L('feedback %', num(g, t, 'mfx_fb', '-', 0, 100)) +
+    L('EUCLID LIVE', bit(g, t, 'flags', '-', F_EUC)) + L('colpi', num(g, t, 'euc_pulses', '-', 1, 64)) + L('rotazione', num(g, t, 'euc_rot', '-', 0, 63)) + L('famiglia', sel(g, t, 'euc_fam', '-', N.euc_fam || [])) +
+    L('loop note', num(g, t, 'plen', 0, 0, 64)) + L('loop velocity', num(g, t, 'plen', 1, 0, 64)) + L('loop gate', num(g, t, 'plen', 2, 0, 64)) +
+    '</div><small>Loop 0: quello della traccia. Le lane (i CC degli step) nella scheda Lane; le catene in Catene.</small>';
+  o += '<h3>PATTERN</h3><div class="row"><span>P' + (V.pat + 1) + '</span>' + patSel() +
+    '<button class="sec" onclick="copyPat()">Copia in...</button><select id="cpt">' + range(0, 15).map(i => '<option value="' + i + '">T' + (+i + 1) + '</option>').join('') + '</select><select id="cpp">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '">' + n + '</option>').join('') + '</select>' +
+    '<button class="warn" onclick="clearPat()">Svuota il pattern</button><button class="sec" onclick="shiftPat(-1)">◀ sposta</button><button class="sec" onclick="shiftPat(1)">sposta ▶</button></div>';
+  return o;
+}
+function copyPat() {
+  const t2 = +$('cpt').value, p2 = +$('cpp').value;
+  if (t2 === V.t && p2 === V.pat) return status('stesso pattern');
+  if (!confirm('Copio T' + (V.t + 1) + ' P' + (V.pat + 1) + ' sopra T' + (t2 + 1) + ' P' + (p2 + 1) + '?')) return;
+  for (let s = 0; s < 64; s++) copyInto(t2 + ',' + p2 + ',' + s, clone(getStep(V.t, V.pat, s)));
+  commit(); status('copiato in T' + (t2 + 1) + ' P' + (p2 + 1) + ' (Annulla lo toglie)'); render();
+}
+function clearPat() { if (!confirm('Svuoto T' + (V.t + 1) + ' P' + (V.pat + 1) + '?')) return; for (let s = 0; s < 64; s++) copyInto(V.t + ',' + V.pat + ',' + s, P.step_default); commit(); render(); }
+function shiftPat(d) {
+  const c = P.track[V.t], a = c.start, n = c.length - a; if (n < 2) return;
+  const src = range(a, c.length - 1).map(s => clone(getStep(V.t, V.pat, +s)));
+  for (let k = 0; k < n; k++) copyInto(V.t + ',' + V.pat + ',' + (a + ((k + d + n) % n)), src[k]);
+  commit(); render();
+}
+
+function rLane() {
+  const t = V.t, c = P.track[t], j = V.lane;
+  let o = '<div class="row">' + trackSel() + patSel() + '<select onchange="V.lane=+this.value;keepView();render()">' + range(0, 5).map(i => '<option value="' + i + '"' + (+i === j ? ' selected' : '') + '>lane ' + (+i + 1) + '</option>').join('') + '</select>' +
+    '<label><input type="checkbox"' + (V.erase ? ' checked' : '') + ' onchange="V.erase=this.checked;keepView()"> cancella (toglie i lock)</label></div>' +
+    '<div class="grid">' + L('CC della lane', sel('track', t, 'lane_cc', j, range(0, 127, n => 'CC ' + n), 0, [[NONE, 'spenta'], [128, 'BEND'], [129, 'AFTERT']])) +
+    L('valore base', sel('track', t, 'lane_base', j, range(0, 127), 0, [[NONE, 'resta com\'è']])) + L('scivola fra i lock', bit('track', t, 'lane_flags', j, 1)) +
+    L('anche sugli step spenti', bit('track', t, 'lane_flags', j, 2)) + L('NRPN', bit('track', t, 'lane_flags', j, 4)) + L('NRPN MSB', num('track', t, 'lane_hi', j, 0, 127)) + '</div>' +
+    '<h3>I LOCK DEGLI STEP <small>tocca o trascina: il valore; con "cancella" il lock va via</small></h3><div class="lane" id="lane">';
+  for (let s = 0; s < 64; s++) {
+    const st = getStep(t, V.pat, s), v = st.lane[j], out = s < c.start || s >= c.length;
+    o += '<span class="b' + (out ? ' out' : '') + (v === NONE ? ' off' : '') + (st.flags & ON ? ' stepon' : '') + '" data-s="' + s + '" title="step ' + (s + 1) + ': ' + (v === NONE ? '—' : v) + '"><i style="height:' + (v === NONE ? 0 : Math.max(2, v / 127 * 100)) + '%"></i></span>';
+  }
+  return o + '</div><small>Il bordo verde in alto: lo step suona.</small>';
+}
+function laneEvents() {
+  const el = $('lane'); let down = false;
+  const at_ = ev => { const b = document.elementFromPoint(ev.clientX, ev.clientY); const bar = b && b.closest && b.closest('.b');
+    if (!bar) return; const r = bar.getBoundingClientRect(), s = +bar.dataset.s;
+    const v = V.erase ? NONE : Math.max(0, Math.min(127, Math.round((r.bottom - ev.clientY) / r.height * 127)));
+    set('step', V.t + ',' + V.pat + ',' + s, 'lane', V.lane, v);
+    const i = bar.querySelector('i'); i.style.height = (v === NONE ? 0 : Math.max(2, v / 127 * 100)) + '%'; bar.classList.toggle('off', v === NONE); };
+  el.addEventListener('pointerdown', ev => { down = true; el.setPointerCapture(ev.pointerId); at_(ev); });
+  el.addEventListener('pointermove', ev => { if (down) at_(ev); });
+  const up = () => { if (down) { down = false; commit(); render(); } };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
+}
+
+function rScene() {
+  const sc = V.scene, s = P.scene[sc];
+  let o = '<div class="row"><span>scena</span><select onchange="V.scene=+this.value;keepView();render()">' + range(1, 16).map((n, i) => '<option value="' + i + '"' + (i === sc ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
+    '<span>chiave</span>' + sel('scene', sc, 'key_slot', '-', range(1, 16, n => 'slot ' + n), 0, [[NONE, 'non la cambia']]) + '</div>' +
+    '<table><tr><th>traccia</th><th>pattern</th><th>muta</th></tr>';
+  for (let t = 0; t < 16; t++) o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + sel('scene', sc, 'pattern', t, range(1, 8, n => 'P' + n)) + '</td><td><input type="checkbox"' + (s.mute_mask & (1 << t) ? ' checked' : '') + ' ' + at('scene', sc, 'mute', t) + ' data-k="bit" data-bit="1"></td></tr>';
+  o += '</table><h3>PROGRAM CHANGE PER CANALE</h3><div class="grid">';
+  for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel('scene', sc, 'pc', ch, range(0, 127), 0, [[NONE, '—']]));
+  return o + '</div>';
+}
+// (scene.mute is a checkbox per track over mute_mask: its "bit" value is 0 / 1 - SPECIAL turns it into the mask)
+function rSong() {
+  const n = P.song.len;
+  let o = '<div class="row"><span>voci</span><b>' + n + '</b><label><input type="checkbox"' + (P.song.loop ? ' checked' : '') + ' ' + at('song', '-', 'loop') + ' data-k="bit" data-bit="1"> ricomincia dalla prima</label>' +
+    '<button onclick="songAdd()">+ voce</button><button class="sec" onclick="songDel()">− ultima</button></div><table><tr><th>#</th><th>scena</th><th>battute</th><th>BPM (0: resta)</th><th></th></tr>';
+  for (let i = 0; i < n; i++) o += '<tr><td>' + (i + 1) + '</td><td>' + sel('song_e', i, 'scene', '-', range(1, 16)) + '</td><td>' + num('song_e', i, 'bars', '-', 1, 64, 'w2') + '</td><td>' + num('song_e', i, 'bpm', '-', 0, 300) +
+    '</td><td><button class="sec" onclick="songSwap(' + i + ',-1)">↑</button><button class="sec" onclick="songSwap(' + i + ',1)">↓</button></td></tr>';
+  const tot = P.song_e.slice(0, n).reduce((a, e) => a + e.bars, 0);
+  return o + '</table><small>' + tot + ' battute in tutto. La song suona le scene in fila (HOME + GLO sull\'FM-1); un BPM diverso da 0 la porta a quel tempo (SAVE 2 SONG TEMPO).</small>';
+}
+function songAdd() { const n = P.song.len; if (n >= 64) return; set('song', '-', 'len', '-', n + 1); if (!P.song_e[n].bars) set('song_e', n, 'bars', '-', 4); commit(); render(); }
+function songDel() { const n = P.song.len; if (!n) return; set('song', '-', 'len', '-', n - 1); commit(); render(); }
+function songSwap(i, d) { const j = i + d; if (j < 0 || j >= P.song.len) return; const a = clone(P.song_e[i]), b = clone(P.song_e[j]);
+  for (const f of ['scene', 'bars', 'bpm']) { set('song_e', i, f, '-', b[f]); set('song_e', j, f, '-', a[f]); } commit(); render(); }
+
+function rCatene() {
+  let o = '<small>OFF; P1+2: il pattern e il suo vicino come uno da 128 step; LISTA: fino a 8 pattern in fila, ognuno 1-8 volte (HOME 7 K2, HOME 8).</small><table><tr><th>traccia</th><th>catena</th><th>voci</th><th>la lista</th></tr>';
+  for (let t = 0; t < 16; t++) {
+    const x = P.chain[t], m = x.chain_on ? 2 : P.track[t].flags & F_CHAIN ? 1 : 0;
+    o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + vsel('chain', t, 'mode', '-', ['OFF', 'P1+2', 'LISTA'], m) + '</td><td>' + (m === 2 ? num('chain', t, 'chain_n', '-', 1, 8, 'w2') : '') + '</td><td>';
+    if (m === 2) for (let k = 0; k < x.chain_n; k++) o += '<span class="row" style="display:inline-flex;margin-right:8px">' + sel('chain', t, 'chain_pat', k, range(1, 8, n => 'P' + n)) + '×' + sel('chain', t, 'chain_rep', k, range(1, 8)) + '</span>';
+    o += '</td></tr>';
+  }
+  return o + '</table>';
+}
+
+function rLfo() {
+  let o = '';
+  for (let i = 0; i < 16; i++) {
+    const l = P.lfo[i], x = P.lfox[i], g = 'lfo';
+    o += '<div class="card' + (l.enabled ? '' : ' off') + '"><div class="row"><b>LFO ' + (i + 1) + '</b>' + L('acceso', bit(g, i, 'enabled', '-', 1)) + '</div><div class="grid">' +
+      L('forma', sel(g, i, 'shape', '-', SHAPES)) + L('rate', sel(g, i, 'rate', '-', RATES)) + L('profondità', num(g, i, 'depth', '-', 0, 127)) + L('centro', num(g, i, 'center', '-', 0, 127)) +
+      L('fase', num(g, i, 'phase', '-', 0, 127)) + L('destinazione', sel(g, i, 'dest', '-', DESTS)) +
+      L(l.dest === 0 ? 'canale' : 'traccia', sel(g, i, 'target', '-', range(1, 16))) + (l.dest === 0 ? L('CC', num(g, i, 'param', '-', 0, 127)) : '') +
+      L('retrigger', bit(g, i, 'flags', '-', 1)) + L('inverti', bit(g, i, 'flags', '-', 2)) +
+      L('TRIG', sel('lfox', i, 'trig', '-', range(1, 16, n => 'T' + n), 1, [[0, 'CLOCK']])) +
+      L('RATE SEQ', sel('lfox', i, 'seq_n', '-', range(2, 8), 2, [[0, 'OFF']])) + (x.seq_n >= 2 ? L('ogni', sel('lfox', i, 'seq_every', '-', EVERY)) : '') + '</div>';
+    if (x.seq_n >= 2) { o += '<div class="row"><small>le rate:</small>'; for (let k = 0; k < x.seq_n; k++) o += sel('lfox', i, 'seq_rate', k, RATES, 0, [[NONE, '(la sua)']]); o += '</div>'; }
+    o += '</div>';
+  }
+  return o;
+}
+
+function rProgetto() {
+  const p = 'project', k = P.project.key_cur;
+  let o = '<h3>TEMPO E CHIAVE</h3><div class="grid">' + L('BPM', num(p, '-', 'bpm', '-', 30, 300)) + L('clock', sel(p, '-', 'clock_mode', '-', CLOCK)) +
+    L('slot della chiave', vsel(p, '-', 'cur', '-', range(1, 16, n => 'slot ' + n), k).replace('data-g="project"', 'data-g="key"')) + '</div>' +
+    '<table><tr><th>slot</th><th>fondamentale</th><th>scala</th><th>shift</th></tr>';
+  for (let s = 0; s < 16; s++) o += '<tr><td>' + (s + 1) + (s === k ? ' ◀' : '') + '</td><td>' + sel('key', s, 'root', '-', N.root || []) + '</td><td>' + sel('key', s, 'scale', '-', N.scale || []) + '</td><td>' + num('key', s, 'shift', '-', -24, 24, 'w2') + '</td></tr>';
+  o += '</table><h3>LIVE</h3><div class="grid">' + L('QUANTISE', sel('live', '-', 'quant', '-', QUANT)) + L('mute al QUANTISE', bit('live', '-', 'mute_q', '-', 1)) +
+    L('MORPH verso la scena', sel('live', '-', 'morph_b', '-', range(1, 8))) + L('manopola MASTER', sel('live', '-', 'master_fn', '-', MASTERF)) +
+    L('gli snapshot portano il tempo', bit('live', '-', 'snap_tempo', '-', 1)) + L('REMOTE', sel('live', '-', 'remote_mode', '-', REMOTE)) +
+    L('CC LEAD ms', num('live', '-', 'cc_lead_ms', '-', 0, 30)) + L('SONG TEMPO', bit('live', '-', 'song_tempo', '-', 1));
+  for (let m = 0; m < 4; m++) o += L('macro ' + MACROS[m], num('live', '-', 'mac', m, [-63, -90, -25, -64][m], [63, 100, 25, 63][m]));
+  o += '</div><h3>LIVE IN (SAVE 4)</h3><div class="grid">' + L('MOTION', sel('ext', '-', 'motion_bars', '-', [], 0, [[0, 'OFF'], [1, '1 BAR'], [2, '2 BARS'], [4, '4 BARS']])) +
+    L('KEYBOARD', sel('ext', '-', 'kb_mode', '-', KB)) + L('KEYB CH', sel('ext', '-', 'kb_ch', '-', range(1, 16), 1, [[0, 'ANY']])) + L('MIDI IN', sel('ext', '-', 'in_thru', '-', ['REC ONLY', 'ALWAYS'])) +
+    '</div><h3>I SYNTH SUI CANALI</h3><div class="grid">';
+  for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel(p, '-', 'device', ch, N.device || []));
+  o += '</div><small>Nel progetto anche: ' + P.tape_n + ' note TAPE (piano roll), ' + P.snaps.filter(x => x).length + ' snapshot, VIAGGIO: l\'editor non li tocca.</small>';
+  return o;
+}
+// the key slot that plays: its select carries data-g="key" data-f="cur" (SPECIAL key.cur); a slot changed is copied to the project's key
+const _set = set;
+set = function (g, idx, f, el, v) { _set(g, idx, f, el, v); if (g === 'key' && f !== 'cur' && Number(idx) === P.project.key_cur) syncKey(); };
+
+window.addEventListener('keydown', ev => {
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); undoOne(); }
+  if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') { ev.preventDefault(); save(); }
+});
+window.addEventListener('beforeunload', ev => { if (changes.size) { ev.preventDefault(); ev.returnValue = ''; } });
+render();
+if (NAME) reload(false); else $('main').innerHTML = 'Apri un progetto dalla <a href="/">libreria</a>.';
+</script></body></html>

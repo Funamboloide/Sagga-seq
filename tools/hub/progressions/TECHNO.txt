@@ -1,0 +1,43 @@
+# SAGGA SEQ 0.11 progressions, TECHNO (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+DARK	ish
+DARK	ish bII
+DARK	ish bII ish bVII
+DARK	I5 bII5
+DARK	ish bvi
+DARK	ish iv
+DARK	ish bII bVII i
+DARK	i7 bII
+TENSE	ish #ivo
+TENSE	ish #IV
+TENSE	ish iio
+TENSE	ish bII #ivo bII
+TENSE	io7
+TENSE	I+ i
+TENSE	ish viio7
+TENSE	ish bII7
+SUSPENDED	Isus2 IVsus2
+SUSPENDED	Isus4 I
+SUSPENDED	Isus2 bVIsus2
+SUSPENDED	I9sus4 bVII9sus4
+SUSPENDED	Isus2 Vsus4
+SUSPENDED	I7sus4 bVII7sus4
+SUSPENDED	Isus4 IVsus2
+SUSPENDED	Isus2
+SAD	ish iv bVI v
+SAD	ish bVI ivsh v
+SAD	ish v bVI iv
+SAD	ish iv vsh i
+SAD	ish bVI bIII v
+SAD	ish iv bVI bVII
+SAD	ish bVI ivsh i
+SAD	ivsh i vsh i
+EPIC	ish bVI bVII i
+EPIC	ish bVI bIII bVII
+EPIC	bVI bVII ish i
+EPIC	ish bVII bVI bVII
+EPIC	ish bVI bVII V
+EPIC	ivsh bVI bVII i
+EPIC	ish bIII bVII bVI
+EPIC	bVI bIII bVII i
