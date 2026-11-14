@@ -2292,6 +2292,7 @@ static void gen_reset(void)
     dhist_n = dhist_pos = 0u;
     memset(algo_seen, 255, sizeof algo_seen);       /* the live layers start again from the patterns */
     memset(algo_pend, 0, sizeof algo_pend);         /* 0.16: nothing READY (the values kept stay: they are the player's) */
+    memset(mfx_pend, 0, sizeof mfx_pend);
     evo_run = 0u;
     temp_on = 0u;
     song_on = 0u; song_wait = 0u; song_pos = 0u; song_bar = 0u; song_skip_bar = 0u;

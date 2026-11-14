@@ -3368,6 +3368,7 @@ def t08_bugs():
         s.press(t, SEL); s.tap_key(t + 30, CHORD_CEG, hold=60); s.release(t + 120, SEL); t += 200
         t = arp2(s, t, [(K4, 10)])
         t = home_page(s, t, 5, [(K1, 3), (K2, 2)], cur=5 if k else 0)     # (0.9: a sixth HOME page exists)
+        t = seq_page(s, t, 0, keys=[wk(5)])                               # 0.16: the ECHO READY starts
     p = t + 100
     s.tap_btn(p, PLAY)
     log = run(s, p + 1500)
@@ -3381,6 +3382,7 @@ def t08_bugs():
         s.press(t, SEL); s.tap_key(t + 30, CHORD_CEG, hold=60); s.release(t + 120, SEL); t += 200
         t = arp2(s, t, [(K4, 10)])
         t = home_page(s, t, 5, [(K1, 3), (K2, 2), (K4, 8)], cur=5 if k else 0)   # keeps 100 %: every repeat as loud
+        t = seq_page(s, t, 0, keys=[wk(5)])                               # 0.16: started
     p = t + 100
     s.tap_btn(p, PLAY)
     log = run(s, p + 1500)
@@ -3687,7 +3689,7 @@ def t08_grid_views():
     t = s.steps(100, [0])
     s.raw(t, "attach")
     view(s, t + 100, GC_VTRACK); view(s, t + 200, GC_VTRACK); view(s, t + 300, GC_VTRACK)   # TRACK, 2, 3
-    s.pad(t + 400, 3, 1)                                       # ECHO
+    s.pad(t + 400, 3, 1); s.pad(t + 480, 3, 1)                 # ECHO READY, again: it starts (0.16)
     p = t + 600
     s.tap_btn(p, PLAY)
     log = run(s, p + 800)
@@ -7375,15 +7377,35 @@ def t016_ready_elsewhere():
     n3 = log.notes(ch=0, after=p + int(2 * BAR_MS) - 5)
     check(log.states[0]["msg"] == "EXPO READY: K4 SHAPE STARTS IT" and len(n1) == 1 and len(n3) == 12,
           "EXPO's knob: READY, the step plays once; K4 RAMP: its 12 hits (%r, %d, %d)" % (log.states[0]["msg"], len(n1), len(n3)))
-    # MIDI FX (HOME 6): ECHO set to 4 repeats; HARM; back to ECHO: 4 again, not its default 2
+    # MIDI FX (HOME 6): K1 ECHO READY, K2 4 repeats (nothing heard yet); SEQ + white 6 starts it (not EUCLID); HARM READY
+    # while ECHO plays; started; ECHO READY again: its 4, not its default 2; K1 OFF + SEQ + white 6 stops it
     s = Script()
-    t = home_page(s, 100, 5, [(K1, 3), (K2, 2)])                       # ECHO, 4 repeats
-    s.at(t, "dump", 0)
-    t = home_page(s, t, 5, [(K1, -2)], cur=5); s.at(t, "dump", 0)       # HARM
-    t = home_page(s, t, 5, [(K1, 2)], cur=5); s.at(t, "dump", 0)        # ECHO again
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, 3), (K2, 2)]); s.at(t, "dump", 0)          # ECHO READY, 4 repeats
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # started
+    t = home_page(s, t, 5, [(K1, -2)], cur=5); s.at(t, "dump", 0)           # HARM READY, ECHO plays on
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # HARM
+    t = home_page(s, t, 5, [(K1, 2)], cur=5); s.at(t, "dump", 0)            # ECHO READY: its 4
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    t = home_page(s, t, 5, [(K1, -3)], cur=5)                               # OFF chosen
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # it stops
     log = run(s, t + 100)
-    got = [(x["mfx"], x["mfx_amt"]) for x in states(log)]
-    check(got == [(3, 4), (1, 2), (3, 4)], "ECHO 4, HARM (its own 2), ECHO again with its 4 (%s)" % got)
+    st = states(log)
+    got = [(x["mfx"], x["mfx_amt"]) for x in st]
+    euc = [x["flags"] & 8 for x in st]
+    check(got == [(0, 0), (3, 4), (3, 4), (1, 2), (1, 2), (3, 4), (0, 0)] and not any(euc),
+          "ECHO READY with 4, started by SEQ + white 6 (EUCLID stays off); HARM READY while ECHO plays, then HARM; ECHO again with its 4; OFF (%s %s)" % (got, euc))
+    check(st[0]["msg"] == "T1 MIDI FX ECHO READY: SEQ + WHITE 6" and st[1]["msg"] == "T1 MIDI FX ECHO STARTS", "the screen: READY, STARTS (%r %r)" % (st[0]["msg"], st[1]["msg"]))
+    s = Script()                                                            # heard: no repeats while READY, then the 4
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, 3), (K2, 2)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    seq_page(s, p + int(BAR_MS) + 30, 0, keys=[wk(5)])
+    log = run(s, p + int(3 * BAR_MS) - 20)
+    n1 = log.notes(ch=0, after=p, before=p + int(BAR_MS))
+    n3 = log.notes(ch=0, after=p + int(2 * BAR_MS) - 5)
+    check(len(n1) == 1 and len(n3) == 5, "READY: the step alone; started: the step and its 4 repeats (%d, %d)" % (len(n1), len(n3)))
 
 
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,

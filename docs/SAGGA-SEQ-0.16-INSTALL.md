@@ -22,3 +22,5 @@ aprono come sono.
 6. **Copia**: con una progressione che suona, EDIT + ARP: `COPIED TO USER 1`. Su ARP 5 cambia un accordo.
 7. **Armonia preparata**: ARP 3 K1 su OFF, K2 su un'altra progressione (`READY ...: K1 ON`): gli accordi non cambiano.
    K1 su ON: parte quella scelta.
+8. **MIDI FX preparato**: HOME 6, K1 su ECHO (`T1 MIDI FX ECHO READY`), K2 su 4 ripetizioni: ancora niente eco. SEQ +
+   bianco 6: l'eco parte con 4 ripetizioni.

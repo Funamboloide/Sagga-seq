@@ -2468,23 +2468,78 @@ static void mfx_defaults(sq_track_cfg_t *c)
     default:              c->mfx_amt = 0; break;
     }
 }
-/* 0.16: an effect chosen comes back with the values it had on this track (its defaults only the first time; 0.8-0.15
- * gave it its defaults every time it was chosen). Kept while the FM-1 is on; the project saves the one playing. */
+/* 0.16: a MIDI FX is set up before it plays, as the algorithms. HOME 6 K1 makes an effect READY (the one playing goes on),
+ * K2-K4 set the READY one's values, SEQ + white 6 starts it with them (the key that starts EUCLID and the algorithms:
+ * with a MIDI FX READY on the selected track it starts that). K1 on OFF: READY to stop, SEQ + white 6 stops it. K1 back
+ * on the one playing: its knobs, live. Each effect keeps its values on the track (its defaults only the first time; kept
+ * while the FM-1 is on, the project saves the one playing). 0.8-0.15: K1 started an effect at once, with its defaults. */
+#define MFX_PEND_STOP 0x80u
 static uint8_t mfx_mem[SQ_TRACKS][SQ_MFXS][4];  /* amount, time, keeps, set */
+static uint8_t mfx_pend[SQ_TRACKS];             /* the effect READY (0: none; MFX_PEND_STOP: OFF chosen) */
+static sq_track_cfg_t mfx_tmp;                  /* the READY one's values, as the knobs and the screen see them */
+static void mfx_load(uint32_t t, uint8_t fx, sq_track_cfg_t *o)
+{
+    const uint8_t *m = mfx_mem[t][fx < SQ_MFXS ? fx : 0u];
+    o->mfx = fx < SQ_MFXS ? fx : (uint8_t)SQ_MFX_OFF;
+    if (o->mfx != SQ_MFX_OFF && m[3]) { o->mfx_amt = (int8_t)m[0]; o->mfx_time = m[1]; o->mfx_fb = m[2]; }
+    else mfx_defaults(o);
+}
+static void mfx_keep(uint32_t t, const sq_track_cfg_t *v)
+{
+    uint8_t *m;
+    if (v->mfx == SQ_MFX_OFF || v->mfx >= SQ_MFXS) return;
+    m = mfx_mem[t][v->mfx];
+    m[0] = (uint8_t)v->mfx_amt; m[1] = v->mfx_time; m[2] = v->mfx_fb; m[3] = 1u;
+}
+static uint8_t mfx_shown(uint32_t t)
+{
+    uint8_t p = mfx_pend[t];
+    if (p == MFX_PEND_STOP) return SQ_MFX_OFF;
+    if (p && p < SQ_MFXS) return p;
+    return project.track[t].mfx < SQ_MFXS ? project.track[t].mfx : (uint8_t)SQ_MFX_OFF;
+}
+/* what the knobs, the screen and the grid change: the READY effect's values, or the one playing */
+static sq_track_cfg_t *mfx_view(uint32_t t)
+{
+    uint8_t p = mfx_pend[t];
+    if (p == MFX_PEND_STOP) { mfx_tmp.mfx = SQ_MFX_OFF; mfx_tmp.mfx_amt = 0; return &mfx_tmp; }
+    if (p && p < SQ_MFXS) { mfx_load(t, p, &mfx_tmp); return &mfx_tmp; }
+    return &project.track[t];
+}
+static const char *const MFX_NAME[SQ_MFXS] = {"OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"};
+static void mfx_say(uint32_t t, const char *what, uint8_t fx, const char *tail)
+{
+    char *p = msg_buf;
+    p = put_s(p, "T"); p = put_u(p, t + 1u); p = put_s(p, " MIDI FX "); p = put_s(p, MFX_NAME[fx < SQ_MFXS ? fx : 0u]);
+    p = put_s(p, what); if (tail) p = put_s(p, tail); finish(p);
+    status_msg(msg_buf);
+}
 static void mfx_choose(uint32_t t, uint8_t fx)
 {
-    sq_track_cfg_t *c = &project.track[t];
-    uint8_t *m;
+    uint8_t run = project.track[t].mfx;
     if (fx >= SQ_MFXS) fx = SQ_MFX_OFF;
-    if (c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS) {
-        m = mfx_mem[t][c->mfx];
-        m[0] = (uint8_t)c->mfx_amt; m[1] = c->mfx_time; m[2] = c->mfx_fb; m[3] = 1u;
-    }
-    if (fx == c->mfx) return;
-    c->mfx = fx;
-    m = mfx_mem[t][fx];
-    if (fx != SQ_MFX_OFF && m[3]) { c->mfx_amt = (int8_t)m[0]; c->mfx_time = m[1]; c->mfx_fb = m[2]; }
-    else mfx_defaults(c);
+    if (fx == run) { mfx_pend[t] = 0u; mfx_say(t, run ? " PLAYS" : "", fx, 0); }
+    else if (fx == SQ_MFX_OFF) { mfx_pend[t] = MFX_PEND_STOP; mfx_say(t, run < SQ_MFXS ? MFX_NAME[run] : "", SQ_MFX_OFF, " STOPS AT SEQ + WHITE 6"); }
+    else { mfx_pend[t] = fx; mfx_say(t, " READY: SEQ + WHITE 6", fx, 0); }
+    ui_dirty = grid_dirty = 1u;
+}
+/* SEQ + white 6 with a MIDI FX READY on the selected track: it starts with its values (or, OFF chosen, the one playing stops) */
+static void mfx_go(uint32_t t)
+{
+    sq_track_cfg_t *c = &project.track[t];
+    uint8_t p = mfx_pend[t], was = c->mfx;
+    mfx_keep(t, c);                                     /* (the one it replaces keeps its values) */
+    if (p && p < SQ_MFXS) { mfx_load(t, p, c); mfx_say(t, " STARTS", p, 0); }
+    else if (p == MFX_PEND_STOP) { c->mfx = SQ_MFX_OFF; mfx_defaults(c); mfx_say(t, " STOPS", was, 0); }
+    mfx_pend[t] = 0u;
+    ui_dirty = grid_dirty = 1u;
+}
+/* the grid's pads 1-5 of TRACK 3 row 2: a tap READY, again: it starts; a tap on the one playing: it stops */
+static void mfx_pad(uint32_t t, uint8_t fx)
+{
+    uint8_t pd = mfx_pend[t];
+    if (fx == mfx_shown(t) && (pd || project.track[t].mfx != SQ_MFX_OFF)) { if (!pd) mfx_pend[t] = MFX_PEND_STOP; mfx_go(t); }
+    else mfx_choose(t, fx);
 }
 static void mfx_amount(sq_track_cfg_t *c, int32_t d)
 {
@@ -3153,6 +3208,7 @@ static void handle_keys(uint32_t keys)
             if (wi >= 0 && (keys & (1u << black_key[5]))) { gen_custom_toggle((uint8_t)wi); continue; }
             if (seqhold_is(wi, bi)) seqhold_down(k);           /* 0.12: UNDO COOK DICE KIT when let go; held 0.6 s: REDO, random COOK, DICE PROG, BAND */
             else if (wi == (int)TOOL_EUC && seq_page == 1u && !track_tape(selected_track)) algo_go(selected_track);   /* 0.16: on SEQ 2 the algorithm starts / stops */
+            else if (wi == (int)TOOL_EUC && mfx_pend[selected_track]) mfx_go(selected_track);   /* 0.16: a MIDI FX READY (HOME 6) starts */
             else if (wi >= 0 && wi < (int)TOOL_COUNT) tool_apply((uint8_t)wi);
             else if (bi >= 0) seq_black(bi);
             continue;
@@ -3561,10 +3617,13 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 scene_pc_set(scene_cursor, ch, kstep(v, d4, f4, -1, 127));
             }
         } else if (home_page == 5u) {                                           /* the MIDI effect */
-            if (d1) mfx_choose(selected_track, change_u8(cfg->mfx, d1, 0u, SQ_MFXS - 1u));   /* 0.16: with its values */
-            if (d2) mfx_amount(cfg, d2);
-            if (d3) cfg->mfx_time = change_u8(cfg->mfx_time, d3, 0u, cfg->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1u : SQ_ECHO_TIMES - 1u);
-            if (d4) cfg->mfx_fb = (uint8_t)kstep(cfg->mfx_fb, d4, 5 * f4, 10, 100);
+            sq_track_cfg_t *v;
+            if (d1) mfx_choose(selected_track, change_u8(mfx_shown(selected_track), d1, 0u, SQ_MFXS - 1u));   /* 0.16: READY */
+            v = mfx_view(selected_track);                                       /* (the READY one's values, or the one playing) */
+            if (d2) mfx_amount(v, d2);
+            if (d3) v->mfx_time = change_u8(v->mfx_time, d3, 0u, v->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1u : SQ_ECHO_TIMES - 1u);
+            if (d4) v->mfx_fb = (uint8_t)kstep(v->mfx_fb, d4, 5 * f4, 10, 100);
+            if (v == &mfx_tmp) mfx_keep(selected_track, v);
         } else if (home_page == 7u) {                                           /* 0.13 CHAIN LIST */
             chain_knobs(d1, d2, d3, d4);
         } else if (home_page == 6u) {                                           /* 0.10 TIMING: the synth's latency; CHAIN; the tape */

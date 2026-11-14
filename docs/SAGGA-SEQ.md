@@ -72,9 +72,11 @@ set up, pad 1 starts it.
 **The same elsewhere.** The **HARMONY**: with it off, ARP 3 K2 chooses the progression (`READY TECHNO i-VII-VI-VII: K1
 ON`) and K1 starts it (until 0.15 turning K2 switched the HARMONY on). **EXPO** (SEQ 4): with SHAPE OFF, K1-K3 set it
 up (`EXPO READY: K4 SHAPE STARTS IT`), K4 starts it with them (until 0.15 the first touch switched it on, on RAMP). A
-**MIDI FX** (HOME 6 K1, the grid's TRACK 3 row 2) comes back with the values it had on the track (until 0.15 its
-defaults every time it was chosen): set ECHO, go to HARM or OFF, back to ECHO, and it is the ECHO you set (its defaults
-only the first time; kept while the FM-1 is on, the project saves the one playing). ARP and CHORD were already so: the
+**MIDI FX** the same way: HOME 6 K1 makes an effect READY (`T1 MIDI FX ECHO READY: SEQ + WHITE 6`; the one playing goes
+on), K2-K4 set its values, **SEQ + white 6** starts it (with a MIDI FX READY on the selected track that key starts it,
+not EUCLID; HOME + white 6 stays track 6). K1 on OFF, then SEQ + white 6: it stops. Each effect keeps its own values
+on the track (its defaults only the first time; until 0.15 its defaults every time it was chosen, and at once). The
+grid's TRACK 3 row 2: a tap READY (orange), again: it starts. ARP and CHORD were already so: the
 octaves, RATE, RUN, the voicing and the strum are the track's and stay when the mode or the shape changes (set them
 with the mode on BLOCK, the shape OFF, then choose); the LFOs, EVOLVE, the GROOVE amount too.
 
@@ -554,7 +556,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
-| 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL (**0.16: each with the values it had on the track**) | amount | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
+| 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track**) | amount (of the READY one, else the one playing) | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
 | 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
@@ -600,7 +602,7 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 
 | | |
 |---|---|
-| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
+| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops; a MIDI FX READY on the track (HOME 6): it starts**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
 | black keys 1-11 | DICE SEQ (**held: DICE PROG**; on a BREAK: the backbone kept), DICE CC, DICE LFO, DICE GROOVE, DICE ALL, SCOPE (next; held + white keys: the CUSTOM tracks), KIT (**held: BAND**), DRIFT, EVOLVE on / off, FREEZE, REVERT |
 | SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** / **the genre** (of everything; the harmony follows only what is loaded) |
 | SAVE | **the selected track's loop to the Pi** as a variation of its part (**ARP + SAVE**: the progression, the one being written on ARP 5 / 6, else the one playing) |

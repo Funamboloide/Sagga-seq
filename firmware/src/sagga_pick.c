@@ -119,10 +119,11 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             if (k < 3u) PK(PK_LEN, 0, SQ_STEPS, 1, cfg->plen[k == 0u ? SQ_PL_NOTE : k == 1u ? SQ_PL_VEL : SQ_PL_GATE]);
             { uint8_t ch = track_ch((uint8_t)t), pc = project.scene[scene_cursor].pc[ch]; PK(PK_COUNT, 0, 127, 1, pc > 127u ? -1 : (int32_t)pc); }
         } else if (pg == 5u) {
-            if (k == 0u) PK(PK_LIST, 0, SQ_MFXS - 1, 1, cfg->mfx);
-            if (k == 1u) PK(PK_SEMI, -12, 12, 1, cfg->mfx_amt);
-            if (k == 2u) PK(PK_LIST, 0, cfg->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1 : SQ_ECHO_TIMES - 1, 1, cfg->mfx_time);
-            PK(PK_PCT, 10, 100, 5, cfg->mfx_fb);
+            const sq_track_cfg_t *mv = mfx_view(t);                            /* 0.16: the READY one, if there is one */
+            if (k == 0u) PK(PK_LIST, 0, SQ_MFXS - 1, 1, mfx_shown(t));
+            if (k == 1u) PK(PK_SEMI, -12, 12, 1, mv->mfx_amt);
+            if (k == 2u) PK(PK_LIST, 0, mv->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1 : SQ_ECHO_TIMES - 1, 1, mv->mfx_time);
+            PK(PK_PCT, 10, 100, 5, mv->mfx_fb);
         } else if (pg == 7u) {                                              /* 0.13 CHAIN LIST */
             const sq_trackx_t *cx = &project.ext.track[t];
             uint8_t e = chain_edit < cx->chain_n ? chain_edit : (uint8_t)(cx->chain_n - 1u);

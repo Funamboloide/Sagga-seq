@@ -5,7 +5,7 @@ Quattro cose:
 1. **i pattern dei generi entrano con il loro GROOVE**, non solo con lo swing;
 2. **gli algoritmi si preparano prima di partire**: K1 sceglie (READY), K2-K4 impostano, SEQ + bianco 6 accende con
    quei valori (EUCLID compreso); lo stesso per l'ARMONIA (K2 prepara, K1 accende), EXPO (K1-K3 preparano, K4 accende)
-   e i MIDI FX (tornano con i loro valori);
+   e i MIDI FX (K1 prepara, SEQ + bianco 6 accende, ognuno con i suoi valori);
 3. **armonia FREE** (ARP 4 K2): accordi slegati dal genere, ARP 3 K2 su tutte le 144 progressioni;
 4. **EDIT + ARP copia la progressione** che suona in uno slot USER, da modificare su ARP 5 / 6.
 
@@ -39,8 +39,11 @@ di EUCLID accendeva EUCLID LIVE: dal vivo la traccia saltava prima che tu potess
   accende. Fino alla 0.15 girare K2 accendeva l'armonia.
 * **EXPO** (SEQ 4): con SHAPE su OFF, K1-K3 la preparano (`EXPO READY: K4 SHAPE STARTS IT`), K4 la accende con quei
   valori. Fino alla 0.15 il primo tocco la accendeva su RAMP.
-* **MIDI FX** (HOME 6 K1, griglia TRACK 3 riga 2): un effetto scelto torna con i valori che aveva su quella traccia
-  (i default solo la prima volta). Fino alla 0.15 ogni volta che lo sceglievi ripartiva dai default.
+* **MIDI FX** (HOME 6): K1 mette l'effetto READY (`T1 MIDI FX ECHO READY: SEQ + WHITE 6`; quello che suona continua),
+  K2-K4 ne impostano i valori, **SEQ + bianco 6** lo accende (con un MIDI FX READY sulla traccia selezionata quel tasto
+  accende lui e non EUCLID; HOME + bianco 6 resta la traccia 6). K1 su OFF e poi SEQ + bianco 6: si spegne. Ogni effetto
+  ricorda i suoi valori su quella traccia (i default solo la prima volta). Griglia, TRACK 3 riga 2: un tocco READY
+  (arancione), il secondo lo accende. Fino alla 0.15 K1 lo accendeva subito, ogni volta con i default.
 * **ARP e CHORD** andavano già bene: ottave, RATE, RUN, voicing e strum sono della traccia e restano quando cambi modo o
   forma (impostali col modo su BLOCK o la forma su OFF, poi scegli). Anche gli LFO, EVOLVE e la quantità del GROOVE.
 
@@ -115,7 +118,7 @@ segue l'hat con un po' meno; arp, lead e voci seguono gli accordi. La tabella co
   pattern caricato e DICE GROOVE la usano; VIAGGIO e le variazioni del Pi passano dalla stessa strada.
 * `sagga_gen.c`: `algo_choose` / `algo_go` / `algo_pad`, i valori pronti per slot e per algoritmo (`algo_mem`, in RAM),
   `euclid_touch` che prepara invece di accendere; `harm_prog_set` che non accende più l'armonia (e `harm_say`: con FREE
-  un messaggio lungo poteva uscire dai 64 byte del buffer); EXPO senza accensione automatica; `mfx_choose` (dinghy.c); `harm_genre_turn` / `harm_free_turn` (FREE); `dinghy.c`: `prog_copy`.
+  un messaggio lungo poteva uscire dai 64 byte del buffer); EXPO senza accensione automatica; `mfx_choose` / `mfx_go` / `mfx_pad` (dinghy.c); `harm_genre_turn` / `harm_free_turn` (FREE); `dinghy.c`: `prog_copy`.
 * Test: il core (la tabella: valori nei limiti, i casi della documentazione), il simulatore (la BAND di UK GARAGE, HOUSE,
   TRANCE con i loro groove; DICE GROOVE; un groove a mano sostituito dal pattern; in UK garage batteria e basso si
   incontrano sui sedicesimi pari; DENSITY 0 READY che non suona finché SEQ + bianco 6 non lo accende, poi a 0 e non a
