@@ -342,7 +342,7 @@ def t_patterns():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % srv.server_address[1]
     j = json.loads(urllib.request.urlopen(base + '/api/patterns?genre=techno', timeout=5).read())
-    check(j['genre'] == 'TECHNO' and len(j['genres']) == 24 and [p['part'] for p in j['parts']] == ['KICK', 'BASS'] and len(j['parts'][0]['list']) == 2,
+    check(j['genre'] == 'TECHNO' and len(j['genres']) == 25 and [p['part'] for p in j['parts']] == ['KICK', 'BASS'] and len(j['parts'][0]['list']) == 2,
           'GET /api/patterns: the genre part by part (%s)' % [(p['part'], len(p['list'])) for p in j['parts']])
     req = urllib.request.Request(base + '/api/patterns/delete?genre=TECHNO&part=BASS&i=0', method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['ok'] and not lib.of('TECHNO', 'BASS'), 'POST delete: the bass is gone')
@@ -388,7 +388,7 @@ def t_progressions():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % srv.server_address[1]
     j = json.loads(urllib.request.urlopen(base + '/api/progressions?genre=house', timeout=5).read())
-    check(j['genre'] == 'HOUSE' and len(j['genres']) == 24 and j['moods'][0] == 'ANY' and len(j['list']) == 5 and j['list'][4]['chords'] == 'IVmaj9:8 Imaj9:8^1',
+    check(j['genre'] == 'HOUSE' and len(j['genres']) == 25 and j['moods'][0] == 'ANY' and len(j['list']) == 5 and j['list'][4]['chords'] == 'IVmaj9:8 Imaj9:8^1',
           'GET /api/progressions: the genre\'s, with their moods (%s)' % [x['chords'] for x in j['list']])
     req = urllib.request.Request(base + '/api/progressions/add?genre=HOUSE&mood=EPIC&chords=' + urllib.parse.quote('i bVI bIII bVII'), method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['i'] == 1 and len(lib.of('HOUSE', 'EPIC')) == 2, 'POST add: written on the page, the 2nd EPIC')

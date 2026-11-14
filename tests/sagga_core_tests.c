@@ -1055,17 +1055,31 @@ static void test_beats(void)
 {
     static sq_step_t row[SQ_STEPS];
     uint32_t g, f, v, i;
-    CHECK(SQ_GENRES == 24u && SQ_FUNCS == 26u && SQ_GENRE_HARDCORE == 21 && SQ_GENRE_BAILEFUNK == 23 && SQ_BEAT_VARS == 12u);
+    CHECK(SQ_GENRES == 25u && SQ_FUNCS == 26u && SQ_GENRE_HARDCORE == 21 && SQ_GENRE_BAILEFUNK == 23 && SQ_GENRE_MERENGUE == 24 && SQ_BEAT_VARS == 12u);
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_TECHNO), "TECHNO") && !strcmp(sq_genre_name(SQ_GENRE_GQOM), "GQOM"));
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKG), "UK GARAGE") && !strcmp(sq_genre_name(SQ_GENRE_REGGAETON), "REGGAETON"));
-    {   /* 0.10: the 24 genres by name (breakbeat, trap, minimal and lo-fi left; UK drill, hardcore, phonk, baile funk came) */
+    {   /* 0.10: the 24 genres by name (breakbeat, trap, minimal and lo-fi left; UK drill, hardcore, phonk, baile funk came);
+         * 0.16: the merengue, the 25th */
         static const char *const NAMES[SQ_GENRES] = {"TECHNO", "HARDTECHNO", "DUB TECHNO", "HOUSE", "UK GARAGE", "UK FUNKY",
             "GRIME", "DUBSTEP", "JUNGLE", "BASSLINE", "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS",
-            "AFRO HOUSE", "AMAPIANO", "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK"};
+            "AFRO HOUSE", "AMAPIANO", "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK", "MERENGUE"};
         for (g = 0; g < SQ_GENRES; g++) CHECK(!strcmp(sq_genre_name((uint8_t)g), NAMES[g]) && strlen(NAMES[g]) <= 10u);
         CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKDRILL), "UK DRILL") && !strcmp(sq_genre_name(SQ_GENRE_DNB), "DRUM+BASS"));
     }
     CHECK(!strcmp(sq_func_name(SQ_FUNC_KICK), "KICK") && !strcmp(sq_func_name(SQ_FUNC_PROG), "PROG") && !strcmp(sq_func_name(SQ_FUNC_KIT), "KIT"));
+    {   /* 0.16: the merengue: four on the floor, the guira's "cha chi-ki", major keys, I - V7, its band */
+        const char *notes = 0;
+        uint16_t lo, hi;
+        char nm[40];
+        uint8_t parts[SQ_PARTS_MAX], n = sq_genre_parts(SQ_GENRE_MERENGUE, parts);
+        sq_genre_bpm(SQ_GENRE_MERENGUE, &lo, &hi);
+        sq_prog_name(SQ_GENRE_MERENGUE, 0u, SQ_SC_MAJOR, nm, sizeof nm);
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_MERENGUE, SQ_FUNC_KICK, 0u, &notes), "X...X...X...X..."));
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_MERENGUE, SQ_FUNC_HAT, 0u, &notes), "x.xxx.xxx.xxx.xx"));
+        CHECK(lo == 128u && hi == 156u && sq_genre_scale(SQ_GENRE_MERENGUE, 0u) == SQ_SC_MAJOR && sq_genre_swing(SQ_GENRE_MERENGUE) == 50u);
+        CHECK(!strcmp(nm, "I-V7") && sq_genre_band(SQ_GENRE_MERENGUE) == 9u && n >= 9u && parts[3] == SQ_FUNC_PERC && parts[4] == SQ_FUNC_CONGA);
+        CHECK(sq_brk_genre_chops(SQ_GENRE_MERENGUE) == 4u && sq_beat_variants(SQ_GENRE_MERENGUE, SQ_FUNC_KICK) == 12u);
+    }
     {   /* 0.16: the genres' GROOVE, as the doc says */
         uint8_t sw, gv, ga;
         sq_genre_groove(SQ_GENRE_UKG, SQ_FUNC_HAT, &sw, &gv, &ga);

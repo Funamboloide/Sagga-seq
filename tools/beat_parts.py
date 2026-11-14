@@ -70,6 +70,8 @@ BANDS = {
     'HARDCORE':     ('KICK* CLAP* HAT* OHAT CRASH PERC STAB* LEAD* PAD', dict(CLAP='SNARE', STAB='CHORD', LEAD='ARP'), 'BASS'),
     'PHONK':        ('KICK* SNARE* HAT* COWBELL PERC SUB* LEAD* PAD VOX', dict(SUB='BASS', LEAD='ARP', PAD='CHORD'), ''),
     'BAILEFUNK':    ('KICK* SNARE* HAT* PERC* CONGA TOM SUB* VOX* STAB', dict(SUB='BASS', VOX='ARP', STAB='CHORD'), ''),
+    # 0.16: the HAT is the guira, the PERC the tambora, the SNARE its rim; the piano's montuno, the sax / accordion riff
+    'MERENGUE':     ('KICK* SNARE* HAT* PERC* CONGA* BASS* PIANO* LEAD* VOX', dict(PIANO='CHORD', LEAD='ARP'), ''),
 }
 
 # the new parts' common patterns (a drum: text; a melodic part: (text, notes))
@@ -144,6 +146,8 @@ OWN = {
     ('PHONK', 'VOX'): [("x...........x...", "0...........7..."), ("....x.......x...", "....0.......0...")],
     ('BAILEFUNK', 'CONGA'): ["x..x..x...x..x..", "..x..x.x..x..x.x"],
     ('BAILEFUNK', 'TOM'): ["x..x..x...x..x..", "x..x..x.x..x..x.", "......x..x....x."],
+    ('MERENGUE', 'CONGA'): ["x.ox..x.x.ox..x.", "..x..xx...x..xx.", "x..x.xx.x..x.xx."],
+    ('MERENGUE', 'VOX'): [("x...x.......x...", "0...4.......7..."), ("....x...x...x...", "....7...4...0...")],
 }
 
 KINDS = dict(m=0, M=1, n=2, N=3, s=5)                 # (7 and 5 stay as written)

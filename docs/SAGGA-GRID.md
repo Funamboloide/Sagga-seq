@@ -363,7 +363,7 @@ more: CC again.
 
 | row | pads |
 |---|---|
-| 1 | genre 1-12. Page 1: techno, hard techno, dub techno, house, UK garage, UK funky, grime, dubstep, jungle, bassline, reggaeton, batida; page 2: gqom, experimental, electro, drum+bass, afro house, amapiano, footwork, trance, UK drill, hardcore, phonk, baile funk (24 genres in 0.10: breakbeat, trap, minimal and lo-fi left); **PAGE** (13: blue page 1, cyan page 2); **LOAD** (14: BEAT on the scope; again: the next variation); **KIT** (15; SHIFT: **BAND**); **DICE ALL** (16) |
+| 1 | genre 1-12. Page 1: techno, hard techno, dub techno, house, UK garage, UK funky, grime, dubstep, jungle, bassline, reggaeton, batida; page 2: gqom, experimental, electro, drum+bass, afro house, amapiano, footwork, trance, UK drill, hardcore, phonk, baile funk (24 genres in 0.10: breakbeat, trap, minimal and lo-fi left); page 3 (0.16): merengue; **PAGE** (13: blue page 1, cyan page 2, violet page 3); **LOAD** (14: BEAT on the scope; again: the next variation); **KIT** (15; SHIFT: **BAND**); **DICE ALL** (16) |
 | 2 | the genre's **parts** (0.11: its band, violet, then PROG and KIT; more than nine: pads 1-8 a page, pad 9 the next page); **scope**: this track, bank, all, drums, melodic, CUSTOM (10-15); **WRITE LIVE** (16, orange while the track has a live layer) |
 | 3 | the genre's **progressions** 1-6 (cyan: playing); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16) |
 | 4 | **DICE** SEQ, CC, LFO, GROOVE, ALL (1-5); **KEEP** (6); **BACK** (7); targets RHYTHM, +NOTES, +CC, +NOTES+CC, +CC+LFO, ALL (9-14); **the roll before / after** (15 / 16, yellow when there is one) |

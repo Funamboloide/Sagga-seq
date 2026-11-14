@@ -63,6 +63,7 @@ GENRES = {
     'HARDCORE':     (['EUPHORIC', 'EPIC', 'ENERGETIC'], 'plain'),
     'PHONK':        (['DARK', 'TENSE', 'SAD'], 'plain'),
     'BAILEFUNK':    (['ENERGETIC', 'DARK', 'SATISFYING'], 'plain'),
+    'MERENGUE':     (['EUPHORIC', 'SATISFYING', 'ENERGETIC', 'MELANCHOLY'], 'plain'),
 }
 
 MAJ, MIN = 4, 5                                   # SQ_CH_* the colours are made of

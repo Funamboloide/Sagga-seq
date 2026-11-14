@@ -1418,7 +1418,8 @@ static void gr_render_beat(void)
     uint8_t harm = g->harm_on, mine = 1u;
     for (x = 0; x < 16u; x++) {
         if (x < 12u) { uint32_t gn = g_genre_page * 12u + x; gr_put(x, 0, gn >= SQ_GENRES ? GL_OFF : gn == beat_genre ? GL_WHITE : GL_DIM); }
-        else gr_put(x, 0, x == 12u ? (g_genre_page ? GL_CYAN : GL_BLUE) : x == 13u ? GL_ACCENT : x == 14u ? GL_ORANGE : GL_PLAY);
+        else gr_put(x, 0, x == 12u ? (g_genre_page == 2u ? GL_VIOLET : g_genre_page ? GL_CYAN : GL_BLUE) :   /* (0.16: page 3, the merengue) */
+                      x == 13u ? GL_ACCENT : x == 14u ? GL_ORANGE : GL_PLAY);
         if (x < 9u) {
             uint8_t l[SQ_PARTS_MAX + 2u], n = beat_list(l), paged = n > 9u ? 1u : 0u, i = (uint8_t)(paged ? g_part_page * 8u + x : x);
             if (paged && x == 8u) gr_put(x, 1, g_part_page ? GL_CYAN : GL_BLUE);

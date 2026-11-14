@@ -13,7 +13,7 @@ import os
 # the genres in the FM-1's order (sagga_beats.h SQ_GENRE_*), as the files are named
 GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
           'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
-          'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK']
+          'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
 # the parts in SQ_FUNC_* order (PROG and KIT have no patterns of their own)
 PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
          'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL',

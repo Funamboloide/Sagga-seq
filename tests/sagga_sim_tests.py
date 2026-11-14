@@ -5038,17 +5038,17 @@ def t010_viaggio2():
     s.at(p0 + int(8 * STEP_MS), "dump", 1)
     log = run(s, p0 + int(8 * STEP_MS) + 100)
     check(log.viaggio[0]["states"][:2] == "II", "MOVES AT THE BEAT: track 2 is IN within two beats (%s)" % log.viaggio[0]["states"][:2])
-    # every genre of the library is a VIAGGIO genre: HOME 8 K3 walks all 24, each with a kick proposal
+    # every genre of the library is a VIAGGIO genre: HOME 8 K3 walks all 25 (0.16: the merengue last), each with a kick proposal
     s = Script()
     t = vg_on(s, 100)
-    for g in range(23):
+    for g in range(24):
         t = viaggio_knobs(s, t, [(K3, 1)])
     s.at(t, "dump", 0)
     s.tap_key(t + 50, wk(0))
     s.at(t + 150, "dump", 0)
     log = run(s, t + 250)
-    check(log.viaggio[0]["genre"] == 23 and "BAILE FUNK" in log.states[0]["msg"], "K3 x 23: BAILE FUNK, the last genre (%s)" % log.states[0]["msg"])
-    check(log.viaggio[1]["states"][0] == "P" and log.dumps[1]["on"].count("x") == 0 and log.states[1]["msg"].startswith("T1 KICK P2"), "a BAILE FUNK kick proposed (%s)" % log.states[1]["msg"])
+    check(log.viaggio[0]["genre"] == 24 and "MERENGUE" in log.states[0]["msg"], "K3 x 24: MERENGUE, the last genre (%s)" % log.states[0]["msg"])
+    check(log.viaggio[1]["states"][0] == "P" and log.dumps[1]["on"].count("x") == 0 and log.states[1]["msg"].startswith("T1 KICK P2"), "a MERENGUE kick proposed (%s)" % log.states[1]["msg"])
     s = Script()
     t = vg_on(s, 100)
     for g in range(22):
@@ -7236,6 +7236,35 @@ def t016_harm_free_copy():
           "over USER 1: asked, then TECHNO 1 (one chord) copied (%s %s)" % ([(x["up"], x["hprog"]) for x in v], st))
 
 
+
+def t016_merengue():
+    group("0.16 MERENGUE, the 25th genre: SEQ + PRESETS x 24, BAND: four on the floor, the guira's cha chi-ki pushed a hair, the tambora played, I - V7 in a major key")
+    ROLE_CONGA, ROLE_PIANO, ROLE_LEAD, ROLE_VOX, G_PUSH = 12, 22, 23, 24, 7
+    s = Script()
+    t = kp(s, 100, [(K2, 1), (K4, 1)])                                   # C major, IN KEY
+    s.press(t, SEQ); s.enc(t + 30, E_PRE, 24); s.release(t + 100, SEQ); t += 300
+    s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900     # BAND
+    for k in range(10):
+        s.at(t + 10 * k, "dump", k)
+    p = t + 200
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(2 * BAR_MS) - 20)
+    st = log.states
+    c = {x["track"]: x["role"] for x in cfgs(log)}
+    v = {x["track"]: x for x in v15s(log)}
+    on = {x["track"]: x["on"] for x in log.dumps}
+    check(st and "MERENGUE BAND #1: 9 TRACKS" in " ".join(x["msg"] for x in st), "BAND: the merengue's nine (%s)" % (st[0]["msg"] if st else "-"))
+    check([c.get(i) for i in range(1, 10)] == [ROLE_KICK, ROLE_SNARE, ROLE_HAT, ROLE_PERC, ROLE_CONGA, ROLE_BASS, ROLE_PIANO, ROLE_LEAD, ROLE_VOX],
+          "KICK SNARE HAT (the guira) PERC (the tambora) CONGA BASS PIANO LEAD VOX (%s)" % [c.get(i) for i in range(1, 10)])
+    k1 = [round((tm - p) / STEP_MS) for tm, d1, vv in log.notes(ch=0, after=p, before=p + int(BAR_MS) - 20)]
+    check(k1 == [0, 4, 8, 12], "the bass drum on every beat (%s)" % k1)
+    check(on.get(3, "").startswith("x.xxx.xxx.xxx.xx"), "the guira: an 8th and two 16ths a beat (%s)" % on.get(3))
+    check(v.get(3) and (v[3]["groove"], v[3]["amt"]) == (G_PUSH, 30) and v.get(4) and (v[4]["groove"], v[4]["amt"]) == (G_HUMAN, 40) and v[1]["groove"] == 0,
+          "the guira PUSH 30, the tambora HUMAN 40, the kick straight (%s %s %s)" % (v.get(3), v.get(4), v.get(1)))
+    h = harm11(log)
+    check(h and h[0]["prog"] == 0 and v[1]["hgenre"] == 24, "the harmony: the merengue's first, I - V7 (%s)" % (h[:1],))
+
+
 V16 = re.compile(r"^\s*(\d+) ms  v16 T(\d+) pend((?: \d+){4}) shown (\d+) edit (\d+)/(\d+)/(\d+)/(\d+) euc (\d+) (\d+)/(\d+)$", re.M)
 
 
@@ -7420,7 +7449,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
-         t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere]
+         t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

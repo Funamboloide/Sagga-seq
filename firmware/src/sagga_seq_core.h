@@ -548,7 +548,7 @@ typedef struct __attribute__((packed)) {
 #define SQ_PHRASE_MAX 16u
 #define SQ_MOVES     16u             /* the queue */
 #define SQ_TRAIL     128u            /* phrases remembered */
-#define SQ_SET_GENRES 24u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h) */
+#define SQ_SET_GENRES 25u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h) */
 #define SQ_ROLES     7u              /* KICK SNARE HAT PERC BASS CHORD ARP (sagga_beats.h SQ_FUNC_*) */
 enum { SQ_VQ_PHRASE = 0, SQ_VQ_BAR, SQ_VQ_BEAT, SQ_VQS };   /* 0.10: when VIAGGIO's moves happen: the phrase boundary, every bar, every beat */
 enum { SQ_TS_EMPTY = 0, SQ_TS_PROPOSED, SQ_TS_IN, SQ_TS_OUT };

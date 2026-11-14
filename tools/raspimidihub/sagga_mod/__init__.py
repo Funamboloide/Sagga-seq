@@ -25,7 +25,8 @@ RATE_LABELS = ["16 BAR", "8 BAR", "4 BAR", "3 BAR", "2 BAR", "1.5 BAR", "1 BAR",
 DEST_LABELS = ["CC", "VEL", "GATE", "CHANCE", "TIMING", "SWING"]
 GENRE_LABELS = ["TECHNO", "HARDTECHNO", "DUB TECHNO", "HOUSE", "UK GARAGE", "UK FUNKY", "GRIME", "DUBSTEP", "JUNGLE",
                 "BASSLINE", "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS", "AFRO HOUSE", "AMAPIANO",
-                "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK"]
+                "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK",
+                "MERENGUE"]
 KEY_LABELS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
 PROG_LABELS = ["PROG %d" % (i + 1) for i in range(6)] + ["USER 1", "USER 2", "USER 3", "USER 4", "DICE/PI"]
 HARM_LABELS = ["OFF", "ON", "LOCK"]

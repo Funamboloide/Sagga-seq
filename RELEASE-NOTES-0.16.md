@@ -1,15 +1,38 @@
 # SAGGA SEQ 0.16 - Note di rilascio
 
-Quattro cose:
+Cinque cose:
 
+0. **il MERENGUE**, il 25° genere della libreria;
 1. **i pattern dei generi entrano con il loro GROOVE**, non solo con lo swing;
 2. **gli algoritmi si preparano prima di partire**: K1 sceglie (READY), K2-K4 impostano, SEQ + bianco 6 accende con
    quei valori (EUCLID compreso); lo stesso per l'ARMONIA (K2 prepara, K1 accende), EXPO (K1-K3 preparano, K4 accende)
    e i MIDI FX (K1 prepara, SEQ + bianco 6 accende, ognuno con i suoi valori);
-3. **armonia FREE** (ARP 4 K2): accordi slegati dal genere, ARP 3 K2 su tutte le 144 progressioni;
+3. **armonia FREE** (ARP 4 K2): accordi slegati dal genere, ARP 3 K2 su tutte le 150 progressioni;
 4. **EDIT + ARP copia la progressione** che suona in uno slot USER, da modificare su ARP 5 / 6.
 
 Il formato resta `SGQB` (i campi del groove ci sono dalla 0.15, FREE usa un byte libero di `sq_gen_t`); il Pi non cambia.
+
+## Il merengue, il 25° genere
+
+SEQ + PRESETS fino all'ultimo (24 scatti da TECHNO): `MERENGUE`, 128-156 BPM, tonalità maggiori (MAJOR, MIXOLYDIAN,
+MINOR), dritto (swing 50). La band (BAND, nove parti):
+
+| traccia | parte | cosa suona |
+| --- | --- | --- |
+| T1 | KICK | la cassa su ogni battito, come l'orquesta e il merengue de calle |
+| T2 | SNARE | il bordo della tambora sul «e» del 2 e del 4 |
+| T3 | HAT | la güira: un ottavo e due sedicesimi a battito, «cha chi-ki» (nota 69, cabasa) |
+| T4 | PERC | la tambora: lo schiaffo e il rullo che porta alla battuta (nota 66) |
+| T5 | CONGA | le conga |
+| T6 | BASS | il basso che anticipa il battito, fondamentale e quinta |
+| T7 | PIANO | il montuno in levare |
+| T8 | LEAD | il riff di sax o fisarmonica |
+| T9 | VOX | il coro |
+
+Le progressioni: I-V7, I-IV-V7-I, I-vi-ii-V7, I-IV-I-V7, I-ii-V7-I, vi-IV-V7-I. Il GROOVE: güira e shaker PUSH 30 (un
+filo avanti), la tambora HUMAN 40, il bordo HUMAN 30, il resto dritto. In VIAGGIO, dopo la cassa, entrano prima la güira e la tambora;
+il vicino è la BATIDA. I chop del BREAK: STRAIGHT, SHUFFLE, REPEAT, END ROLL. Sul grid è nella terza pagina dei generi
+(PAGE viola). Un progetto con il merengue aperto da una 0.15 trova TECHNO al suo posto.
 
 ## Gli algoritmi: prima li prepari, poi li accendi
 
@@ -50,7 +73,7 @@ di EUCLID accendeva EUCLID LIVE: dal vivo la traccia saltava prima che tu potess
 ## Armonia FREE e copia della progressione
 
 * **ARP 4 K2**, uno a sinistra del primo genere: **FREE**. Gli accordi non sono di nessun genere: ARP 3 K2 scorre tutte
-  le 144 progressioni della libreria (`TECHNO 1` .. `BAILE FUNK 6`), poi le USER e DICE/PI; con un MOOD (ARP 4 K3) solo
+  le 150 progressioni della libreria (`TECHNO 1` .. `MERENGUE 6`), poi le USER e DICE/PI; con un MOOD (ARP 4 K3) solo
   quelle di quel mood. Un pattern caricato, BAND, GENRE LIVE, il genere di VIAGGIO non spostano più l'armonia. K2 a
   destra: di nuovo i generi. Si salva col progetto.
 * **EDIT + ARP**: la progressione che suona (della libreria, USER, del Pi) viene scritta in uno slot USER, accordo per
@@ -114,7 +137,10 @@ segue l'hat con un po' meno; arp, lead e voci seguono gli accordi. La tabella co
 
 ## Sotto il cofano
 
-* `sagga_beats.c`: `sq_genre_groove(genere, parte)` (la tabella, nove gruppi di parti per 24 generi); `sagga_gen.c`: il
+* il merengue: `tools/gen_beats.py` (i pattern), `tools/beat_parts.py` (la band, conga e coro), `tools/gen_progs.py` (le
+  progressioni del Pi), `SQ_GENRES` 25, la riga del GROOVE, i chop del BREAK, i file del Pi (`patterns/MERENGUE.txt`,
+  `progressions/MERENGUE.txt`), la pagina SAGGA Mod.
+* `sagga_beats.c`: `sq_genre_groove(genere, parte)` (la tabella, nove gruppi di parti per 25 generi); `sagga_gen.c`: il
   pattern caricato e DICE GROOVE la usano; VIAGGIO e le variazioni del Pi passano dalla stessa strada.
 * `sagga_gen.c`: `algo_choose` / `algo_go` / `algo_pad`, i valori pronti per slot e per algoritmo (`algo_mem`, in RAM),
   `euclid_touch` che prepara invece di accendere; `harm_prog_set` che non accende più l'armonia (e `harm_say`: con FREE
@@ -123,5 +149,5 @@ segue l'hat con un po' meno; arp, lead e voci seguono gli accordi. La tabella co
   TRANCE con i loro groove; DICE GROOVE; un groove a mano sostituito dal pattern; in UK garage batteria e basso si
   incontrano sui sedicesimi pari; DENSITY 0 READY che non suona finché SEQ + bianco 6 non lo accende, poi a 0 e non a
   100; CELL preparato mentre suona DENSITY e scambiato; stop e ripartenza con gli stessi valori; EUCLID READY; i pad
-  della griglia; FREE con 144 progressioni e MOOD; la copia che suona uguale all'originale). I test che accendevano un
+  della griglia; FREE con 150 progressioni e MOOD; la copia che suona uguale all'originale). I test che accendevano un
   algoritmo con K1 o EUCLID con le manopole ora premono anche SEQ + bianco 6.

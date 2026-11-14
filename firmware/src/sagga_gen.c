@@ -1079,7 +1079,7 @@ static uint8_t harm_lib_mood(uint8_t g, uint8_t p)
     sq_hprog_lib(&h, pg->deg, pg->col, pg->n, project.gen.harm_bars ? project.gen.harm_bars : pg->bars, r);
     return sq_hprog_mood(&h, project.key_scale);
 }
-/* 0.16 FREE: K2 goes through the 24 genres' six (TECHNO 1 .. BAILE FUNK 6), then the player's, DICE/PI, the Pi's;
+/* 0.16 FREE: K2 goes through the 25 genres' six (TECHNO 1 .. MERENGUE 6), then the player's, DICE/PI, the Pi's;
  * the MOOD chooses among all of them */
 static void harm_free_turn(int32_t d)
 {

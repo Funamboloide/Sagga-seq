@@ -7,7 +7,7 @@ typedef struct { uint8_t func, n, note, main; uint16_t first; } lib_part_t;
 typedef struct { uint8_t kit[4], swing; uint16_t bpm_lo, bpm_hi; uint8_t scale[3], chord_size, evo_rhy, evo_note, fill; } genre_t;
 #include "sagga_beats_data.h"
 
-_Static_assert(SQ_GENRE_BAILEFUNK + 1 == SQ_GENRES, "the SQ_GENRE_* enum names every genre of the library");
+_Static_assert(SQ_GENRE_MERENGUE + 1 == SQ_GENRES, "the SQ_GENRE_* enum names every genre of the library");
 _Static_assert(SQ_SET_GENRES == SQ_GENRES, "VIAGGIO has a set genre for every genre of the library (sagga_setgenre_data.h)");
 _Static_assert(SQ_FUNC_VOX + 1 == SQ_FUNCS, "SQ_FUNCS counts the parts");
 _Static_assert(SQ_FUNC_VOX - SQ_FUNC_CLAP == SQ_ROLE_VOX - SQ_ROLE_CLAP, "a role for every new part, in the same order");
@@ -167,6 +167,7 @@ static const genre_groove_t GENRE_GROOVE[SQ_GENRES][GG_N] = {
     /* HARDCOR */{O_,     O_,     PU(40),    PU(30),    PU(40),    PU(30),    O_,     O_,     O_},
     /* PHONK */  {O_,     O_,     TR(80),    TR(50),    TR(50),    HU(20),    O_,     LB(30), LB(30)},
     /* BAILE */  {O_,     AF(50), SA(80, 50), SA(60, 50), SA(100, 50), SA(100, 50), O_, O_,     O_},
+    /* MERENG */ {O_,     HU(30), PU(30),    O_,        PU(30),    HU(40),    O_,     O_,     O_},   /* the guira a hair ahead, the tambora played */
 };
 #undef O_
 #undef HO
@@ -200,7 +201,7 @@ uint8_t sq_genre_hrhythm(uint8_t genre)
 {
     static const uint8_t R[SQ_GENRES] = {SQ_HR_BARS, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_PUSH16, SQ_HR_PUSH16, SQ_HR_PUSH8, SQ_HR_BARS,
         SQ_HR_2BARS, SQ_HR_2BARS, SQ_HR_PUSH16, SQ_HR_332, SQ_HR_332, SQ_HR_BARS, SQ_HR_35, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_PUSH8,
-        SQ_HR_PUSH16, SQ_HR_31, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_332};
+        SQ_HR_PUSH16, SQ_HR_31, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_332, SQ_HR_BARS};
     return R[genre < SQ_GENRES ? genre : 0u];
 }
 void sq_genre_evolve(uint8_t genre, uint8_t *rhy, uint8_t *note)

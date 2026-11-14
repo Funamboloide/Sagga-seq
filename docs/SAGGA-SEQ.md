@@ -3,7 +3,7 @@
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
 tracks**, eight patterns of up to 64 steps per track, **sixteen scenes**, eight **snapshots**, a song of **64
-entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **24 genres** (patterns of 16, 32 and 64
+entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
 steps), and **VIAGGIO**: a way to play a set as a journey of phrases, with moves queued for the phrase's end (or the
 bar, or the beat). With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
@@ -13,6 +13,17 @@ The screen says `SAGGA SEQ 0.16` for three seconds after power-on: that is how y
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
 ## What is new in 0.16
+
+**A 25th genre: MERENGUE** (SEQ + PRESETS, the last: 24 turns from TECHNO), 128-156 BPM, major keys (MAJOR,
+MIXOLYDIAN, MINOR), straight (swing 50). Its band (BAND, nine parts): **KICK** (the bass drum on every beat, as the
+orquesta and merengue de calle play it), **SNARE** (the tambora's rim on the "and" of 2 and 4), **HAT** (the guira:
+an 8th and two 16ths a beat, "cha chi-ki"; KIT note 69, cabasa), **PERC** (the tambora: its slap and the roll into the
+bar; note 66), **CONGA**, **BASS** (anticipating the beat: root and fifth), **PIANO** (the offbeat montuno), **LEAD**
+(the sax / accordion riff), **VOX** (the coro). Its progressions: I-V7, I-IV-V7-I, I-vi-ii-V7, I-IV-I-V7, I-ii-V7-I,
+vi-IV-V7-I. Its GROOVE: the guira and the shaker PUSH 30 (a hair ahead), the tambora HUMAN 40, the rim HUMAN 30, the
+rest straight. VIAGGIO: after the kick the guira and the tambora come first, BATIDA its neighbour. BREAK chops: STRAIGHT, SHUFFLE, REPEAT,
+END ROLL. The grid's BEAT view has it on a third page of genres (PAGE violet). A project made by 0.16 with the merengue
+loads on 0.15 with TECHNO in its place.
 
 **A genre's patterns come with their GROOVE.** A pattern of the library (BEAT, BAND, KIT, GENRE LIVE, VIAGGIO's
 proposals, the Pi's variations) used to bring only the genre's swing; now it brings the part's GROOVE too, and the
@@ -49,6 +60,7 @@ turn them afterwards for your own feel.
 | HARDCORE (50) | - | - | PUSH 40 | PUSH 30 | PUSH 40 | PUSH 30 | - | - | - |
 | PHONK (52) | - | - | TRAP 80 | TRAP 50 | TRAP 50 | HUMAN 20 | - | LAID BACK 30 | LAID BACK 30 |
 | BAILE FUNK (54) | - | AFRO 50 | SAMBA 80, sw 50 | SAMBA 60, sw 50 | SAMBA 100, sw 50 | SAMBA 100, sw 50 | - | - | - |
+| MERENGUE (50) | - | HUMAN 30 | PUSH 30 | - | PUSH 30 | HUMAN 40 | - | - | - |
 
 (sw: the swing; in brackets the genre's, which every part has where nothing else is said. The crash goes with the
 kick, the rim with the percussion, the sub, the rumble and the log drum with the bass, the stab, pad and piano with
@@ -81,8 +93,8 @@ octaves, RATE, RUN, the voicing and the strum are the track's and stay when the 
 with the mode on BLOCK, the shape OFF, then choose); the LFOs, EVOLVE, the GROOVE amount too.
 
 **Harmony FREE.** ARP 4 K2, one to the left of the first genre: **FREE**. The chords are nobody's genre: ARP 3 K2
-walks through all 144 progressions of the library (6 of each of the 24 genres, in the genre's order: `TECHNO 1` ..
-`BAILE FUNK 6`), then the USER ones and DICE/PI; with a MOOD (ARP 4 K3) only those of that mood. A pattern loaded, BAND,
+walks through all 150 progressions of the library (6 of each of the 25 genres, in the genre's order: `TECHNO 1` ..
+`MERENGUE 6`), then the USER ones and DICE/PI; with a MOOD (ARP 4 K3) only those of that mood. A pattern loaded, BAND,
 GENRE LIVE or VIAGGIO's genre do not move the harmony any more (without FREE the harmony follows the genre of what is
 loaded, as in 0.11). ARP 4 K2 to the right: the genres again. Saved with the project.
 
@@ -449,7 +461,7 @@ The rework (the 0.9 manual with a month of notes on it):
   them; pressed again within 2 s it stops the transport too. A plain STOP sends All Notes Off and lifts the sustain,
   and leaves the synths' tails. **ECHO ALL** (FX + OCT+) off cancels the repeats that were waiting.
 * **The song sets the tempo** (SAVE page 2 K2): each entry remembers the BPM it was added at.
-* **VIAGGIO** works with all 24 genres (the ladders are the library's); you choose each track's **role** (K3) and
+* **VIAGGIO** works with all the genres (the ladders are the library's); you choose each track's **role** (K3) and
   **channel** (K4) in VIAGGIO mode; a tap on a PROPOSED track browses, the hold throws the dice, ALG goes through the
   proposals (`T1 KICK P4 (3/3)`); **MOVES AT** (K2): the phrase boundary, every bar or every beat; a new GENRE waits for
   the boundary while playing and the proposals keep their own settings per slot.
@@ -650,7 +662,7 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 | 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE** | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
 | 2 CHORD | **shape** (32) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
 | 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
-| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 144) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
+| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 150) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
 | 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8 |
 | 6 USER PROG 2 | **MOOD** (GUESSED: the machine's) | the lengths of a RHYTHM written into the chords | **the chord's length**: 1-64 16ths (0: the HARMONY's rhythm) | **PUSH** 0-4 16ths |
 

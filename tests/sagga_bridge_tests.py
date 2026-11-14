@@ -1180,7 +1180,7 @@ def t_patterns():
     check(not lib.fm1_sysex(H + [0x21, 0, 0, 0xF7]) and not lib.fm1_sysex(H + [0x40, 1, 0xF7]), "other frames are not the patterns'")
     check(lib.fm1_sysex(H + [0x60, 99, 0, 0xF7]) and out[-1][4] == 0x65, "a genre that does not exist: nothing answered")
     P = B._patterns_module()
-    check(P.GENRES[0] == "TECHNO" and P.GENRES[23] == "BAILEFUNK" and P.PARTS.index("VOX") == 25 and P.PARTS.index("CLAP") == 9, "the names in the FM-1's order")
+    check(P.GENRES[0] == "TECHNO" and P.GENRES[23] == "BAILEFUNK" and P.GENRES[24] == "MERENGUE" and len(P.GENRES) == 25 and P.PARTS.index("VOX") == 25 and P.PARTS.index("CLAP") == 9, "the names in the FM-1's order")
     gen = os.path.join(ROOT, "tools", "hub", "patterns")
     check(sorted(os.listdir(gen)) == sorted("%s.txt" % g for g in P.GENRES) and P.Patterns(d, stock=gen).summary()["TECHNO"].get("KICK") == 12,
           "the stock library: a file a genre, 12 more kicks for TECHNO (%s)" % P.Patterns(d, stock=gen).summary()["TECHNO"].get("KICK"))

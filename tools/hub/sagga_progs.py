@@ -21,7 +21,7 @@ try:
 except ImportError:                                   # (alone: the same list, the FM-1's order)
     GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
               'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
-              'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK']
+              'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
 
 # sagga_seq_core.h SQ_MOOD_*
 MOODS = ['ANY', 'SAD', 'MELANCHOLY', 'SATISFYING', 'ENERGETIC', 'EUPHORIC', 'EPIC', 'DREAMY', 'DARK', 'TENSE', 'SUSPENDED']

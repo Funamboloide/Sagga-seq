@@ -3385,7 +3385,8 @@ const sq_brk_chop_t *sq_brk_chop(uint8_t i) { return &BRK_CHOP[i < SQ_BRK_CHOPS 
 /* the chops of each genre (the order of sagga_beats_data.h's GENRE_NAME), the ones that belong to it, in the order COOK
  * walks them: the first byte is how many, then the chops (0 STRAIGHT 1 END ROLL 2 RUSH 3 REPEAT 4 DOUBLE 5 HALF
  * 6 BACKWARDS 7 GHOST 8 LOW 9 HIGH 10 SHUFFLE 11 THINK 12 APACHE 13 SNARES 14 TRIPLE 15 BUILD) */
-static const uint8_t BRK_GENRE[24][8] = {
+#define BRK_GENRES 25u                     /* (SQ_GENRES: the core does not include the library) */
+static const uint8_t BRK_GENRE[BRK_GENRES][8] = {
     {5, 0, 7, 5, 8, 1},              /* TECHNO: straight, ghosts, half, the low end, the end roll */
     {5, 0, 4, 2, 15, 1},             /* HARDTECHNO: straight, double, rush, build, end roll */
     {4, 0, 5, 7, 8},                 /* DUB TECHNO: straight, half, ghosts, low */
@@ -3410,11 +3411,12 @@ static const uint8_t BRK_GENRE[24][8] = {
     {5, 4, 2, 15, 3, 1},             /* HARDCORE: double, rush, build, repeat, end roll */
     {4, 5, 8, 7, 13},                /* PHONK: half, low, ghosts, snares */
     {5, 14, 10, 13, 3, 2},           /* BAILE FUNK: triple, shuffle, snares, repeat, rush */
+    {4, 0, 10, 3, 1},                /* MERENGUE: straight, shuffle, repeat, end roll */
 };
-uint8_t sq_brk_genre_chops(uint8_t genre) { return BRK_GENRE[genre < 24u ? genre : 0u][0]; }
+uint8_t sq_brk_genre_chops(uint8_t genre) { return BRK_GENRE[genre < BRK_GENRES ? genre : 0u][0]; }
 uint8_t sq_brk_genre_chop(uint8_t genre, uint8_t pos)
 {
-    const uint8_t *g = BRK_GENRE[genre < 24u ? genre : 0u];
+    const uint8_t *g = BRK_GENRE[genre < BRK_GENRES ? genre : 0u];
     return g[1u + (pos < g[0] ? pos : 0u)];
 }
 

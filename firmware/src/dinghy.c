@@ -35,6 +35,7 @@
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
+_Static_assert(BRK_GENRES == SQ_GENRES, "a BREAK chop list for every genre of the library (sagga_seq_core.c BRK_GENRE)");
 
 /* 0.11 the PC test (sagga_test.c): the buttons, keys and knobs the PC presses, beside the hands' (which stop it). The app
  * reads the panel through in_held() / in_notes(); tst_booted: this boot is the test's (no project, no slots) */

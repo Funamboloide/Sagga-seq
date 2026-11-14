@@ -11,7 +11,7 @@ BASS / ARP: a second string, the semitone above the root of each hit (hex 0-f). 
 four bars; a four-bar pattern carries its fill in the fourth).
 Genres for bass music, UK, techno, house, reggaeton, batida, gqom, experimental club music; 0.8: electro, drum & bass,
 afro house, amapiano, footwork, trance; 0.10: UK drill, hardcore, phonk and baile funk (breakbeat, trap, minimal and
-lo-fi left).
+lo-fi left); 0.16: merengue.
 """
 import os
 import sys
@@ -41,7 +41,8 @@ def progs(name, *lst):
 EVO = dict(TECHNO=(70, 35), HARDTECHNO=(90, 30), DUBTECHNO=(45, 45), HOUSE=(65, 45), UKGARAGE=(90, 65), UKFUNKY=(85, 60),
            GRIME=(70, 60), DUBSTEP=(65, 60), JUNGLE=(100, 70), BASSLINE=(85, 70), REGGAETON=(70, 45), BATIDA=(100, 65),
            GQOM=(95, 40), EXPERIMENTAL=(100, 100), ELECTRO=(80, 50), DNB=(85, 60), AFROHOUSE=(70, 50), AMAPIANO=(75, 60),
-           FOOTWORK=(95, 55), TRANCE=(55, 50), UKDRILL=(70, 50), HARDCORE=(90, 35), PHONK=(65, 50), BAILEFUNK=(85, 50))
+           FOOTWORK=(95, 55), TRANCE=(55, 50), UKDRILL=(70, 50), HARDCORE=(90, 35), PHONK=(65, 50), BAILEFUNK=(85, 50),
+           MERENGUE=(80, 50))
 
 # 0.10 VIAGGIO's set genres, one per library genre: a neighbouring genre the dice may draw from, the ladder (the energy
 # 0..100 at which a role enters: KICK SNARE HAT PERC BASS CHORD ARP), half-time (the snare on the 3), afro (the
@@ -287,6 +288,20 @@ g('BAILEFUNK',
   [("x.x.x.x.x.x.x.x.", "0.3.5.3.0.3.7.3."), ("x..x..x.x..x..x.", "0..0..3.5..3..0.")],
   (36, 39, 42, 63), 54, (125, 135), ('MINOR', 'PHRYGIAN', 'HARM_MINOR'), 3)
 
+# 0.16: merengue (Dominican, in 2): the bass drum on every beat (the modern orquesta and merengue de calle), the guira
+# as the HAT (an 8th and two 16ths a beat: "cha chi-ki"), the tambora as the PERC (the slap and its roll into the bar),
+# its rim as the SNARE on the "and" of 2 and 4, the bass anticipating the beat, the piano's offbeat montuno, the
+# accordion / sax riff as the ARP; major keys, I - V7
+g('MERENGUE',
+  ["X...X...X...X...", "X.......X.......", "X...X...X...X.x.", "X...X...X...X...X...X...X.x.X.x."],
+  ["......x.......x.", "....x.x.....x.x.", "......x...x...x.", "......x.......x.......x.....x.x2"],
+  ["x.xxx.xxx.xxx.xx", "X.xxX.xxX.xxX.xx", "x.x.x.x.x.x.x.x.", "X.xxX.xxX.xxX.xxX.xxX.xxX.xxxxxx"],
+  ["x..x.xx.x..x.xx.", "x.xx..x.x.xx..x.", "....x..x....x.xx", "x..x.xx.x..x.xx.x..x.xx.x.x.x2x2"],
+  [("x.....x.x.....x.", "0.....7.0.....7."), ("x...x...x...x...", "0...7...0...7..."), ("x..x..x.x..x..x.", "0..0..7.0..c..7.")],
+  [("..x...x...x...x.", "..M...M...M...M."), ("x..x..x.x..x..x.", "M..M..M.M..M..M.")],
+  [("xxxxxxxxxxxxxxxx", "047cc740047cc740"), ("x.x.x.xxx.x.x.xx", "0.4.7.97c.9.7.42")],
+  (36, 37, 69, 66), 50, (128, 156), ('MAJOR', 'MIXOLYDIAN', 'MINOR'), 3)
+
 progs('TECHNO', ("1", 4), ("1 6", 2), ("1 4", 2), ("1 7 6 7", 1), ("1:7 4:7", 2), ("1:s4 1", 2))
 progs('HARDTECHNO', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7", 2), ("1 2 1 7", 1), ("1:s2 1", 2))
 progs('DUBTECHNO', ("1:7", 4), ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7 7:6 6:7 7", 1), ("1:s4 1:7", 2), ("4:9 1:7", 2))
@@ -316,6 +331,8 @@ progs('UKDRILL', ("1 6 3 7", 1), ("1 2", 2), ("1", 4), ("1 6", 2), ("6 7 1 1", 1
 progs('HARDCORE', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7 6 7", 1), ("1 2 1 7", 1), ("1:s2 1", 2))
 progs('PHONK', ("1", 4), ("1 6", 2), ("1 2", 2), ("1 4", 2), ("1 7 6 6", 1), ("1:7 5", 2))
 progs('BAILEFUNK', ("1 6", 2), ("1 4 5 1", 1), ("1 7 6 7", 1), ("1", 4), ("6 7 1 1", 1), ("1 2", 2))
+# merengue: I - V7 (the merengue's own), I IV V7 I, I vi ii V7, I IV I V7, I ii V7 I, vi IV V7 I
+progs('MERENGUE', ("1 5:7", 1), ("1 4 5:7 1", 1), ("1 6 2 5:7", 1), ("1 4 1 5:7", 1), ("1 2 5:7 1", 1), ("6 4 5:7 1", 1))
 
 # the set genres: ladder = KICK SNARE HAT PERC BASS CHORD ARP (the kick within 15, the first in)
 setg('TECHNO', 'HARDTECHNO', (0, 50, 20, 45, 35, 60, 75))
@@ -342,24 +359,25 @@ setg('UKDRILL', 'GRIME', (5, 15, 10, 50, 25, 45, 70), half_time=1)
 setg('HARDCORE', 'HARDTECHNO', (0, 35, 15, 55, 20, 40, 70))
 setg('PHONK', 'UKDRILL', (0, 20, 15, 45, 10, 55, 30), half_time=1)        # the cowbell riff (ARP) comes early
 setg('BAILEFUNK', 'REGGAETON', (0, 25, 30, 10, 20, 60, 70), afro=1)
+setg('MERENGUE', 'BATIDA', (0, 40, 5, 10, 25, 35, 55), afro=1)       # the kick, then the guira and the tambora
 
 GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
           'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
-          'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK']
+          'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
 SHOWN = ['TECHNO', 'HARDTECHNO', 'DUB TECHNO', 'HOUSE', 'UK GARAGE', 'UK FUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
          'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENT', 'ELECTRO', 'DRUM+BASS', 'AFRO HOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
-         'UK DRILL', 'HARDCORE', 'PHONK', 'BAILE FUNK']
+         'UK DRILL', 'HARDCORE', 'PHONK', 'BAILE FUNK', 'MERENGUE']
 # the SQ_GENRE_* names of sagga_beats.h, in this order (the enum is written by hand there: keep the two together)
 ENUM = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKG', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
         'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
-        'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK']
+        'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
 FUNCS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP']
 DRUMS = FUNCS[:4]
 WANT = dict(KICK=4, SNARE=4, HAT=4, PERC=4, BASS=3, CHORD=2, ARP=2)
 # the four-bar kicks the library must have (the genres that live on four-bar phrases)
 WANT64 = ['TECHNO', 'HOUSE', 'UKGARAGE', 'JUNGLE', 'DNB', 'UKDRILL', 'HARDCORE']
 assert list(D) == GENRES, list(D)
-assert len(GENRES) == len(SHOWN) == len(ENUM) == 24
+assert len(GENRES) == len(SHOWN) == len(ENUM) == 25
 ok = True
 for gn in GENRES:
     for fn in FUNCS:

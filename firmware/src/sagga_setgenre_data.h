@@ -27,4 +27,5 @@ static const sq_set_genre_t SET_GENRE[SQ_SET_GENRES] = {
     { "HARDCORE",   21u /* HARDCORE     */,  1u /* HARDTECHNO   */, {  0u,  35u,  15u,  55u,  20u,  40u,  70u}, 50u, 0u, 0u },
     { "PHONK",      22u /* PHONK        */, 20u /* UKDRILL      */, {  0u,  20u,  15u,  45u,  10u,  55u,  30u}, 52u, 1u, 0u },
     { "BAILE FUNK", 23u /* BAILEFUNK    */, 10u /* REGGAETON    */, {  0u,  25u,  30u,  10u,  20u,  60u,  70u}, 54u, 0u, 1u },
+    { "MERENGUE",   24u /* MERENGUE     */, 11u /* BATIDA       */, {  0u,  40u,   5u,  10u,  25u,  35u,  55u}, 50u, 0u, 1u },
 };

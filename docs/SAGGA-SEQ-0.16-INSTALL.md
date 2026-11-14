@@ -1,11 +1,12 @@
 # SAGGA SEQ 0.16 - Installazione
 
-Cambia solo il firmware: i pattern dei generi entrano con il loro GROOVE, gli algoritmi si preparano prima di partire,
+Il firmware: il MERENGUE come 25° genere, i pattern dei generi entrano con il loro GROOVE, gli algoritmi si preparano prima di partire,
 l'armonia FREE, EDIT + ARP copia la progressione (`RELEASE-NOTES-0.16.md`). Il formato resta `SGQB`, slot e progetti si
 aprono come sono.
 
-* **Il Pi**: se hai già messo la 0.15 (`sagga-hub-0.15.zip`) non serve rifare niente. Se sei ancora alla 0.14, metti
-  `sagga-hub-0.16.zip` come scritto in `SAGGA-SEQ-0.15-INSTALL.md` (passo 1, con il nome nuovo dello zip).
+* **Il Pi**: metti `sagga-hub-0.16.zip` come scritto in `SAGGA-SEQ-0.15-INSTALL.md` (passo 1, con il nome nuovo dello
+  zip): porta i pattern e le progressioni del merengue e il genere nuovo nella pagina SAGGA Mod. Senza, l'FM-1 funziona
+  lo stesso, il Pi non ha le variazioni del merengue oltre le 12 dell'FM-1.
 * **L'FM-1**: FM-1 collegato al Pi e fermo, pagina `http://10.249.215.136:8090`, carica `sagga-0.16.fwsc`, **Installa**.
   Dopo il riavvio lo schermo dice `SAGGA SEQ 0.16`. (Dal PC: `py .\fm1_install.py .\sagga-0.16.fwsc`.)
 
@@ -24,3 +25,5 @@ aprono come sono.
    K1 su ON: parte quella scelta.
 8. **MIDI FX preparato**: HOME 6, K1 su ECHO (`T1 MIDI FX ECHO READY`), K2 su 4 ripetizioni: ancora niente eco. SEQ +
    bianco 6: l'eco parte con 4 ripetizioni.
+9. **Merengue**: HOME 3 la chiave in C maggiore, SEQ + PRESETS fino a `MERENGUE`, SEQ + nero 7 tenuto (BAND):
+   `MERENGUE BAND #1: 9 TRACKS`. PLAY: la cassa in quattro, la güira «cha chi-ki», la tambora, il basso che anticipa.
