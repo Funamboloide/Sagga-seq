@@ -95,7 +95,7 @@ class FakeFM1:
             return
         sub, q = p[0], p[1:]
         if sub == T.HELLO:
-            self.ans(T.HELLO, [self.state, self.booted, 0] + T.put7(self.boots, 2) + [0] * 10 + T.put7(self.ms(), 4) + [1, 0] + list(b"0.14"))
+            self.ans(T.HELLO, [self.state, self.booted, 0] + T.put7(self.boots, 2) + [0] * 10 + T.put7(self.ms(), 4) + [1, 0] + list(b"0.15"))
         elif sub == T.OPEN:
             self.opens += 1
             self.ans(T.OPEN, [1])

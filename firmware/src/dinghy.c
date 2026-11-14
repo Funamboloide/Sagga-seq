@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.14"
+#define SQ_VERSION "0.15"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -797,7 +797,10 @@ static void panic_service(void)
         panic_snd &= (uint16_t)~(1u << ch);
     }
 }
+static void link_16th(void);               /* sagga_link.c: 0.15 */
+static void link_tick(void);
 static void porta_all_off(void);           /* sagga_live3.c: 0.13 */
+static void aud_stop(void);                /* sagga_link.c: 0.15 */
 static void panic_all_x(uint8_t sound)      /* sound: All Sound Off too (the PANIC gesture, a reload) */
 {
     uint32_t t;
@@ -811,6 +814,7 @@ static void panic_all_x(uint8_t sound)      /* sound: All Sound Off too (the PAN
     panic_service();
     bend_reset();
     porta_all_off();                         /* 0.13 SLIDE: the portamento we switched on */
+    aud_stop();                              /* 0.15: what the Pi's editor plays */
 }
 static void panic_all(void) { panic_all_x(0u); }
 
@@ -869,6 +873,7 @@ static int32_t step_offset_us(uint32_t t, const sq_step_t *s, uint8_t idx, uint3
     int32_t swing = (int32_t)c->swing + lfo_mod[t][SQ_LD_SWING - 1u] + mac_swing;
     int32_t d;
     if (c->hum_time) nudge += (int32_t)(hash3(t, idx, tr[t].loop_count) % (2u * c->hum_time + 1u)) - (int32_t)c->hum_time;
+    nudge += sq_groove_time(project.ext.track[t].groove, project.ext.track[t].groove_amt, idx);   /* 0.15 GROOVE */
     d = sq_step_offset(dur, idx, (uint8_t)clamp_i32(swing, SQ_SWING_MIN, SQ_SWING_MAX),
                        (int8_t)clamp_i32(nudge, -(int32_t)SQ_NUDGE_MAX, (int32_t)SQ_NUDGE_MAX));
     if (c->delay_ms || project.live.cc_lead_ms) {           /* 0.10 DELAY: the synth's latency, ms either way; CC LEAD: the
@@ -1539,7 +1544,7 @@ static void seq_clock_tick(uint32_t now)
             if (t == selected_track) grid_dirty = 1u;
         }
     }
-    if (global_clock % 6u == 0u) { harm_tick(now); motion_tick(); }   /* 0.11: a chord that changes on this 16th moves the held notes that follow it; 0.13 MOTION */
+    if (global_clock % 6u == 0u) { harm_tick(now); motion_tick(); link_16th(); }   /* 0.11: a chord that changes on this 16th moves the held notes that follow it; 0.13 MOTION */
     global_clock++;
 }
 
@@ -1596,7 +1601,8 @@ static void fire_slice(uint32_t t, uint32_t now)
     if (fx & (1u << FX_OCTDN)) fxt -= 12;
     if (fx & (1u << FX_FIFTH)) fxt += 7;
 
-    v = (int32_t)(s->velocity ? s->velocity : 1u) + cfg->vel_offset + lfo_mod[t][SQ_LD_VEL - 1u] + mac_vel + vg_vel_adj(t) + live_vel(t, ev[t].step_index);
+    v = (int32_t)(s->velocity ? s->velocity : 1u) + cfg->vel_offset + lfo_mod[t][SQ_LD_VEL - 1u] + mac_vel + vg_vel_adj(t) + live_vel(t, ev[t].step_index)
+        + sq_groove_vel(project.ext.track[t].groove, project.ext.track[t].groove_amt, ev[t].step_index);   /* 0.15 GROOVE */
     if (cfg->hum_vel) v += (int32_t)(sq_rng_next(&sq_rng_state) % (2u * cfg->hum_vel + 1u)) - (int32_t)cfg->hum_vel;
     v = clamp_i32(v, 1, 127);
     vel = sq_ramp_velocity((uint8_t)v, s->ramp, slice_no, ev[t].ratchet_total);
@@ -3179,6 +3185,7 @@ static void handle_keys(uint32_t keys)
 static void slot_turn(int32_t d);                 /* sagga_store.c */
 static void save_turn(int32_t d);
 static void save_pressed(void);
+static void store_tap_clear(void);               /* 0.15 */
 static void save_released(uint32_t held);
 static uint8_t save_tick(void);
 static void pipat_tick(void);                     /* sagga_pipat.c: 0.11 the Pi's patterns */
@@ -3499,8 +3506,13 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
         } else if (home_page == 6u) {                                           /* 0.10 TIMING: the synth's latency; CHAIN; the tape */
             if (d1) cfg->delay_ms = (int8_t)kstep(cfg->delay_ms, d1, f1, -SQ_DELAY_MAX, SQ_DELAY_MAX);
             if (d2) chain_mode_set(selected_track, change_u8(chain_mode(selected_track), d2, 0u, 2u));   /* 0.13: OFF, PAIR, LIST */
-            if (d3) { cfg->tape.bars = (uint8_t)kstep(cfg->tape.bars, d3, 1, 1, (int32_t)SQ_TAPE_BARS_MAX); sq_tape_sanitize(&project); }
-            if (d4) cfg->tape.quant = (uint8_t)kstep(cfg->tape.quant, d4, 10, 0, 100);
+            if (track_tape(selected_track)) {                                   /* a TAPE track: its loop and quantise */
+                if (d3) { cfg->tape.bars = (uint8_t)kstep(cfg->tape.bars, d3, 1, 1, (int32_t)SQ_TAPE_BARS_MAX); sq_tape_sanitize(&project); }
+                if (d4) cfg->tape.quant = (uint8_t)kstep(cfg->tape.quant, d4, 10, 0, 100);
+            } else {                                                            /* 0.15 GROOVE: the template, how much */
+                if (d3) groove_set(selected_track, change_u8(project.ext.track[selected_track].groove, d3, 0u, SQ_GROOVES - 1u));
+                if (d4) groove_amount(selected_track, kstep(project.ext.track[selected_track].groove_amt, d4, 5 * f4, 0, 100));
+            }
         }
         if (d1 || d2 || d3 || d4) ui_dirty = grid_dirty = 1u;
     } else if ((held & (1u << BTN_EDIT)) && (held & (1u << BTN_SEL))) {   /* 0.12 EDIT + SEL: the four notes of the step, one a knob */
@@ -3828,6 +3840,7 @@ static void handle_buttons(void)
     prev_held = held;
     win_buttons(b, rel, held);                                 /* 0.12: a tap on a group button opens / closes its window */
     if ((b & (1u << BTN_EDIT)) && (held & (1u << BTN_HOME))) lights_next();   /* HOME + EDIT: the button lights */
+    if (b & (1u << BTN_SAVE)) save_pressed();                  /* (0.15: before REC: SAVE + REC pressed in one pass is a CLEAR) */
     if (b & (1u << BTN_PLAY)) {
         if (held & (1u << BTN_HOME)) {                         /* HOME + PLAY: master / slave clock */
             if (playing) transport_stop();
@@ -3846,6 +3859,7 @@ static void handle_buttons(void)
         else if (held & (1u << BTN_LFO)) learn_arm(2u, 0u, lfo_sel);        /* LFO + REC: LEARN the LFO's CC */
         else if (held & (1u << BTN_HOME)) tap_tempo();                      /* HOME + REC: tap tempo */
         else if (held & (1u << BTN_SEL)) { rec_quant ^= 1u; status_msg(rec_quant ? "REC QUANTISED" : "REC FREE (KEEPS TIMING)"); }
+        else if (held & (1u << BTN_SAVE)) { save_knob = 1u; store_tap_clear(); }        /* 0.15 SAVE + REC: clear the slot (asks twice) */
         else { rec_down_ms = fm1_ms; rec_used = 0u; }                       /* 0.12: a tap arms (at the release), a hold is TAKE */
         ui_dirty = 1u;
     }
@@ -3878,7 +3892,6 @@ static void handle_buttons(void)
         if (playing && panic_ms && (uint32_t)(fm1_ms - panic_ms) < 2000u) { transport_stop(); status_msg("PANIC: STOPPED TOO"); panic_ms = 0u; }   /* twice: the transport stops */
         else { panic_all_x(1u); status_msg(playing ? "PANIC: ALL OFF (AGAIN: STOP)" : "PANIC: ALL NOTES AND SOUND OFF"); panic_ms = fm1_ms ? fm1_ms : 1u; }
     }
-    if (b & (1u << BTN_SAVE)) save_pressed();
     if (rel & (1u << BTN_SAVE)) save_released(held);
 
     {   /* OCT- / OCT+: 0.12 the window's pages count as the button's (eh: the buttons held, the window among them) */
@@ -3938,6 +3951,7 @@ static void handle_buttons(void)
 
 #include "sagga_pick.c"                               /* 0.12: choosing with the keys, the key maps, the SEQ keys held */
 #include "sagga_store.c"
+#include "sagga_link.c"                               /* 0.15: the Pi's editor follows the music, plays what you touch */
 #include "sagga_pipat.c"
 #include "sagga_live.c"
 #include "sagga_viaggio.c"
@@ -4145,6 +4159,16 @@ static void app_host_dump(int t)
                (unsigned)nrec[0], (unsigned)nrec[1], (unsigned)nrec[2], (unsigned)nrec[3], (unsigned)porta_ch, (unsigned)lfo_sel + 1u,
                (unsigned)lx->seq_n, (unsigned)lx->seq_every, (unsigned)lx->trig);
     }
+    {   /* 0.15: the GROOVE of the track, the project's name, the slots' names, the link to the Pi's editor */
+        const sq_trackx_t *cx = &project.ext.track[t];
+        uint32_t k;
+        char nm[SQ_NAME_LEN + 1u];
+        memcpy(nm, project.ext.name, SQ_NAME_LEN); nm[SQ_NAME_LEN] = 0;
+        printf("%6u ms  v15 T%d groove %u amt %u name [%s] link %u sent %u aud %u slots", fm1_ms, t + 1, (unsigned)cx->groove, (unsigned)cx->groove_amt,
+               nm, (unsigned)link_on, (unsigned)link_sent, (unsigned)aud_n);
+        for (k = 0; k < SQ_SLOTS; k++) printf(" %u:%s[%s]", (unsigned)k + 1u, slot_info[k].ok ? "ok" : "-", slot_info[k].name);
+        printf("\n");
+    }
     {   /* 0.11: the HARMONY's progression, rhythm, mood, the track's FOLLOW way, the chord now, the player's five */
         uint32_t k, j;
         sq_hchord_t hc;
@@ -4227,6 +4251,7 @@ static void app_main(void)
         service_track_events(now);
 
         if (prev_note != SQ_NOTE_NONE && time_due(fm1_ms, prev_off_ms)) preview_stop();
+        link_tick();                                   /* 0.15: the Pi's editor: positions, what it plays */
         grid_service();
         store_service();
         live_service();

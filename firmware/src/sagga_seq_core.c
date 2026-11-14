@@ -1388,7 +1388,8 @@ void sq_ext_sanitize(sq_ext_t *x)
             if (c->chain_pat[k] >= SQ_PATTERNS) c->chain_pat[k] = 0u;
             if (c->chain_rep[k] < 1u || c->chain_rep[k] > 8u) c->chain_rep[k] = 1u;
         }
-        c->reserved[0] = c->reserved[1] = 0u;
+        if (c->groove >= SQ_GROOVES) c->groove = SQ_GROOVE_OFF;
+        if (c->groove_amt > 100u) c->groove_amt = 100u;
     }
     if (x->motion_bars != 1u && x->motion_bars != 2u && x->motion_bars != 4u) x->motion_bars = 0u;
     if (x->kb_mode >= SQ_KBS) x->kb_mode = SQ_KB_OFF;
@@ -1398,6 +1399,63 @@ void sq_ext_sanitize(sq_ext_t *x)
         for (k = 0; k < SQ_MOTION_CELLS; k++)
             if (x->motion[i][k] != (int8_t)SQ_MOTION_NONE) x->motion[i][k] = (int8_t)clampi(x->motion[i][k], LO[i], HI[i]);
     for (i = 0; i < sizeof x->reserved; i++) x->reserved[i] = 0u;
+    sq_name_sanitize(x->name, SQ_NAME_LEN);
+}
+
+void sq_name_sanitize(char *n, uint32_t len)
+{
+    static const char OK[] = " -_.+#&!'()/:";
+    uint32_t i, k = 0u, end = 0u, j;
+    for (i = 0; i < len; i++) {
+        uint8_t c = (uint8_t)n[i], ok = 0u;
+        if (c == 0u || c == 0xFFu) break;
+        if (c >= 'a' && c <= 'z') c = (uint8_t)(c - 32u);
+        if ((c >= 'A' && c <= 'Z') || (c >= '0' && c <= '9')) ok = 1u;
+        for (j = 0; !ok && OK[j]; j++) if (c == (uint8_t)OK[j]) ok = 1u;
+        if (!ok) c = '_';
+        if (c == ' ' && !k) continue;              /* (no space in front) */
+        n[k++] = (char)c;
+        if (c != ' ') end = k;
+    }
+    for (i = end; i < len; i++) n[i] = 0;          /* (nor at the end) */
+}
+
+/* ---- 0.15 GROOVE: a 16th each, the bar's 16 */
+static const char *const GROOVE_NAME[SQ_GROOVES] = {"OFF", "HOUSE", "GARAGE", "DILLA", "AFRO", "SAMBA", "LAID BACK", "PUSH", "HUMAN", "TRAP"};
+static const int8_t GROOVE_T[SQ_GROOVES][16] = {
+    {0},
+    {0, 6, 2, 6, 0, 6, 2, 6, 0, 6, 2, 6, 0, 6, 2, 6},                              /* HOUSE: the 16ths a touch late */
+    {0, 28, 0, 22, 0, 30, 0, 24, 0, 28, 0, 22, 0, 30, 0, 24},                      /* GARAGE: the 2-step shuffle */
+    {0, 20, -10, 14, 6, 24, -12, 16, 0, 18, -8, 12, 8, 26, -14, 18},               /* DILLA: drunk, never twice the same */
+    {0, 4, -2, 6, 2, 4, 0, 8, 0, 4, -2, 6, 2, 4, 0, 8},                            /* AFRO: 3 + 3 + 2, pushed */
+    {0, -8, 2, -12, 0, -8, 2, -12, 0, -8, 2, -12, 0, -8, 2, -12},                  /* SAMBA: the second and fourth 16th early */
+    {0, 10, 8, 14, 0, 10, 8, 14, 0, 10, 8, 14, 0, 10, 8, 14},                      /* LAID BACK: behind the beat */
+    {0, -6, -8, -12, 0, -6, -8, -12, 0, -6, -8, -12, 0, -6, -8, -12},              /* PUSH: ahead of it */
+    {0, 3, -2, 4, -3, 2, 1, -4, 2, -1, 3, -2, 0, 4, -3, 1},                        /* HUMAN: a player's small misses */
+    {0, 2, 0, 4, 0, 2, 0, 4, 0, 2, 0, 4, 0, 2, 0, 4},                              /* TRAP: tight, the accents do it */
+};
+static const int8_t GROOVE_V[SQ_GROOVES][16] = {
+    {0},
+    {6, -14, 10, -12, 6, -14, 10, -12, 6, -14, 10, -12, 6, -14, 10, -12},
+    {8, -18, 2, -12, 8, -18, 2, -12, 8, -18, 2, -12, 8, -18, 2, -12},
+    {8, -16, -2, -10, 4, -18, 0, -8, 8, -14, -4, -12, 2, -20, 2, -6},
+    {12, -10, -8, 10, -10, -6, 10, -8, 12, -10, -8, 10, -10, -6, 10, -8},
+    {10, -12, -4, 8, 10, -12, -4, 8, 10, -12, -4, 8, 10, -12, -4, 8},
+    {4, -10, -2, -8, 4, -10, -2, -8, 4, -10, -2, -8, 4, -10, -2, -8},
+    {6, -8, 0, 8, 6, -8, 0, 8, 6, -8, 0, 8, 6, -8, 0, 8},
+    {4, -6, 2, -4, 3, -5, 1, -3, 5, -6, 2, -4, 2, -5, 3, -2},
+    {14, -20, 4, -16, 14, -20, 4, -16, 14, -20, 4, -16, 14, -20, 4, -16},
+};
+const char *sq_groove_name(uint8_t g) { return GROOVE_NAME[g < SQ_GROOVES ? g : 0u]; }
+int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step)
+{
+    if (g >= SQ_GROOVES || !amt) return 0;
+    return ((int32_t)GROOVE_T[g][step & 15u] * (int32_t)(amt > 100u ? 100u : amt)) / 100;
+}
+int32_t sq_groove_vel(uint8_t g, uint8_t amt, uint32_t step)
+{
+    if (g >= SQ_GROOVES || !amt) return 0;
+    return ((int32_t)GROOVE_V[g][step & 15u] * (int32_t)(amt > 100u ? 100u : amt)) / 100;
 }
 
 uint32_t sq_rseq_ticks(uint8_t every)
@@ -2194,7 +2252,7 @@ static void rd_get(rd_t *r, void *dst, uint32_t n)
 typedef char sq_step_is_18_bytes[(sizeof(sq_step_t) == 18u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 96u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 780u && sizeof(sq_ext_t) % 4u == 0u) ? 1 : -1];
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 796u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014) ? 1 : -1];
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
 

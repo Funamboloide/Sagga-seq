@@ -133,8 +133,12 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
         } else {
             if (k == 0u) PK(PK_NONE, 0, 0, 1, cfg->delay_ms);
             if (k == 1u) PK(PK_LIST, 0, 2, 1, chain_mode(t));
-            if (k == 2u) PK(PK_COUNT, 1, SQ_TAPE_BARS_MAX, 1, cfg->tape.bars);
-            PK(PK_PCT, 0, 100, 10, cfg->tape.quant);
+            if (track_tape(t)) {
+                if (k == 2u) PK(PK_COUNT, 1, SQ_TAPE_BARS_MAX, 1, cfg->tape.bars);
+                PK(PK_PCT, 0, 100, 10, cfg->tape.quant);
+            }
+            if (k == 2u) PK(PK_LIST, 0, SQ_GROOVES - 1, 1, project.ext.track[t].groove);   /* 0.15 GROOVE */
+            PK(PK_PCT, 0, 100, 5, project.ext.track[t].groove_amt);
         }
     } else if (g == PG_GLO) {
         if (pg == 1u) {
@@ -441,7 +445,7 @@ static uint8_t pick_map_any(uint32_t held, char *l1, char *l2)
     int g = pick_group(held);
     const char *a = 0, *b = 0;
     if (g >= 0 && !(held & (1u << BTN_SAVE))) { pick_map_lines(g, l1, l2); return 1u; }
-    if (held & (1u << BTN_SAVE)) { a = "W1-8 SLOT W16 JOURNEY B SNAPS"; b = "SEL+B STORE  B9 CAPT 10 SEND"; }
+    if (held & (1u << BTN_SAVE)) { a = "W1-8 SLOT W16 JOURNEY REC CLR"; b = "B SNAP SEL+B STORE 9CAP 10SND"; }
     else if (held & (1u << BTN_FX)) { a = "W: FX  B: LOOPS RESTART STOP"; b = "B11 EXIT  SEL+K: THROWS"; }
     else if (held & (1u << BTN_SEL)) { a = "KEYS: STEP NOTE  OCT: OCTAVE"; b = "SEL+GLO: VIAGGIO SEL+PLAY: GO"; }
     if (!a) return 0u;

@@ -1,4 +1,4 @@
-# SAGGA HUB 0.1.1 (0.13: il BREAK IN SLICE; 0.14: l'editor dei progetti): la libreria firmware e i progetti su RaspiMIDIHub; l'expander dell'FM-1 (moduli pronti + software)
+# SAGGA HUB 0.1.1 (0.13: il BREAK IN SLICE; 0.14: l'editor dei progetti; 0.15: nome, Tape, segui e ascolta): la libreria firmware e i progetti su RaspiMIDIHub; l'expander dell'FM-1 (moduli pronti + software)
 
 È un'aggiunta a RaspiMIDIHub, su qualunque Pi: la pagina web con i firmware dell'FM-1 (li carichi, li installi) e i
 progetti esportati dal grid, il bridge dei Launchpad, l'M8 link e, volendo, una porta USB-MIDI verso il computer.
@@ -59,6 +59,15 @@ vuoto con il nome che scrivi) e **Ricevi dall'FM-1** (quello che l'FM-1 ha adess
 `sagga_sgqjson`, compilato sul Pi dallo stesso codice del firmware: l'editor non può fare un progetto che l'FM-1 non
 prende. Con il bridge del grid acceso l'hub chiede a lui (ha la porta dell'FM-1, file in `/run/sagga`); senza, usa
 `sagga_grid_bridge.py --export / --import`.
+
+0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
+quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:
+tocchi il vuoto e c'è una nota da un sedicesimo, la trascini per spostarla, dal bordo destro la allunghi, Canc la toglie;
+battute e quantize del loop sulla stessa riga. Nella scheda **Traccia** il **GROOVE** (il template e quanto). In alto:
+**segui l'FM-1** (mentre suona, lo step di ogni traccia ha una cornice bianca, il Tape una linea che corre) e
+**ascolta** (lo step che accendi, la nota del roll che tocchi la suona l'FM-1 su quella traccia; nello step c'è anche
+**♪ ascolta**). Segui e ascolta passano dal bridge del grid: deve essere acceso, con l'FM-1 collegato. Dalla 0.15 il
+bridge gira anche senza i Launchpad (per la libreria e l'editor) e riparte da solo, col grid, quando li attacchi.
 
 ## BREAK IN SLICE (0.13)
 

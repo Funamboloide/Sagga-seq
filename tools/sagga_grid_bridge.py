@@ -847,13 +847,20 @@ class Control:
     """0.14: the hub's web editor (tools/hub/sagga_editor.py) asks the running bridge - it holds the FM-1's port - for
     the FM-1's project into a file of the library (export) or a file of the library into the FM-1 (import). It writes
     CONTROL_DIR/bridge-req.json ({"id", "op", "file"}); the bridge answers in bridge-ans-<id>.json ({"id", "ok", "msg"})
-    and touches bridge-alive every second (the hub uses the bridge only while that is fresh)."""
+    and touches bridge-alive every second (the hub uses the bridge only while that is fresh).
+    0.15, the editor follows the music and plays what it touches: while CONTROL_DIR/pos-want is fresh (the page asks
+    the hub for positions), the bridge asks the FM-1 for them (SysEx 30) and writes each one that comes (31) into
+    pos.json; bridge-preview.json ({"t", "notes", "vel", "gate", "tape"}) becomes a PREVIEW for the FM-1 (32)."""
     TIMEOUT = 12.0
+    POS_WANT = 5.0                               # 0.15: pos-want younger than this: the positions are asked for
+    POS_RENEW = 2.0                              # ... again this often (the FM-1 stops after 6 s without)
 
     def __init__(self, lib, folder=CONTROL_DIR, log=print):
         self.lib, self.folder, self.log = lib, folder, log
         self.job = None                          # (id, op, deadline, the count it waits past)
         self.alive_at = self.poll_at = -1e9
+        self.pos_on, self.pos_at, self.pos_check_at, self.prev_at = False, -1e9, -1e9, -1e9   # 0.15
+        self.pos_n = self.preview_n = 0
         try:
             os.makedirs(self.folder, exist_ok=True)
         except OSError as e:
@@ -889,7 +896,59 @@ class Control:
         else:
             self._answer(rid, False, "op %r" % op)
 
+    # ---- 0.15: positions and previews
+    def fm1_sysex(self, raw, now):
+        """a position from the FM-1 (31) into pos.json; True if it was one"""
+        raw = list(raw)
+        if raw[:5] != SX_HEAD + [SX_POS] or len(raw) < 5 + 8 + 32 + 1:
+            return False
+        b = raw[5:-1]
+        d = dict(playing=b[0], scene=b[1], song=-1 if b[2] == 127 else b[2], clock=get7(b[3:6]), bpm=get7(b[6:8]),
+                 steps=[b[8 + 2 * t] for t in range(16)], pats=[b[9 + 2 * t] for t in range(16)], at=round(time.time(), 3))
+        try:
+            p = os.path.join(self.folder, "pos.json")
+            with open(p + ".part", "w") as f:
+                f.write(json.dumps(d))
+            os.replace(p + ".part", p)
+            self.pos_n += 1
+        except OSError:
+            pass
+        return True
+
+    def _pos_tick(self, now):
+        if now - self.pos_check_at < 0.5:
+            return
+        self.pos_check_at = now
+        try:
+            want = time.time() - os.path.getmtime(os.path.join(self.folder, "pos-want")) < self.POS_WANT
+        except OSError:
+            want = False
+        if want and (not self.pos_on or now - self.pos_at >= self.POS_RENEW):
+            self.lib.send(SX_HEAD + [SX_POS_SUB, 1, 0xF7])
+            self.pos_on, self.pos_at = True, now
+        elif not want and self.pos_on:
+            self.lib.send(SX_HEAD + [SX_POS_SUB, 0, 0xF7])
+            self.pos_on = False
+
+    def _preview_tick(self, now):
+        if now - self.prev_at < 0.02:
+            return
+        self.prev_at = now
+        p = os.path.join(self.folder, "bridge-preview.json")
+        try:
+            with open(p) as f:
+                req = json.loads(f.read())
+            os.unlink(p)
+        except (OSError, ValueError):
+            return
+        frame = preview_frame(req)
+        if frame:
+            self.lib.send(frame)
+            self.preview_n += 1
+
     def tick(self, now):
+        self._pos_tick(now)
+        self._preview_tick(now)
         if now - self.alive_at >= 1.0:
             self.alive_at = now
             try:
@@ -928,6 +987,22 @@ class Control:
             return
         if isinstance(data, dict):
             self._start(data, now)
+
+
+SX_POS_SUB, SX_POS, SX_PREVIEW = 0x30, 0x31, 0x32      # 0.15 (firmware/src/sagga_link.c)
+
+
+def preview_frame(req):
+    """{"t", "notes", "vel", "gate" (10 ms), "tape"} as the FM-1's PREVIEW: 32 T VEL GATE FLAGS N NOTE*N; None if it
+    is not one"""
+    try:
+        t, notes = int(req.get("t")), [int(n) for n in req.get("notes", [])][:4]
+        vel, gate, tape = int(req.get("vel", 100)), int(req.get("gate", 25)), 1 if req.get("tape") else 0
+    except (TypeError, ValueError, AttributeError):
+        return None
+    if not 0 <= t < 16 or not notes or any(not 0 <= n < 128 for n in notes):
+        return None
+    return SX_HEAD + [SX_PREVIEW, t, max(1, min(127, vel)), max(1, min(100, gate)), tape, len(notes)] + notes + [0xF7]
 
 
 # ----------------------------------------------------------------------------------------------- 0.11 the patterns
@@ -1552,7 +1627,14 @@ def main(argv=None):
     if a.export is not None or a.import_file:
         return one_shot(a, mido, ins, outs)
 
-    pairs = plan_ports(ins, outs, a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
+    try:
+        pairs = plan_ports(ins, outs, a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
+    except SystemExit as e:                      # 0.15: no grid: the FM-1's side still runs (the library, the editor's
+        if a.identify:                           # positions and previews); two Launchpads plugged in: a restart with them
+            raise
+        print("no grid (%s): the bridge runs for the library and the editor; it restarts when two Launchpads are there" % e, file=sys.stderr)
+        pairs = []
+    headless, grid_check_at = not pairs, 0.0
     q = queue.Queue()
     opened = []
     lp_out = []
@@ -1577,7 +1659,8 @@ def main(argv=None):
     watch = PortWatch(watched)
 
     def send_lp(idx, msg):
-        lp_out[idx].send(mido.Message.from_bytes(msg))
+        if idx < len(lp_out):
+            lp_out[idx].send(mido.Message.from_bytes(msg))
 
     def send_fm1(msg):
         if fm1_out is not None:
@@ -1650,7 +1733,7 @@ def main(argv=None):
                     print("pad pressed on the %s Launchpad (columns %s)" % (("left", "right")[idx ^ a.swap], ("1-8", "9-16")[idx ^ a.swap]))
             elif kind == "fm1" and raw and raw[0] == 0xF0:          # SysEx: the library, a project the FM-1 exports
                 if not keeper.fm1_sysex(raw, now) and not regista.fm1_sysex(raw, now) and not (patterns and patterns.fm1_sysex(raw, now)) \
-                        and not (progs and progs.fm1_sysex(raw, now)):
+                        and not (progs and progs.fm1_sysex(raw, now)) and not control.fm1_sysex(raw, now):
                     lib.fm1_sysex(raw, now)                                  # (a snapshot's patches, the regista, 0.11 the patterns, the progressions)
             elif kind == "syn":
                 keeper.synth_in(port, raw)
@@ -1663,6 +1746,13 @@ def main(argv=None):
             gone = watch.check(now)
             if gone:
                 raise RuntimeError(gone)
+            if headless and now >= grid_check_at:          # 0.15: the Launchpads came: start again, with them
+                grid_check_at = now + 3.0
+                try:
+                    plan_ports(mido.get_input_names(), mido.get_output_names(), a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
+                    raise RuntimeError("two Launchpads are here now: again with the grid")
+                except SystemExit:
+                    pass
     except KeyboardInterrupt:
         pass
     except Exception as e:                       # a Launchpad or the FM-1 went away: stop, so that a service restarts us

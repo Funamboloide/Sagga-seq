@@ -6,6 +6,7 @@ the MIDI the firmware sends is read back from the log and checked.
 
     python3 tests/sagga_sim_tests.py            (from the repository root)
 """
+import json
 import os
 import re
 import subprocess
@@ -6218,7 +6219,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.14", "HELLO: nothing asked yet, a normal boot, 0.14 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.15", "HELLO: nothing asked yet, a normal boot, 0.15 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -6804,6 +6805,269 @@ def t013_chain():
           "after a power cycle: the CHAIN LIST, the KEYBOARD, MIDI IN (%s)" % v[:1])
 
 
+# ------------------------------------------------------------------------------------------------ 0.15
+V15 = re.compile(r"^\s*(\d+) ms  v15 T(\d+) groove (\d+) amt (\d+) name \[([^\]]*)\] link (\d+) sent (\d+) aud (\d+) slots((?: \d+:(?:ok|-)\[[^\]]*\])*)$", re.M)
+
+
+def v15s(log):
+    """the 0.15 'v15' lines of the dumps: the track's GROOVE, the project's name, the link to the Pi's editor, the slots and their names"""
+    return [dict(t=int(m.group(1)), track=int(m.group(2)), groove=int(m.group(3)), amt=int(m.group(4)), name=m.group(5), link=int(m.group(6)),
+                 sent=int(m.group(7)), aud=int(m.group(8)),
+                 slots={int(a): (ok == "ok", nm) for a, ok, nm in re.findall(r"(\d+):(ok|-)\[([^\]]*)\]", m.group(9))})
+            for m in V15.finditer(log.text)]
+
+
+_SGQJSON = [None]
+
+
+def sgq_image(lines):
+    """a project image made by the editor's converter (the firmware's core) from a patch over a new project"""
+    if _SGQJSON[0] is None:
+        out = os.path.join(tempfile.mkdtemp(), "sagga_sgqjson")
+        subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/sgqmid/sagga_sgqjson.c",
+                        ROOT + "/firmware/src/sagga_seq_core.c", ROOT + "/firmware/src/sagga_beats.c", "-o", out], check=True)
+        _SGQJSON[0] = out
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "p.txt"), "w") as f:
+        f.write("\n".join(lines) + "\n")
+    subprocess.run([_SGQJSON[0], "apply", "new", os.path.join(d, "p.txt"), os.path.join(d, "o.sgq")], check=True)
+    return open(os.path.join(d, "o.sgq"), "rb").read()
+
+
+def name_lines(text):
+    return ["ext - name %d %d" % (i, ord(text[i]) if i < len(text) else 0) for i in range(16)]
+
+
+def sx_import(s, t, image):
+    """the image sent in as the bridge sends it (chunks, the end), a frame every 25 ms; returns the time after"""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import sagga_grid_bridge as B
+    for fr in B.dump_frames(image):
+        s.at(t, "sx", " ".join("%02X" % b for b in fr[1:-1]))
+        t += 25
+    return t + 100
+
+
+def slot_headers(flash, slot):
+    """the areas of the flash whose header names that slot (1-8)"""
+    import struct
+    data = open(flash, "rb").read()
+    out = []
+    for a in range(9):
+        h = struct.unpack_from("<5I", data, 0x97000 + a * 0x8000)
+        if h[0] == 0x4C534753 and h[4] == slot - 1:
+            out.append(a)
+    return out
+
+
+def t015_names_clear():
+    group("0.15 the project's name (from the Pi's editor) on the SAVE screen, in the slot's header, at LOAD; SAVE + REC twice clears a slot")
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    s = Script()
+    t = s.steps(100, [0])
+    s.tap_btn(t + 100, SAVE); s.tap_btn(t + 400, SAVE)                                    # slot 1: a project with no name
+    t = sx_import(s, t + 1500, sgq_image(name_lines("Notte in citta") + ["project - bpm - 100"]))
+    s.at(t, "dump", 0)
+    s.press(t + 100, SAVE); s.enc(t + 130, E_PRE, 1); s.release(t + 200, SAVE)              # slot 2 (that asks to save)
+    s.tap_btn(t + 400, SAVE)                                                              # saved
+    s.press(t + 4000, SAVE); s.at(t + 4100, "ui"); s.release(t + 4200, SAVE)              # (the release asks: it lapses)
+    s.at(t + 4300, "dump", 0)
+    log = run(s, t + 4400, flash)
+    v = v15s(log)
+    check(v and v[0]["name"] == "NOTTE IN CITTA" and v[-1]["slots"][2] == (True, "NOTTE IN CITTA") and v[-1]["slots"][1] == (True, ""),
+          "an imported project keeps its name; saved, the slot's header has it (%s)" % [(x["name"], x["slots"]) for x in v])
+    check([sl for _, sl, _ in log.saves] == [1, 2], "slots 1 and 2 saved (%s)" % log.saves)
+    sc = log.screens()
+    check(sc and sc[0]["lines"][3] == "SLOT 2: NOTTE IN CITTA" and sc[0]["lines"][4].startswith("NOW: NOTTE IN CITTA"),
+          "SAVE held: the slot's name and the project's (%s)" % (sc[0]["lines"][3:5] if sc else sc))
+    # a power cycle: the names are read from the headers; slot 1 has none; LOAD says the name
+    s = Script()
+    s.at(200, "dump", 0)
+    s.press(300, SAVE); s.enc(330, E_PRE, -1); s.release(400, SAVE)                      # slot 1 (asks to save: it lapses)
+    s.press(4000, SAVE); s.at(4100, "ui"); s.release(4200, SAVE)                          # (asks again: lapses)
+    s.press(7500, SAVE); s.enc(7530, E_PRE, 1); s.release(7600, SAVE)                    # slot 2 (asks: lapses)
+    s.press(11000, HOME); s.tap_btn(11020, SAVE); s.release(11100, HOME); s.at(11150, "dump", 0)
+    s.press(11300, HOME); s.tap_btn(11320, SAVE); s.release(11400, HOME); s.at(11450, "dump", 0)
+    log = run(s, 11600, flash)
+    v = v15s(log)
+    sc = log.screens()
+    st = [x["msg"] for x in log.states]
+    check(v and v[0]["name"] == "NOTTE IN CITTA" and v[0]["slots"][2] == (True, "NOTTE IN CITTA"), "power-up: the newest slot, with its name (%s)" % v[:1])
+    check(sc and sc[0]["lines"][3] == "SLOT 1: NO NAME" and sc[0]["lines"][4].startswith("NOW: NOTTE IN CITTA"), "a slot saved without a name: NO NAME (%s)" % (sc[0]["lines"][3:5] if sc else sc))
+    check(st[1:] == ["LOAD SLOT 2 NOTTE IN CITTA: HOME+SAVE AGAIN", "LOADED SLOT 2: NOTTE IN CITTA"] and not log.saves, "LOAD asks and says the name (%s)" % st)
+    # SAVE + REC: asks, again clears; the project stays; REC is not armed; an empty slot, a playing FM-1: told
+    s = Script()
+    s.press(4000, SAVE); s.tap_btn(4030, REC); s.release(4100, SAVE); s.at(4150, "dump", 0)     # slot 2 (the one loaded at power-up)
+    s.press(4300, SAVE); s.tap_btn(4330, REC); s.release(4400, SAVE); s.at(4450, "dump", 0); s.at(4460, "leds")
+    s.press(6000, SAVE); s.at(6100, "ui"); s.release(6200, SAVE)                          # (asks to save: lapses)
+    s.press(6500, SAVE); s.tap_btn(6530, REC); s.release(6600, SAVE); s.at(6650, "dump", 0)     # slot 2 again: empty now
+    s.press(7000, SAVE); s.enc(7030, E_PRE, -1); s.release(7100, SAVE)                   # slot 1 (asks: lapses)
+    s.tap_btn(10500, PLAY)
+    s.press(10800, SAVE); s.tap_btn(10830, REC); s.release(10900, SAVE); s.at(10950, "dump", 0)  # playing
+    s.tap_btn(11300, PLAY)
+    log = run(s, 12000, flash)
+    st = [x["msg"] for x in log.states]
+    v = v15s(log)
+    check(st[:2] == ["CLEAR SLOT 2 NOTTE IN CITTA: SAVE+REC AGAIN", "SLOT 2 CLEARED: THE PROJECT YOU HAVE STAYS"], "SAVE + REC asks, again clears (%s)" % st[:2])
+    check(len(v) > 1 and v[1]["slots"][2] == (False, "") and v[1]["name"] == "NOTTE IN CITTA" and v[1]["slots"][1] == (True, ""),
+          "slot 2 empty, the project in the FM-1 untouched, slot 1 there (%s)" % v[1:2])
+    check(st[2:] == ["NOTHING TO CLEAR: EMPTY SLOT 2", "CLEAR A SLOT: STOP FIRST"], "an empty slot, a playing FM-1: told, nothing done (%s)" % st[2:])
+    bl = log.btn_leds()
+    check(bl and bl[0][1][REC] == "." and not slot_headers(flash, 2) and slot_headers(flash, 1), "REC not armed (%s); no header names slot 2 any more; slot 1's is there" % (bl[:1]))
+    check("ERASE WHILE PLAYING" not in log.text and not log.saves, "nothing erased while playing; nothing saved")
+    sc = log.screens()
+    check(sc and sc[0]["lines"][3] == "SLOT 2: EMPTY", "the screen: SLOT 2: EMPTY (%s)" % (sc[0]["lines"][3:4] if sc else sc))
+    s = Script()
+    s.at(200, "dump", 0)
+    s.tap_btn(300, PLAY)
+    log = run(s, 2400, flash)
+    v = v15s(log)
+    check(v and v[0]["slots"][2] == (False, "") and v[0]["name"] == "" and log.notes(ch=0), "after a power cycle slot 2 stays empty: slot 1 is loaded (%s)" % v[:1])
+    # two copies of a slot (saved twice while playing: the old one is not erased then) are both cleared
+    s = Script()
+    t = s.steps(100, [0])
+    s.press(t, SAVE); s.enc(t + 30, E_PRE, 2); s.release(t + 100, SAVE)                   # slot 3
+    s.tap_btn(t + 4000, PLAY)
+    s.tap_btn(t + 4300, SAVE); s.tap_btn(t + 4600, SAVE)
+    s.tap_btn(t + 5300, SAVE); s.tap_btn(t + 5600, SAVE)
+    s.tap_btn(t + 6400, PLAY)
+    s.press(t + 6420, SAVE); s.tap_btn(t + 6440, REC); s.release(t + 6500, SAVE)
+    s.press(t + 6800, SAVE); s.tap_btn(t + 6820, REC); s.release(t + 6900, SAVE); s.at(t + 6950, "dump", 0)
+    log = run(s, t + 7200, flash)
+    v = v15s(log)
+    check(len(log.saves) == 2 and v and v[0]["slots"][3] == (False, "") and not slot_headers(flash, 3), "a slot saved twice, cleared: no copy of it left (%s %s)" % (log.saves, slot_headers(flash, 3)))
+
+
+def t015_groove():
+    group("0.15 GROOVE (HOME 7 K3 / K4 on a track that is not TAPE): each 16th early or late, louder or softer; PICK; saved")
+    def run_groove(encs):
+        s = Script()
+        t = s.steps(100, list(range(16)))
+        t = home_page(s, t, 6, encs)
+        s.at(t, "dump", 0)
+        s.press(t, HOME); s.at(t + 50, "ui"); s.release(t + 100, HOME); t += 200
+        s.tap_btn(t, PLAY)
+        log = run(s, t + int(BAR_MS) + 200)
+        n = log.notes(ch=0, after=t)
+        return log, [(round((x - n[0][0]) / STEP_MS * 100) - 100 * i, v) for i, (x, _, v) in enumerate(n[:16])]
+    log, n0 = run_groove([])
+    check(all(abs(d) <= 2 for d, _ in n0) and all(v == n0[0][1] for _, v in n0), "no GROOVE: the 16ths straight, one velocity (%s)" % n0[:4])
+    log, n = run_groove([(K3, 2)])                                                        # GARAGE, 100 % (chosen at 0 %: all of it)
+    v = v15s(log)
+    sc = log.screens()
+    want = [0, 28, 0, 22, 0, 30, 0, 24] * 2
+    check(v and v[0]["groove"] == 2 and v[0]["amt"] == 100 and all(abs(d - w) <= 2 for (d, _), w in zip(n, want)), "GARAGE: the 2-step shuffle (%s)" % [d for d, _ in n])
+    check(sc and sc[0]["cells"][2][0].endswith("GROOVE") and sc[0]["cells"][2][1] == "GARAGE" and sc[0]["cells"][3] == ("GROOVE AMT", "100%"), "HOME 7: GROOVE, GROOVE AMT (%s)" % (sc[0]["cells"][2:] if sc else sc))
+    vel = [x for _, x in n]
+    check(vel[1] < vel[0] and vel[3] < vel[2] < vel[0], "... softer off the beat (%s)" % vel[:4])
+    log, n = run_groove([(K3, 2), (K4, -10)])                                             # 50 %
+    check(all(abs(d - w // 2) <= 2 for (d, _), w in zip(n, want)), "GROOVE AMT 50 %%: half of it (%s)" % [d for d, _ in n])
+    log, n = run_groove([(K3, 9)])                                                        # TRAP: the accents
+    b = n[0][1] - 14
+    check([x - b for _, x in n[:4]] == [14, -20, 4, -16], "TRAP: the velocities %s" % [x for _, x in n[:4]])
+    # PICK: HOME 7, black 11 twice (the focus on K3), SEL + white 4 = the 4th template
+    s = Script()
+    t = home_page(s, 100, 6, [])
+    s.press(t, HOME); s.press(t + 30, SEL)
+    s.tap_key(t + 60, bk(10)); s.tap_key(t + 140, bk(10)); s.tap_key(t + 220, wk(3))
+    s.release(t + 300, SEL); s.release(t + 330, HOME)
+    s.at(t + 400, "dump", 0)
+    v = v15s(run(s, t + 500))
+    check(v and v[0]["groove"] == 3 and v[0]["amt"] == 100, "PICK: SEL + white 4 = DILLA (%s)" % v[:1])
+    # a TAPE track: K3 / K4 are its loop and quantise, as before
+    s = Script()
+    t = home_page(s, 100, 3, [(K1, 3)])                                                   # TAPE
+    t = home_page(s, t, 6, [(K3, 2), (K4, 2)])
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    v = v15s(log)
+    tp = log.tapes[-1] if log.tapes else None
+    check(v and v[0]["groove"] == 0 and tp and tp["bars"] == 6 and tp["quant"] == 20, "a TAPE track: K3 its bars, K4 its quantise, no GROOVE (%s %s)" % (v[:1], tp))
+    # saved with the project
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    s = Script()
+    t = home_page(s, 100, 6, [(K3, 4), (K4, -4)])                                         # AFRO 80 %
+    s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE)
+    run(s, t + 1500, flash)
+    s = Script(); s.at(300, "dump", 0)
+    v = v15s(run(s, 400, flash))
+    check(v and v[0]["groove"] == 4 and v[0]["amt"] == 80, "after a power cycle: AFRO 80 %% (%s)" % v[:1])
+
+
+def t015_link():
+    group("0.15 the Pi's editor: positions while asked (SysEx 30 / 31), the notes it asks to hear (32)")
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import sagga_grid_bridge as B
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    s.at(t + 100, "sx", "7D 53 47 30 01")                                                 # asked
+    s.tap_btn(t + 300, PLAY)
+    p = t + 300
+    s.at(p + int(BAR_MS) + 50, "dump", 0)
+    s.tap_btn(p + int(1.5 * BAR_MS), PLAY)
+    s.at(p + int(1.6 * BAR_MS), "sx", "7D 53 47 30 00")                                   # not any more
+    s.tap_btn(p + int(1.8 * BAR_MS), PLAY)
+    log = run(s, p + int(2.5 * BAR_MS))
+    pos = [(tm, m) for tm, m in log.sysex if m[:5] == [0xF0, 0x7D, 0x53, 0x47, 0x31]]
+    playing = [(tm, m) for tm, m in pos if m[5] == 1]
+    check(pos and pos[0][0] < p and pos[0][1][5] == 0 and len(pos[0][1]) == 5 + 3 + 3 + 2 + 32 + 1, "asked: where it is, at once (%d bytes)" % (len(pos[0][1]) if pos else 0))
+    gaps = [b - a for (a, _), (b, _) in zip(playing, playing[1:])]
+    check(len(playing) >= 20 and all(near(g, STEP_MS, 3) for g in gaps[1:]), "playing: one every 16th (%d, %s)" % (len(playing), gaps[:4]))
+    lib = type("L", (), {"send": lambda self, m: None, "sender": None})()
+    d = tempfile.mkdtemp()
+    ctl = B.Control(lib, folder=d, log=lambda x: None)
+    six = [m for _, m in playing if B.get7(m[8:11]) == 30]
+    ok = bool(six) and ctl.fm1_sysex(six[0], 0.0)
+    j = json.load(open(os.path.join(d, "pos.json"))) if ok else {}
+    check(ok and j["playing"] == 1 and j["bpm"] == BPM and j["steps"][0] == 5 and j["pats"][0] == 0,
+          "the bridge reads it: at the 6th 16th (clock 30) T1 plays its step 6, 128 BPM (%s)" % ({k: j[k] for k in ("clock", "bpm", "steps")} if j else six[:1]))
+    check(len([m for _, m in pos if B.get7(m[8:11]) == 0 and m[5] == 1]) == 1, "START: one position for the 16th it starts on")
+    stop = [tm for tm, m in pos if m[5] == 0 and tm > p]
+    check(stop and near(stop[0], p + 1.5 * BAR_MS, 40), "at STOP: where it stopped (%s)" % stop[:1])
+    check(not [tm for tm, m in pos if tm > p + 1.6 * BAR_MS + 20], "not asked any more: none, playing or not")
+    v = v15s(log)
+    check(v and v[0]["link"] == 1 and v[0]["sent"] >= 16, "the dump: asked, sent (%s)" % v[:1])
+    # six seconds without being asked again: it stops by itself
+    s = Script()
+    s.at(100, "sx", "7D 53 47 30 01")
+    s.tap_btn(200, PLAY)
+    log = run(s, 9000)
+    pos = [tm for tm, m in log.sysex if m[:5] == [0xF0, 0x7D, 0x53, 0x47, 0x31]]
+    check(pos and max(pos) < 6300 and max(pos) > 5800, "not asked again: it stops after 6 s (last at %d ms)" % (max(pos) if pos else 0))
+    # nobody asked: no SysEx
+    s = Script()
+    s.tap_btn(200, PLAY)
+    log = run(s, 2000)
+    check(not [m for _, m in log.sysex if m[4:5] == [0x31]], "nobody asked: no positions")
+    # PREVIEW: a step's notes on the track's channel, as the track plays them (its key, its CHORD); a TAPE note; gone after GATE
+    s = Script()
+    t = home_page(s, 100, 0, [(K1, 2)])                                                   # T1 on channel 3
+    s.at(t, "sx", "7D 53 47 32 00 50 14 00 02 3C 40")                                      # T1 vel 80, 200 ms, C4 E4
+    t = home_page(s, t + 400, 3, [(K3, 1)])                                               # a CHORD (one note becomes it)
+    s.at(t, "sx", "7D 53 47 32 00 64 0A 00 01 3C")                                        # C4 alone: the chord
+    s.at(t + 300, "sx", "7D 53 47 32 00 64 0A 01 01 3C")                                  # the same as a TAPE note: C4 only
+    s.at(t + 600, "sx", "7D 53 47 32 10 64 0A 00 01 3C")                                  # track 17: nothing
+    s.at(t + 900, "sx", "7D 53 47 32 00 64 64 00 01 3E")                                  # 1 s ...
+    s.at(t + 1000, "dump", 0)
+    s.press(t + 1100, FX); s.press(t + 1110, HOME); s.release(t + 1150, HOME); s.release(t + 1160, FX)   # ... PANIC cuts it
+    log = run(s, t + 2500)
+    on = [(tm, st, d1, d2) for tm, st, d1, d2 in log.msgs if (st & 0xF0) == 0x90 and d2]
+    off = [(tm, d1) for tm, st, d1, d2 in log.msgs if st == 0x82 or (st == 0x92 and not d2)]
+    first = [x for x in on if x[0] < t]
+    check([(st, d1, d2) for _, st, d1, d2 in first] == [(0x92, 60, 80), (0x92, 64, 80)] and any(d1 == 60 and near(tm - first[0][0], 200, 25) for tm, d1 in off),
+          "a step's two notes on channel 3, vel 80, off after 200 ms (%s)" % first)
+    ch = [d1 for tm, st, d1, _ in on if t - 10 <= tm < t + 200]
+    tp = [d1 for tm, st, d1, _ in on if t + 290 <= tm < t + 500]
+    check(len(ch) >= 2 and 60 in ch and tp == [60], "with a CHORD: the chord (%s); as a TAPE note: the note only (%s)" % (ch, tp))
+    check(not [x for x in on if t + 590 <= x[0] < t + 800], "a track past 16: nothing")
+    long_ = [x for x in on if t + 890 <= x[0] < t + 1000 and x[2] == 62]
+    cut = [tm for tm, d1 in off if d1 == 62 and tm > t + 900]
+    v = v15s(log)
+    check(long_ and cut and cut[0] < t + 1300 and v and v[0]["aud"] >= 1, "PANIC cuts a long one (%s, %s)" % (cut[:1], v[:1]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -6815,7 +7079,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t09_viaggio_phrase, t09_viaggio_moves, t09_viaggio_loop_genre_remote, t09_profiles_persist, t09_grid_viaggio, t09_review_fixes, t010_expo, t010_rec_length, t010_delay, t010_bend_at, t010_undo_levels, t010_chain, t011_tape, t010_expo_plain, t010_expo_grace,
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
-         t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain]
+         t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
+         t015_names_clear, t015_groove, t015_link]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

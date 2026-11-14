@@ -1,5 +1,7 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * SAGGA SEQ 0.14: a project image (.sgq) <-> what the web editor reads and writes, built with the firmware's own core.
+ * 0.15: the project's name (ext name, 16 characters as numbers), the GROOVE (chain groove / groove_amt), the TAPE
+ * tracks' events (read: "tape"; a patch: the tape lines below) and their loop (track tape_bars / tape_quant).
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -9,13 +11,17 @@
  *   sagga_sgqjson new OUT.sgq                    a new project
  *
  * A PATCH is text, a change a line:   GROUP INDEXES FIELD ELEM VALUE
- *   GROUP    project key track step scene lfo lfox chain song song_e live ext
+ *   GROUP    project key track step scene lfo lfox chain song song_e live ext (and tape, below)
  *   INDEXES  "-" for project / song / live / ext, else the index (track, scene ...), "t,p,s" for a step
  *   FIELD    a field of the group (the names of the C structs); ELEM: "-", or which element of an array field
  *   VALUE    an integer in the field's type (u8, s8, u16)
  * e.g.  project - bpm - 140  /  track 3 length - 32  /  step 3,0,12 note 0 60  /  song_e 5 bars - 8
- * The editor never builds an image: the layout is this program's (offsetof), the limits are sanitize's. The tape
- * (TAPE tracks' events), the snapshots and VIAGGIO are not touched by a patch: they stay as BASE has them.
+ * 0.15, the TAPE tracks' events (a track's are all written again when one changes):
+ *   tape T clear - 0              track T's events gone
+ *   tape T,ON,DUR,NOTE add - VEL  an event: ON and DUR in tape ticks (384 a beat), the loop's (track tape_bars) taken
+ *                                 when it is checked, after the whole patch: one that does not fit is dropped
+ * The editor never builds an image: the layout is this program's (offsetof), the limits are sanitize's. The
+ * snapshots and VIAGGIO are not touched by a patch: they stay as BASE has them.
  * Exit: 0 done, 1 bad arguments, 2 cannot read / not a project, 3 cannot write, 4 a patch line not understood (its
  * number and why on stderr; nothing is written). */
 #include <stddef.h>
@@ -61,6 +67,8 @@ static const fd_t F_TRACK[] = {
     F(sq_track_cfg_t, euc_fam, 0), F(sq_track_cfg_t, arp_rate, 0), F(sq_track_cfg_t, arp_flags, 0),
     F(sq_track_cfg_t, delay_ms, 1), F(sq_track_cfg_t, chord_key, 0), F(sq_track_cfg_t, follow_mode, 0),
     F(sq_track_cfg_t, brk_chop, 0), F(sq_track_cfg_t, brk_cfg, 0),
+    {"tape_bars", (uint32_t)(offsetof(sq_track_cfg_t, tape) + offsetof(sq_tape_cfg_t, bars)), 1u, 0u, 1u},     /* 0.15 */
+    {"tape_quant", (uint32_t)(offsetof(sq_track_cfg_t, tape) + offsetof(sq_tape_cfg_t, quant)), 1u, 0u, 1u},
 };
 static const fd_t F_STEP[] = {
     A(sq_step_t, note, uint8_t, 0, SQ_POLY), F(sq_step_t, velocity, 0), F(sq_step_t, length, 0), F(sq_step_t, chance, 0),
@@ -80,7 +88,7 @@ static const fd_t F_LFOX[] = {
 };
 static const fd_t F_CHAIN[] = {
     F(sq_trackx_t, chain_on, 0), F(sq_trackx_t, chain_n, 0), A(sq_trackx_t, chain_pat, uint8_t, 0, SQ_CHAIN_MAX),
-    A(sq_trackx_t, chain_rep, uint8_t, 0, SQ_CHAIN_MAX),
+    A(sq_trackx_t, chain_rep, uint8_t, 0, SQ_CHAIN_MAX), F(sq_trackx_t, groove, 0), F(sq_trackx_t, groove_amt, 0),   /* 0.15 GROOVE */
 };
 static const fd_t F_SONG[] = { F(sq_song_t, len, 0), F(sq_song_t, loop, 0) };
 static const fd_t F_SONG_E[] = { F(sq_song_entry_t, scene, 0), F(sq_song_entry_t, bars, 0), F(sq_song_entry_t, bpm, 0) };
@@ -91,6 +99,7 @@ static const fd_t F_LIVE[] = {
 };
 static const fd_t F_EXT[] = {
     F(sq_ext_t, motion_bars, 0), F(sq_ext_t, kb_mode, 0), F(sq_ext_t, kb_ch, 0), F(sq_ext_t, in_thru, 0),
+    A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
 };
 
 #define PO(m) ((uint32_t)offsetof(sq_project_t, m))
@@ -178,6 +187,18 @@ static int cmd_read(const char *in)
     printf("{\"version\":1,\"tape_n\":%u", (unsigned)proj.tape_n);
     printf(",\"tape_cnt\":[");
     for (t = 0; t < SQ_TRACKS; t++) printf("%s%u", t ? "," : "", (unsigned)proj.tape_cnt[t]);
+    printf("],\"tape_len\":[");
+    for (t = 0; t < SQ_TRACKS; t++) printf("%s%u", t ? "," : "", (unsigned)sq_tape_len(&proj.track[t].tape));
+    printf("],\"tape\":[");                                  /* 0.15: [track, on, dur, note, vel], track by track, by start */
+    for (t = 0; t < SQ_TRACKS; t++) {
+        uint16_t first, cnt;
+        uint32_t k;
+        sq_tape_range(&proj, (uint8_t)t, &first, &cnt);
+        for (k = first; k < (uint32_t)first + cnt; k++) {
+            const sq_tape_ev_t *e = &proj.tape_ev[k];
+            printf("%s[%u,%u,%u,%u,%u]", k ? "," : "", (unsigned)t, (unsigned)e->on, (unsigned)e->dur, (unsigned)e->note, (unsigned)e->vel);
+        }
+    }
     printf("],\"snaps\":[");
     for (t = 0; t < SQ_SNAPS; t++) printf("%s%u", t ? "," : "", (unsigned)proj.snap[t].used);
     printf("]");
@@ -223,7 +244,47 @@ static int cmd_read(const char *in)
     put_names("root", sq_root_name, 12u, 1);
     put_names("device", sq_device_name, SQ_DEV_COUNT, 1);
     put_names("euc_fam", sq_rhythm_name, SQ_RF_COUNT, 1);
+    put_names("groove", sq_groove_name, SQ_GROOVES, 1);
     printf("}}\n");
+    return 0;
+}
+
+/* 0.15: tape T clear - 0  /  tape T,ON,DUR,NOTE add - VEL */
+static int tape_line(char **tok, unsigned no)
+{
+    unsigned long x[4] = {0, 0, 0, 0};
+    char *q = tok[1], *e;
+    int k, n = !strcmp(tok[2], "add") ? 4 : !strcmp(tok[2], "clear") ? 1 : 0;
+    long v;
+    if (!n || strcmp(tok[3], "-")) { fprintf(stderr, "patch line %u: tape T clear - 0 / tape T,ON,DUR,NOTE add - VEL\n", no); return 4; }
+    for (k = 0; k < n; k++) {
+        x[k] = strtoul(q, &e, 10);
+        if (e == q || (k < n - 1 ? *e != ',' : *e != '\0')) { fprintf(stderr, "patch line %u: tape %s\n", no, tok[1]); return 4; }
+        q = e + 1;
+    }
+    v = strtol(tok[4], &e, 10);
+    if (e == tok[4] || *e) { fprintf(stderr, "patch line %u: %s is not a number\n", no, tok[4]); return 4; }
+    if (x[0] >= SQ_TRACKS) { fprintf(stderr, "patch line %u: no track %lu\n", no, x[0]); return 4; }
+    if (n == 1) { sq_tape_clear(&proj, (uint8_t)x[0]); return 0; }
+    if (x[1] >= SQ_TAPE_BARS_MAX * SQ_TAPE_BAR || x[2] < 1u || x[2] > SQ_TAPE_BARS_MAX * SQ_TAPE_BAR || x[3] > 127u || v < 1 || v > 127) {
+        fprintf(stderr, "patch line %u: a tape event out of range\n", no); return 4;
+    }
+    /* (added at the end of the track's events, in the patch's order; written before the loop is known: the order and
+     * the loop are the core's to sort out when the patch is through) */
+    if (proj.tape_n >= SQ_TAPE_MAX) { fprintf(stderr, "patch line %u: the tape is full (%u events)\n", no, (unsigned)SQ_TAPE_MAX); return 4; }
+    {
+        uint16_t first, cnt;
+        uint32_t i, at;
+        sq_tape_ev_t ev;
+        ev.on = (uint16_t)x[1]; ev.dur = (uint16_t)x[2]; ev.note = (uint8_t)x[3]; ev.vel = (uint8_t)v;
+        sq_tape_range(&proj, (uint8_t)x[0], &first, &cnt);
+        at = (uint32_t)first + cnt;
+        while (at > first && proj.tape_ev[at - 1u].on > ev.on) at--;
+        for (i = proj.tape_n; i > at; i--) proj.tape_ev[i] = proj.tape_ev[i - 1u];
+        proj.tape_ev[at] = ev;
+        proj.tape_n++;
+        proj.tape_cnt[x[0]]++;
+    }
     return 0;
 }
 
@@ -239,6 +300,7 @@ static int patch_line(char *line, unsigned no)
     while (p && nt < 6) { tok[nt++] = p; p = strtok(0, " \t\r\n"); }
     if (!nt || tok[0][0] == '#') return 0;
     if (nt != 5 || p) { fprintf(stderr, "patch line %u: five words: GROUP INDEXES FIELD ELEM VALUE\n", no); return 4; }
+    if (!strcmp(tok[0], "tape")) return tape_line(tok, no);
     for (gi = 0; gi < NG; gi++) if (!strcmp(tok[0], G[gi].name)) g = &G[gi];
     if (!g) { fprintf(stderr, "patch line %u: no group %s\n", no, tok[0]); return 4; }
     d = dims(g);

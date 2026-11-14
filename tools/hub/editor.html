@@ -28,11 +28,21 @@ table{border-collapse:collapse}td,th{padding:2px 5px;border-bottom:1px solid var
 .card{background:var(--panel);border-radius:8px;padding:8px 10px;margin:6px 0}.card.off{opacity:.65}
 @media (max-width:600px){.tr .lb{min-width:84px;max-width:84px;font-size:11px}main{padding:8px 6px 60px}}
 .chg{color:var(--sel)}.mono{font-family:ui-monospace,monospace}
+.c.ph{box-shadow:inset 0 0 0 2px #fff}.pp{font-style:normal;color:var(--warn);margin-left:4px}#pos{font-size:12px;color:#9cf}
+label.tg{display:inline-flex;gap:4px;align-items:center;font-size:13px;color:#ccc}
+.rollw{display:flex;border:1px solid var(--line);border-radius:6px;background:#0b0b0b;max-height:62vh;overflow:auto}
+.keys{position:sticky;left:0;z-index:2;background:#151515;flex:none;width:38px}.keys div{height:10px;font-size:9px;line-height:10px;color:#888;padding-left:3px;border-bottom:1px solid #1d1d1d}
+.keys div.bk{background:#101010}#roll{position:relative;flex:none;touch-action:none;user-select:none}
+.rn{position:absolute;height:9px;background:var(--acc);border-radius:2px;cursor:grab;min-width:3px}.rn.sel{background:var(--sel)}.rn.out{opacity:.35}
+.rn .rz{position:absolute;right:0;top:0;bottom:0;width:6px;cursor:ew-resize}.rph{position:absolute;top:0;bottom:0;width:2px;background:#fff;opacity:.75;pointer-events:none;display:none}
+.rend{position:absolute;top:0;bottom:0;width:2px;background:var(--warn);pointer-events:none}
 </style></head><body>
 <header><b>SAGGA EDITOR</b> <span id="pname" class="mono"></span>
 <button id="bsave" onclick="save()">Salva</button><button class="sec" onclick="undoOne()">Annulla</button><button class="sec" onclick="reload(true)">Ricarica</button>
 <button class="sec" onclick="sendFm1()">Manda all'FM-1</button><button class="sec" onclick="recvFm1()">Ricevi dall'FM-1</button>
 <select id="vers"><option value="">versioni</option></select><button class="sec" onclick="restore()">Ripristina</button>
+<label class="tg"><input type="checkbox" id="follow" onchange="V.follow=this.checked;keepView();followSet()"> segui l'FM-1</label>
+<label class="tg"><input type="checkbox" id="listen" onchange="V.listen=this.checked;keepView()"> ascolta</label><span id="pos"></span>
 <a href="/">libreria</a><span id="status"></span></header>
 <nav id="tabs"></nav><main id="main">caricamento...</main>
 <script>
@@ -60,13 +70,16 @@ const MODES = [['FREE',0],['IN KEY',1],['DRUM',2],['TAPE',0x20],['BREAK',0x40]];
 const MODE_BITS = 0x01 | 0x02 | 0x20 | 0x40;
 const ON = 1, SET = 2, LOCK = 4, XOFF = 8, TIE = 16, SLIDE = 32, F_CHAIN = 0x10, F_FOLLOW = 0x04, F_EUC = 0x08;
 const NONE = 255;
-const TABS = [['tracce','Tracce'],['traccia','Traccia'],['lane','Lane'],['scene','Scene'],['song','Song'],['catene','Catene'],['lfo','LFO'],['progetto','Progetto']];
+const TABS = [['tracce','Tracce'],['traccia','Traccia'],['lane','Lane'],['tape','Tape'],['scene','Scene'],['song','Song'],['catene','Catene'],['lfo','LFO'],['progetto','Progetto']];
+const NAME_OK = /[A-Z0-9 \-_.+#&!'()\/:]/;
+const TICKS16 = 96;                                   // tape ticks a 16th (384 a beat)
 
 let NAME = decodeURIComponent(location.pathname.replace(/^\/edit\/?/, ''));
 let P = null, O = null, N = {};                       // the project, as read (O: untouched), the core's names
 let steps = new Map(), osteps = new Map();            // 't,p,s' -> step (only those not as a new project's)
 let changes = new Map(), undo = [];
-let V = {tab: 'tracce', pat: 0, t: 0, s: 0, toggle: true, scene: 0, lane: 0, erase: false};
+let V = {tab: 'tracce', pat: 0, t: 0, s: 0, toggle: true, scene: 0, lane: 0, erase: false, follow: false, listen: true, tt: 0, zoom: 14, snap: true, tsel: -1};
+let TP = {}, OTP = {};                                // 0.15: the TAPE events, track -> [[on, dur, note, vel], ...] (OTP: as read)
 try { const v = JSON.parse(localStorage.getItem('sagga-ed-view') || '{}'); Object.assign(V, v); } catch (e) {}
 
 const $ = id => document.getElementById(id);
@@ -89,9 +102,14 @@ function objOf(D, g, idx, orig) {
   if (g === 'step') { const [t, p, s] = String(idx).split(',').map(Number); return orig ? origStep(t, p, s) : getStep(t, p, s); }
   return idx === '-' ? D[g] : D[g][idx];
 }
-function get(g, idx, f, el) { const o = objOf(P, g, idx); return el === '-' ? o[f] : o[f][el]; }
-function getOrig(g, idx, f, el) { const o = objOf(O, g, idx, true); return el === '-' ? o[f] : o[f][el]; }
+function get(g, idx, f, el) { if (g === 'tape') return TP[idx] || []; const o = objOf(P, g, idx); return el === '-' ? o[f] : o[f][el]; }
+function getOrig(g, idx, f, el) { if (g === 'tape') return OTP[idx] || []; const o = objOf(O, g, idx, true); return el === '-' ? o[f] : o[f][el]; }
 function setRaw(g, idx, f, el, v) {
+  if (g === 'tape') {                                 // 0.15: a TAPE track's events, the whole list a change
+    TP[idx] = v; const k = ['tape', idx, 'ev', '-'].join('|');
+    if (JSON.stringify(v) === JSON.stringify(OTP[idx] || [])) changes.delete(k); else changes.set(k, v);
+    return;
+  }
   const o = objOf(P, g, idx);
   if (el === '-') o[f] = v; else o[f][el] = v;
   const k = [g, idx, f, el].join('|');
@@ -118,7 +136,10 @@ function load(d) {
   steps = new Map(); osteps = new Map();
   for (const [t, p, s, st] of d.steps) { steps.set(t + ',' + p + ',' + s, clone(st)); osteps.set(t + ',' + p + ',' + s, clone(st)); }
   changes = new Map(); undo = []; batch = null; NAME = d.name;
-  $('pname').textContent = d.name; document.title = 'SAGGA editor - ' + d.name;
+  TP = {}; for (let t = 0; t < 16; t++) TP[t] = [];
+  for (const [t, on, dur, n, v] of d.tape || []) TP[t].push([on, dur, n, v]);
+  OTP = clone(TP); V.tsel = -1;
+  $('pname').textContent = d.name + (projName() ? ' · ' + projName() : ''); document.title = 'SAGGA editor - ' + d.name;
   history.replaceState(null, '', '/edit/' + encodeURIComponent(d.name));
   dirty(); versions();
 }
@@ -134,13 +155,21 @@ async function reload(ask) {
 }
 async function save() {
   if (!changes.size) return status('niente da salvare');
-  const list = [...changes].map(([k, v]) => { const [g, i, f, e] = k.split('|'); return [g, i, f, e, v]; });
+  const list = [];
+  for (const [k, v] of changes) {
+    const [g, i, f, e] = k.split('|');
+    if (g === 'tape') { list.push(['tape', i, 'clear', '-', 0]); for (const [on, dur, n, vel] of v) list.push(['tape', i + ',' + on + ',' + dur + ',' + n, 'add', '-', vel]); }
+    else list.push([g, i, f, e, v]);
+  }
+  const tt = [...changes].filter(([k]) => k.startsWith('tape|')).map(([k, v]) => [k.split('|')[1], v.length]);
+  const sent = tt.reduce((a, x) => a + x[1], 0);
   status('salvo...');
   try {
     const d = await api('/api/project?file=' + encodeURIComponent(NAME), {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({changes: list, rev: P.rev})});
     load(d);
-    const fixed = list.filter(([g, i, f, e, v]) => get(g, i, f, e) !== v).length;
-    status('salvato: ' + NAME + ' (' + list.length + ' modifiche' + (fixed ? ', ' + fixed + ' corrette dal firmware' : '') + ')');
+    const fixed = list.filter(([g, i, f, e, v]) => g !== 'tape' && get(g, i, f, e) !== v).length;
+    const kept = tt.reduce((a, x) => a + TP[x[0]].length, 0), dropped = sent > kept ? sent - kept : 0;
+    status('salvato: ' + NAME + ' (' + list.length + ' modifiche' + (fixed ? ', ' + fixed + ' corrette dal firmware' : '') + (dropped ? ', ' + dropped + ' note TAPE fuori dal loop tolte' : '') + ')');
     render();
   } catch (e) { status(e.message, 1); }
 }
@@ -201,13 +230,14 @@ document.addEventListener('change', ev => {
 });
 // fields whose change touches more than one value
 const SPECIAL = {
-  'track.mode': (d, v) => { const t = d.i, f = get('track', t, 'flags', '-'); set('track', t, 'flags', '-', (f & ~MODE_BITS) | v); },
+  'track.mode': (d, v) => { const t = d.i, f = get('track', t, 'flags', '-'); set('track', t, 'flags', '-', (f & ~MODE_BITS) | MODES[v][1]); },   // (0.15: the mode's bits, not its place in the list)
   'track.arpm': (d, v) => { const t = d.i, c = get('track', t, 'chord_mode', '-'); set('track', t, 'chord_mode', '-', (c & 0x30) | v); },
   'track.arpo': (d, v) => { const t = d.i, c = get('track', t, 'chord_mode', '-'); set('track', t, 'chord_mode', '-', (c & 0x0F) | ((v - 1) << 4)); },
   'chain.mode': (d, v) => { const t = d.i, f = get('track', t, 'flags', '-');
     set('track', t, 'flags', '-', v === 1 ? f | F_CHAIN : f & ~F_CHAIN); set('chain', t, 'chain_on', '-', v === 2 ? 1 : 0); },
   'scene.mute': (d, v) => { const s = d.i, m = get('scene', s, 'mute_mask', '-'), b = 1 << Number(d.e); set('scene', s, 'mute_mask', '-', v ? m | b : m & ~b); },
   'key.cur': (d, v) => { set('project', '-', 'key_cur', '-', v); syncKey(); },
+  'chain.groove': (d, v) => { set('chain', d.i, 'groove', '-', v); if (v && !get('chain', d.i, 'groove_amt', '-')) set('chain', d.i, 'groove_amt', '-', 100); },   // (as HOME 7 K3)
 };
 function syncKey() { const k = get('project', '-', 'key_cur', '-'); if (k < 16) { set('project', '-', 'key_root', '-', get('key', k, 'root', '-')); set('project', '-', 'key_scale', '-', get('key', k, 'scale', '-')); set('project', '-', 'key_shift', '-', get('key', k, 'shift', '-')); } }
 function vsel(g, i, f, e, names, v, base) {   // a select of a computed value (SPECIAL handles it)
@@ -234,8 +264,10 @@ function render() {
   $('tabs').innerHTML = TABS.map(([k, n]) => '<span class="tab' + (V.tab === k ? ' on' : '') + '" onclick="V.tab=\'' + k + '\';keepView();render()">' + n + '</span>').join('');
   if (!P) return;
   V.t = Math.min(15, Math.max(0, V.t)); V.pat = Math.min(7, Math.max(0, V.pat)); V.s = Math.min(63, Math.max(0, V.s));
-  $('main').innerHTML = ({tracce: rTracce, traccia: rTraccia, lane: rLane, scene: rScene, song: rSong, catene: rCatene, lfo: rLfo, progetto: rProgetto}[V.tab] || rTracce)();
+  $('main').innerHTML = ({tracce: rTracce, traccia: rTraccia, lane: rLane, tape: rTape, scene: rScene, song: rSong, catene: rCatene, lfo: rLfo, progetto: rProgetto}[V.tab] || rTracce)();
   if (V.tab === 'lane') laneEvents();
+  if (V.tab === 'tape') rollEvents();
+  marked = []; paintPos();
 }
 function patSel() { return '<select onchange="V.pat=+this.value;keepView();render()">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '"' + (i === V.pat ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'; }
 function trackSel() { return '<select onchange="V.t=+this.value;keepView();render()">' + range(0, 15).map(i => '<option value="' + i + '"' + (+i === V.t ? ' selected' : '') + '>' + h(trackLabel(+i)) + '</option>').join('') + '</select>'; }
@@ -245,8 +277,8 @@ function rTracce() {
     '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') + '</small></div><div class="ov">';
   for (let t = 0; t < 16; t++) {
     const c = P.track[t];
-    o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="impostazioni della traccia">' + h(trackLabel(t)) + '</span>';
-    if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + P.tape_cnt[t] + ' note · <a href="/roll/' + encodeURIComponent(NAME) + '">piano roll</a></span></div>'; continue; }
+    o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="impostazioni della traccia">' + h(trackLabel(t)) + '<i class="pp" id="pp' + t + '"></i></span>';
+    if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + (TP[t] || []).length + ' note · <a href="#" onclick="V.tt=' + t + ';V.tab=\'tape\';keepView();render();return false">apri nella scheda Tape</a></span></div>'; continue; }
     for (let s = 0; s < 64; s++) {
       const st = getStep(t, V.pat, s), out = s < c.start || s >= c.length;
       let cl = 'c';
@@ -270,6 +302,7 @@ document.addEventListener('click', ev => {
   const [t, s] = c.dataset.ts.split(',').map(Number);
   V.t = t; V.s = s; keepView();
   if (V.toggle) { toggleStep(t, V.pat, s); commit(); }
+  if (V.listen && stepOn(t, V.pat, s)) hearStep(t, V.pat, s);
   render();
 });
 function rStep() {
@@ -277,7 +310,7 @@ function rStep() {
   let o = '<h3>STEP ' + (s + 1) + ' · ' + h(trackLabel(t)) + ' · P' + (p + 1) + '</h3><div class="row"><button onclick="toggleStep(' + t + ',' + p + ',' + s + ');commit();render()">' + (st.flags & ON ? 'Spegni' : 'Accendi') + '</button>' +
     '<button class="sec" onclick="V.s=Math.max(0,V.s-1);keepView();render()">◀</button><button class="sec" onclick="V.s=Math.min(63,V.s+1);keepView();render()">▶</button>' +
     '<button class="sec" onclick="clip=clone(getStep(' + t + ',' + p + ',' + s + '));status(\'step copiato\')">Copia</button><button class="sec" onclick="pasteStep()">Incolla</button>' +
-    '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button></div><div class="grid">';
+    '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button><button class="sec" onclick="hearStep(' + t + ',' + p + ',' + s + ')" title="l\'FM-1 lo suona (serve il bridge)">♪ ascolta</button></div><div class="grid">';
   for (let j = 0; j < 4; j++) o += L('nota ' + (j + 1), notesel('step', k, 'note', j, j > 0));
   o += L('velocity', num('step', k, 'velocity', '-', 1, 127)) + L('gate <small>' + lenText(st.length) + '</small>', num('step', k, 'length', '-', 1, 164)) +
     L('chance %', num('step', k, 'chance', '-', 0, 100)) + L('ratchet', num('step', k, 'ratchet', '-', 1, 8)) +
@@ -303,6 +336,8 @@ function rTraccia() {
     L('direzione', sel(g, t, 'direction', '-', DIR)) + L('pattern iniziale', sel(g, t, 'initial_pattern', '-', range(1, 8))) +
     L('trasposizione', num(g, t, 'transpose', '-', -48, 48)) + L('ottava', num(g, t, 'octave', '-', -3, 3)) + L('swing %', num(g, t, 'swing', '-', 50, 75)) +
     L('velocity +/-', num(g, t, 'vel_offset', '-', -63, 63)) + L('umano: tempo', num(g, t, 'hum_time', '-', 0, 50)) + L('umano: velocity', num(g, t, 'hum_vel', '-', 0, 50)) +
+    (c.flags & 0x20 ? L('TAPE battute', sel(g, t, 'tape_bars', '-', range(1, 16), 1)) + L('TAPE quantize %', num(g, t, 'tape_quant', '-', 0, 100))
+                    : L('GROOVE', sel('chain', t, 'groove', '-', N.groove || [])) + L('GROOVE %', num('chain', t, 'groove_amt', '-', 0, 100))) +
     L('ritardo ms', num(g, t, 'delay_ms', '-', -30, 30)) + L('chiave', sel(g, t, 'key_slot', '-', range(1, 16, n => 'slot ' + n), 0, [[NONE, 'quella che suona']])) +
     L('FOLLOW armonia', bit(g, t, 'flags', '-', F_FOLLOW)) + L('FOLLOW: le note', sel(g, t, 'follow_mode', '-', FOLLOW)) +
     '</div><h3>ACCORDI E ARPEGGIO</h3><div class="grid">' +
@@ -417,7 +452,9 @@ function rLfo() {
 
 function rProgetto() {
   const p = 'project', k = P.project.key_cur;
-  let o = '<h3>TEMPO E CHIAVE</h3><div class="grid">' + L('BPM', num(p, '-', 'bpm', '-', 30, 300)) + L('clock', sel(p, '-', 'clock_mode', '-', CLOCK)) +
+  let o = '<h3>NOME</h3><div class="row"><input id="pnm" maxlength="16" style="width:14em;text-transform:uppercase" value="' + h(projName()) + '" onchange="setName(this.value)">' +
+    '<small>fino a 16 caratteri: lettere, numeri, spazio - _ . + # &amp; ! \' ( ) / : · l\'FM-1 lo mostra con SAVE + PRESETS (lo slot) e quando carica</small></div>' +
+    '<h3>TEMPO E CHIAVE</h3><div class="grid">' + L('BPM', num(p, '-', 'bpm', '-', 30, 300)) + L('clock', sel(p, '-', 'clock_mode', '-', CLOCK)) +
     L('slot della chiave', vsel(p, '-', 'cur', '-', range(1, 16, n => 'slot ' + n), k).replace('data-g="project"', 'data-g="key"')) + '</div>' +
     '<table><tr><th>slot</th><th>fondamentale</th><th>scala</th><th>shift</th></tr>';
   for (let s = 0; s < 16; s++) o += '<tr><td>' + (s + 1) + (s === k ? ' ◀' : '') + '</td><td>' + sel('key', s, 'root', '-', N.root || []) + '</td><td>' + sel('key', s, 'scale', '-', N.scale || []) + '</td><td>' + num('key', s, 'shift', '-', -24, 24, 'w2') + '</td></tr>';
@@ -430,18 +467,183 @@ function rProgetto() {
     L('KEYBOARD', sel('ext', '-', 'kb_mode', '-', KB)) + L('KEYB CH', sel('ext', '-', 'kb_ch', '-', range(1, 16), 1, [[0, 'ANY']])) + L('MIDI IN', sel('ext', '-', 'in_thru', '-', ['REC ONLY', 'ALWAYS'])) +
     '</div><h3>I SYNTH SUI CANALI</h3><div class="grid">';
   for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel(p, '-', 'device', ch, N.device || []));
-  o += '</div><small>Nel progetto anche: ' + P.tape_n + ' note TAPE (piano roll), ' + P.snaps.filter(x => x).length + ' snapshot, VIAGGIO: l\'editor non li tocca.</small>';
+  o += '</div><small>Nel progetto anche: ' + P.snaps.filter(x => x).length + ' snapshot e VIAGGIO: l\'editor non li tocca.</small>';
   return o;
+}
+
+// ---- 0.15: the name
+function projName() { const a = (P && P.ext && P.ext.name) || []; let t = ''; for (const c of a) { if (!c) break; t += String.fromCharCode(c); } return t; }
+function cleanName(x) {
+  const t = String(x || '').normalize('NFKD').replace(/[̀-ͯ]/g, '').toUpperCase();
+  return [...t].map(c => NAME_OK.test(c) ? c : '_').join('').trim().slice(0, 16).trim();
+}
+function setName(x) {
+  const t = cleanName(x);
+  for (let i = 0; i < 16; i++) set('ext', '-', 'name', i, i < t.length ? t.charCodeAt(i) : 0);
+  commit(); $('pname').textContent = NAME + (t ? ' · ' + t : ''); render();
+}
+
+// ---- 0.15: the FM-1 plays what is touched (through the bridge)
+let hearErr = 0;
+async function hear(t, notes, vel, tape) {
+  if (!notes.length) return;
+  try { await api('/api/fm1/preview', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({t, notes, vel, gate: 250, tape: tape ? 1 : 0})}); hearErr = 0; }
+  catch (e) { if (!hearErr++) status(e.message, 1); }
+}
+function hearStep(t, p, s) {
+  const st = getStep(t, p, s);
+  const notes = st.flags & SET ? st.note.filter(n => n !== NONE) : [P.track[t].pen];
+  hear(t, notes, st.velocity, false);
+}
+
+// ---- 0.15: where the FM-1 is (the bridge's positions, a 16th each while it plays)
+let POS = null, posTimer = null, marked = [];
+function followSet() {
+  if (posTimer) { clearInterval(posTimer); posTimer = null; }
+  if (V.follow) posTimer = setInterval(pollPos, 150); else { POS = null; paintPos(); $('pos').textContent = ''; }
+}
+let polling = false;
+async function pollPos() {
+  if (polling || document.hidden) return;
+  polling = true;
+  try {
+    const d = await api('/api/pos');
+    POS = d.fresh && d.steps ? d : null;
+    $('pos').textContent = !d.bridge ? 'bridge spento' : !d.steps ? 'l\'FM-1 non risponde' : (d.playing && d.fresh ? '▶ ' : '■ ') + d.bpm + ' BPM · scena ' + (d.scene + 1) + (d.song >= 0 ? ' · song ' + (d.song + 1) : '');
+  } catch (e) { POS = null; $('pos').textContent = ''; }
+  polling = false;
+  paintPos();
+}
+function paintPos() {
+  for (const el of marked) el.classList.remove('ph');
+  marked = [];
+  const live = POS && POS.playing;
+  for (let t = 0; t < 16; t++) {
+    const b = $('pp' + t);
+    if (b) b.textContent = live && POS.pats[t] !== V.pat && !(P.track[t].flags & 0x20) ? '▶P' + (POS.pats[t] + 1) : '';
+    if (!live || POS.pats[t] !== V.pat) continue;
+    const c = document.querySelector('.c[data-ts="' + t + ',' + POS.steps[t] + '"]');
+    if (c) { c.classList.add('ph'); marked.push(c); }
+  }
+  const ph = $('rph');
+  if (ph) {
+    const t = V.tt, len = tapeLen(t);
+    if (live) { ph.style.display = 'block'; ph.style.left = ((POS.clock * 16) % len) / TICKS16 * (V.rz || V.zoom) + 'px'; } else ph.style.display = 'none';
+  }
+}
+
+// ---- 0.15: the TAPE tracks (the events as the FM-1 keeps them: 384 ticks a beat, the loop TAPE battute)
+const tapeLen = t => (get('track', t, 'tape_bars', '-') || 4) * 4 * 384;
+function evs(t) { return get('tape', String(t)); }
+function setEvs(t, list) { list.sort((a, b) => a[0] - b[0] || a[2] - b[2]); set('tape', String(t), 'ev', '-', list); }
+function posText(on) { const b = Math.floor(on / 1536), be = Math.floor(on % 1536 / 384), x = Math.floor(on % 384 / TICKS16), r = on % TICKS16;
+  return (b + 1) + '.' + (be + 1) + '.' + (x + 1) + (r ? '+' + r : ''); }
+function rTape() {
+  const t = V.tt, c = P.track[t], list = evs(t), len = tapeLen(t), RH = 10;
+  const room = Math.max(300, (($('main') && $('main').clientWidth) || 900) - 70);
+  const Z = V.rz = Math.min(60, Math.max(V.zoom, Math.floor(room / (len / TICKS16))));   // (a short loop fills the width)
+  let lo = 127, hi = 0;
+  for (const e of list) { lo = Math.min(lo, e[2]); hi = Math.max(hi, e[2]); }
+  if (lo > hi) { lo = 48; hi = 72; }
+  lo = Math.max(0, lo - 6); hi = Math.min(127, hi + 6); if (hi - lo < 24) hi = Math.min(127, lo + 24);
+  V.rlo = lo; V.rhi = hi;
+  const W = Math.max(len, ...list.map(e => e[0] + e[1])) / TICKS16 * Z, H = (hi - lo + 1) * RH;
+  let o = '<div class="row"><select onchange="V.tt=+this.value;V.tsel=-1;keepView();render()">' + range(0, 15).map(i => '<option value="' + i + '"' + (+i === t ? ' selected' : '') + '>' + h(trackLabel(+i)) + (P.track[+i].flags & 0x20 ? ' · TAPE ' + evs(+i).length : '') + '</option>').join('') + '</select>' +
+    L('battute', sel('track', t, 'tape_bars', '-', range(1, 16), 1)) + L('quantize %', num('track', t, 'tape_quant', '-', 0, 100)) +
+    '<label class="tg"><input type="checkbox"' + (V.snap ? ' checked' : '') + ' onchange="V.snap=this.checked;keepView()"> griglia 1/16</label>' +
+    '<button class="sec" onclick="V.zoom=Math.max(4,V.zoom-3);keepView();render()">−</button><button class="sec" onclick="V.zoom=Math.min(40,V.zoom+3);keepView();render()">+</button>' +
+    '<button class="warn" onclick="tapeClear()">Svuota la traccia</button></div>';
+  if (!(c.flags & 0x20)) o += '<p class="dim">T' + (t + 1) + ' non è una traccia TAPE: le note si scrivono, ma suonano solo con il modo TAPE (scheda Traccia, o HOME 4 K1 sull\'FM-1).</p>';
+  const bg = 'background-image:linear-gradient(90deg,#333 1px,transparent 1px),linear-gradient(90deg,#1e1e1e 1px,transparent 1px),repeating-linear-gradient(180deg,#141414 0 ' + RH + 'px,#101010 ' + RH + 'px ' + 2 * RH + 'px);' +
+    'background-size:' + 16 * Z + 'px 100%,' + 4 * Z + 'px 100%,100% ' + 2 * RH + 'px';
+  o += '<div class="rollw"><div class="keys">';
+  for (let n = hi; n >= lo; n--) o += '<div class="' + (NN[n % 12].length > 1 ? 'bk' : '') + '">' + (n % 12 === 0 ? note(n) : '') + '</div>';
+  o += '</div><div id="roll" style="width:' + W + 'px;height:' + H + 'px;' + bg + '">';
+  list.forEach((e, i) => {
+    o += '<div class="rn' + (i === V.tsel ? ' sel' : '') + (e[0] >= len ? ' out' : '') + '" data-i="' + i + '" style="left:' + e[0] / TICKS16 * Z + 'px;top:' + (hi - e[2]) * RH + 'px;width:' + Math.max(3, e[1] / TICKS16 * Z - 1) + 'px;opacity:' + (0.45 + e[3] / 254) + '" title="' + note(e[2]) + ' · ' + posText(e[0]) + ' · vel ' + e[3] + '"><span class="rz"></span></div>';
+  });
+  o += '<div class="rend" style="left:' + len / TICKS16 * Z + 'px"></div><div class="rph" id="rph"></div></div></div>';
+  o += '<small>' + list.length + ' note · ' + (len / 1536) + ' battute · tocca il vuoto: una nota (1/16); trascina una nota: la sposti, dal bordo destro: la allunghi · Canc: toglie la nota scelta · la linea arancio: la fine del loop (le note oltre vanno via al salvataggio)</small>';
+  const e = list[V.tsel];
+  if (e) {
+    o += '<h3>NOTA ' + (V.tsel + 1) + ' · ' + posText(e[0]) + '</h3><div class="grid">' +
+      L('inizio (tick)', '<input type="number" min="0" max="' + (len - 1) + '" value="' + e[0] + '" onchange="tapeEdit(0,this.value)">') +
+      L('durata (tick)', '<input type="number" min="1" max="' + len + '" value="' + e[1] + '" onchange="tapeEdit(1,this.value)">') +
+      L('nota', '<select onchange="tapeEdit(2,this.value)">' + range(0, 127).map(n => '<option value="' + n + '"' + (+n === e[2] ? ' selected' : '') + '>' + note(+n) + ' (' + n + ')</option>').join('') + '</select>') +
+      L('velocity', '<input type="number" min="1" max="127" value="' + e[3] + '" onchange="tapeEdit(3,this.value)">') +
+      '</div><div class="row"><button class="sec" onclick="hear(V.tt,[evs(V.tt)[V.tsel][2]],evs(V.tt)[V.tsel][3],true)">♪ ascolta</button><button class="warn" onclick="tapeDel()">Togli la nota</button><small>384 tick = un quarto, 96 = un sedicesimo</small></div>';
+  }
+  return o;
+}
+function tapeEdit(k, v) {
+  const t = V.tt, list = clone(evs(t)), e = list[V.tsel]; if (!e) return;
+  const lim = [[0, tapeLen(t) - 1], [1, tapeLen(t)], [0, 127], [1, 127]][k];
+  v = Math.round(Number(v)); if (!isFinite(v)) return render();
+  e[k] = Math.max(lim[0], Math.min(lim[1], v));
+  setEvs(t, list); V.tsel = list.indexOf(e); commit(); render();
+}
+function tapeDel() { const t = V.tt, list = clone(evs(t)); if (!list[V.tsel]) return; list.splice(V.tsel, 1); V.tsel = -1; setEvs(t, list); commit(); render(); }
+function tapeClear() { if (!evs(V.tt).length || !confirm('Tolgo tutte le note TAPE di T' + (V.tt + 1) + '?')) return; V.tsel = -1; setEvs(V.tt, []); commit(); render(); }
+function rollEvents() {
+  const el = $('roll'); if (!el) return;
+  const Z = V.rz || V.zoom, RH = 10, t = V.tt;
+  let drag = null;
+  const snapT = x => V.snap ? Math.round(x / TICKS16) * TICKS16 : Math.round(x / 12) * 12;
+  el.addEventListener('pointerdown', ev => {
+    const r = el.getBoundingClientRect(), x = ev.clientX - r.left, y = ev.clientY - r.top;
+    const nEl = ev.target.closest('.rn');
+    el.setPointerCapture(ev.pointerId);
+    if (nEl) {
+      const i = +nEl.dataset.i, e = evs(t)[i];
+      V.tsel = i;
+      drag = {i, el: nEl, x0: ev.clientX, y0: ev.clientY, on: e[0], note: e[2], dur: e[1], resize: ev.target.classList.contains('rz'), moved: false};
+      document.querySelectorAll('.rn.sel').forEach(x => x.classList.remove('sel')); nEl.classList.add('sel');
+      if (V.listen) hear(t, [e[2]], e[3], true);
+      return;
+    }
+    const on = Math.max(0, Math.min(tapeLen(t) - 1, V.snap ? Math.floor(x / Z) * TICKS16 : snapT(x / Z * TICKS16)));
+    const n = Math.max(0, Math.min(127, V.rhi - Math.floor(y / RH)));
+    const list = clone(evs(t)), e = [on, TICKS16, n, 100];
+    list.push(e); setEvs(t, list); V.tsel = list.indexOf(e); commit();
+    if (V.listen) hear(t, [n], 100, true);
+    render();
+  });
+  el.addEventListener('pointermove', ev => {
+    if (!drag) return;
+    const dx = (ev.clientX - drag.x0) / Z * TICKS16, dy = Math.round((ev.clientY - drag.y0) / RH);
+    if (Math.abs(ev.clientX - drag.x0) < 3 && !dy && !drag.moved) return;
+    drag.moved = true;
+    if (drag.resize) { drag.nd = Math.max(12, snapT(drag.dur + dx)); drag.el.style.width = Math.max(3, drag.nd / TICKS16 * Z - 1) + 'px'; }
+    else {
+      drag.non = Math.max(0, Math.min(tapeLen(t) - 1, drag.on + snapT(dx))); drag.nn = Math.max(0, Math.min(127, drag.note - dy));
+      drag.el.style.left = drag.non / TICKS16 * Z + 'px'; drag.el.style.top = (V.rhi - drag.nn) * RH + 'px';
+    }
+  });
+  const up = () => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    if (d.moved) {
+      const list = clone(evs(t)), e = list[d.i];
+      if (d.resize && d.nd !== undefined) e[1] = d.nd;
+      if (!d.resize && d.non !== undefined) { e[0] = d.non; e[2] = d.nn; }
+      setEvs(t, list); V.tsel = list.indexOf(e); commit();
+      if (V.listen && !d.resize && d.nn !== d.note) hear(t, [e[2]], e[3], true);
+    }
+    render();
+  };
+  el.addEventListener('pointerup', up); el.addEventListener('pointercancel', up);
 }
 // the key slot that plays: its select carries data-g="key" data-f="cur" (SPECIAL key.cur); a slot changed is copied to the project's key
 const _set = set;
 set = function (g, idx, f, el, v) { _set(g, idx, f, el, v); if (g === 'key' && f !== 'cur' && Number(idx) === P.project.key_cur) syncKey(); };
 
 window.addEventListener('keydown', ev => {
+  if (V.tab === 'tape' && (ev.key === 'Delete' || ev.key === 'Backspace') && !/INPUT|SELECT|TEXTAREA/.test(ev.target.tagName) && V.tsel >= 0) { ev.preventDefault(); tapeDel(); }
   if ((ev.ctrlKey || ev.metaKey) && ev.key === 'z') { ev.preventDefault(); undoOne(); }
   if ((ev.ctrlKey || ev.metaKey) && ev.key === 's') { ev.preventDefault(); save(); }
 });
 window.addEventListener('beforeunload', ev => { if (changes.size) { ev.preventDefault(); ev.returnValue = ''; } });
+$('follow').checked = !!V.follow; $('listen').checked = !!V.listen;
 render();
-if (NAME) reload(false); else $('main').innerHTML = 'Apri un progetto dalla <a href="/">libreria</a>.';
+if (NAME) reload(false).then(followSet); else $('main').innerHTML = 'Apri un progetto dalla <a href="/">libreria</a>.';
 </script></body></html>

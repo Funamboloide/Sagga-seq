@@ -14,6 +14,9 @@
  *   CHAIN     HOME 7 K2 LIST, HOME 8: up to 8 patterns, each 1..8 times, one after the other (each at the end of the
  *             loop before). PLAY starts the list from its first entry; a pattern chosen by hand that is in the list
  *             goes on from there, one that is not switches the list off.
+ *   GROOVE    0.15, HOME 7 K3 / K4 on a track that is not TAPE: a template (HOUSE, GARAGE, DILLA ...) moves each 16th of
+ *             the bar a little early or late and makes it louder or softer, on top of the step's own nudge and the
+ *             swing; K4 how much of it, 0..100 %.
  */
 
 /* ---- KEYBOARD: the transpose from a keyboard on the MIDI IN */
@@ -172,4 +175,28 @@ static void chain_knobs(int32_t d1, int32_t d2, int32_t d3, int32_t d4)   /* HOM
     if (!c->chain_on) p = put_s(p, " (HOME 7 K2: LIST)");
     finish(p);
     status_msg(msg_buf);
+}
+
+/* ---- 0.15 GROOVE: HOME 7 K3 the template, K4 how much (a TAPE track: its loop and quantise there instead) */
+static void groove_note(uint32_t t)
+{
+    const sq_trackx_t *c = &project.ext.track[t];
+    char *p = msg_buf;
+    p = put_s(p, "GROOVE "); p = put_s(p, sq_groove_name(c->groove));
+    if (c->groove) { p = put_s(p, " "); p = put_u(p, c->groove_amt); p = put_s(p, "%"); }
+    else p = put_s(p, ": THE STEPS AS WRITTEN");
+    finish(p);
+    status_msg(msg_buf);
+}
+static void groove_set(uint32_t t, uint8_t g)
+{
+    sq_trackx_t *c = &project.ext.track[t];
+    c->groove = g < SQ_GROOVES ? g : (uint8_t)SQ_GROOVE_OFF;
+    if (c->groove && !c->groove_amt) c->groove_amt = 100u;     /* (a template chosen at 0 %: all of it) */
+    groove_note(t);
+}
+static void groove_amount(uint32_t t, int32_t v)
+{
+    project.ext.track[t].groove_amt = (uint8_t)clamp_i32(v, 0, 100);
+    groove_note(t);
 }

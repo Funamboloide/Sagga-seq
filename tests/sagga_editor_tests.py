@@ -3,7 +3,7 @@
 """SAGGA EDITOR (0.14): the converter built from the firmware's core (tools/sgqmid/sagga_sgqjson.c), the hub's editor
 (tools/hub/sagga_editor.py: saves, versions, the FM-1 in and out through the grid bridge's Control or its one-shot
 commands), the bridge's side of it, the page's lists against the panel's, and the page in a headless browser (playwright:
-skipped without it).
+skipped without it). 0.15: the name, the GROOVE, the TAPE events, the positions and the previews (hub, bridge, page).
 
     python3 tests/sagga_editor_tests.py
 """
@@ -390,9 +390,268 @@ def t_page():
     check(j['project']['key_cur'] == 2 and j['key'][2]['scale'] == 2 and j['project']['key_scale'] == 2, 'in the file: the key slot that plays, and the project\'s key with it')
 
 
+# ------------------------------------------------------------------------------------------------ 0.15
+def t015_converter():
+    group('0.15 the converter: the name, the GROOVE, the TAPE events and their loop')
+    d = tempfile.mkdtemp()
+    out = os.path.join(d, 'a.sgq')
+    name = [ord(c) for c in 'Notte è'] + [0] * 9
+    lines = ['ext - name %d %d' % (i, v) for i, v in enumerate(name[:16])]
+    lines += ['chain 2 groove - 3', 'chain 2 groove_amt - 60', 'chain 3 groove - 40', 'chain 4 groove_amt - 140',
+              'track 5 flags - 32', 'track 5 tape_bars - 2', 'track 5 tape_quant - 30',
+              'tape 5 clear - 0', 'tape 5,768,96,64 add - 90', 'tape 5,0,192,60 add - 100', 'tape 5,5000,10,62 add - 80', 'tape 6,10,20,30 add - 40']
+    r = apply('new', lines, out)
+    j = read(out)
+    nm = ''.join(chr(c) for c in j['ext']['name'] if c)
+    check(r.returncode == 0 and nm == 'NOTTE _', 'the name: upper case, a character the FM-1 cannot draw becomes _ (%r %s)' % (nm, r.stderr))
+    check(j['chain'][2]['groove'] == 3 and j['chain'][2]['groove_amt'] == 60 and j['chain'][3]['groove'] == 0 and j['chain'][4]['groove_amt'] == 100,
+          'the GROOVE: template and amount; out of range put right (%s)' % [j['chain'][k] for k in (2, 3, 4)])
+    check(j['names']['groove'][:4] == ['OFF', 'HOUSE', 'GARAGE', 'DILLA'] and len(j['names']['groove']) == 10, 'the core\'s GROOVE names (%s)' % j['names']['groove'])
+    check(j['track'][5]['tape_bars'] == 2 and j['track'][5]['tape_quant'] == 30 and j['tape_len'][5] == 2 * 1536, 'the tape\'s loop: bars, quantise, its length in ticks')
+    check(j['tape'] == [[5, 0, 192, 60, 100], [5, 768, 96, 64, 90], [6, 10, 20, 30, 40]] and j['tape_cnt'][5] == 2 and j['tape_n'] == 3,
+          'the events: sorted, one past the 2-bar loop dropped (%s)' % j['tape'])
+    out2 = os.path.join(d, 'b.sgq')
+    r = apply(out, ['tape 5 clear - 0', 'tape 5,96,48,67 add - 70'], out2)
+    j2 = read(out2)
+    check(r.returncode == 0 and j2['tape'] == [[5, 96, 48, 67, 70], [6, 10, 20, 30, 40]], 'a track\'s events written again: the others as they were (%s)' % j2['tape'])
+    # the image is the FM-1's: sgq2mid plays the tape note where it was written
+    mid = os.path.join(d, 'b.mid')
+    subprocess.run([MID, 'sgq2mid', out2, mid], check=True, capture_output=True)
+    import sagga_sgqmid_tests as G
+    _, _, _, trs = G.read_smf(mid)
+    t6 = [G.notes(e) for n, e in trs if n.startswith('T6 ')]
+    check(t6 and any(n[2] == 67 and n[3] == 70 for n in t6[0]), 'the firmware\'s core plays the tape note written (T6: %s)' % (t6[0][:2] if t6 else [n for n, _ in trs]))
+    for bad, why in ((['tape 5 add - 1'], 'add needs the event'), (['tape 16 clear - 0'], 'a track past 16'), (['tape 5,0,0,60 add - 100'], 'a length 0'),
+                     (['tape 5,0,96,128 add - 100'], 'a note past 127'), (['tape 5,0,96,60 add - 0'], 'velocity 0'),
+                     (['tape 5,30000,96,60 add - 9'], 'past 16 bars'), (['tape 5 wipe - 0'], 'not clear / add'), (['tape 5,0,96 add - 9'], 'three numbers')):
+        o3 = os.path.join(d, 'bad.sgq')
+        r = apply(out, ['project - bpm - 99'] + bad, o3)
+        check(r.returncode == 4 and not os.path.exists(o3) and 'line 2' in r.stderr, 'refused: %s (%s)' % (why, r.stderr.strip()))
+    # full: 1536 events in all
+    lines = ['tape 0,%d,10,60 add - 100' % (i % 6000) for i in range(1537)]
+    r = apply('new', ['track 0 tape_bars - 16'] + lines, os.path.join(d, 'full.sgq'))
+    check(r.returncode == 4 and 'full' in r.stderr, 'more than the tape holds: refused (%s)' % r.stderr.strip())
+
+
+def t015_backend():
+    group('0.15 the editor on the Pi: a new project named after its file; the tape lines; positions and previews through the bridge\'s files')
+    import sagga_editor as E
+    d = tempfile.mkdtemp()
+    ctl = os.path.join(d, 'run')
+    os.makedirs(ctl)
+    ed = E.Editor(d, DirWriter(), control=ctl)
+    n = ed.new('Notte in citta')
+    nm = ''.join(chr(c) for c in n['ext']['name'] if c)
+    check(nm == 'NOTTE IN CITTA', 'Nuovo: the project takes its file\'s name (%r)' % nm)
+    check(E.project_name('a-very-long-name-for-a-song.sgq') == 'A-VERY-LONG-NAME' and E.project_name('  x*y  ') == 'X_Y' and E.project_name('ÀÉÎ.sgq') == 'AEI',
+          'the name as the FM-1 shows it: 16, upper case, accents dropped, others _ (%s)' % E.project_name('a-very-long-name-for-a-song.sgq'))
+    j = ed.save('Notte in citta.sgq', [['track', 2, 'flags', '-', 32], ['tape', '2', 'clear', '-', 0], ['tape', '2,0,96,60', 'add', '-', 100],
+                                       ['tape', '2,384,96,62', 'add', '-', 90], ['chain', 1, 'groove', '-', 5]], n['rev'])
+    check(j['tape'] == [[2, 0, 96, 60, 100], [2, 384, 96, 62, 90]] and j['chain'][1]['groove'] == 5, 'save: the tape events and a GROOVE (%s)' % j['tape'])
+    for bad in ([['tape', '2;rm', 'clear', '-', 0]], [['tape', '2', 'add', '-', 1]], [['tape', '2,0,96,60', 'add', '1', 100]],
+                [['tape', '2,0,96,60', 'move', '-', 100]], [['tape', '2,0,96,60', 'add', '-', '100']], [['tape', '123456,0,1,1', 'add', '-', 1]]):
+        try:
+            ed.save('Notte in citta.sgq', bad)
+            check(False, 'refused %r' % bad)
+        except E.EditorError as e:
+            check(e.code == 400, 'a malformed tape change is refused (%r)' % (bad,))
+    # positions: the page's wish (pos-want), the bridge's file (pos.json)
+    p0 = ed.pos()
+    check(p0['bridge'] is False and p0['fresh'] is False and os.path.isfile(os.path.join(ctl, 'pos-want')), 'no bridge, no position; the wish is written (%s)' % p0)
+    with open(os.path.join(ctl, 'pos.json'), 'w') as f:
+        json.dump(dict(playing=1, scene=2, song=-1, clock=480, bpm=124, steps=list(range(16)), pats=[0] * 16), f)
+    with open(os.path.join(ctl, 'bridge-alive'), 'w') as f:
+        f.write('1\n')
+    p1 = ed.pos()
+    check(p1['bridge'] and p1['fresh'] and p1['bpm'] == 124 and p1['steps'][3] == 3 and p1['age'] < 1, 'a fresh position comes back as it is (%s)' % p1)
+    old = time.time() - 10
+    os.utime(os.path.join(ctl, 'pos.json'), (old, old))
+    check(not ed.pos()['fresh'], 'a position 10 s old while "playing": not fresh (the FM-1 stopped talking)')
+    r = ed.preview(3, [60, 64, 67], 90, 300)
+    req = json.load(open(os.path.join(ctl, 'bridge-preview.json')))
+    check(r['ok'] and req == dict(t=3, notes=[60, 64, 67], vel=90, gate=30, tape=0), 'a preview: a file for the bridge (%s)' % req)
+    for bad in ((16, [60]), (0, []), (0, [128]), ('x', [60])):
+        try:
+            ed.preview(*bad)
+            check(False, 'preview %r' % (bad,))
+        except E.EditorError as e:
+            check(e.code == 400, 'a bad preview is refused (%r)' % (bad,))
+    os.unlink(os.path.join(ctl, 'bridge-alive'))
+    try:
+        ed.preview(0, [60])
+        check(False, 'no bridge')
+    except E.EditorError as e:
+        check(e.code == 409 and 'bridge' in str(e), 'no bridge: the page is told (%s)' % e)
+
+
+def t015_bridge():
+    group('0.15 the bridge: asks the FM-1 for positions while the page wants them, writes them, sends the previews')
+    import sagga_grid_bridge as B
+    d = tempfile.mkdtemp()
+    sent = []
+    lib = type('L', (), {'send': lambda self, m: sent.append(list(m)), 'sender': None})()
+    ctl = B.Control(lib, folder=d, log=lambda t: None)
+    ctl.tick(0.0)
+    check(not [m for m in sent if m[4:5] == [0x30]], 'nobody watching: no positions asked')
+    with open(os.path.join(d, 'pos-want'), 'w') as f:
+        f.write('1\n')
+    ctl.tick(1.0); ctl.tick(1.2); ctl.tick(3.5)
+    subs = [m for m in sent if m[:5] == [0xF0, 0x7D, 0x53, 0x47, 0x30]]
+    check(subs == [[0xF0, 0x7D, 0x53, 0x47, 0x30, 1, 0xF7]] * 2, 'a page watching: 30 01, again every 2 s (%s)' % subs)
+    pos = [0xF0, 0x7D, 0x53, 0x47, 0x31, 1, 3, 127] + B.put7(1000, 3) + B.put7(132, 2)
+    for t in range(16):
+        pos += [t * 2, t % 8]
+    pos.append(0xF7)
+    check(ctl.fm1_sysex(pos, 4.0) and not ctl.fm1_sysex([0xF0, 0x7D, 0x53, 0x47, 0x21, 0, 0, 0xF7], 4.0), 'a position is the Control\'s, a library frame is not')
+    j = json.load(open(os.path.join(d, 'pos.json')))
+    check(j['playing'] == 1 and j['scene'] == 3 and j['song'] == -1 and j['clock'] == 1000 and j['bpm'] == 132 and j['steps'][5] == 10 and j['pats'][9] == 1,
+          'pos.json: what the frame says (%s)' % {k: j[k] for k in ('playing', 'scene', 'song', 'clock', 'bpm')})
+    old = time.time() - 30
+    os.utime(os.path.join(d, 'pos-want'), (old, old))
+    del sent[:]
+    ctl.tick(5.0)
+    check(sent == [[0xF0, 0x7D, 0x53, 0x47, 0x30, 0, 0xF7]], 'the page gone: 30 00 once (%s)' % sent)
+    ctl.tick(6.0)
+    check(len(sent) == 1, '... and nothing more')
+    with open(os.path.join(d, 'bridge-preview.json'), 'w') as f:
+        json.dump(dict(t=4, notes=[60, 67], vel=80, gate=25, tape=1), f)
+    ctl.tick(6.1)
+    check(sent[-1] == [0xF0, 0x7D, 0x53, 0x47, 0x32, 4, 80, 25, 1, 2, 60, 67, 0xF7] and not os.path.exists(os.path.join(d, 'bridge-preview.json')),
+          'a preview file: the PREVIEW frame, the file gone (%s)' % sent[-1:])
+    check(B.preview_frame(dict(t=16, notes=[60])) is None and B.preview_frame(dict(t=0, notes=[])) is None and B.preview_frame(dict(t=0, notes=[200])) is None
+          and B.preview_frame('x') is None and B.preview_frame(dict(t=0, notes=[1, 2, 3, 4, 5, 6]))[9] == 4, 'a preview that is not one: no frame; 4 notes at most')
+
+
+def t015_page():
+    group('0.15 the page: the name, the GROOVE, a TAPE track (mode, notes added, moved, taken away), saved; it follows the FM-1, it plays what is touched')
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (skipped: no playwright)')
+        return
+    import sagga_fw as FW
+    d = tempfile.mkdtemp()
+    fw, pr, ctl = os.path.join(d, 'fw'), os.path.join(d, 'pr'), os.path.join(d, 'run')
+    for x in (fw, pr, ctl):
+        os.makedirs(x)
+    shutil.copy(HW, os.path.join(pr, 'hw.sgq'))
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = ctl
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+
+    def alive():
+        with open(os.path.join(ctl, 'bridge-alive'), 'w') as f:
+            f.write('1\n')
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch()
+            pg = b.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.add_init_script("localStorage.clear()")
+            pg.goto('http://127.0.0.1:%d/edit/hw.sgq' % port)
+            pg.wait_for_timeout(800)
+            # the name
+            pg.evaluate("V.tab='progetto';render()")
+            pg.fill('#pnm', 'Il mio pezzo è qui!')
+            pg.press('#pnm', 'Tab')
+            check(pg.evaluate('projName()') == 'IL MIO PEZZO E Q' and 'IL MIO PEZZO E Q' in (pg.text_content('#pname') or ''), 'the name: as the FM-1 shows it (%r)' % pg.evaluate('projName()'))
+            # GROOVE on a step track, TAPE on another
+            pg.evaluate("V.tab='traccia';V.t=1;render()")
+            pg.select_option('select[data-g="chain"][data-i="1"][data-f="groove"]', '3')
+            check(pg.evaluate("get('chain','1','groove_amt','-')") == 100, 'a GROOVE chosen at 0 %: all of it (as HOME 7 K3)')
+            pg.fill('input[data-g="chain"][data-i="1"][data-f="groove_amt"]', '70')
+            pg.press('input[data-g="chain"][data-i="1"][data-f="groove_amt"]', 'Tab')
+            pg.evaluate("V.t=5;render()")
+            pg.select_option('select[data-g="track"][data-i="5"][data-f="mode"]', '3')
+            check(pg.evaluate("P.track[5].flags & 0x63") == 0x20, 'the mode TAPE: the TAPE bit (%#x)' % pg.evaluate("P.track[5].flags"))
+            check(pg.query_selector('select[data-g="track"][data-i="5"][data-f="tape_bars"]') is not None and pg.query_selector('select[data-g="chain"][data-i="5"][data-f="groove"]') is None,
+                  'a TAPE track: its loop instead of the GROOVE')
+            pg.select_option('select[data-g="track"][data-i="5"][data-f="tape_bars"]', '2')
+            pg.evaluate("V.tab='tape';V.tt=5;V.snap=true;V.zoom=14;V.listen=false;render()")
+            Z = pg.evaluate('V.rz')
+            check(Z >= 14 and Z * 32 <= 1300, 'a 2-bar loop fills the width (%s px a 16th)' % Z)
+            box = pg.query_selector('#roll').bounding_box()
+            hi = pg.evaluate('V.rhi')
+            pg.mouse.click(box['x'] + Z * 4 + 3, box['y'] + (hi - 60) * 10 + 4)             # a C4 on the 5th 16th
+            check(pg.evaluate('evs(5)') == [[384, 96, 60, 100]], 'a tap on the roll: a note on the grid (%s)' % pg.evaluate('evs(5)'))
+            nb = pg.query_selector('.rn[data-i="0"]').bounding_box()
+            pg.mouse.move(nb['x'] + 4, nb['y'] + 4)
+            pg.mouse.down()
+            pg.mouse.move(nb['x'] + 4 + Z * 2, nb['y'] + 4 - 20, steps=5)
+            pg.mouse.up()
+            check(pg.evaluate('evs(5)') == [[576, 96, 62, 100]], 'dragged: two 16ths later, two notes up (%s)' % pg.evaluate('evs(5)'))
+            nb = pg.query_selector('.rn[data-i="0"]').bounding_box()
+            pg.mouse.move(nb['x'] + nb['width'] - 2, nb['y'] + 4)
+            pg.mouse.down()
+            pg.mouse.move(nb['x'] + nb['width'] - 2 + Z * 3, nb['y'] + 4, steps=5)
+            pg.mouse.up()
+            check(pg.evaluate('evs(5)[0][1]') == 384, 'its right edge dragged: longer (%s)' % pg.evaluate('evs(5)'))
+            pg.mouse.click(box['x'] + 3, box['y'] + (hi - 64) * 10 + 4)
+            check(len(pg.evaluate('evs(5)')) == 2 and pg.evaluate('V.tsel') == 0, 'another note, chosen')
+            pg.keyboard.press('Delete')
+            check(pg.evaluate('evs(5)') == [[576, 384, 62, 100]], 'Delete takes the chosen note away (%s)' % pg.evaluate('evs(5)'))
+            pg.keyboard.press('Control+z')
+            check(len(pg.evaluate('evs(5)')) == 2, 'Ctrl+Z brings it back')
+            pg.keyboard.press('Control+z')
+            pg.evaluate("V.tsel=0;render()")
+            pg.fill('input[onchange^="tapeEdit(3"]', '77')
+            pg.press('input[onchange^="tapeEdit(3"]', 'Tab')
+            check(pg.evaluate('evs(5)') == [[576, 384, 62, 77]], 'the chosen note\'s velocity typed (%s)' % pg.evaluate('evs(5)'))
+            pg.click('#bsave')
+            pg.wait_for_timeout(1200)
+            stt = pg.text_content('#status') or ''
+            check(stt.startswith('salvato') and pg.evaluate('changes.size') == 0 and pg.evaluate('evs(5)') == [[576, 384, 62, 77]], 'saved and read back (%s)' % stt)
+            # it follows the FM-1: the bridge's position paints the step that plays
+            alive()
+            with open(os.path.join(ctl, 'pos.json'), 'w') as f:
+                json.dump(dict(playing=1, scene=0, song=-1, clock=6 * 9, bpm=124, steps=[6] * 16, pats=[0] * 4 + [1] + [0] * 11), f)
+            pg.evaluate("V.tab='tracce';V.pat=0;render()")
+            pg.check('#follow')
+            pg.wait_for_timeout(500)
+            check(pg.evaluate("document.querySelector('.c[data-ts=\"2,6\"]').classList.contains('ph')") and not pg.query_selector('.c.ph[data-ts="4,6"]'),
+                  'the step that plays is marked, where the track plays the pattern shown')
+            check((pg.text_content('#pp4') or '') == '▶P2' and (pg.text_content('#pos') or '').startswith('▶ 124 BPM'), 'a track on another pattern says which; the tempo (%s / %s)' % (pg.text_content('#pp4'), pg.text_content('#pos')))
+            check(os.path.isfile(os.path.join(ctl, 'pos-want')), 'the page asks for positions (pos-want)')
+            pg.evaluate("V.tab='tape';V.tt=5;render()")
+            pg.wait_for_timeout(400)
+            left = pg.evaluate("parseFloat($('rph').style.left)")
+            check(pg.evaluate("$('rph').style.display") == 'block' and abs(left - 9 * Z) < 0.5, 'the TAPE roll: the line where the loop is (%s px)' % left)
+            pg.uncheck('#follow')
+            pg.wait_for_timeout(300)
+            check(pg.evaluate("$('rph').style.display") == 'none', 'not following: no line')
+            # it plays what is touched
+            alive()
+            pg.evaluate("V.tab='tracce';V.toggle=true;V.listen=true;V.pat=0;render()")
+            pg.click('.c[data-ts="2,9"]')
+            pg.wait_for_timeout(400)
+            req = json.load(open(os.path.join(ctl, 'bridge-preview.json')))
+            check(req['t'] == 2 and req['notes'] == [pg.evaluate('P.track[2].pen')] and req['tape'] == 0, 'a step turned on: the FM-1 is asked to play it (%s)' % req)
+            os.unlink(os.path.join(ctl, 'bridge-preview.json'))
+            pg.evaluate("V.tab='tape';V.tt=5;V.tsel=0;render()")
+            pg.click('text=♪ ascolta')
+            pg.wait_for_timeout(400)
+            req = json.load(open(os.path.join(ctl, 'bridge-preview.json')))
+            check(req == dict(t=5, notes=[62], vel=77, gate=25, tape=1), 'a TAPE note: played as the tape plays it (%s)' % req)
+            for tb in ('tracce', 'traccia', 'lane', 'tape', 'scene', 'song', 'catene', 'lfo', 'progetto'):
+                pg.evaluate("V.tab='%s';render()" % tb)
+            check(not errs, 'no script errors (%s)' % errs)
+            b.close()
+    finally:
+        srv.shutdown()
+    j = read(os.path.join(pr, 'hw.sgq'))
+    nm = ''.join(chr(c) for c in j['ext']['name'] if c)
+    check(nm == 'IL MIO PEZZO E Q' and j['chain'][1]['groove'] == 3 and j['chain'][1]['groove_amt'] == 70, 'in the file: the name, the GROOVE (%r)' % nm)
+    check(j['track'][5]['flags'] & 0x20 and j['track'][5]['tape_bars'] == 2 and [e for e in j['tape'] if e[0] == 5] == [[5, 576, 384, 62, 77]],
+          'in the file: T6 a TAPE track of 2 bars with its note (%s)' % [e for e in j['tape'] if e[0] == 5])
+
+
 def main():
     build()
-    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page):
+    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page):
         try:
             t()
         except Exception as e:

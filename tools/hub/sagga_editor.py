@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """SAGGA EDITOR (0.14): what the hub's web editor does with a project of the library (sagga_fw.py serves the page,
-editor.html; this does the work).
+editor.html; this does the work). 0.15: the project's name, the TAPE tracks' events, where the FM-1 is (pos) and the
+notes it plays for the page (preview), both through the grid bridge.
 
   read(name)               the project as the editor sees it: sagga_sgqjson read (the firmware's own core: the same
                            format and limits as the FM-1)
@@ -11,10 +12,14 @@ editor.html; this does the work).
   receive(name) / send(name)   the FM-1's project into the library / a project of the library into the FM-1 (stopped):
                            through the grid bridge when it runs (it holds the FM-1's port: the hub asks it with a file in
                            CONTROL_DIR, sagga_grid_bridge.py's Control), else with sagga_grid_bridge.py --export / --import
+  pos()                    0.15: where the FM-1 is (the bridge writes CONTROL_DIR/pos.json while a page asks: pos-want)
+  preview(track, notes, vel, gate_ms, tape)   0.15: the FM-1 plays these notes on that track (the bridge sends them)
 
 A change is [group, index, field, elem, value]: index "-" or an int or "t,p,s" (a step), elem "-" or an int (an array
-field), value an int - one line of sagga_sgqjson's patch.
+field), value an int - one line of sagga_sgqjson's patch. 0.15, a TAPE track's events: ["tape", "T", "clear", "-", 0]
+then ["tape", "T,ON,DUR,NOTE", "add", "-", VEL] for each (the track's events written again whole).
 """
+import unicodedata
 import json
 import os
 import re
@@ -30,7 +35,10 @@ CONTROL_DIR = os.environ.get('SAGGA_CONTROL', '/run/sagga')
 VERSIONS = 'versioni'                       # the folder of the old versions, inside the library (the bridge lists only .sgq files)
 KEEP_VERSIONS = 20
 NAME_RE = re.compile(r'^[A-Za-z0-9][A-Za-z0-9 ._+-]{0,39}\.sgq$')
-GROUPS = ('project', 'key', 'track', 'step', 'scene', 'lfo', 'lfox', 'chain', 'song', 'song_e', 'live', 'ext')
+GROUPS = ('project', 'key', 'track', 'step', 'scene', 'lfo', 'lfox', 'chain', 'song', 'song_e', 'live', 'ext', 'tape')
+NAME_LEN = 16                               # 0.15: a project's name (sq_ext_t.name)
+NAME_OK = set('ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789 -_.+#&!\'()/:')
+POS_FRESH = 3.0                             # 0.15: a position older than this: the FM-1 is not playing for us (s)
 
 
 class EditorError(Exception):
@@ -70,6 +78,13 @@ def patch_lines(changes):
         if not isinstance(c, (list, tuple)) or len(c) != 5:
             raise EditorError('modifica %d: servono 5 valori' % (k + 1))
         g, idx, f, el, v = c
+        if g == 'tape':                                  # 0.15: tape T clear - 0 / tape T,ON,DUR,NOTE add - VEL
+            idx = str(idx)
+            ok = (f == 'clear' and re.match(r'^\d{1,2}$', idx)) or (f == 'add' and re.match(r'^\d{1,2},\d{1,5},\d{1,5},\d{1,3}$', idx))
+            if not ok or str(el) != '-' or isinstance(v, bool) or not isinstance(v, int):
+                raise EditorError('modifica %d: tape %r %r' % (k + 1, idx, f))
+            out.append('tape %s %s - %d' % (idx, f, v))
+            continue
         if g not in GROUPS or not isinstance(f, str) or not re.match(r'^[a-z_0-9]{1,24}$', f):
             raise EditorError('modifica %d: %r %r' % (k + 1, g, f))
         idx = str(idx)
@@ -82,6 +97,23 @@ def patch_lines(changes):
             raise EditorError('modifica %d: valore %r' % (k + 1, v))
         out.append('%s %s %s %s %d' % (g, idx, f, el, v))
     return '\n'.join(out) + '\n'
+
+
+def project_name(text):
+    """0.15: a name as the FM-1 shows it (as sq_name_sanitize: upper case, its characters, 16 at most), from a file
+    name or what was typed: accents dropped (è -> E), other characters _"""
+    base = os.path.basename(text or '')
+    if base.lower().endswith('.sgq'):
+        base = base[:-4]
+    t = unicodedata.normalize('NFKD', base).encode('ascii', 'ignore').decode('ascii').upper()
+    t = ''.join(c if c in NAME_OK else '_' for c in t)
+    return t.strip()[:NAME_LEN].rstrip()
+
+
+def name_changes(text):
+    """the ext name as changes (the 16 characters, 0 after the last)"""
+    t = project_name(text)
+    return [['ext', '-', 'name', str(i), ord(t[i]) if i < len(t) else 0] for i in range(NAME_LEN)]
 
 
 def _vkey(n):
@@ -146,8 +178,10 @@ class Editor:
         if os.path.exists(p):
             raise EditorError('c\'è già un progetto %s' % os.path.basename(p), 409)
         with tempfile.TemporaryDirectory() as td:
-            out = os.path.join(td, 'new.sgq')
-            _tool(['new', out])
+            out, pf = os.path.join(td, 'new.sgq'), os.path.join(td, 'name.txt')
+            with open(pf, 'w') as f:                                  # 0.15: named after its file
+                f.write(patch_lines(name_changes(os.path.basename(p))))
+            _tool(['apply', 'new', pf, out])
             with open(out, 'rb') as f:
                 self.writer.write(p, f.read())
         return self.read(name)
@@ -172,6 +206,48 @@ class Editor:
         self._keep_version(p)
         self.writer.write(p, data)
         return self.read(name)
+
+    # ---- 0.15: where the FM-1 is, what it plays for the page
+    def pos(self):
+        """the newest position the bridge wrote (and a wish for more: pos-want, which the bridge sees and asks the FM-1
+        for positions while it is fresh)"""
+        out = dict(bridge=self.bridge_alive(), fresh=False)
+        try:
+            with open(os.path.join(self.control, 'pos-want'), 'w') as f:
+                f.write('%.0f\n' % time.time())
+        except OSError:
+            return out
+        try:
+            p = os.path.join(self.control, 'pos.json')
+            age = time.time() - os.path.getmtime(p)
+            with open(p) as f:
+                d = json.load(f)
+        except (OSError, ValueError):
+            return out
+        if isinstance(d, dict):
+            out.update(d)
+            out['age'] = round(age, 2)
+            out['fresh'] = age < POS_FRESH or not d.get('playing')
+        return out
+
+    def preview(self, track, notes, vel=100, gate_ms=250, tape=False):
+        """the FM-1 plays these notes on that track, as the track plays a step (its key, CHORD ...); tape: as a TAPE note"""
+        try:
+            track = int(track)
+            notes = [int(n) for n in notes][:4]
+            vel, gate_ms = int(vel), int(gate_ms)
+        except (TypeError, ValueError):
+            raise EditorError('ascolto: valori non validi')
+        if not 0 <= track < 16 or not notes or any(not 0 <= n < 128 for n in notes):
+            raise EditorError('ascolto: valori non validi')
+        if not self.bridge_alive():
+            raise EditorError('per ascoltare serve il bridge acceso, con l\'FM-1 collegato', 409)
+        req = dict(t=track, notes=notes, vel=max(1, min(127, vel)), gate=max(1, min(100, round(gate_ms / 10))), tape=1 if tape else 0)
+        p = os.path.join(self.control, 'bridge-preview.json')
+        with open(p + '.part', 'w') as f:
+            json.dump(req, f)
+        os.replace(p + '.part', p)
+        return dict(ok=True)
 
     # ---- the FM-1
     def bridge_alive(self):

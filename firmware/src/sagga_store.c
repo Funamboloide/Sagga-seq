@@ -14,9 +14,12 @@
  *   - a save made while playing, with no erased area left, keeps its snapshot and is written at STOP.
  * The slot saved last is the one loaded at power-on.
  *
- *   SAVE + PRESETS     choose the slot (the screen shows the eight)
+ *   SAVE + PRESETS     choose the slot (the screen shows the eight; 0.15: and the name of the project in each)
  *   SAVE, SAVE         the first press asks, the second (within 3 s) saves
  *   HOME + SAVE, again load the chosen slot
+ *   SAVE + REC, again  0.15: clear the chosen slot (stopped): it is EMPTY after, the project you have is not touched
+ * 0.15: the header page carries the project's name too (after the five words), so that choosing a slot can show it
+ * without reading the image; a 0.14 header has none there (FF: no name).
  */
 
 #define SQ_SLOTS      8u
@@ -42,7 +45,8 @@
 static uint8_t store_img[SQ_SLOT_SIZE] __attribute__((section(".pool")));   /* the image being saved, loaded or exchanged */
 static uint8_t store_chk[256];
 
-typedef struct { uint8_t ok, area; uint32_t seq, len, crc; } slot_info_t;
+typedef struct { uint8_t ok, area; uint32_t seq, len, crc; char name[SQ_NAME_LEN + 1u]; } slot_info_t;
+#define SQ_HEAD_NAME 20u                            /* 0.15: where the name is in the header page (after h[0..4]) */
 static slot_info_t slot_info[SQ_SLOTS];
 static uint8_t slot_cur;                            /* the slot SAVE and LOAD use */
 static uint32_t store_seq;                          /* the highest sequence number on the flash */
@@ -52,6 +56,7 @@ static uint8_t maint_area = 255u, maint_sector;    /* the background eraser */
 
 enum { ST_IDLE = 0, ST_WAIT, ST_ERASE, ST_PROGRAM, ST_CHECK, ST_FINISH };
 static uint8_t save_state, save_slot, save_area;
+static char save_name[SQ_NAME_LEN];                 /* 0.15: the name the header gets (the project's at SAVE) */
 static uint32_t save_len, save_pos, save_sector, save_sectors, save_crc;
 
 static uint8_t imp_on;                              /* a SysEx import is filling store_img (see the dump, below) */
@@ -67,7 +72,7 @@ static void rl_img_used(void) { if (rl_src == RL_IMPORT) rl_src = 255u; }     /*
 static void reload_step(void);
 
 static uint8_t save_down, save_turned;              /* the SAVE button is held / the slot was turned while it was */
-static uint8_t ask_kind;                            /* 0 nothing asked, 1 save, 2 load */
+static uint8_t ask_kind;                            /* 0 nothing asked, 1 save, 2 load, 3 clear (0.15) */
 static uint8_t ask_slot;
 static uint32_t ask_until;
 
@@ -86,7 +91,7 @@ static int store_erase(uint32_t off)
 static void store_scan(void)
 {
     uint32_t a, s, h[5];
-    for (s = 0; s < SQ_SLOTS; s++) slot_info[s].ok = 0u;
+    for (s = 0; s < SQ_SLOTS; s++) { slot_info[s].ok = 0u; slot_info[s].name[0] = 0; }
     for (a = 0; a < SQ_AREAS; a++) {
         if (!flash_ok || st_read(area_off(a), h, sizeof h)) continue;
         if (h[0] != SQ_SLOT_MAGIC || h[2] == 0u || h[2] > SQ_IMG_MAX || h[4] >= SQ_SLOTS) {
@@ -102,6 +107,9 @@ static void store_scan(void)
         slot_info[s].seq = h[1];
         slot_info[s].len = h[2];
         slot_info[s].crc = h[3];
+        if (st_read(area_off(a) + SQ_HEAD_NAME, slot_info[s].name, SQ_NAME_LEN)) slot_info[s].name[0] = 0;   /* 0.15 */
+        sq_name_sanitize(slot_info[s].name, SQ_NAME_LEN);
+        slot_info[s].name[SQ_NAME_LEN] = 0;
     }
     area_live = 0u;
     for (s = 0; s < SQ_SLOTS; s++) if (slot_info[s].ok) area_live |= (uint16_t)(1u << slot_info[s].area);
@@ -216,6 +224,7 @@ static int save_begin(uint8_t s)
     save_sector = 0u;
     save_sectors = (SQ_SLOT_HEAD + len + 0xFFFu) / 0x1000u;
     save_crc = sq_crc32(store_img, len);
+    memcpy(save_name, project.ext.name, SQ_NAME_LEN);  /* 0.15: the header carries it */
     for (a = 0; a < SQ_AREAS; a++) {                /* an erased area; else any area that holds no slot */
         if (area_live & (1u << a)) continue;
         if (area_blank & (1u << a)) { free_a = a; break; }
@@ -276,8 +285,9 @@ static void store_service(void)
         return;
     }
     default: {                                      /* the header: from now on the new copy is the slot */
-        uint32_t h[5], r[5];
+        uint32_t h[5u + SQ_NAME_LEN / 4u], r[5u + SQ_NAME_LEN / 4u];
         h[0] = SQ_SLOT_MAGIC; h[1] = store_seq + 1u; h[2] = save_len; h[3] = save_crc; h[4] = save_slot;
+        memcpy(&h[5], save_name, SQ_NAME_LEN);       /* 0.15: the name (a 0.14 firmware reads the five words only) */
         if (fl_write(area_off(save_area), (const uint8_t *)h, sizeof h) || st_read(area_off(save_area), r, sizeof r) ||
             bdiff_((const uint8_t *)r, (const uint8_t *)h, sizeof h)) { save_fail("SAVE FAILED (HEADER)"); return; }
         save_state = ST_IDLE;
@@ -315,11 +325,43 @@ static void ask_for(uint8_t kind)
     ask_kind = kind;
     ask_slot = slot_cur;
     ask_until = fm1_ms + SQ_ASK_MS;
-    p = put_s(p, kind == 1u ? "SAVE SLOT " : "LOAD SLOT ");
+    p = put_s(p, kind == 1u ? "SAVE SLOT " : kind == 3u ? "CLEAR SLOT " : "LOAD SLOT ");
     p = put_u(p, (uint32_t)slot_cur + 1u);
-    p = put_s(p, kind == 1u ? ": SAVE AGAIN" : !slot_info[slot_cur].ok ? " EMPTY: AGAIN = NEW PROJECT" : ": HOME+SAVE AGAIN");   /* (0.14) */
+    if (kind != 1u && slot_info[slot_cur].ok && slot_info[slot_cur].name[0]) { p = put_s(p, " "); p = put_s(p, slot_info[slot_cur].name); }   /* 0.15 */
+    p = put_s(p, kind == 1u ? ": SAVE AGAIN" : kind == 3u ? ": SAVE+REC AGAIN" : !slot_info[slot_cur].ok ? " EMPTY: AGAIN = NEW PROJECT" : ": HOME+SAVE AGAIN");   /* (0.14) */
     finish(p);
     status_msg(msg_buf);
+}
+
+/* 0.15: SAVE + REC, twice: the chosen slot cleared. Every area whose header names that slot loses its header page (an
+ * older copy would otherwise become the slot); the rest of the area the background eraser does. Stopped only: an erase
+ * keeps the interrupts off for ~45 ms. The project in the FM-1 is not touched (SAVE puts it back, in any slot). */
+static void store_tap_clear(void)
+{
+    uint32_t a, h[5], bad = 0u;
+    uint8_t s = slot_cur;
+    char *p = msg_buf;
+    if (tst_booted) { status_msg(TST_SLOTS_OFF); return; }
+    if (save_state != ST_IDLE) { status_msg(save_state == ST_WAIT ? "A SAVE WAITS FOR STOP" : "SAVING, WAIT"); ask_kind = 0u; return; }
+    if (imp_on) { status_msg("IMPORT IN PROGRESS"); return; }
+    if (!slot_info[s].ok) { ask_kind = 0u; status_num("NOTHING TO CLEAR: EMPTY SLOT ", (uint32_t)s + 1u); return; }
+    if (playing) { ask_kind = 0u; status_msg("CLEAR A SLOT: STOP FIRST"); return; }
+    if (!(ask_kind == 3u && ask_slot == s && !time_due(fm1_ms, ask_until))) { ask_for(3u); return; }
+    ask_kind = 0u;
+    for (a = 0; a < SQ_AREAS; a++) {
+        if (st_read(area_off(a), h, sizeof h) || h[0] != SQ_SLOT_MAGIC || h[4] != s) continue;
+        area_blank &= (uint16_t)~(1u << a);
+        if (maint_area == a) maint_area = 255u;
+        if (store_erase(area_off(a))) bad = 1u;
+    }
+    store_scan();
+    if (rl_src == s) rl_src = 255u;                 /* (RELOAD has nothing to go back to there) */
+    if (bad || slot_info[s].ok) { status_msg("CLEAR FAILED"); ui_dirty = grid_dirty = 1u; return; }
+    p = put_s(p, "SLOT "); p = put_u(p, (uint32_t)s + 1u); p = put_s(p, " CLEARED: THE PROJECT YOU HAVE STAYS");
+    finish(p);
+    status_msg(msg_buf);
+    SQ_STORE_LOG("%6u ms  slot %u cleared\n", fm1_ms, (unsigned)s + 1u);
+    ui_dirty = grid_dirty = 1u;
 }
 
 static void store_tap_save(void)
@@ -387,7 +429,13 @@ static void store_tap_load(void)
         if (slot_load(slot_cur)) { status_msg("LOAD FAILED"); return; }
         store_loaded();
         rl_src = slot_cur;
-        status_num("LOADED SLOT ", (uint32_t)slot_cur + 1u);
+        {   /* 0.15: with its name */
+            char *q = msg_buf;
+            q = put_s(q, "LOADED SLOT "); q = put_u(q, (uint32_t)slot_cur + 1u);
+            if (project.ext.name[0]) { char nm[SQ_NAME_LEN + 1u]; memcpy(nm, project.ext.name, SQ_NAME_LEN); nm[SQ_NAME_LEN] = 0; q = put_s(q, ": "); q = put_s(q, nm); }
+            finish(q);
+            status_msg(msg_buf);
+        }
     } else ask_for(2u);                             /* (0.14: an empty slot too: the second time, a new project) */
 }
 
@@ -587,6 +635,13 @@ static void sx_import_end(const uint8_t *p, uint32_t n)
     if (lib_loading < LIB_MAX) {                        /* a file of the library: it stays on the Pi */
         lib_cur = lib_loading;
         lib_loading = LIB_NONE;
+        if (!project.ext.name[0] && lib_cur < lib_n) {  /* 0.15: a project with no name takes the file's (without .SGQ) */
+            uint32_t k;
+            for (k = 0; k < SQ_NAME_LEN && lib_name[lib_cur][k]; k++) project.ext.name[k] = lib_name[lib_cur][k];
+            if (k >= 4u && project.ext.name[k - 4u] == '.') k -= 4u;
+            for (; k < SQ_NAME_LEN; k++) project.ext.name[k] = 0;
+            sq_name_sanitize(project.ext.name, SQ_NAME_LEN);
+        }
         lib_toast("LOADED ", lib_cur);
     } else status_msg("IMPORTED: SAVE TO KEEP IT");
     SQ_STORE_LOG("%6u ms  imported %u B\n", fm1_ms, (unsigned)len);
@@ -731,6 +786,7 @@ static void snap_answer_in(const uint8_t *p, uint32_t n)
     status_msg(msg_buf);
 }
 
+static void link_sysex_in(uint8_t cmd, const uint8_t *p, uint32_t n);   /* sagga_link.c: 0.15 */
 /* a SysEx frame for the app (between F0 and F7, first byte 7D): platform.c / tests/host.c call this */
 static void app_sysex(const uint8_t *p, uint32_t n)
 {
@@ -746,6 +802,7 @@ static void app_sysex(const uint8_t *p, uint32_t n)
     case 0x61u: case 0x63u: case 0x65u: pipat_in(p[3], p + 4, n - 4u); break;   /* 0.11 the Pi's patterns (sagga_pipat.c) */
     case 0x67u: case 0x69u: case 0x6Bu: piprog_in(p[3], p + 4, n - 4u); break;  /* 0.11 the Pi's progressions */
     case 0x70u: tst_sysex_in(p + 4, n - 4u); break;                             /* 0.11 the PC test (sagga_test.c) */
+    case 0x30u: case 0x32u: link_sysex_in(p[3], p + 4, n - 4u); break;          /* 0.15 the Pi's editor (sagga_link.c) */
     default: break;
     }
 }

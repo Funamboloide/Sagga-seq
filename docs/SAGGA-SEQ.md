@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.14
+# SAGGA SEQ 0.15
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,48 @@ steps), and **VIAGGIO**: a way to play a set as a journey of phrases, with moves
 bar, or the beat). With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.14` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.15` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.15
+
+**Clear a slot.** Choose the slot (SAVE + PRESETS), then **SAVE + REC**: `CLEAR SLOT 3 MY SONG: SAVE+REC AGAIN`; again
+within three seconds: `SLOT 3 CLEARED: THE PROJECT YOU HAVE STAYS`. The slot is `EMPTY` from then on (after a power
+cycle too: every copy of it in the flash loses its header); the project in the FM-1 is not touched, SAVE puts it in any
+slot. Only while stopped (`CLEAR A SLOT: STOP FIRST`); an empty slot says `NOTHING TO CLEAR`.
+
+**The project's name.** A project has a name of up to 16 characters (A-Z, 0-9, space and `- _ . + # & ! ' ( ) / :`).
+The Pi's editor writes it (Progetto, **NOME**; **Nuovo** names the project after its file; a file of the library loaded
+from the grid's LIB view that has no name takes the file's). The FM-1 shows it: SAVE held (page 1), lines 3 and 4 say
+`SLOT 3: MY SONG` (`NO NAME`, `EMPTY`) and `NOW: <the project in the FM-1>`; LOAD asks `LOAD SLOT 3 MY SONG: HOME+SAVE
+AGAIN` and says `LOADED SLOT 3: MY SONG`. The slot keeps the name in its header page, so choosing a slot shows it
+without reading the project; a slot saved by 0.14 has no name until it is saved again. (SAVE held shows the names in
+place of the key map on page 1; the map is on pages 2-4.)
+
+**GROOVE.** HOME 7 K3 / K4 on a track that is not TAPE: a template and how much of it, 0-100 %. A template moves each
+16th of the bar a little early or late (a percentage of the step, on top of the step's nudge, the swing and HUMAN) and
+makes it louder or softer: **HOUSE** (the 16ths a touch late, the offbeat 8th up), **GARAGE** (the 2-step shuffle),
+**DILLA** (drunk: never twice the same), **AFRO** (3 + 3 + 2, pushed), **SAMBA** (the second and fourth 16th early),
+**LAID BACK** (behind the beat), **PUSH** (ahead of it), **HUMAN** (a player's small misses), **TRAP** (tight, the
+accents do it). A template chosen at 0 % takes 100 %. On a TAPE track K3 / K4 are its TAPE BARS and TAPE QUANT, as
+before. PICK sets the template with the whites; saved with the project (a 0.14 firmware ignores it).
+
+**The editor follows the music, and plays what you touch (the Pi).** In the editor's header: **segui l'FM-1** marks,
+while the FM-1 plays, the step each track is on (a white frame; a track on another pattern says `▶P3`), the tempo, the
+scene; in the Tape view a line runs through the loop. **ascolta**: a step turned on, a note of the roll touched or
+moved, is played by the FM-1 on that track (its channel, key, CHORD, voicing; a TAPE note as the tape plays it), and the
+step panel has **♪ ascolta**. Both need the grid bridge running (it holds the FM-1's port; from 0.15 it runs without the Launchpads too, and starts
+again with them when they are plugged in); the FM-1 sends positions only while the Pi asks for them (SysEx 30, 31, 32
+below).
+
+**TAPE tracks in the editor.** The **Tape** tab: a piano roll of a track's tape (384 ticks a beat, the loop of TAPE
+battute). Tap the empty roll: a 16th note there; drag a note to move it (in 16ths with **griglia 1/16**, else in steps of
+12 ticks, a 32nd of a beat), drag its right edge to make it longer; Canc takes the chosen one away; below, the chosen
+note's start, length, pitch and velocity by number. The loop's bars and TAPE QUANT are on the same row. Saved like the
+rest (versions, the firmware's checks: a note past the end of the loop is dropped, and the page says how many). The
+Traccia tab shows TAPE BARS / TAPE QUANT on a TAPE track, the GROOVE on the others; **Tracce** links a TAPE track to its
+roll. (The 0.14 editor's mode menu set the wrong bits for TAPE and BREAK: fixed.)
 
 ## What is new in 0.14
 
@@ -433,7 +472,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
 | 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL | amount | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
-| 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | TAPE BARS 1-16 | TAPE QUANT 0-100 % |
+| 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
 (VIAGGIO's knobs, HOME 8 until 0.11, are **GLO 3**.)
@@ -548,6 +587,9 @@ In PERF mode (GLO tapped), **SEL + the knobs are TRACK LIVE** whatever page is s
 | 2 | **CC LEAD** 0-30 ms | **SONG TEMPO** | **DEVICE** of the track's channel (GENERIC, ELEKTRON) | **LIBRARY** 16 / 32 / 64 STEPS |
 | 3 SYSTEM (0.12) | **USB PORTS** 1 / 2 (SEL + K1 twice: reconnect) | the button lights | | |
 | **4 LIVE IN** (0.13) | **MOTION** OFF / 1 / 2 / 4 BARS (REC + FX K: written) | **KEYBOARD** OFF / ALL / SPLIT C3 (the MIDI IN transposes) | **KEYB CH** ANY / 1-16 | **MIDI IN** REC ONLY / ALWAYS |
+
+SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot; SAVE tapped twice saves; HOME + SAVE twice loads;
+**SAVE + REC twice clears the slot** (0.15). Page 1 shows the slot's project name and the one in the FM-1 (0.15).
 
 ### PICK: the keys set the knobs (0.12)
 
@@ -768,7 +810,8 @@ Saved in the FM-1's settings (not the project), so the computer sees the same de
 
 ## Saving
 
-Eight slots. The slot saved last is loaded at power-on. Saving never stops the music (nine areas of flash, erased while
+Eight slots. The slot saved last is loaded at power-on. 0.15: SAVE + REC twice clears the chosen slot (stopped); the
+slot's header page carries the project's name. Saving never stops the music (nine areas of flash, erased while
 stopped; a save writes into an erased one and is read back before it counts; a power cut never loses a slot). Saved
 with the project: everything above (the macros too, from 0.10) but the dice and EVOLVE state, TEMP and the song's
 position; the journey's settings (on, phrase, energy, genre, the tracks' states), the patterns playing, the mutes and
@@ -824,7 +867,11 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT |
 | **72** | `idx*2 k last text...` | (to the PC) the probe event idx asked for, in pieces of 150 characters: the explorer's `PROBE G`, `PROBE T1..16`, `PROBE H` lines |
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
+| **30** | `on` | (from the Pi, 0.15) 1: send the positions for the next 6 s (the bridge asks again every 2 s while an editor page follows); 0: stop |
+| **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song; clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
+| **32** | `t vel gate flags n note*n` | (from the Pi) play these notes on track t as the track plays a step (its channel, key, CHORD, voicing) for gate x 10 ms; flags bit 0: a TAPE note (the key only). A new one ends the one before; PANIC and STOP end it |
 
+The FM-1 sends 31 only while asked (30), with the same rule: a position that does not fit the USB queue is skipped.
 The FM-1 sends 50, 52, 53, 55 only after the Pi has sent a 51 or a 54 (the bridge's `Regista` class; `--regista`
 prints the STATO frames), and never waits for them to go: a frame that does not fit the USB queue is dropped and the
 next bar sends a new STATO.
@@ -837,7 +884,9 @@ each: with their lanes, role, chord, octave, key slot, EXPO, TAPE, the four algo
 the LFOs, the generators (with the harmony's genre, LOCK, RHYTHM and MOOD), the song (with a tempo per entry), the live settings (the macros, CC LEAD, SONG TEMPO), the
 journey, the tapes' counts, the snapshots that are used (a track is stored only where it differs from the project),
 then the steps (a 24-bit mask of the bytes that differ from an empty step, then those bytes), the tape events, then a
-tail of chunks `tag len*2 data`, ended by a 0 (none yet). A later version can add chunks; 0.11 skips the ones it does
+tail of chunks `tag len*2 data`, ended by a 0. Chunk 1 (0.13) holds what 0.13 added (RATE SEQ and TRIG, the CHAIN
+LISTs, MOTION, LIVE IN): 780 bytes, 796 from 0.15 (the GROOVE in two bytes that were reserved, the name at the end); it is
+written only when it is not at its defaults, and a firmware reads as much of it as it knows. A later version can add chunks; 0.11 skips the ones it does
 not know. An `SGQA` image is read with 80-byte tracks, 18-byte progressions (four) and 24-byte generators, the rest
 put to what 0.10 did. SGQ3 .. SGQ9 images are refused.
 

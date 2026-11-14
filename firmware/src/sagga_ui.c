@@ -326,9 +326,15 @@ static void ui_build(void)
                 q = put_s(q, "P"); q = put_u(q, (uint32_t)(pp & ~1u) + 1u); q = put_s(q, "+"); q = put_u(q, (uint32_t)(pp | 1u) + 1u); finish(q);
                 ui_cell(1, "CHAIN", chain == 2u ? "LIST" : chain ? cb : "OFF", chain ? C_ACCENT : SQ_C_DIM);
             }
-            ui_cell(2, "TAPE BARS", f_u(cfg->tape.bars), track_tape(t) ? C_ACCENT : SQ_C_DIM);
-            ui_cell(3, "TAPE QUANT", f_pct(cfg->tape.quant), track_tape(t) ? C_WHITE : SQ_C_DIM);
-            ui_line(2, chain == 2u ? "HOME 7/8 TIMING  CHAIN: HOME 8" : chain ? "HOME 7/8 TIMING  CHAIN: TWO PATTERNS AS ONE" : dl < 0 ? "HOME 7/8 TIMING  - EARLY: A SLOW SYNTH" : dl > 0 ? "HOME 7/8 TIMING  + LATE: A FAST SYNTH" : "HOME 7/8 TIMING  K1 LATENCY K2 CHAIN K3 K4 TAPE", C_WARN);
+            if (track_tape(t)) {
+                ui_cell(2, "TAPE BARS", f_u(cfg->tape.bars), C_ACCENT);
+                ui_cell(3, "TAPE QUANT", f_pct(cfg->tape.quant), C_WHITE);
+            } else {                                                 /* 0.15 GROOVE */
+                const sq_trackx_t *gx = &project.ext.track[t];
+                ui_cell(2, "GROOVE", sq_groove_name(gx->groove), gx->groove ? C_ACCENT : SQ_C_DIM);
+                ui_cell(3, "GROOVE AMT", f_pct(gx->groove_amt), gx->groove && gx->groove_amt ? C_WHITE : SQ_C_DIM);
+            }
+            ui_line(2, chain == 2u ? "HOME 7/8 TIMING  CHAIN: HOME 8" : chain ? "HOME 7/8 TIMING  CHAIN: TWO PATTERNS AS ONE" : dl < 0 ? "HOME 7/8 TIMING  - EARLY: A SLOW SYNTH" : dl > 0 ? "HOME 7/8 TIMING  + LATE: A FAST SYNTH" : track_tape(t) ? "HOME 7/8 TIMING  K1 LATENCY K2 CHAIN K3 K4 TAPE" : "HOME 7/8 TIMING  K1 LATENCY K2 CHAIN K3 K4 GROOVE", C_WARN);
         } else if (home_page == 7u) {                                /* 0.13 CHAIN LIST */
             const sq_trackx_t *cx = &project.ext.track[t];
             uint8_t e = chain_edit < cx->chain_n ? chain_edit : (uint8_t)(cx->chain_n - 1u), k;
@@ -752,7 +758,19 @@ static void ui_build(void)
     /* lines 3-4: what you just did, else (0.12) the map of the keys of the button held half a second, else the key,
      * the grid, the clock recoveries; the genre and scope */
     if (msg_text && !time_due(fm1_ms, msg_until)) ui_wrap(msg_text, C_WARN);
-    else if (pick_map_due() && pick_map_any(eff_held(), b, b + 32)) {   /* (b holds 64: two lines of 29) */
+    else if (mode == UM_SAVE && !save_page) {         /* 0.15: the name of the project in the slot, and of the one here */
+        msg_text = 0;
+        p = b; p = put_s(p, "SLOT "); p = put_u(p, (uint32_t)slot_cur + 1u); p = put_s(p, ": ");
+        p = put_s(p, !slot_info[slot_cur].ok ? "EMPTY" : slot_info[slot_cur].name[0] ? slot_info[slot_cur].name : "NO NAME");
+        finish(p);
+        ui_line(3, b, slot_info[slot_cur].ok ? C_CYAN : SQ_C_DIM);
+        p = b; p = put_s(p, "NOW: ");
+        if (project.ext.name[0]) { char nm[SQ_NAME_LEN + 1u]; memcpy(nm, project.ext.name, SQ_NAME_LEN); nm[SQ_NAME_LEN] = 0; p = put_s(p, nm); }
+        else p = put_s(p, "NO NAME");
+        p = put_s(p, "  REC: CLEAR");
+        finish(p);
+        ui_line(4, b, SQ_C_DIM);
+    } else if (pick_map_due() && pick_map_any(eff_held(), b, b + 32)) {   /* (b holds 64: two lines of 29) */
         msg_text = 0;
         ui_line(3, b, C_CYAN);
         ui_line(4, b + 32, C_CYAN);

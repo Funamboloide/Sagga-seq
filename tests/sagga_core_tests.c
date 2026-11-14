@@ -20,7 +20,7 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 16u * 96u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole) */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 780u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 796u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 28u && sizeof(sq_phrase_t) == 26u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
@@ -2372,7 +2372,7 @@ static void test_v013_ext(void)
     a.ext.kb_mode = SQ_KB_SPLIT; a.ext.kb_ch = 2u; a.ext.in_thru = 1u;
     a.step[0][0][3].flags |= SQ_STEP_ON | SQ_STEP_SLIDE;
     n = sq_serialize(&a, img, sizeof img);
-    CHECK(n == n0 + 3u + 780u + 18u - 15u || n > n0 + 780u);   /* (the chunk: tag, length, 780 bytes; and the step) */
+    CHECK(n == n0 + 3u + 796u + 18u - 15u || n > n0 + 796u);   /* (the chunk: tag, length, 796 bytes; and the step) */
     CHECK(sq_image_ok(img, n) == 0);
     CHECK(sq_deserialize(&b, img, n) == 0);
     CHECK(!memcmp(&a.ext, &b.ext, sizeof a.ext));
@@ -2381,16 +2381,76 @@ static void test_v013_ext(void)
     {
         static uint8_t big[0x8000];
         uint32_t m = n - 1u, k;                       /* (n - 1: the end mark) */
-        uint32_t at1 = m - 3u - 780u;                 /* our chunk 1 */
+        uint32_t at1 = m - 3u - 796u;                 /* our chunk 1 */
         memcpy(big, img, at1);
         big[at1] = 2u; big[at1 + 1u] = 5u; big[at1 + 2u] = 0u;        /* a chunk 2 of 5 bytes */
         for (k = 0; k < 5u; k++) big[at1 + 3u + k] = 0xAAu;
-        big[at1 + 8u] = SQ_CHUNK_EXT; big[at1 + 9u] = (uint8_t)((780u + 4u) & 0xFFu); big[at1 + 10u] = (uint8_t)((780u + 4u) >> 8);
-        memcpy(big + at1 + 11u, &a.ext, 780u);
-        for (k = 0; k < 4u; k++) big[at1 + 11u + 780u + k] = 0x55u;
-        big[at1 + 11u + 784u] = 0u;
-        CHECK(sq_deserialize(&b, big, at1 + 12u + 784u) == 0 && !memcmp(&a.ext, &b.ext, sizeof a.ext));
-        CHECK(sq_image_ok(big, at1 + 12u + 784u) == 0);
+        big[at1 + 8u] = SQ_CHUNK_EXT; big[at1 + 9u] = (uint8_t)((796u + 4u) & 0xFFu); big[at1 + 10u] = (uint8_t)((796u + 4u) >> 8);
+        memcpy(big + at1 + 11u, &a.ext, 796u);
+        for (k = 0; k < 4u; k++) big[at1 + 11u + 796u + k] = 0x55u;
+        big[at1 + 11u + 800u] = 0u;
+        CHECK(sq_deserialize(&b, big, at1 + 12u + 800u) == 0 && !memcmp(&a.ext, &b.ext, sizeof a.ext));
+        CHECK(sq_image_ok(big, at1 + 12u + 800u) == 0);
+        /* 0.15: a 0.14 image (chunk 1 of 780 bytes): no name, no groove; the rest as written */
+        memcpy(big, img, at1);
+        big[at1] = SQ_CHUNK_EXT; big[at1 + 1u] = (uint8_t)(SQ_EXT_014 & 0xFFu); big[at1 + 2u] = (uint8_t)(SQ_EXT_014 >> 8);
+        {
+            sq_ext_t x14 = a.ext;
+            for (k = 0; k < SQ_TRACKS; k++) { x14.track[k].groove = 0u; x14.track[k].groove_amt = 0u; }
+            memcpy(big + at1 + 3u, &x14, SQ_EXT_014);
+            big[at1 + 3u + SQ_EXT_014] = 0u;
+            memset(&b, 0x5A, sizeof b);
+            CHECK(sq_deserialize(&b, big, at1 + 4u + SQ_EXT_014) == 0 && !memcmp(&x14, &b.ext, SQ_EXT_014) && b.ext.name[0] == 0 && b.ext.name[15] == 0);
+        }
+    }
+    /* 0.15: the name and the groove go round */
+    {
+        static const char nm[16] = "my song #2";
+        memcpy(a.ext.name, nm, 16u);
+        a.ext.track[3].groove = SQ_GROOVE_DILLA; a.ext.track[3].groove_amt = 70u;
+        sq_ext_sanitize(&a.ext);
+        CHECK(!memcmp(a.ext.name, "MY SONG #2\0\0\0\0\0\0", 16u));
+        n = sq_serialize(&a, img, sizeof img);
+        CHECK(n > 0u && sq_deserialize(&b, img, n) == 0 && !memcmp(&a.ext, &b.ext, sizeof a.ext));
+        CHECK(b.ext.track[3].groove == SQ_GROOVE_DILLA && b.ext.track[3].groove_amt == 70u);
+        memset(a.ext.name, 0, 16u);
+        a.ext.track[3].groove = 0u; a.ext.track[3].groove_amt = 0u;
+    }
+    {   /* the name's characters */
+        char t1[16] = {' ', ' ', 'a', 'b', '\t', 'Z', '9', '@', ' ', ' ', 0, 'X', 'Y', 0, 0, 0};
+        char t2[16], t3[16];
+        uint32_t k;
+        sq_name_sanitize(t1, 16u);
+        CHECK(!memcmp(t1, "AB_Z9_\0\0\0\0\0\0\0\0\0\0", 16u));     /* (after the 0: nothing) */
+        for (k = 0; k < 16u; k++) t2[k] = (char)0xFF;                   /* an erased flash */
+        sq_name_sanitize(t2, 16u);
+        CHECK(t2[0] == 0 && t2[15] == 0);
+        memcpy(t3, "ABCDEFGHIJKLMNOP", 16u);                            /* all 16, no 0 */
+        sq_name_sanitize(t3, 16u);
+        CHECK(!memcmp(t3, "ABCDEFGHIJKLMNOP", 16u));
+        memcpy(t3, "-_.+#&!'()/: x\xE8y", 16u);
+        sq_name_sanitize(t3, 16u);
+        CHECK(!memcmp(t3, "-_.+#&!'()/: X_Y", 16u));
+    }
+    {   /* GROOVE: the tables in the nudge's and the velocity's room, OFF and 0 % do nothing, the amount scales */
+        uint32_t g, k;
+        int ok = 1;
+        for (g = 0; g < SQ_GROOVES; g++)
+            for (k = 0; k < 16u; k++) {
+                int32_t tt = sq_groove_time((uint8_t)g, 100u, k), vv = sq_groove_vel((uint8_t)g, 100u, k);
+                if (tt < -40 || tt > 40 || vv < -30 || vv > 30) ok = 0;
+                if (sq_groove_time((uint8_t)g, 0u, k) || sq_groove_vel((uint8_t)g, 0u, k)) ok = 0;
+                if (sq_groove_time((uint8_t)g, 100u, k) != sq_groove_time((uint8_t)g, 100u, k + 16u)) ok = 0;
+            }
+        CHECK(ok);
+        CHECK(sq_groove_time(SQ_GROOVE_OFF, 100u, 1u) == 0 && sq_groove_vel(SQ_GROOVE_OFF, 100u, 0u) == 0);
+        CHECK(sq_groove_time(SQ_GROOVE_GARAGE, 100u, 1u) == 28 && sq_groove_time(SQ_GROOVE_GARAGE, 50u, 1u) == 14);
+        CHECK(sq_groove_vel(SQ_GROOVE_TRAP, 100u, 1u) == -20 && sq_groove_vel(SQ_GROOVE_TRAP, 200u, 1u) == -20);
+        CHECK(sq_groove_time(SQ_GROOVES, 100u, 1u) == 0 && !strcmp(sq_groove_name(SQ_GROOVE_LAIDBACK), "LAID BACK") && !strcmp(sq_groove_name(99u), "OFF"));
+        a.ext.track[0].groove = 77u; a.ext.track[0].groove_amt = 180u;
+        sq_ext_sanitize(&a.ext);
+        CHECK(a.ext.track[0].groove == 0u && a.ext.track[0].groove_amt == 100u);
+        a.ext.track[0].groove_amt = 0u;
     }
     /* sanitize: out-of-range values go to the defaults */
     b.ext.lfo[0].seq_n = 1u; b.ext.lfo[2].seq_n = 9u; b.ext.lfo[0].seq_every = 7u; b.ext.lfo[0].seq_rate[1] = 40u; b.ext.lfo[0].trig = 17u;

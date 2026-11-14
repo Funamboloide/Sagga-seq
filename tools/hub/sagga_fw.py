@@ -367,6 +367,8 @@ def make_handler(state):
                     with open(EDITOR, 'rb') as f:
                         return self.send(200, f.read())
                 return self.send(404, 'editor non installato', 'text/plain; charset=utf-8')
+            if u.path == '/api/pos':                              # 0.15: where the FM-1 is (the editor follows it)
+                return self.send(200, json.dumps(state.editor.pos()), 'application/json')
             if u.path in ('/api/project', '/api/project/versions'):    # 0.14: a project as the editor reads it; its versions
                 q = urllib.parse.parse_qs(u.query)
                 try:
@@ -484,6 +486,12 @@ def make_handler(state):
                         out = ed.receive(name)
                     elif u.path == '/api/fm1/send':
                         out = dict(msg=ed.send(name))
+                    elif u.path == '/api/fm1/preview':           # 0.15: the FM-1 plays what the page touched
+                        try:
+                            req = json.loads(body.decode('utf-8') or '{}')
+                        except ValueError:
+                            return self.send(400, 'JSON non valido', 'text/plain; charset=utf-8')
+                        out = ed.preview(req.get('t'), req.get('notes') or [], req.get('vel', 100), req.get('gate', 250), req.get('tape'))
                     else:
                         return self.send(404, 'not found', 'text/plain')
                 except sagga_editor.EditorError as e:

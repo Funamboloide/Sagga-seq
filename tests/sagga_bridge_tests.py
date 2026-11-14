@@ -407,6 +407,24 @@ def t_main():
     check(rc == 1 and "bridge stopped: OSError" in err, "a port error ends it with exit code 1, for the service to restart it (%s, %r)" % (rc, err))
     check(len(closed) == 6, "and closes the ports")
 
+    # 0.15: no Launchpads: the bridge runs for the FM-1's side (the library, the editor's link); two plugged in: it ends,
+    # for the service to start it again with them
+    real_plan, calls = B.plan_ports, [0]
+
+    def plan(*a, **k):
+        calls[0] += 1
+        if calls[0] < 3:
+            raise SystemExit("found 0 Launchpad(s), need 2")
+        return real_plan(*a, **k)
+    B.plan_ports = plan
+    try:
+        rc, log, closed, out, err = run(99)
+    finally:
+        B.plan_ports = real_plan
+    check(rc == 1 and "no grid" in err and "two Launchpads are here now" in err and calls[0] == 3, "no grid: it runs; the Launchpads come: it ends for a restart (%s %r)" % (rc, err))
+    check(not [p for p, _ in log if p in lp] and [m for p, m in log if p == fm][:1] == [[0xBF, 118, 127]] and closed == [fm, fm],
+          "meanwhile only the FM-1's port is used (%s)" % sorted({p for p, _ in log}))
+
     try:
         run(0, args=("--fm1", "NoSuchDevice"))
         check(False, "an --fm1 pattern that matches nothing")
@@ -425,12 +443,10 @@ def t_main():
     check(rc == 1 and "ALSA client 24" in err and "is gone" in err, "an unplugged Launchpad ends the bridge with exit code 1 (%s, %r)" % (rc, err))
     check(len(closed) == 6, "and it closes the ports")
 
-    try:
+    try:                                         # (0.15: one Launchpad is no grid: the bridge runs without it, Ctrl-C at the 3rd FM-1 message)
         names.remove(lp[3]); names.remove(lp[2])
-        run(0)
-        check(False, "one Launchpad is not enough")
-    except SystemExit as e:
-        check("found 1" in str(e), "main refuses with one Launchpad")
+        rc, log, closed, out, err = run(3)
+        check(rc == 0 and "no grid (found 1" in err and not [p for p, _ in log if p in lp], "one Launchpad is not a grid: it runs without (%s %r)" % (rc, err))
     finally:
         names[:] = lp + [fm]
 

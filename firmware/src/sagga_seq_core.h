@@ -407,12 +407,24 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved;
 } sq_lfox_t;                     /* 12 bytes */
 #define SQ_CHAIN_MAX 8u
+#define SQ_NAME_LEN 16u
+/* 0.15 GROOVE: a template a track plays its steps with - each 16th of the bar a little early or late (% of a step, on
+ * top of the step's nudge and the swing) and louder or softer; the amount scales both */
+enum { SQ_GROOVE_OFF = 0, SQ_GROOVE_HOUSE, SQ_GROOVE_GARAGE, SQ_GROOVE_DILLA, SQ_GROOVE_AFRO, SQ_GROOVE_SAMBA,
+       SQ_GROOVE_LAIDBACK, SQ_GROOVE_PUSH, SQ_GROOVE_HUMAN, SQ_GROOVE_TRAP, SQ_GROOVES };
+const char *sq_groove_name(uint8_t g);
+int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step);   /* % of a step, - early */
+int32_t sq_groove_vel(uint8_t g, uint8_t amt, uint32_t step);    /* velocity, +/- */
+/* 0.15: a project's name as the FM-1 shows it: upper case, the characters it draws (others become _), no spaces at
+ * the ends, 0 after the last (0 or FF ends it: an erased flash reads as no name) */
+void sq_name_sanitize(char *n, uint32_t len);
 typedef struct __attribute__((packed)) {
     uint8_t chain_on;            /* 1: the CHAIN LIST plays (HOME 7 K2 = LIST) */
     uint8_t chain_n;             /* 1..8 entries */
     uint8_t chain_pat[SQ_CHAIN_MAX];   /* the pattern of each entry, 0..7 */
     uint8_t chain_rep[SQ_CHAIN_MAX];   /* how many loops it plays, 1..8 */
-    uint8_t reserved[2];
+    uint8_t groove;              /* 0.15 GROOVE: SQ_GROOVE_* (0 off), the track's steps pushed and accented a 16th each */
+    uint8_t groove_amt;          /* 0..100 %: how much of the template */
 } sq_trackx_t;                   /* 20 bytes */
 #define SQ_MOTION_CELLS 64u      /* a 16th each: 4 bars */
 #define SQ_MOTION_NONE (-128)
@@ -427,7 +439,11 @@ typedef struct __attribute__((packed)) {
     uint8_t in_thru;             /* 0: MIDI IN plays the selected track with REC only (0.12); 1: always */
     int8_t motion[4][SQ_MOTION_CELLS];   /* the macros INTENSITY GATE SWING FILTER a 16th; SQ_MOTION_NONE: not written */
     uint8_t reserved[8];
-} sq_ext_t;                      /* 780 bytes */
+    char name[SQ_NAME_LEN];      /* 0.15: the project's name (the Pi's editor writes it; SAVE + PRESETS shows it): A-Z 0-9
+                                  * space - _ . + # & ! ' ( ) / :, 0 after the last; a 0.14 image has none (a 0.14 firmware
+                                  * takes the 780 bytes before it) */
+} sq_ext_t;                      /* 796 bytes */
+#define SQ_EXT_014 780u          /* the bytes of sq_ext_t a 0.13 / 0.14 image holds */
 #define SQ_CHUNK_EXT 1u          /* the image's chunk of sq_ext_t */
 void sq_ext_default(sq_ext_t *x);
 void sq_ext_sanitize(sq_ext_t *x);
