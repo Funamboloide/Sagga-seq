@@ -4,7 +4,8 @@
 
 1. Il piano (qui, in WSL):        python3 tests/sagga_explore.py --hw-piano build/hwtest/piano.json [--sessioni 20]
    le sessioni a caso dell'esploratore (una situazione, poi 60 gesti, una sonda dopo ognuno) come eventi a tempo:
-   premi, lascia, gira, tasti, MASTER, sonda. Solo cio' che una mano fa sul pannello (niente grid, niente MIDI).
+   premi, lascia, gira, tasti, MASTER, sonda; 0.18: anche il MIDI che entra - il tablet (le pagine del hub: canali 12-14)
+   e i pad del grid - come se arrivassero dalla porta del remoto (il PC al posto del Pi).
 2. Sull'FM-1 (Windows):           tools/hwtest/run_hw_explore.ps1 piano.json
    per ogni sessione l'FM-1 si riavvia nel test, il PC preme i tasti ai tempi del piano, l'FM-1 dice dove ha preso
    ogni evento (il suo ms e il suo tick di clock) e manda le sonde; il PC tiene tutto in raccolta-<data>.json.
@@ -38,12 +39,24 @@ SX_RE = re.compile(r"^\s*(\d+) ms  SYSEX out ([0-9A-F ]+?)( port 2)?$")
 
 
 def to_events(lines):
-    """host script lines -> [(t, kind, a, b)], or None for a line a hand on the panel cannot do (grid, MIDI, SysEx)"""
+    """host script lines -> [(t, kind, a, b)], or None for a line the PC cannot do (a SysEx, a USB reconnect ...).
+    0.18: MIDI that comes in (the tablet's pages, the grid's pads and buttons) as MIDI events on the remote's port"""
     out = []
     for line in lines:
         p = line.split()
         t, verb, a = int(p[0]), p[1], p[2:]
-        if verb == "keys":
+        if verb == "midi":
+            st, d1, d2 = int(a[0], 0), int(a[1]), int(a[2])
+            out.append((t, T.MIDI) + T.midi_ev(st, d1, d2, T.PORT2 if len(a) > 3 and a[3] == "2" else T.PORT_REMOTE))
+        elif verb in ("pad", "ctl", "attach", "detach", "hb"):
+            if verb == "pad":
+                st, d1, d2 = 0x9F, int(a[1]) * 16 + int(a[0]), int(a[2]) if len(a) > 2 else 100
+            elif verb == "ctl":
+                st, d1, d2 = 0xBE, int(a[0]), int(a[1]) if len(a) > 1 else 127
+            else:
+                st, d1, d2 = 0xBF, 118, {"attach": 127, "detach": 0, "hb": 64}[verb]
+            out.append((t, T.MIDI) + T.midi_ev(st, d1, d2))
+        elif verb == "keys":
             m = int(a[0], 0)
             out.append((t, T.KEYS, m & 0x3FFF, m >> 14))
         elif verb == "press":
@@ -73,6 +86,9 @@ def situation_ok(sit):
     return to_events(E._lines(s)) is not None
 
 
+HB_MS = 1500                      # 0.18: the grid's keep-alive, as the bridge sends it (the FM-1 lets go after 3.5 s of silence)
+
+
 def session_plan(sit, gs, name):
     """the explorer's session (as session_check plays it) as the PC's events; the probes' roles beside"""
     s = S.Script()
@@ -90,26 +106,32 @@ def session_plan(sit, gs, name):
     b.raw(tend + 600, "probe")
     roles += ["battuta", "fermo"]
     lines = ["0 probe"] + E._lines(s) + ["%d probe" % t0] + E._lines(b)
+    if sit.grid:                                        # (the bridge's keep-alive, the whole session long)
+        lines = sorted(lines + ["%d hb" % k for k in range(HB_MS, tend + 600, HB_MS)], key=lambda x: int(x.split()[0]))
     ev = to_events(lines)
     ev = [(e[0] + OFF,) + tuple(e[1:]) for e in ev] + [(tend + 700 + OFF, T.END, 0, 0)]
     return {"nome": name, "situazione": sit.name, "gesti": [g.name for g in gs], "eventi": [list(e) for e in ev],
             "sonde": roles}
 
 
-def piano(n, length, seed):
-    sits = [x for x in E.SITUAZIONI if situation_ok(x)]
-    pool = [g for g in E.catalogo(grid=False) if g.name != "niente" and "andata" not in g.tags and gesture_ok(g)]
+def piano(n, length, seed, tablet=0):
+    """n sessions, a situation each in turn; 0.18: then `tablet` more in the tablet's situations (the tablet, the grid
+    and the panel at once)"""
+    sits = [x for x in E.SITUAZIONI if x.hw and situation_ok(x)]
+    pool = [g for g in E.catalogo(grid=True, tablet=True) if g.name != "niente" and "andata" not in g.tags and gesture_ok(g)]
     rnd = random.Random(seed)
     out = []
-    for k in range(n):
-        sit = sits[k % len(sits)]
-        gs = [rnd.choice(pool) for _ in range(length)]
+    tab = [x for x in sits if x.tablet]
+    for k in range(n + (tablet if tab else 0)):
+        sit = sits[k % len(sits)] if k < n else tab[(k - n) % len(tab)]
+        cand = [g for g in pool if E.fits(g, sit)]
+        gs = [E.pick(rnd, cand, sit) for _ in range(length)]
         sp = session_plan(sit, gs, "s%03d" % (k + 1))
         while len(sp["eventi"]) > 1000 and len(gs) > 1:      # (the FM-1 keeps the places of 1024 events a session)
             gs = gs[:-1]
             sp = session_plan(sit, gs, "s%03d" % (k + 1))
         out.append(sp)
-    return {"versione": 1, "firmware": "0.18", "seme": seed, "sessioni": out}
+    return {"versione": 1, "firmware": "0.18.1", "seme": seed, "sessioni": out}
 
 
 # ------------------------------------------------------------------------------------------------ the simulator as an FM-1
@@ -364,10 +386,14 @@ def compare(session):
             found.append(("FASE", "ERRORE", "fuori fase alla fine: " + ", ".join(late)))
     pf = hw_p.get(roles.get("fermo"))
     if hw.get("done") and pf and pf.get("G", {}).get("play") == "0":      # (the last PLAY may have started it again)
-        hung = E.hung_notes([tuple(m) for m in hw["midi"]])
+        seen = lambda k: any(p.get("G", {}).get(k) == "1" for p in hw_p.values())   # (0.18: the grid's lights, the tablet's LFO switches)
+        hung = E.hung_notes([tuple(m) for m in hw["midi"]], grid=seen("grid"), tablet=seen("tabseen"))
         if hung:
             found.append(("NOTE APPESE", "ERRORE", ", ".join(hung[:6])))
-    notes = lambda midi: sum(1 for m in midi if (m[1] & 0xF0) == 0x90 and m[3])
+    seen = lambda k: any(p.get("G", {}).get(k) == "1" for p in hw_p.values())
+    grid_on, tab_on = seen("grid"), seen("tabseen")
+    music = lambda m: not (grid_on and (m[1] & 15) == 15) and not (tab_on and (m[1] & 15) == 12 and 100 <= m[2] < 116)
+    notes = lambda midi: sum(1 for m in midi if (m[1] & 0xF0) == 0x90 and m[3] and music(m))   # (0.18: not the grid's lights, nor the tablet's LFO switches)
     clocks = lambda midi: sum(1 for m in midi if m[1] == 0xF8)
     if hw.get("done") and len(sim["sonde"]) and len(hw["sonde"]) == len(sim["sonde"]) and hw["midi"]:
         # the PC hears the FM-1 until it closes the ports for the next session, on its own clock (its 0 is the FM-1's
@@ -459,7 +485,7 @@ def confronta(path, out_md, only=None, show=False):
 
 def prova(n, length, seed, out_md, lcdcost=True):
     """steps 2 and 3 with the simulator in the FM-1's place: everything must come out equal"""
-    plan = piano(n, length, seed)
+    plan = piano(n, length, seed, tablet=2)          # (0.18: two with the tablet and the grid, MIDI events)
     # (every other one with the FM-1's settings the other way: two USB ports, another profile)
     plan["sessioni"] = [run_like_fm1(s, lcdcost=lcdcost, settings=(2, k % 3) if k % 2 else None) for k, s in enumerate(plan["sessioni"])]
     plan["fm1"] = {"version": "simulatore"}

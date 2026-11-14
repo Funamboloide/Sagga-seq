@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.18
+# SAGGA SEQ 0.18.1
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,18 @@ steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF'
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.18` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.18.1` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.18.1
+
+The PC test (the explorer on the real FM-1, docs/SAGGA-ESPLORATORE.md) sends MIDI too: the tablet's commands (channel 12,
+channel 13's TRACK) and the grid's pads and buttons come in as if from the Pi, on the remote's port, so the explorer's
+sessions try the tablet's track, the values going back, FOLLOW and the copy across the tracks on the hardware. Where the
+FM-1 takes an event it now reports the clock tick before the event, not after (a grid's BAR jump moves the clock); the
+probe carries the grid's FOLLOW, the tablet's track and whether the tablet has spoken. Nothing changes on the panel, the
+tablet or the grid.
 
 ## What is new in 0.18
 

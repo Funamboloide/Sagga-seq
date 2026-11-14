@@ -408,6 +408,14 @@ def quick(sess, rec):
     return out, len(rec["sonde"]), n_probes, max(lags) if lags else 0
 
 
+def vkey(v):
+    """'0.18' -> (0, 18): versions compared as numbers (0.9 < 0.18)"""
+    try:
+        return tuple(int(x) for x in str(v).split("."))
+    except ValueError:
+        return (0,)
+
+
 def main(argv=None, backend=None, wait=time.sleep):
     ap = argparse.ArgumentParser(description="SAGGA SEQ: l'esploratore sull'FM-1 vero")
     ap.add_argument("piano", nargs="?", default=os.path.join(HERE, "piano.json"), help="il piano (piano.json)")
@@ -428,11 +436,18 @@ def main(argv=None, backend=None, wait=time.sleep):
     say("SAGGA SEQ, l'esploratore sull'FM-1: %s, %d sessioni, circa %.0f minuti" % (os.path.basename(a.piano), len(sessions), minutes + 1))
     hub, hello = connect(backend, a.port, say)
     if hub is None:
-        say("Nessun FM-1 risponde al test: e' acceso, collegato via USB, con SAGGA SEQ 0.11 o 0.12 (con il test dal PC)?")
+        say("Nessun FM-1 risponde al test: e' acceso, collegato via USB, con SAGGA SEQ 0.11 o piu' recente (con il test dal PC)?")
         say("Chiudi Ableton e i programmi che tengono le porte MIDI. --port NOME per scegliere la porta.")
         rep.close()
         return 3
     say("FM-1: SAGGA SEQ %s, porta del test: %s" % (hello["version"], hub.ctl.label))
+    want = str(plan.get("firmware", ""))
+    midi_ev = any(e[1] == T.MIDI for sess in sessions for e in sess["eventi"])
+    if midi_ev and want and vkey(hello["version"]) < vkey(want):              # (0.18: the tablet and the grid are MIDI events)
+        say("Questo piano ha il tablet e il grid (eventi MIDI): serve SAGGA SEQ %s o piu' recente sull'FM-1, che ha la %s. "
+            "Aggiorna l'FM-1, o fai un piano per la sua versione." % (want, hello["version"]))
+        rep.close()
+        return 3
     backup = None
     if hello["booted"]:
         olds = sorted(f for f in os.listdir(a.out) if f.startswith("backup-") and f.endswith(".sgq"))

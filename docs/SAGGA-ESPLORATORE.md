@@ -16,13 +16,18 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 1. **Le situazioni.** Prepara la macchina in 12 modi: vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
-   note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK.
+   note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.18: **il
+   tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
+   tornano al hub sulla porta 2).
 2. **I gesti.** Quasi 5000: ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
    SEL + OCT); **le finestre** (un tocco su HOME, SEQ, EDIT, ENV, LFO, ARP o FX, poi un tasto, una manopola o una pagina,
-   poi il tocco che chiude); il MASTER; i bottoni e i 128 pad del grid in ogni vista (PICK compresa).
+   poi il tocco che chiude); il MASTER; i bottoni e i 128 pad del grid in ogni vista (FOLLOW compresa); 0.18: **i comandi
+   del tablet** (SAGGA Live sul canale 12, TRACK sul canale 13: ogni manopola con un paio di valori, ogni interruttore
+   acceso e spento, ogni tasto), solo nelle situazioni con il tablet. Nelle sessioni di quelle situazioni pannello, tablet
+   e grid sono un terzo dei gesti ciascuno.
 3. **Una copia per gesto.** Il simulatore prepara la situazione una volta, poi si copia (`fork`) per ogni gesto:
    ogni copia parte dalla stessa identica macchina, fa il suo gesto e guarda tutto lo stato (ogni impostazione di ogni
    traccia, l'armonia, la tonalità, i canali, i pattern ...) subito dopo, dopo due battute e dopo lo STOP. Una copia
@@ -105,8 +110,11 @@ python3 tests/sagga_explore.py --hw-piano /mnt/c/Users/user/Downloads/sagga-espl
 python3 tests/sagga_explore.py --hw /mnt/c/Users/user/Downloads/sagga-esploratore/raccolta-<data>.json
 ```
 
-Il piano sono le sessioni a caso dell'esploratore (una situazione, 60 gesti, una sonda dopo ognuno), solo con quello
-che una mano fa sul pannello. Ogni sessione parte da un riavvio dell'FM-1 nel test: nessun progetto, nessuno slot letto
+Il piano sono le sessioni a caso dell'esploratore (una situazione, 60 gesti, una sonda dopo ognuno), con quello che una
+mano fa sul pannello e (0.18) il MIDI che entra: i comandi del tablet e i pad e i bottoni del grid, che il PC manda come
+eventi del test e l'FM-1 prende come se arrivassero dalla porta del remoto (il PC al posto del Pi; il keep-alive del
+grid ogni 1,5 s). `--hw-tablet N` aggiunge N sessioni con il tablet e il grid; un piano con eventi MIDI vuole la 0.18
+sull'FM-1 (il programma di Windows lo controlla). Ogni sessione parte da un riavvio dell'FM-1 nel test: nessun progetto, nessuno slot letto
 o scritto, come il simulatore appena acceso. L'FM-1 dice dove ha preso ogni evento: il suo millisecondo e il suo tick di
 clock. Il confronto rifà la sessione nel simulatore con ogni evento esattamente lì (fra gli stessi due tick), quindi le
 due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono arrivati in ritardo. Il rapporto
@@ -117,7 +125,7 @@ due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono 
 | SIMULATORE | l'FM-1 diverso dal simulatore, dalla sonda dove comincia: il campo, i due valori, gli ultimi gesti |
 | MORTO | il firmware piantato (vettore e PC del crash), un riavvio da solo, l'FM-1 che non risponde più |
 | FASE, NOTE APPESE | le stesse regole, sui dati dell'FM-1 |
-| NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada |
+| NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada (0.18: non le luci del grid sul canale 16, ne' gli interruttori degli LFO che tornano al tablet, note 100-115 sul canale 13) |
 | CICLO | il ciclo principale fermo più di 60 ms |
 | TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo) |
 

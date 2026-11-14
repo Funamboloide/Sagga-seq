@@ -32,7 +32,8 @@ def check(cond, what):
 
 class FakeFM1:
     """the FM-1 as the PC sees it over USB: one port, its own ms, the test's state machine"""
-    def __init__(self, lose=0.0, abort_in_session=None, seed=3, two_ports=False):
+    def __init__(self, lose=0.0, abort_in_session=None, seed=3, two_ports=False, version="0.18.1"):
+        self.version = version
         self.rnd = random.Random(seed)
         self.two = two_ports                 # (as the user's: the answers come back on the second port, MIDIIN2)
         self.links, self.open_ends = {}, {}
@@ -95,7 +96,7 @@ class FakeFM1:
             return
         sub, q = p[0], p[1:]
         if sub == T.HELLO:
-            self.ans(T.HELLO, [self.state, self.booted, 0] + T.put7(self.boots, 2) + [0] * 10 + T.put7(self.ms(), 4) + [1, 0] + list(b"0.18"))
+            self.ans(T.HELLO, [self.state, self.booted, 0] + T.put7(self.boots, 2) + [0] * 10 + T.put7(self.ms(), 4) + [1, 0] + list(self.version.encode()))
         elif sub == T.OPEN:
             self.opens += 1
             self.ans(T.OPEN, [1])
@@ -314,23 +315,25 @@ def fake_rtmidi(dev):
     return mod
 
 
-def plan(n=2):
+def plan(n=2, midi=False):
     ses = []
     for k in range(n):
         ev = [[100, T.PROBE, 0, 0]]
         for j in range(30):
             ev.append([150 + 40 * j, T.PRESS, 3, 0])
             ev.append([165 + 40 * j, T.RELEASE, 3, 0])
+        if midi:                             # (0.18: a command of the tablet, as a MIDI event)
+            ev.append([1450, T.MIDI] + list(T.midi_ev(0xBB, 20, 1)))
         ev += [[1500, T.PROBE, 0, 0], [1900, T.PROBE, 0, 0], [2000, T.END, 0, 0]]
         ses.append({"nome": "s%03d" % (k + 1), "situazione": "vuoto, fermo", "gesti": ["tocca SEL"] * 30, "eventi": ev,
                     "sonde": ["inizio", "battuta", "fermo"]})
-    return {"versione": 1, "sessioni": ses}
+    return {"versione": 1, "firmware": "0.18.1", "sessioni": ses}
 
 
-def run(dev, n=2, backend=None):
+def run(dev, n=2, backend=None, midi=False):
     with tempfile.TemporaryDirectory() as d:
         pp = os.path.join(d, "piano.json")
-        T.save(pp, plan(n))
+        T.save(pp, plan(n, midi))
         rc = R.main([pp, "--si", "--out", d], backend=backend or FakeBackend(dev), wait=lambda s: time.sleep(min(s, 1.2)))
         rac = [f for f in os.listdir(d) if f.startswith("raccolta-")]
         data = T.load(os.path.join(d, rac[0])) if rac else None
@@ -450,6 +453,14 @@ def main():
     check(data and len(data["sessioni"]) == 1 and data["sessioni"][0]["fm1"]["abort"] is not None, "a hand stops the run after that session")
     check(dev.closes == 1 and dev.imported, "and the FM-1 is put back")
     check("fermato da una mano" in log, "the log says why")
+    # 0.18: a plan with the tablet's MIDI events wants a firmware that knows them: an older one is not touched
+    dev = FakeFM1(version="0.17")
+    rc, data, log, backups = run(dev, midi=True)
+    check(rc == 3 and not data and not backups and dev.opens == 0 and "serve SAGGA SEQ 0.18.1" in log,
+          "a plan with MIDI events and a 0.17 FM-1: refused before anything (%s)" % rc)
+    dev = FakeFM1()
+    rc, data, log, _ = run(dev, n=1, midi=True)
+    check(rc == 0 and data and len(data["sessioni"]) == 1, "the same plan and a 0.18.1 FM-1: it runs (%s)" % rc)
     rules_of_the_comparison()
     print("sagga hw explore: %d checks, %d failures" % (CHECKS[0], len(FAILS)))
     return 1 if FAILS else 0

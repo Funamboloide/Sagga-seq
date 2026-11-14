@@ -280,11 +280,52 @@ def g_ctl(c, shift=False):
     return Gesto("grid %s%s" % ("SHIFT+" if shift else "", nm), kind, do, tags={"grid"})
 
 
+# 0.18: the tablet - the hub's pages, as MIDI on the remote's port (channel 12 SAGGA Live, channel 13 the tablet's TRACK).
+# A knob: its value; a switch: on, off; a tap: pressed and let go. (RETRIG, CC 30, puts a track off the bar on purpose.)
+TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5)), (6, "SWING", (58, 66)), (7, "GROOVE", (1, 3)),
+             (8, "GROOVE AMT", (40,)), (9, "MIDI FX", (3, 1)), (10, "FX AMOUNT", (14, 9)), (12, "ALGO", (1, 2)), (13, "A", (40,)),
+             (14, "B", (90,)), (15, "C", (127,)), (17, "PULSES", (3, 7)), (18, "ROTATION", (2,)), (20, "ARP", (1, 8)),
+             (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13))]
+TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
+TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO")]
+
+
+def g_tab(ch, cc, vals, name):
+    def do(s, t):
+        for v in vals:
+            s.raw(t, "midi 0x%02X %d %d 2" % (0xB0 | ch, cc, v)); t += 40
+        return t + 20
+    return Gesto("tablet %s" % name, "tablet", do, tags={"tablet"})
+
+
+def tablet_gestures():
+    out = [g_tab(12, 112, (v,), "TRACK %d" % (v + 1)) for v in (2, 9)]
+    out += [g_tab(11, cc, (v,), "%s %d" % (nm, v)) for cc, nm, vals in TAB_KNOBS for v in vals]
+    out += [g_tab(11, cc, (v,), "%s %s" % (nm, "ON" if v else "OFF")) for cc, nm in TAB_SWITCHES for v in (127, 0)]
+    out += [g_tab(11, cc, (127, 0), nm) for cc, nm in TAB_TAPS]
+    return out
+
+
+def fits(g, sit):
+    """a gesture of the grid needs a situation with the grid attached, one of the tablet one with the tablet (0.18)"""
+    return (("grid" not in g.tags) or sit.grid) and (("tablet" not in g.tags) or sit.tablet)
+
+
+def pick(rnd, cand, sit):
+    """a gesture at random; 0.18, with the tablet: the panel, the tablet and the grid a third each (the grid's pads
+    are thousands, the tablet's commands a few dozen: else a session would hardly touch the tablet)"""
+    if not sit.tablet:
+        return rnd.choice(cand)
+    groups = [[g for g in cand if not ({"grid", "tablet"} & g.tags)], [g for g in cand if "tablet" in g.tags],
+              [g for g in cand if "grid" in g.tags]]
+    return rnd.choice(rnd.choice([x for x in groups if x]))
+
+
 def niente():
     return Gesto("niente", "niente", lambda s, t: t)
 
 
-def catalogo(veloce=False, grid=False):
+def catalogo(veloce=False, grid=False, tablet=False):
     """every gesture, in the order a person would try them"""
     out = [niente()]
     out += [g_btn(b) for b in BTN_NAME]
@@ -336,6 +377,8 @@ def catalogo(veloce=False, grid=False):
                     out.append(g_pad(view, x, y))
                     if not veloce and view in ("STEP", "BEAT", "TRACK3", "PERF"):
                         out.append(g_pad(view, x, y, shift=True))
+    if tablet:
+        out += tablet_gestures()
     if veloce:                                       # the main ones: SEQ and HOME pages, the keys with SEQ, the gestures
         keep = []
         for g in out:
@@ -373,8 +416,9 @@ def _play(s, t):
 
 
 class Situazione:
-    def __init__(self, name, setup, grid=False):
-        self.name, self.setup, self.grid = name, setup, grid
+    def __init__(self, name, setup, grid=False, tablet=False, hw=True):
+        self.name, self.setup, self.grid, self.tablet = name, setup, grid, tablet
+        self.hw = hw                                # (False: never on the FM-1 by the PC: a USB reconnect in its set-up)
 
 
 def sit_vuoto(s):
@@ -482,6 +526,21 @@ def sit_grid(s):
     return _play(s, t + 100)
 
 
+def sit_tablet(s):                                          # 0.18: REMOTE 13 + 14 (SAVE + K2), the grid, the band
+    s.press(150, S.SAVE); s.enc(180, S.K2, 1); s.release(250, S.SAVE)
+    s.raw(300, "attach")
+    t = _band(s, 400)
+    return _play(s, t + 100)
+
+
+def sit_tablet2(s):                                         # ... with USB PORTS 2: the values go back to the hub on port 2
+    s.press(150, S.SAVE); s.enc(180, S.K2, 1); s.release(250, S.SAVE)
+    t = S.usb2(s, 400)
+    s.raw(t, "attach")
+    t = _band(s, t + 100)
+    return _play(s, t + 100)
+
+
 SITUAZIONI = [
     Situazione("vuoto, fermo", sit_vuoto),
     Situazione("vuoto, in play", sit_vuoto_play),
@@ -497,6 +556,8 @@ SITUAZIONI = [
     Situazione("0.13 CHAIN LIST, MOTION, KEYBOARD, SLIDE, in play", sit_013_live),
     Situazione("0.13 LFO RATE SEQ e TRIG, band in play", sit_013_lfo),
     Situazione("grid attaccato, band in play", sit_grid, grid=True),
+    Situazione("0.18 tablet e grid, band in play", sit_tablet, grid=True, tablet=True),
+    Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -652,7 +713,7 @@ def is_music(field):
 HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
                      r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
-                     r"HOME\+SAVE|SAVE, SAVE)")
+                     r"HOME\+SAVE|SAVE, SAVE|tablet (DICE|BEAT)$)")      # (0.18: the tablet's DICE and BEAT are SEQ's)
 HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
@@ -790,7 +851,7 @@ def _check(sit, g, base, br, null, findings, off):
     # NOTE APPESE: after the STOP (when it stopped), every note off
     pf = probes[2]
     if pf["G"].get("play") == "0":
-        hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1")
+        hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
             findings.append(Finding("NOTE APPESE", "ERRORE", sit.name, name, ", ".join(hung[:8]) + (" ..." if len(hung) > 8 else "")))
     # CLOCK: the ticks between the fork and the STOP, as many as the branch that did nothing
@@ -813,13 +874,25 @@ def _check(sit, g, base, br, null, findings, off):
     return effects
 
 
-def hung_notes(midi, grid=False):
+def br_tab(br, base):
+    """the tablet has spoken (0.18): in the machine before, or in any probe of the branch"""
+    if base.get("G", {}).get("tabseen") == "1":
+        return True
+    pr = br.get("probes") or []
+    pr = pr.values() if isinstance(pr, dict) else pr
+    return any(isinstance(p, dict) and p.get("G", {}).get("tabseen") == "1" for p in pr)
+
+
+def hung_notes(midi, grid=False, tablet=False):
     """the notes still on at the end: a note-on without its note-off (All Notes Off / All Sound Off end a channel's).
-    With the grid: channel 16 is the Launchpads' lights, not notes"""
+    With the grid: channel 16 is the Launchpads' lights, not notes. 0.18, once the tablet has spoken: notes 100-115 on
+    channel 13 are its LFO switches (an LFO on), not music"""
     on = {}
     for tm, st, d1, d2 in midi:
         hi, ch = st & 0xF0, st & 15
         if grid and ch == 15:
+            continue
+        if tablet and ch == 12 and 100 <= d1 < 116 and hi in (0x80, 0x90):
             continue
         if hi == 0x90 and d2:
             on[(ch, d1)] = on.get((ch, d1), 0) + 1
@@ -843,7 +916,7 @@ def _fmt(changes, n=6):
 def explore_situation(sit, gestures, chunk=400, each=None):
     """every gesture in a situation; -> (base, {gesture: branch}). With `each(base, null, results_of_a_chunk)` the
     branches go to it a chunk at a time and are not kept (the memory of one chunk, not of the whole catalogue)"""
-    gestures = [g for g in gestures if ("grid" not in g.tags) or sit.grid]
+    gestures = [g for g in gestures if fits(g, sit)]
     probe_txt, _ = script_for(sit, [])
     base, _ = parse_run(run_script(probe_txt)[0])
     playing = base.get("G", {}).get("play") == "1"
@@ -910,8 +983,8 @@ def pass_coppie(sits, gestures, jobs, findings, rnd, n_pairs):
 
     def one(sit):
         local = []
-        cand_a = [g for g in firsts if ("grid" not in g.tags) or sit.grid]
-        cand_b = [g for g in seconds if ("grid" not in g.tags) or sit.grid]
+        cand_a = [g for g in firsts if fits(g, sit)]
+        cand_b = [g for g in seconds if fits(g, sit)]
         pairs = list({(x.name, y.name): (x, y) for x, y in ((rnd.choice(cand_a), rnd.choice(cand_b)) for _ in range(n_pairs))}.values())
         base, _ = parse_run(run_script(script_for(sit, [])[0])[0])
         playing = base.get("G", {}).get("play") == "1"
@@ -976,7 +1049,7 @@ def session_check(sit, gs, rnd_seed):
             where = (" (dal gesto %d, %s)" % (first + 1, gs[first].name)) if first is not None else ""
             found.append(("FASE", "fuori fase alla fine: " + ", ".join(late) + where))
     if br["probes"][-1]["G"].get("play") == "0":
-        hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1")
+        hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
             found.append(("NOTE APPESE", ", ".join(hung[:6])))
     bad = [m for m in br["midi"] if m[2] > 127 or m[3] > 127]
@@ -1020,8 +1093,8 @@ def pass_sessioni(sits, gestures, jobs, findings, rnd, n_sessions, length):
     plans = []
     for k in range(n_sessions):
         sit = sits[k % len(sits)]
-        cand = [g for g in pool if ("grid" not in g.tags) or sit.grid]
-        plans.append((sit, [rnd.choice(cand) for _ in range(length)]))
+        cand = [g for g in pool if fits(g, sit)]
+        plans.append((sit, [pick(rnd, cand, sit) for _ in range(length)]))
 
     def one(plan):
         sit, gs = plan
@@ -1137,13 +1210,15 @@ def main(argv):
     ap.add_argument("--hw-piano", metavar="FILE", help="l'FM-1 vero: scrive il piano (--sessioni, --lunghe, --seme) per "
                                                          "tools/hwtest/run_hw_explore.ps1")
     ap.add_argument("--hw", metavar="RACCOLTA", help="l'FM-1 vero: confronta la raccolta del PC con il simulatore -> RAPPORTO-HW.md")
+    ap.add_argument("--hw-tablet", type=int, default=0, metavar="N", help="con --hw-piano: N sessioni in piu' con il "
+                    "tablet e il grid (0.18: le pagine del hub e i pad come MIDI dalla porta del remoto)")
     ap.add_argument("--hw-prova", action="store_true", help="il piano e il confronto con il simulatore al posto dell'FM-1")
     ap.add_argument("--sessione", help="con --hw: solo questa sessione (con --vedi: sonda per sonda)")
     a = ap.parse_args(argv)
     if a.hw_piano or a.hw or a.hw_prova:
         import sagga_explore_hw as H
         if a.hw_piano:
-            plan = H.piano(a.sessioni if a.sessioni is not None else 20, a.lunghe, a.seme)
+            plan = H.piano(a.sessioni if a.sessioni is not None else 20, a.lunghe, a.seme, tablet=a.hw_tablet)
             dest = a.hw_piano
             if not dest.endswith(".json"):                 # a folder: the plan and what Windows needs to run it
                 os.makedirs(dest, exist_ok=True)
@@ -1180,7 +1255,7 @@ def main(argv):
         sits = [x for x in SITUAZIONI if x.name == a.solo]
         if not sits:
             print("situazioni: " + "; ".join(x.name for x in SITUAZIONI)); return 2
-    gestures = catalogo(veloce=a.veloce, grid=any(x.grid for x in sits))
+    gestures = catalogo(veloce=a.veloce, grid=any(x.grid for x in sits), tablet=any(x.tablet for x in sits))
     if a.gesto:
         gs = [g for g in gestures if g.name == a.gesto]
         if not gs:

@@ -8,12 +8,18 @@ import json
 HEAD = [0xF0, 0x7D, 0x53, 0x47]
 SX_TST, SX_TST_ANS, SX_TST_PROBE, SX_TST_LOG = 0x70, 0x71, 0x72, 0x73
 HELLO, OPEN, BOOT, GO, EV, CLOSE, DONE, ABORT = range(8)
-PRESS, RELEASE, ENC, KNOB, KEYS, PROBE, END = range(1, 8)
+PRESS, RELEASE, ENC, KNOB, KEYS, PROBE, END, MIDI = range(1, 9)   # (0.18 MIDI: a message that comes in, the tablet, the grid)
 NOGC = 0x0FFFFFFF
 QUEUE = 64                     # the FM-1's queue of events
 PER_FRAME = 24                 # events in one SysEx (13 bytes each; the FM-1 takes frames up to 640 bytes)
 OPEN_STATES = {1: "asking", 2: "yes", 3: "no", 4: "no answer", 5: "playing: stop first"}
-KIND_NAMES = {PRESS: "press", RELEASE: "release", ENC: "enc", KNOB: "knob", KEYS: "keys", PROBE: "probe", END: "end"}
+KIND_NAMES = {PRESS: "press", RELEASE: "release", ENC: "enc", KNOB: "knob", KEYS: "keys", PROBE: "probe", END: "end", MIDI: "midi"}
+PORT1, PORT2, PORT_REMOTE = 0, 1, 2   # a MIDI event's port: 1, 2, the remote's (port 2 with two, else the only one)
+
+
+def midi_ev(st, d1, d2, port=PORT_REMOTE):
+    """(a, b) of a MIDI event: the status's low 7 bits | the port << 7, d1 | d2 << 7"""
+    return (st & 0x7F) | (port << 7), (d1 & 127) | (d2 & 127) << 7
 
 
 def put7(v, n):

@@ -24,12 +24,14 @@
  *   72 idx*2 k last text  the probe event idx asked for, in pieces of 150 characters ("PROBE G ...\n PROBE T1 ...")
  *   73 n (idx*2 ms*4 gc*4)*n  where the events were taken: the FM-1's ms and global_clock
  * Event kinds: 1 press (a = button), 2 release, 3 knob (a = encoder, b = detents + 8192), 4 MASTER (a = 0..1023),
- * 5 keys (a | b << 14: the 27 note keys held), 6 probe, 7 end. t: ms after GO. gc: 0x0FFFFFFF = none, else (the
+ * 5 keys (a | b << 14: the 27 note keys held), 6 probe, 7 end, 8 (0.18) a MIDI message that comes in: a = the status's low 7
+ * bits | the port << 7 (0 port 1, 1 port 2, 2 the remote's: port 2 with two, else the only one), b = d1 | d2 << 7 (the
+ * tablet's pages, the grid's pads). t: ms after GO. gc: 0x0FFFFFFF = none, else (the
  * simulator replaying the FM-1) the event waits for that clock tick, so it lands between the same two ticks. */
 
 enum { SX_TST = 0x70, SX_TST_ANS = 0x71, SX_TST_PROBE = 0x72, SX_TST_LOG = 0x73 };
 enum { TQ_HELLO, TQ_OPEN, TQ_BOOT, TQ_GO, TQ_EV, TQ_CLOSE, TQ_DONE, TQ_ABORT };
-enum { TK_PRESS = 1, TK_RELEASE, TK_ENC, TK_KNOB, TK_KEYS, TK_PROBE, TK_END };
+enum { TK_PRESS = 1, TK_RELEASE, TK_ENC, TK_KNOB, TK_KEYS, TK_PROBE, TK_END, TK_MIDI };
 #define TST_Q 64u
 #define TST_NOGC 0x0FFFFFFFu
 #define TST_PB 7680u                                  /* a probe: ~5.5 KB of text with sixteen tracks */
@@ -102,6 +104,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("home", home_page); pr_ku("seqp", seq_page); pr_ku("perf", perf_mode); pr_ku("fx", fx_now()); pr_ku("loop", loop_on);
     pr_k("win"); pr_d(win_cur == 255u ? -1 : (int32_t)win_cur);
     pr_ku("vg", vg_mosse_shown());   /* (0.17: the MOSSE page; the journey always runs) */ pr_k("vgspeed"); pr_d(vg_speed); pr_ku("grid", grid_attached); pr_ku("gview", g_view);
+    pr_ku("gfollow", g_follow); pr_ku("tab", (uint32_t)foc_tab.track + 1u); pr_ku("tabseen", tab_seen);   /* 0.18: the grid FOLLOWs, the tablet's track */
     pr_ku("genre", g->genre); pr_ku("gmode", g->genre_mode); pr_ku("bfunc", g->func); pr_ku("bvar", g->var);
     pr_ku("harm", g->harm_on); pr_ku("hlock", g->harm_lock); pr_ku("hgenre", g->harm_genre); pr_ku("hprog", g->harm_prog);
     pr_ku("hbars", g->harm_bars); pr_ku("hrhythm", g->harm_rhythm); pr_ku("hmood", g->harm_mood); pr_k("chord"); pr_s(nm);
@@ -186,6 +189,8 @@ static void tst_done(void)
 
 static void tst_apply(const tst_ev_t *e, uint16_t idx)
 {
+    uint32_t gc = global_clock;                         /* (0.18: where it was taken: before it - a MIDI event acts at once,
+                                                         *  and a grid's BAR jump moves the clock itself) */
     switch (e->kind) {
     case TK_PRESS:   if (e->a < 14u) { tst_buttons |= 1u << e->a; tst_edges |= 1u << e->a; } break;
     case TK_RELEASE: if (e->a < 14u) tst_buttons &= ~(1u << e->a); break;
@@ -193,12 +198,17 @@ static void tst_apply(const tst_ev_t *e, uint16_t idx)
     case TK_KNOB:    tst_knob_on = 1u; tst_knob_v = e->a > 1023u ? 1023u : e->a; fm1_knob = tst_knob_v; break;
     case TK_KEYS:    tst_notes = ((uint32_t)e->a | (uint32_t)e->b << 14) & 0x7FFFFFFu; break;
     case TK_PROBE:   tst_probe_take(idx); break;
+    case TK_MIDI: {                                 /* 0.18: as if it came in (the PC is the tablet, the grid) */
+        uint8_t code = (uint8_t)(e->a >> 7), cab = code == 2u ? (uint8_t)CTL_CABLE : (uint8_t)(code & 1u);
+        midi_in_one(sq_micros(), (uint8_t)(0x80u | (e->a & 0x7Fu)), (uint8_t)(e->b & 127u), (uint8_t)((e->b >> 7) & 127u), cab);
+        break;
+    }
     default: break;
     }
-    if (idx < TST_ALL) { tst_all_ms[idx] = fm1_ms; tst_all_gc[idx] = global_clock; }
+    if (idx < TST_ALL) { tst_all_ms[idx] = fm1_ms; tst_all_gc[idx] = gc; }
     if (tst_log_n < TST_LOGN) {
         if (!tst_log_n) tst_log_ms = fm1_ms;
-        tst_log[tst_log_n].idx = idx; tst_log[tst_log_n].ms = fm1_ms; tst_log[tst_log_n].gc = global_clock;
+        tst_log[tst_log_n].idx = idx; tst_log[tst_log_n].ms = fm1_ms; tst_log[tst_log_n].gc = gc;
         tst_log_n++;
     }
     tst_applied++;

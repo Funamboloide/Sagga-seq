@@ -44,8 +44,8 @@ Lo schermo. I tasti fisici li preme l'esploratore (sotto): questo test guarda il
 ## L'esploratore sull'FM-1 (0.11)
 
 L'esploratore (`tests/sagga_explore.py`, `docs/SAGGA-ESPLORATORE.md`) fa le sue sessioni a caso anche sull'FM-1 vero:
-il PC preme i tasti, gira le manopole e suona la tastiera ai tempi di un piano, e dopo ogni gesto l'FM-1 manda tutto il
-suo stato. Poi in WSL ogni sessione viene rifatta nel simulatore, ogni evento nel punto esatto in cui l'FM-1 l'ha preso
+il PC preme i tasti, gira le manopole e suona la tastiera ai tempi di un piano (0.18: e fa da tablet e da grid, mandando i
+loro comandi come se arrivassero dal Pi), e dopo ogni gesto l'FM-1 manda tutto il suo stato. Poi in WSL ogni sessione viene rifatta nel simulatore, ogni evento nel punto esatto in cui l'FM-1 l'ha preso
 (il suo millisecondo e il suo tick di clock): le due macchine devono essere uguali sonda per sonda. Quello che differisce
 è l'hardware (il compilatore, i tempi), non il piano.
 
@@ -53,8 +53,10 @@ suo stato. Poi in WSL ogni sessione viene rifatta nel simulatore, ogni evento ne
    ```sh
    python3 tests/sagga_explore.py --hw-piano /mnt/c/Users/user/Downloads/sagga-esploratore
    ```
-   (20 sessioni da 60 gesti, circa 20 minuti; `--sessioni 3` per una prova corta, `--seme N` per altre sessioni).
-2. FM-1 acceso con la 0.11 o la 0.12, **fermo**, collegato direttamente al PC; niente sulla presa MIDI IN; Ableton chiuso. In
+   (20 sessioni da 60 gesti, circa 20 minuti; `--sessioni 3` per una prova corta, `--seme N` per altre sessioni;
+   `--hw-tablet N`: N sessioni in più con il tablet e il grid, 0.18).
+2. FM-1 acceso con la 0.11 o più recente (un piano con il tablet e il grid vuole la 0.18: il programma lo controlla),
+   **fermo**, collegato direttamente al PC; niente sulla presa MIDI IN; Ableton chiuso. In
    PowerShell, nella cartella:
    ```powershell
    powershell -ExecutionPolicy Bypass -File .\run_hw_explore.ps1

@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.18"
+#define SQ_VERSION "0.18.1"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -2835,18 +2835,16 @@ static void tab_cmd(uint8_t st, uint8_t d1, uint8_t d2)
     fb_heard(st, d1, d2);                                        /* (what goes back to the hub: those cells know it) */
 }
 
-static void handle_midi_in(uint32_t now)
+/* one message that came in on USB port `cab` (0 port 1, 1 port 2); 0.18: also the PC test's MIDI events (sagga_test.c) */
+static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_t cab)
 {
-    uint8_t st, d1, d2;
-    while (midi_get(&st, &d1, &d2)) {
-        sq_midi_in_n++;
-        if (tst_booted) continue;                   /* 0.11: the PC test hears only its own SysEx (the same run each time) */
+    {
         if (usb_ports > 1u) {                       /* 0.8: two USB ports. Port 2: the grid and the remote, nothing else */
-            if (midi_cable() == 1u) {
+            if (cab == 1u) {
                 if (!grid_midi_in(st, d1, d2) && tab_takes(st)) tab_cmd(st, d1, d2);   /* the remote, the tablet's pages */
-                continue;
+                return;
             }                                       /* port 1 (and the TRS jack): 16 channels of synths, the clock */
-        } else if (grid_midi_in(st, d1, d2)) continue;   /* one port: channels 15 and 16 are the grid link */
+        } else if (grid_midi_in(st, d1, d2)) return;   /* one port: channels 15 and 16 are the grid link */
         if (st == 0xF8u) {
             if (project.clock_mode == SQ_CLOCK_SLAVE) {
                 if (last_ext_clock_us) {
@@ -2913,6 +2911,16 @@ static void handle_midi_in(uint32_t now)
             tape_rec_off(d1 & 127u);                   /* 0.11 */
             take_note_off(d1 & 127u);                  /* 0.12 */
         }
+    }
+}
+
+static void handle_midi_in(uint32_t now)
+{
+    uint8_t st, d1, d2;
+    while (midi_get(&st, &d1, &d2)) {
+        sq_midi_in_n++;
+        if (tst_booted) continue;                   /* 0.11: the PC test hears only its own SysEx (the same run each time) */
+        midi_in_one(now, st, d1, d2, midi_cable());
     }
 }
 
