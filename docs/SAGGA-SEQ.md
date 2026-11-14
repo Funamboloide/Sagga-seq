@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.18.1
+# SAGGA SEQ 0.19
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,62 @@ steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF'
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.18.1` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.19` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.19
+
+**The MIDI FX in a chain.** Until 0.18 a track had one MIDI FX at a time. Now **the four can play together** on the
+same track, always in this order: **VEL CURVE** (the velocity), **OCTAVE** (the note moved), **HARM** (the second
+voice, built on the note OCTAVE moved), **ECHO** (the repeats of the note *and* of the voice).
+
+* **HOME 6 K1 shows one of the four.** Not playing: it is READY (`T1 MIDI FX HARM READY: SEQ + WHITE 6`), K2-K4 set it
+  up, **SEQ + white 6 adds it to the chain** (`T1 MIDI FX HARM STARTS: HARM+ECHO`). Playing: K2-K4 change it live
+  (`MIDI FX ON` on the screen), and SEQ + white 6 right after K1 found it (`T1 MIDI FX ECHO PLAYS: SEQ + WHITE 6
+  TAKES IT OUT`) takes it out; after K2-K4 that key is EUCLID's again. **K1 on OFF, SEQ + white 6: they all stop.**
+  The page's title line shows the chain in the order it plays: `HOME 6/8 FX OCT+HARM+ECHO`.
+* **Each effect keeps its values in the project** (until 0.18 only the one playing was saved; the others' values were
+  kept while the FM-1 was on). A project of 0.18 or before opens with its one effect as the chain; the format stays
+  `SGQB` (the chain is in the extension chunk: a 0.18 firmware plays the chain's first effect, in the list's order
+  HARM, OCTAVE, ECHO, VEL CURVE).
+* **ECHO repeats HARM's voice too**, and so does FX + OCT+ (ECHO ALL) when the track has no ECHO of its own (until
+  0.18 the voice was never echoed).
+* **A snapshot leaves the MIDI FX as they are** (the chain is the track's, not a snapshot's; until 0.18 a snapshot
+  brought back the one effect it had).
+* **The tablet** (SAGGA Live: MIDI FX, FX AMOUNT, FX GO): FX GO adds the effect shown to the chain of the tablet's
+  track, again takes it out; on OFF it stops them all. **The grid** (TRACK 3, row 2): every effect that plays is white;
+  a tap on one that plays stops it, a tap on another makes it READY (orange), again: it starts. **The Pi's editor**
+  shows the chain: a box per effect and its values.
+
+### A chain on the hub too (RaspiMIDIHub's plugins)
+
+RaspiMIDIHub's own plugins (Velocity Curve, Velocity Equalizer, Note Transpose, Scale Remapper, Chord Generator, Hold,
+MIDI Delay, Arpeggiator ...) chain in the hub's matrix, one's OUT into the next one's IN. Use them for what the FM-1
+does not do (MIDI Delay: up to 10 repeats, in time or in ms; Hold; +/-48 semitones). Keep on the FM-1 what must follow
+the key and the progression (HARM IN KEY, CHORD DIATONIC): the plugins do not know SAGGA's key, and the FM-1 does not
+know the hub's chain (not on its screen, not in the project: it is in the hub's config).
+
+1. Add the plugins in the order they should play (for instance Velocity Equalizer, then MIDI Delay).
+2. Matrix: `Felucca MIDI 1` to the first plugin's IN, the cell filtered to the track's channel and **notes only**; each
+   plugin's OUT to the next one's IN; the last OUT to the synth.
+3. `Felucca MIDI 1` to the synth: the same channel, **everything but notes** (CC, pitch bend, aftertouch, program,
+   clock). The plugins do not pass the clock on; the lanes and the LFOs reach the synth without a plugin in the way.
+4. MIDI Delay with **Sync to Clock** follows the FM-1's clock by itself (the hub reads the clock of every device that
+   sends one), and START / STOP clear its echoes.
+5. Every plugin costs a few ms (a filtered cell of the matrix 1-3 ms): set the track's **DELAY** (HOME 7 K1) a little
+   early, -5 ms, then by ear.
+
+**The CC trap.** Most plugins come with CCs bound to their controls: MIDI Delay 74 / 75 / 76 (delay ms, repeats,
+decay), Note Transpose 74 (semitones), Scale Remapper 74 (root), Chord Generator 76, Velocity Equalizer 74 / 75 / 76,
+Arpeggiator 70 / 71 / 73 / 74 / 75 / 83. A bound CC is taken by the plugin and **does not pass**: lane 1 (CC 74, the
+cutoff, the one the FILTER macro moves) sent into the chain would transpose the notes or move the root instead of
+opening the synth's filter. Notes only into the chain (step 2) avoids it; or long-press the plugin's control and
+**Clear**; or use it on purpose: a lane on CC 75 sent into MIDI Delay sets its repeats step by step (0-127: 0-10).
+
+**Echoes.** MIDI Delay's echoes last 50 ms whatever the note (staccato on a pad: there, the FM-1's ECHO, which keeps the
+gate). The FM-1's ECHO and MIDI Delay together multiply (2 repeats and 3 repeats: 12 notes for each note written): keep
+one of them.
 
 ## What is new in 0.18.1
 
@@ -158,11 +211,12 @@ set up, pad 1 starts it.
 **The same elsewhere.** The **HARMONY**: with it off, ARP 3 K2 chooses the progression (`READY TECHNO i-VII-VI-VII: K1
 ON`) and K1 starts it (until 0.15 turning K2 switched the HARMONY on). **EXPO** (SEQ 4): with SHAPE OFF, K1-K3 set it
 up (`EXPO READY: K4 SHAPE STARTS IT`), K4 starts it with them (until 0.15 the first touch switched it on, on RAMP). A
-**MIDI FX** the same way: HOME 6 K1 makes an effect READY (`T1 MIDI FX ECHO READY: SEQ + WHITE 6`; the one playing goes
-on), K2-K4 set its values, **SEQ + white 6** starts it (with a MIDI FX READY on the selected track that key starts it,
-not EUCLID; HOME + white 6 stays track 6). K1 on OFF, then SEQ + white 6: it stops. Each effect keeps its own values
-on the track (its defaults only the first time; until 0.15 its defaults every time it was chosen, and at once). The
-grid's TRACK 3 row 2: a tap READY (orange), again: it starts. ARP and CHORD were already so: the
+**MIDI FX** the same way: HOME 6 K1 makes an effect READY (`T1 MIDI FX ECHO READY: SEQ + WHITE 6`; what plays goes
+on), K2-K4 set its values, **SEQ + white 6** starts it (with K1 just turned on the selected track that key acts on the
+MIDI FX, not EUCLID; HOME + white 6 stays track 6). **0.19: it joins the chain** - the others keep playing; K1 on one
+that plays, then SEQ + white 6: it leaves; K1 on OFF, then SEQ + white 6: they all stop. Each effect keeps its own
+values (0.19: in the project; its defaults only the first time; until 0.15 its defaults every time it was chosen, and
+at once). The grid's TRACK 3 row 2: a tap READY (orange), again: it starts; a tap on one that plays (white): it stops. ARP and CHORD were already so: the
 octaves, RATE, RUN, the voicing and the strum are the track's and stay when the mode or the shape changes (set them
 with the mode on BLOCK, the shape OFF, then choose); the LFOs, EVOLVE, the GROOVE amount too.
 
@@ -586,13 +640,14 @@ the format was redone for 0.8's features (SGQ8).
   chords on the tonic, they play I, VI, III, VII ... PROG writes the tonic chord and turns FOLLOW and HARMONY on. The
   chord's name is on the screen.
 * **SNAPSHOTS.** Eight memories of the live state: which patterns play, mutes and solos, the macros, the key and
-  TRANSPOSE, the harmony, every track's settings (channel, loop, swing, MIDI FX, EUCLID, algorithm, CC lane bases),
+  TRANSPOSE, the harmony, every track's settings (channel, loop, swing, EUCLID, algorithm, CC lane bases; 0.19: not
+  the MIDI FX chain, which is the track's),
   the LFOs, the tempo if you want. They come back at the QUANTISE moment. Their **sound** goes with them: the CC lanes'
   base values, and the synths' own CC values that **CC CAPTURE** took while you turned the synths' knobs. **PATCHES**:
   the Raspberry Pi keeps the synths' patches (SysEx) for a snapshot and sends them back when it returns.
-* **MIDI FX per track** (HOME page 5): HARM (a second voice, steps of the key), OCTAVE (jumps on alternate / random /
-  every 3rd / 4th step), ECHO (1-4 repeats, 1/32 .. 1/4 dotted, how much each keeps), VEL CURVE. **FX + OCT+**: an ECHO
-  on every track at once.
+* **MIDI FX per track** (HOME page 5; 0.19: page 6, the four in a chain): HARM (a second voice, steps of the key),
+  OCTAVE (jumps on alternate / random / every 3rd / 4th step), ECHO (1-4 repeats, 1/32 .. 1/4 dotted, how much each
+  keeps), VEL CURVE. **FX + OCT+**: an ECHO on every track at once.
 * **The dice remember**: up to 16 rolls; while a dice waits, **ALG** goes back and forth through them (each one exactly
   as it was), OCT+ keeps the one you hear, OCT- puts everything back.
 * **Every knob returns to 0**: values that move by 2, 4 or 5 a detent snap to those steps, so 0 (and every round
@@ -642,7 +697,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
-| 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track**) | amount (of the READY one, else the one playing) | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
+| 6 MIDI FX | effect shown: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track; 0.19: the four in a chain, VEL > OCTAVE > HARM > ECHO: SEQ + white 6 adds the one shown, or takes it out if it plays; OFF: all stop**) | amount (of the one shown) | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
 | 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
@@ -651,7 +706,10 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 MIDI FX amounts: HARM -7 .. +7 steps of the key (a FREE track: -12 .. +12 semitones); OCTAVE -2 .. +2 octaves, on
 ALT (every other step), RANDOM, 3RD, 4TH; ECHO 0-4 repeats, every 1/32, 1/16, 1/8T, 1/16 dotted, 1/8, 1/4T, 1/8 dotted
 (the default), 1/4, each keeping 10-100 % of the velocity of the one before; VEL -8 .. +8 (soft .. hard). The
-effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones waiting.
+effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones waiting. **0.19, the chain**: VEL CURVE
+first (the velocity every other effect starts from), then OCTAVE (the note), HARM (its voice on the moved note, at its
+velocity %), ECHO (the note and the voice, each repeat keeping its %). 128 ornaments wait at most: past that the
+softest are dropped.
 
 ### SEQ pages
 
@@ -968,7 +1026,7 @@ the project: power-on comes back in it.
 
 A snapshot keeps: the pattern of every track (not the steps: the patterns are the project's), mutes and solos, the
 four macros, the key (its slot, root, scale, shift) and TRANSPOSE, HARMONY (on, the genre, progression, bars), every track's
-settings, the 16 LFOs, MORPH TO, the tempo (if SAVE + K3 says "snapshots bring their tempo"), and up to 48 captured
+settings (0.19: not the MIDI FX chain: it stays as it is), the 16 LFOs, MORPH TO, the tempo (if SAVE + K3 says "snapshots bring their tempo"), and up to 48 captured
 CC values (channel, CC, value). When it comes back its sound goes out: the lanes' base values, then the captured CCs
 (a CC a lane already sends is not sent twice), and a SysEx 40 tells the Pi to send the patches it keeps.
 
@@ -1147,8 +1205,8 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 3 | PATTERN 0-7, at the QUANTISE moment | 4 | LENGTH 1-64, at the bar |
 | 5 | OCTAVE 0-6 (3 = 0) | 6 | SWING 50-75 |
 | 7 | GROOVE 0-9 (OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP) | 8 | GROOVE AMOUNT 0-100 |
-| 9 | MIDI FX 0-4 READY (OFF HARM OCTAVE ECHO VEL CURVE) | 10 | its AMOUNT 0-24 (12 = 0) |
-| 11 | FX GO (a tap: the READY one starts; none READY: the one playing stops) | 12 | ALGO 0-4 READY on the slot shown |
+| 9 | MIDI FX 0-4 shown (OFF HARM OCTAVE ECHO VEL CURVE; not playing: READY) | 10 | its AMOUNT 0-24 (12 = 0) |
+| 11 | FX GO (a tap; 0.19: the one shown joins the chain, or leaves it if it plays; OFF: all stop) | 12 | ALGO 0-4 READY on the slot shown |
 | 13 / 14 / 15 | its A / B / C, 0-127 over the algorithm's range | 16 | ALGO GO (a tap) |
 | 17 | EUCLID PULSES 1-64 | 18 | ROTATION 0-63 |
 | 19 | EUCLID LIVE on / off (a switch; this track only) | 20 | ARP 0-12 (BLOCK UP DOWN ... PINKY) |

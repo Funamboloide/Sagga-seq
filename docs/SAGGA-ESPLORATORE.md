@@ -113,8 +113,8 @@ python3 tests/sagga_explore.py --hw /mnt/c/Users/user/Downloads/sagga-esplorator
 Il piano sono le sessioni a caso dell'esploratore (una situazione, 60 gesti, una sonda dopo ognuno), con quello che una
 mano fa sul pannello e (0.18) il MIDI che entra: i comandi del tablet e i pad e i bottoni del grid, che il PC manda come
 eventi del test e l'FM-1 prende come se arrivassero dalla porta del remoto (il PC al posto del Pi; il keep-alive del
-grid ogni 1,5 s). `--hw-tablet N` aggiunge N sessioni con il tablet e il grid; un piano con eventi MIDI vuole la 0.18.1
-sull'FM-1 (il programma di Windows lo controlla). Ogni sessione parte da un riavvio dell'FM-1 nel test: nessun progetto, nessuno slot letto
+grid ogni 1,5 s). `--hw-tablet N` aggiunge N sessioni con il tablet e il grid; un piano con eventi MIDI vuole sull'FM-1
+la versione con cui è fatto, la 0.19 o più recente (il programma di Windows lo controlla). Ogni sessione parte da un riavvio dell'FM-1 nel test: nessun progetto, nessuno slot letto
 o scritto, come il simulatore appena acceso. L'FM-1 dice dove ha preso ogni evento: il suo millisecondo e il suo tick di
 clock. Il confronto rifà la sessione nel simulatore con ogni evento esattamente lì (fra gli stessi due tick), quindi le
 due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono arrivati in ritardo. Il rapporto

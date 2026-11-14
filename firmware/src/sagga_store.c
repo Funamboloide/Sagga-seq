@@ -157,7 +157,7 @@ static void store_boot(void)
             if (slot_info[i].ok && !(tried & (1u << i)) && (best == SQ_SLOTS || slot_info[i].seq > hi)) { best = i; hi = slot_info[i].seq; }
         if (best == SQ_SLOTS) break;
         tried |= 1u << best;
-        if (slot_load(best) == 0) { slot_cur = (uint8_t)best; rl_src = (uint8_t)best; project_id_check(); return; }
+        if (slot_load(best) == 0) { slot_cur = (uint8_t)best; rl_src = (uint8_t)best; project_id_check(); mfx_sel_reset(); return; }   /* (0.19: K1 on the first MIDI FX) */
         sq_project_init(&project);
         slot_info[best].ok = 0u;                    /* it does not read back: not offered as a project (its area is kept) */
     }

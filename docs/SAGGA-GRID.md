@@ -486,7 +486,7 @@ The colour of a bar is its page: green 1-16, cyan 17-32, blue 33-48, violet 49-6
 | row | pads |
 |---|---|
 | 1 | voicing CLOSE, INV 1, INV 2, DROP 2, OPEN (1-5); strum -50 .. +50 % (6-16, pad 11 = 0; minus: from the top) |
-| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5; 0.16: a tap READY, orange; again: it starts, white; on the one playing: it stops; each with the values it had on the track); amount -5 .. +5 (6-16, pad 11 = 0) |
+| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5; 0.16: a tap READY, orange; again: it starts, white; on the one playing: it stops; each with the values it had on the track; 0.19: they play together, in a chain - every one that plays is white; OFF tapped twice: all stop); amount -5 .. +5 (6-16, pad 11 = 0) of the one shown |
 | 3 | ECHO time 1/32 .. 1/4 (1-8; OCTAVE: ALT, RANDOM, 3RD, 4TH); how much each ECHO keeps / the HARM voice's velocity 20 .. 100 % (9-16) |
 | 4 | algorithm OFF, TURING, CELL, ACCENT, DENSITY (1-5) of the slot shown (**0.16: a tap READY, orange; again: it starts with what rows 5-6 set, white; a tap on the one playing stops it**); FOLLOW (6); EUCLID LIVE (7); **the slot 1-4** (8, 0.11: tap for the next); C (9-16): TURING rhythm / notes / both, CELL every 1 / 2 / 4 bars / loop, ACCENT offset |
 | 5 | A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels, 0 .. 200 %) — of the READY algorithm if there is one, else of the one playing |

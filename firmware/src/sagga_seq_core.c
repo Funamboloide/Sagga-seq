@@ -699,6 +699,7 @@ void sq_project_sanitize(sq_project_t *p)
     for (n = 0; n < sizeof p->live.reserved; n++) p->live.reserved[n] = 0u;
     sq_viaggio_sanitize(&p->viaggio);
     sq_ext_sanitize(&p->ext);
+    for (t = 0; t < SQ_TRACKS; t++) sq_mfx_mirror(&p->ext.mfxc[t], &p->track[t]);   /* 0.19: the track shows its chain's first */
     sq_tape_sanitize(p);
     for (n = 0; n < SQ_LFOS; n++) sanitize_lfo(&p->lfo[n]);
     {
@@ -911,6 +912,62 @@ uint8_t sq_voice_notes(const uint8_t *in, uint8_t cnt, uint8_t voicing, uint8_t 
 uint8_t sq_chord_voice(const sq_step_t *s, uint8_t voicing, uint8_t *out)
 {
     return sq_voice_notes(s->note, SQ_POLY, voicing, out);
+}
+
+/* ---- 0.19 the MIDI FX chain */
+const uint8_t SQ_MFX_ORDER[SQ_MFX_N] = {SQ_MFX_VELOCITY, SQ_MFX_OCTAVE, SQ_MFX_HARM, SQ_MFX_ECHO};
+
+void sq_mfx_defaults(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
+{
+    *amt = 0; *time = 6u; *fb = 60u;                   /* (a dotted eighth, 60 %: the track's own defaults) */
+    switch (fx) {
+    case SQ_MFX_HARM:     *amt = 2; *fb = 75u; break;   /* a third above, a little softer */
+    case SQ_MFX_OCTAVE:   *amt = 1; *time = SQ_OCT_ALT; break;
+    case SQ_MFX_ECHO:     *amt = 2; break;              /* twice, a dotted eighth */
+    case SQ_MFX_VELOCITY: *amt = 3; break;
+    default: break;
+    }
+}
+
+static void mfx_clamp(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
+{
+    switch (fx) {                                      /* each effect its own range (as sq_track_sanitize) */
+    case SQ_MFX_HARM:     *amt = (int8_t)clampi(*amt, -12, 12); break;
+    case SQ_MFX_OCTAVE:   *amt = (int8_t)clampi(*amt, -2, 2); if (*time >= SQ_OCT_PATTERNS) *time = SQ_OCT_ALT; break;
+    case SQ_MFX_ECHO:     *amt = (int8_t)clampi(*amt, 0, 4); break;
+    case SQ_MFX_VELOCITY: *amt = (int8_t)clampi(*amt, -8, 8); break;
+    default:              *amt = 0; break;
+    }
+    if (*time >= SQ_ECHO_TIMES) *time = 6u;
+    *fb = (uint8_t)clampi(*fb, 10, 100);
+}
+
+void sq_mfx_sanitize(sq_mfxc_t *m)
+{
+    uint32_t k;
+    m->on &= (uint8_t)SQ_MFX_ALL;
+    for (k = 0; k < SQ_MFX_N; k++) mfx_clamp((uint8_t)(k + 1u), &m->amt[k], &m->time[k], &m->fb[k]);
+}
+
+void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c)
+{
+    uint8_t fx;
+    for (fx = 1u; fx < SQ_MFXS; fx++) if (SQ_MFX_ON(m, fx)) break;
+    if (fx < SQ_MFXS) { c->mfx = fx; c->mfx_amt = m->amt[fx - 1u]; c->mfx_time = m->time[fx - 1u]; c->mfx_fb = m->fb[fx - 1u]; }
+    else { c->mfx = SQ_MFX_OFF; c->mfx_amt = 0; c->mfx_time = 6u; c->mfx_fb = 60u; }
+}
+
+void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m)
+{
+    uint32_t k;
+    m->on = 0u;
+    for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &m->amt[k], &m->time[k], &m->fb[k]);
+    if (c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS) {
+        k = c->mfx - 1u;
+        m->on = (uint8_t)(1u << c->mfx);
+        m->amt[k] = c->mfx_amt; m->time[k] = c->mfx_time; m->fb[k] = c->mfx_fb;
+        mfx_clamp(c->mfx, &m->amt[k], &m->time[k], &m->fb[k]);
+    }
 }
 
 uint8_t sq_mfx_velocity(uint8_t vel, int8_t amount)
@@ -1365,6 +1422,8 @@ void sq_ext_default(sq_ext_t *x)
         for (k = 0; k < SQ_CHAIN_MAX; k++) { x->track[i].chain_pat[k] = (uint8_t)(k < SQ_PATTERNS ? k : 0u); x->track[i].chain_rep[k] = 1u; }
     }
     for (i = 0; i < 4u; i++) for (k = 0; k < SQ_MOTION_CELLS; k++) x->motion[i][k] = (int8_t)SQ_MOTION_NONE;
+    for (i = 0; i < SQ_TRACKS; i++)                    /* 0.19: no MIDI FX plays; each one's values when first chosen */
+        for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &x->mfxc[i].amt[k], &x->mfxc[i].time[k], &x->mfxc[i].fb[k]);
 }
 
 void sq_ext_sanitize(sq_ext_t *x)
@@ -1399,6 +1458,7 @@ void sq_ext_sanitize(sq_ext_t *x)
             if (x->motion[i][k] != (int8_t)SQ_MOTION_NONE) x->motion[i][k] = (int8_t)clampi(x->motion[i][k], LO[i], HI[i]);
     for (i = 0; i < sizeof x->reserved; i++) x->reserved[i] = 0u;
     sq_name_sanitize(x->name, SQ_NAME_LEN);
+    for (i = 0; i < SQ_TRACKS; i++) sq_mfx_sanitize(&x->mfxc[i]);   /* 0.19 */
 }
 
 void sq_name_sanitize(char *n, uint32_t len)
@@ -2251,7 +2311,9 @@ static void rd_get(rd_t *r, void *dst, uint32_t n)
 typedef char sq_step_is_18_bytes[(sizeof(sq_step_t) == 18u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 96u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 796u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014) ? 1 : -1];
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1004u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
+                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018) ? 1 : -1];
+typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u) ? 1 : -1];
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
 
@@ -2392,7 +2454,7 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
 {
     rd_t r;
     sq_step_t def, tmp;
-    uint32_t magic = 0, t, pat, i, ev;
+    uint32_t magic = 0, t, pat, i, ev, ext_n = 0u;
     uint8_t b = 0, smask = 0u, nb[2] = {0u, 0u}, old;
     r.p = in; r.pos = 0; r.len = len; r.bad = 0;
     sq_step_default(&def);
@@ -2487,9 +2549,12 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
             uint32_t k = n < (uint32_t)sizeof p->ext ? n : (uint32_t)sizeof p->ext;
             rd_get(&r, &p->ext, k);
             rd_skip(&r, n - k);
+            ext_n = k;
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
+    if (p && ext_n < (uint32_t)sizeof p->ext)          /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
+        for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
     if (p) sq_project_sanitize(p);
     return 0;
 }

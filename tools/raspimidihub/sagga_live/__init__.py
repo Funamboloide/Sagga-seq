@@ -4,7 +4,8 @@
 The tablet has a track of its own on the FM-1 (TRACK, channel 13 CC 112, the same as SAGGA Motori's and Mod's): what
 this page sends acts there, and the FM-1's screen says so ("TAB T5: ..."); the FM-1's track, page and cursor stay as
 they are. Channel 12 (firmware/src/sagga_tablet.c): MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE and its
-amount, FOLLOW; the ARP (mode, octaves, rate, run) and the CHORD; the MIDI FX (READY, its amount, GO); an ALGORITHM
+amount, FOLLOW; the ARP (mode, octaves, rate, run) and the CHORD; the MIDI FX (one of the four, its amount, GO: 0.19,
+it joins the track's chain or leaves it); an ALGORITHM
 (READY, A B C, GO); EUCLID (pulses, rotation, on / off); COOK, BEAT, a PROPOSAL and QUEUE (it enters at the
 QUANTISE), DICE, KEEP / BACK, UNDO; the sixteen MUTES.
 
@@ -109,7 +110,8 @@ class SaggaLive(ControllerBase):
 TRACK picks the tablet's own track on the FM-1 (the FM-1 keeps its own: one hand there, one here); MODE is its mode.
 MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW (the
 harmony); ARP, OCTAVES, RATE (1/4 and 1/2: a note every 4 / 2 steps), RUN; CHORD (one note becomes a chord); MIDI FX
-(READY), FX AMOUNT, FX GO (it starts; again: it stops); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
+(one of the four), FX AMOUNT, FX GO (the effect shown joins the track's chain - with FM-1 0.19 the four can play
+together - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
 on / off. COOK, BEAT, DICE (KEEP / BACK), UNDO on this track only; PROPOSAL writes a variation on a free pattern, QUEUE
 sends it in. MUTE 1-16: every track.
 The FM-1 sends its values back: wire OUT to the FM-1's port 2 and the FM-1's port 2 to IN (USB PORTS 2); SAVE K2 on

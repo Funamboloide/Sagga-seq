@@ -97,6 +97,13 @@ def t_converter():
     check(j3['scene'][2]['pattern'][15] == 7 and j3['song']['len'] == 3 and j3['song_e'][2]['bars'] == 8 and j3['lfo'][5]['enabled'] == 1 and j3['lfox'][5]['trig'] == 2
           and j3['chain'][1]['chain_on'] == 1 and j3['chain'][1]['chain_n'] == 3 and j3['live']['mac'][3] == -20 and j3['ext']['kb_mode'] == 2 and j3['key'][3]['shift'] == -5,
           'a patch: scenes, song, LFOs, chains, macros, LIVE IN, keys, signed values')
+    # 0.19: the MIDI FX chain of a track: HARM + ECHO with their values; the track's one effect is its first (HARM)
+    r = apply(out, ['mfxc 3 on - 10', 'mfxc 3 amt 0 -3', 'mfxc 3 amt 2 4', 'mfxc 3 time 2 3', 'mfxc 3 fb 2 40', 'track 3 mfx - 4'], out2)
+    j5 = read(out2)
+    m3 = j5.get('mfxc', [{}] * 16)[3]
+    check(r.returncode == 0 and m3.get('on') == 10 and m3.get('amt') == [-3, 1, 4, 3] and m3.get('time', [0] * 4)[2] == 3 and m3.get('fb', [0] * 4)[2] == 40
+          and j5['track'][3]['mfx'] == 1 and j5['track'][3]['mfx_amt'] == -3,
+          '0.19 the MIDI FX chain: mfxc on, amt / time / fb per effect; the track shows its first, whatever the patch said (%s %s)' % (m3, r.stderr))
     # what the FM-1 would play: the converter's step is a note for the firmware's own sgq2mid
     mid = os.path.join(d, 'x.mid')
     subprocess.run([MID, 'sgq2mid', out, mid], check=True, capture_output=True)

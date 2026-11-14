@@ -20,7 +20,7 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 16u * 96u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole) */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 796u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1004u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 28u && sizeof(sq_phrase_t) == 26u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
@@ -822,6 +822,7 @@ static void fill_demo(sq_project_t *p)
     p->gen.custom = 0x0F0Fu;
     p->id = 0x1234ABCDu;
     p->track[5].mfx = SQ_MFX_ECHO; p->track[5].mfx_amt = 3; p->track[5].mfx_time = 2u; p->track[5].mfx_fb = 45u;
+    sq_mfx_from_track(&p->track[5], &p->ext.mfxc[5]);   /* 0.19: the track's effect is its chain's first */
     p->track[5].flags = SQ_TF_SCALE | SQ_TF_FOLLOW | SQ_TF_EUC; p->track[5].euc_pulses = 5u; p->track[5].euc_rot = 3u;
     p->track[5].algo = SQ_ALGO_CELL; p->track[5].algo_a = 110u; p->track[5].algo_b = 24u; p->track[5].algo_c = 2u; p->track[5].pen = 48u;
     p->live.snap_tempo = 1u;
@@ -2426,7 +2427,7 @@ static void test_v013_ext(void)
     a.ext.kb_mode = SQ_KB_SPLIT; a.ext.kb_ch = 2u; a.ext.in_thru = 1u;
     a.step[0][0][3].flags |= SQ_STEP_ON | SQ_STEP_SLIDE;
     n = sq_serialize(&a, img, sizeof img);
-    CHECK(n == n0 + 3u + 796u + 18u - 15u || n > n0 + 796u);   /* (the chunk: tag, length, 796 bytes; and the step) */
+    CHECK(n == n0 + 3u + (uint32_t)sizeof a.ext + 18u - 15u || n > n0 + (uint32_t)sizeof a.ext);   /* (the chunk: tag, length, its bytes; and the step) */
     CHECK(sq_image_ok(img, n) == 0);
     CHECK(sq_deserialize(&b, img, n) == 0);
     CHECK(!memcmp(&a.ext, &b.ext, sizeof a.ext));
@@ -2435,16 +2436,16 @@ static void test_v013_ext(void)
     {
         static uint8_t big[0x8000];
         uint32_t m = n - 1u, k;                       /* (n - 1: the end mark) */
-        uint32_t at1 = m - 3u - 796u;                 /* our chunk 1 */
+        uint32_t at1 = m - 3u - (uint32_t)sizeof a.ext, xn = (uint32_t)sizeof a.ext;   /* our chunk 1 */
         memcpy(big, img, at1);
         big[at1] = 2u; big[at1 + 1u] = 5u; big[at1 + 2u] = 0u;        /* a chunk 2 of 5 bytes */
         for (k = 0; k < 5u; k++) big[at1 + 3u + k] = 0xAAu;
-        big[at1 + 8u] = SQ_CHUNK_EXT; big[at1 + 9u] = (uint8_t)((796u + 4u) & 0xFFu); big[at1 + 10u] = (uint8_t)((796u + 4u) >> 8);
-        memcpy(big + at1 + 11u, &a.ext, 796u);
-        for (k = 0; k < 4u; k++) big[at1 + 11u + 796u + k] = 0x55u;
-        big[at1 + 11u + 800u] = 0u;
-        CHECK(sq_deserialize(&b, big, at1 + 12u + 800u) == 0 && !memcmp(&a.ext, &b.ext, sizeof a.ext));
-        CHECK(sq_image_ok(big, at1 + 12u + 800u) == 0);
+        big[at1 + 8u] = SQ_CHUNK_EXT; big[at1 + 9u] = (uint8_t)((xn + 4u) & 0xFFu); big[at1 + 10u] = (uint8_t)((xn + 4u) >> 8);
+        memcpy(big + at1 + 11u, &a.ext, xn);
+        for (k = 0; k < 4u; k++) big[at1 + 11u + xn + k] = 0x55u;
+        big[at1 + 11u + xn + 4u] = 0u;
+        CHECK(sq_deserialize(&b, big, at1 + 12u + xn + 4u) == 0 && !memcmp(&a.ext, &b.ext, sizeof a.ext));
+        CHECK(sq_image_ok(big, at1 + 12u + xn + 4u) == 0);
         /* 0.15: a 0.14 image (chunk 1 of 780 bytes): no name, no groove; the rest as written */
         memcpy(big, img, at1);
         big[at1] = SQ_CHUNK_EXT; big[at1 + 1u] = (uint8_t)(SQ_EXT_014 & 0xFFu); big[at1 + 2u] = (uint8_t)(SQ_EXT_014 >> 8);
@@ -2541,6 +2542,77 @@ static void test_v013_ext(void)
     CHECK(sq_kb_transpose(41u, 5u) == 0 && sq_kb_transpose(43u, 5u) == 2 && sq_kb_transpose(40u, 5u) == -1 && sq_kb_transpose(36u, 5u) == -5);
 }
 
+/* 0.19: the MIDI FX chain - the four effects together, their values kept, the track's one effect its first; a 0.18
+ * image's one effect becomes the chain */
+static void test_v019_mfx_chain(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[0x10000], old[0x10000];
+    uint32_t n, t, k, at1;
+    int8_t am; uint8_t tm, fb;
+    sq_project_init(&a);
+    for (t = 0; t < SQ_TRACKS; t++) {                  /* a new project: nothing plays, each effect its defaults */
+        CHECK(a.ext.mfxc[t].on == 0u && a.track[t].mfx == SQ_MFX_OFF);
+        for (k = 1u; k < SQ_MFXS; k++) {
+            sq_mfx_defaults((uint8_t)k, &am, &tm, &fb);
+            CHECK(a.ext.mfxc[t].amt[k - 1u] == am && a.ext.mfxc[t].time[k - 1u] == tm && a.ext.mfxc[t].fb[k - 1u] == fb);
+        }
+    }
+    CHECK(SQ_MFX_ORDER[0] == SQ_MFX_VELOCITY && SQ_MFX_ORDER[1] == SQ_MFX_OCTAVE && SQ_MFX_ORDER[2] == SQ_MFX_HARM && SQ_MFX_ORDER[3] == SQ_MFX_ECHO);
+    /* track 3: OCTAVE + HARM + ECHO with their own values; the track's mfx: the first of the list (HARM) */
+    a.ext.mfxc[3].on = (uint8_t)((1u << SQ_MFX_OCTAVE) | (1u << SQ_MFX_HARM) | (1u << SQ_MFX_ECHO));
+    a.ext.mfxc[3].amt[SQ_MFX_HARM - 1u] = -3; a.ext.mfxc[3].fb[SQ_MFX_HARM - 1u] = 50u;
+    a.ext.mfxc[3].amt[SQ_MFX_OCTAVE - 1u] = 2; a.ext.mfxc[3].time[SQ_MFX_OCTAVE - 1u] = SQ_OCT_THIRD;
+    a.ext.mfxc[3].amt[SQ_MFX_ECHO - 1u] = 4; a.ext.mfxc[3].time[SQ_MFX_ECHO - 1u] = 3u; a.ext.mfxc[3].fb[SQ_MFX_ECHO - 1u] = 40u;
+    a.ext.mfxc[9].on = (uint8_t)(1u << SQ_MFX_VELOCITY); a.ext.mfxc[9].amt[SQ_MFX_VELOCITY - 1u] = -6;
+    sq_project_sanitize(&a);
+    CHECK(a.track[3].mfx == SQ_MFX_HARM && a.track[3].mfx_amt == -3 && a.track[3].mfx_fb == 50u);
+    CHECK(a.track[9].mfx == SQ_MFX_VELOCITY && a.track[9].mfx_amt == -6);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(b.ext.mfxc[3].on == a.ext.mfxc[3].on && b.ext.mfxc[3].time[SQ_MFX_OCTAVE - 1u] == SQ_OCT_THIRD && b.ext.mfxc[3].fb[SQ_MFX_ECHO - 1u] == 40u);
+    /* sanitize: each effect its range, no bit for OFF or beyond */
+    b.ext.mfxc[0].on = 0xFFu;
+    b.ext.mfxc[0].amt[SQ_MFX_OCTAVE - 1u] = 9; b.ext.mfxc[0].time[SQ_MFX_OCTAVE - 1u] = 7u;
+    b.ext.mfxc[0].amt[SQ_MFX_ECHO - 1u] = -2; b.ext.mfxc[0].fb[SQ_MFX_ECHO - 1u] = 0u;
+    b.ext.mfxc[0].amt[SQ_MFX_VELOCITY - 1u] = 100; b.ext.mfxc[0].amt[SQ_MFX_HARM - 1u] = -50;
+    sq_project_sanitize(&b);
+    CHECK(b.ext.mfxc[0].on == SQ_MFX_ALL && b.ext.mfxc[0].amt[SQ_MFX_OCTAVE - 1u] == 2 && b.ext.mfxc[0].time[SQ_MFX_OCTAVE - 1u] == SQ_OCT_ALT);
+    CHECK(b.ext.mfxc[0].amt[SQ_MFX_ECHO - 1u] == 0 && b.ext.mfxc[0].fb[SQ_MFX_ECHO - 1u] == 10u && b.ext.mfxc[0].amt[SQ_MFX_VELOCITY - 1u] == 8 &&
+          b.ext.mfxc[0].amt[SQ_MFX_HARM - 1u] == -12);
+    CHECK(b.track[0].mfx == SQ_MFX_HARM && b.track[0].mfx_amt == -12);
+    b.ext.mfxc[0].on = 0u; sq_project_sanitize(&b);
+    CHECK(b.track[0].mfx == SQ_MFX_OFF && b.track[0].mfx_amt == 0);
+    /* a 0.18 image: chunk 1 of 796 bytes (no chain); track 2 plays OCTAVE -1 on every 4th, track 7 ECHO: their chains */
+    sq_project_init(&a);
+    a.ext.kb_mode = SQ_KB_ALL;                          /* (so that chunk 1 is written) */
+    a.track[2].mfx = SQ_MFX_OCTAVE; a.track[2].mfx_amt = -1; a.track[2].mfx_time = SQ_OCT_FOURTH; a.track[2].mfx_fb = 30u;
+    a.track[7].mfx = SQ_MFX_ECHO; a.track[7].mfx_amt = 3; a.track[7].mfx_time = 1u; a.track[7].mfx_fb = 70u;
+    n = sq_serialize(&a, img, sizeof img);             /* (no sanitize: the tracks as a 0.18 firmware had them) */
+    CHECK(n > 0u);
+    at1 = n - 1u - 3u - (uint32_t)sizeof a.ext;
+    CHECK(img[at1] == SQ_CHUNK_EXT);
+    memcpy(old, img, at1);
+    old[at1] = SQ_CHUNK_EXT; old[at1 + 1u] = (uint8_t)(SQ_EXT_018 & 0xFFu); old[at1 + 2u] = (uint8_t)(SQ_EXT_018 >> 8);
+    memcpy(old + at1 + 3u, &a.ext, SQ_EXT_018);
+    old[at1 + 3u + SQ_EXT_018] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, old, at1 + 4u + SQ_EXT_018) == 0 && b.ext.kb_mode == SQ_KB_ALL);
+    CHECK(b.ext.mfxc[2].on == (1u << SQ_MFX_OCTAVE) && b.ext.mfxc[2].amt[SQ_MFX_OCTAVE - 1u] == -1 && b.ext.mfxc[2].time[SQ_MFX_OCTAVE - 1u] == SQ_OCT_FOURTH);
+    CHECK(b.ext.mfxc[7].on == (1u << SQ_MFX_ECHO) && b.ext.mfxc[7].amt[SQ_MFX_ECHO - 1u] == 3 && b.ext.mfxc[7].time[SQ_MFX_ECHO - 1u] == 1u &&
+          b.ext.mfxc[7].fb[SQ_MFX_ECHO - 1u] == 70u);
+    CHECK(b.track[2].mfx == SQ_MFX_OCTAVE && b.track[7].mfx == SQ_MFX_ECHO && b.ext.mfxc[0].on == 0u);
+    sq_mfx_defaults(SQ_MFX_HARM, &am, &tm, &fb);
+    CHECK(b.ext.mfxc[2].amt[SQ_MFX_HARM - 1u] == am && b.ext.mfxc[2].fb[SQ_MFX_HARM - 1u] == fb);   /* (the others: their defaults) */
+    /* an image with no chunk 1 at all (a 0.12 one, or the defaults): the same */
+    a.ext.kb_mode = SQ_KB_OFF;
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_deserialize(&b, img, n) == 0 && b.ext.mfxc[7].on == (1u << SQ_MFX_ECHO) && b.track[7].mfx_fb == 70u);
+    /* the chain written back and read again: what a 0.18 firmware sees is the first effect, as before */
+    n = sq_serialize(&b, img, sizeof img);
+    CHECK(n > 0u && sq_deserialize(&a, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+}
+
 int main(void)
 {
     test_v012_break();
@@ -2577,6 +2649,7 @@ int main(void)
     test_planes();
     test_beats();
     test_generators();
+    test_v019_mfx_chain();
     printf("sagga core: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

@@ -65,14 +65,11 @@ static void tab_algo_abc(uint8_t t, uint8_t k, uint8_t v)
     ui_dirty = grid_dirty = 1u;
 }
 
-/* the MIDI FX amount shown on track t (the READY one's, or the one playing), without touching mfx_tmp */
+/* the MIDI FX amount shown on track t (0.19: of the effect its MIDI FX knob shows, playing or READY), without touching mfx_tmp */
 static int8_t tab_mfx_amt(uint32_t t)
 {
-    uint8_t p = mfx_pend[t];
-    sq_track_cfg_t o;
-    if (p == MFX_PEND_STOP) return 0;
-    if (p && p < SQ_MFXS) { o = project.track[t]; mfx_load(t, p, &o); return o.mfx_amt; }
-    return project.track[t].mfx_amt;
+    uint8_t fx = mfx_shown(t);
+    return fx ? project.ext.mfxc[t].amt[fx - 1u] : 0;
 }
 
 static uint16_t tab_mutes(void) { return (uint16_t)(vg_mutes_to_keep() ^ pending_mute); }   /* the mutes as meant */
@@ -175,8 +172,8 @@ static void live12_cc(uint8_t cc, uint8_t v)
     if (!on) return;                                    /* the taps: at the press */
     switch (cc) {
     case 11u:
-        if (!mfx_pend[t] && c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS) mfx_pend[t] = MFX_PEND_STOP;
-        if (mfx_pend[t]) mfx_go(t); else status_msg("NOTHING READY: MIDI FX CHOOSES ONE");
+        if (mfx_shown(t) == SQ_MFX_OFF && !project.ext.mfxc[t].on) status_msg("NOTHING READY: MIDI FX CHOOSES ONE");
+        else mfx_go(t);                                 /* 0.19: the effect shown joins the chain, or leaves it; OFF: all stop */
         break;
     case 16u: algo_go(t); break;
     case 26u: tab_tool(TOOL_COOK); break;

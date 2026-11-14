@@ -160,6 +160,11 @@ class Log:
                                             r"harm (\d+) (\d+) (\d+) (\d+) snap (-?\d+) (-?\d+) (\d+) mac (-?\d+) (-?\d+) (-?\d+) (-?\d+) "
                                             r"HEARD:([x. ]*) MSG:(.*)$", text, re.M)]
 
+        self.mfxc = [dict(t=int(m.group(1)), track=int(m.group(2)), on=int(m.group(3)), sel=int(m.group(4)), pend=int(m.group(5)),
+                          amt=[int(x) for x in m.group(6, 7, 8, 9)], time=[int(x) for x in m.group(10, 11, 12, 13)],
+                          fb=[int(x) for x in m.group(14, 15, 16, 17)])          # 0.19: the MIDI FX chain (effect x at [x - 1])
+                     for m in re.finditer(r"^\s*(\d+) ms  mfxc T(\d+) on (\d+) sel (\d+) pend (\d+) amt (-?\d+) (-?\d+) (-?\d+) (-?\d+) "
+                                          r"time (\d+) (\d+) (\d+) (\d+) fb (\d+) (\d+) (\d+) (\d+)$", text, re.M)]
         self.viaggio = [dict(t=int(m.group(1)), on=int(m.group(2)), bar=int(m.group(3)), bars=int(m.group(4)), energy=int(m.group(5)),
                              target=int(m.group(6)), genre=int(m.group(7)), mute=int(m.group(8), 16), speed=int(m.group(9)), rec=int(m.group(10)),
                              states=m.group(11), queue=m.group(12).split(), trail=int(m.group(13)), patterns=m.group(14), song=int(m.group(15)))
@@ -6257,7 +6262,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.18.1", "HELLO: nothing asked yet, a normal boot, 0.18.1 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.19", "HELLO: nothing asked yet, a normal boot, 0.19 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7462,24 +7467,30 @@ def t016_ready_elsewhere():
     check(log.states[0]["msg"] == "EXPO READY: K4 SHAPE STARTS IT" and len(n1) == 1 and len(n3) == 12,
           "EXPO's knob: READY, the step plays once; K4 RAMP: its 12 hits (%r, %d, %d)" % (log.states[0]["msg"], len(n1), len(n3)))
     # MIDI FX (HOME 6): K1 ECHO READY, K2 4 repeats (nothing heard yet); SEQ + white 6 starts it (not EUCLID); HARM READY
-    # while ECHO plays; started; ECHO READY again: its 4, not its default 2; K1 OFF + SEQ + white 6 stops it
+    # while ECHO plays; started: 0.19, the two together (the chain); ECHO shown again (its 4): SEQ + white 6 takes it
+    # out, HARM goes on; K1 OFF + SEQ + white 6 stops what is left
     s = Script()
     t = s.steps(100, (0,))
     t = home_page(s, t, 5, [(K1, 3), (K2, 2)]); s.at(t, "dump", 0)          # ECHO READY, 4 repeats
     t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # started
     t = home_page(s, t, 5, [(K1, -2)], cur=5); s.at(t, "dump", 0)           # HARM READY, ECHO plays on
-    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # HARM
-    t = home_page(s, t, 5, [(K1, 2)], cur=5); s.at(t, "dump", 0)            # ECHO READY: its 4
-    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # HARM + ECHO
+    t = home_page(s, t, 5, [(K1, 2)], cur=5); s.at(t, "dump", 0)            # ECHO shown (it plays): its 4
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # taken out: HARM
     t = home_page(s, t, 5, [(K1, -3)], cur=5)                               # OFF chosen
     t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)                 # it stops
     log = run(s, t + 100)
     st = states(log)
-    got = [(x["mfx"], x["mfx_amt"]) for x in st]
+    mc = [x for x in log.mfxc if x["track"] == 1]
+    got = [(x["on"], x["sel"], x["amt"][2]) for x in mc]
     euc = [x["flags"] & 8 for x in st]
-    check(got == [(0, 0), (3, 4), (3, 4), (1, 2), (1, 2), (3, 4), (0, 0)] and not any(euc),
-          "ECHO READY with 4, started by SEQ + white 6 (EUCLID stays off); HARM READY while ECHO plays, then HARM; ECHO again with its 4; OFF (%s %s)" % (got, euc))
+    check(got == [(0, 3, 4), (8, 3, 4), (8, 1, 4), (10, 1, 4), (10, 3, 4), (2, 3, 4), (0, 0, 4)] and not any(euc),
+          "ECHO READY with 4, started by SEQ + white 6 (EUCLID stays off); HARM READY while ECHO plays, then both; ECHO out; OFF (%s %s)" % (got, euc))
+    check([x["mfx"] for x in st] == [0, 3, 3, 1, 1, 1, 0], "the track's one effect: the chain's first (%s)" % [x["mfx"] for x in st])
     check(st[0]["msg"] == "T1 MIDI FX ECHO READY: SEQ + WHITE 6" and st[1]["msg"] == "T1 MIDI FX ECHO STARTS", "the screen: READY, STARTS (%r %r)" % (st[0]["msg"], st[1]["msg"]))
+    check(st[3]["msg"] == "T1 MIDI FX HARM STARTS: HARM+ECHO" and st[4]["msg"] == "T1 MIDI FX ECHO PLAYS: SEQ + WHITE 6 TAKES IT OUT"
+          and st[5]["msg"] == "T1 MIDI FX ECHO STOPS: HARM" and st[6]["msg"] == "T1 MIDI FX HARM STOPS",
+          "the screen: the chain, TAKES IT OUT, STOPS (%r)" % [x["msg"] for x in st[3:]])
     s = Script()                                                            # heard: no repeats while READY, then the 4
     t = s.steps(100, (0,))
     t = home_page(s, t, 5, [(K1, 3), (K2, 2)])
@@ -7728,6 +7739,95 @@ def t018_live_sweep():
     check(not hung, "after STOP no note hangs (%s)" % hung[:4])
 
 
+# ------------------------------------------------------------------------------------------------ 0.19
+def mfx_add(s, t, d):
+    """HOME 6 K1 by d (from the effect shown), then SEQ + white 6: the effect shown joins the chain (or leaves it)"""
+    t = home_page(s, t, 5, [(K1, d)])
+    return seq_page(s, t, 0, keys=[wk(5)])
+
+
+def t019_mfx_chain():
+    group("0.19 the MIDI FX chain: the four together, in their order (VEL CURVE, OCTAVE, HARM, ECHO: the harmony echoes too); "
+          "a save keeps it; a snapshot leaves it; the tablet's FX GO and the grid's pads")
+    # HARM (+2 semitones on a FREE track, the voice at 75 %), ECHO (twice, a dotted eighth, 60 %), VEL CURVE +8: one step
+    # plays C4 at 127 and D4 at 95, and both come back twice, softer each time
+    s = Script()
+    t = s.steps(100, (0,))
+    t = mfx_add(s, t, 1)                                               # HARM
+    t = mfx_add(s, t, 2)                                               # ECHO
+    t = home_page(s, t, 5, [(K1, 1), (K2, 5)])                         # VEL CURVE READY, 3 + 5 = 8
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(16 * STEP_MS) - 20)
+    mc = log.mfxc[-1]
+    n = [(round((tm - p) / STEP_MS), d1, v) for tm, d1, v in log.notes(ch=0, after=p)]
+    check(mc["on"] == 2 | 8 | 16 and states(log)[-1]["mfx"] == 1 and states(log)[-1]["msg"] == "T1 MIDI FX VEL CURVE STARTS: VEL+HARM+ECHO",
+          "the chain: VEL CURVE, HARM, ECHO; the track's one effect HARM (%s %r)" % (mc, states(log)[-1]["msg"]))
+    check(sorted(n) == [(0, 60, 127), (0, 62, 95), (3, 60, 76), (3, 62, 57), (6, 60, 45), (6, 62, 34)],
+          "C4 127, D4 95 (the voice on the curved velocity), both echoed at 3 and 6 steps, 60 %% each (%s)" % sorted(n))
+    # OCTAVE (+1 on every other step) before HARM: step 2's note goes up an octave and the voice is built on it
+    s = Script()
+    t = s.steps(100, (0, 1))
+    t = mfx_add(s, t, 2)                                               # OCTAVE (+1, ALT)
+    t = mfx_add(s, t, -1)                                              # HARM
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(2 * STEP_MS) - 20)
+    n = sorted((round((tm - p) / STEP_MS), d1) for tm, d1, _ in log.notes(ch=0, after=p))
+    check(n == [(0, 60), (0, 62), (1, 72), (1, 74)], "OCTAVE then HARM: 60 + 62, then 72 + 74 (%s)" % n)
+    # a power cycle keeps the chain and each effect's values; HOME 6 shows the first
+    d = tempfile.mkdtemp(); flash = os.path.join(d, "flash.bin")
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, 3), (K2, 1)])                         # ECHO READY, 3 repeats
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    t = mfx_add(s, t, -2)                                              # HARM
+    s.tap_btn(t, SAVE); s.tap_btn(t + 400, SAVE); t += 1200
+    run(s, t, flash=flash)
+    s = Script()
+    s.at(300, "dump", 0)
+    log = run(s, 400, flash=flash)
+    mc = log.mfxc[-1] if log.mfxc else {}
+    check(mc.get("on") == 2 | 8 and mc.get("amt", [0] * 4)[2] == 3 and mc.get("sel") == 1 and states(log)[-1]["mfx"] == 1,
+          "after a power cycle: HARM + ECHO, ECHO with its 3 repeats; K1 shows HARM (%s)" % mc)
+    # a snapshot does not change the chain: stored with ECHO, ECHO taken out, the snapshot recalled: still none
+    def store(s, t, n): s.press(t, SAVE); s.press(t + 20, SEL); s.tap_key(t + 40, bk(n)); s.release(t + 100, SEL); s.release(t + 120, SAVE); return t + 180
+    def recall(s, t, n): s.press(t, SAVE); s.tap_key(t + 20, bk(n)); s.release(t + 100, SAVE); return t + 160
+    s = Script()
+    t = s.steps(100, (0,))
+    t = mfx_add(s, t, 3)                                               # ECHO
+    t = store(s, t, 0)
+    t = home_page(s, t, 5, [(K1, -3)]); t = seq_page(s, t, 0, keys=[wk(5)])   # OFF: it stops
+    t = recall(s, t, 0); s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    check(log.mfxc[-1]["on"] == 0 and states(log)[-1]["mfx"] == 0, "the snapshot leaves the chain as it is (%s)" % log.mfxc[-1])
+    # the tablet (SAGGA Live): MIDI FX ECHO, FX GO: it plays; MIDI FX HARM, FX GO: both; FX GO again: HARM leaves
+    s = Script()
+    t = remote13_on(s, 100)
+    s.raw(t, "midi 0xBB 9 3"); t += 40                                 # MIDI FX ECHO
+    s.raw(t, "midi 0xBB 11 127"); s.raw(t + 20, "midi 0xBB 11 0"); t += 60
+    s.raw(t, "midi 0xBB 9 1"); t += 40                                 # MIDI FX HARM
+    s.raw(t, "midi 0xBB 11 127"); s.raw(t + 20, "midi 0xBB 11 0"); t += 60; s.at(t, "dump", 0); t += 40
+    s.raw(t, "midi 0xBB 11 127"); s.raw(t + 20, "midi 0xBB 11 0"); t += 60; s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    got = [x["on"] for x in log.mfxc if x["track"] == 1]
+    msg = [x["rawmsg"] for x in states(log)]
+    check(got == [2 | 8, 8], "the tablet: ECHO, then HARM with it, then HARM out (%s)" % got)
+    check(msg[0] == "TAB T1: MIDI FX HARM STARTS: HARM+ECHO" or msg[0].endswith("MIDI FX HARM STARTS: HARM+ECHO"), "the screen (%r)" % msg)
+    # the grid (TRACK 3, row 2): a tap READY, again: it starts; a tap on one that plays: it stops; both white while they play
+    s = Script()
+    t = s.steps(100, [0])
+    s.raw(t, "attach")
+    view(s, t + 100, GC_VTRACK); view(s, t + 200, GC_VTRACK); view(s, t + 300, GC_VTRACK)   # TRACK, 2, 3
+    s.pad(t + 400, 3, 1); s.pad(t + 480, 3, 1)                          # ECHO
+    s.pad(t + 560, 1, 1); s.pad(t + 640, 1, 1); s.at(t + 720, "dump", 0)   # HARM: both
+    s.pad(t + 800, 3, 1); s.at(t + 880, "dump", 0)                      # ECHO, tapped while it plays: it stops
+    log = run(s, t + 1000)
+    got = [x["on"] for x in log.mfxc if x["track"] == 1]
+    check(got == [2 | 8, 2], "the grid: ECHO, HARM with it, ECHO out with one tap (%s)" % got)
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7742,7 +7842,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
-         t018_arp_slow, t018_tablet_track, t018_live_page, t018_live_sweep]
+         t018_arp_slow, t018_tablet_track, t018_live_page, t018_live_sweep,
+         t019_mfx_chain]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

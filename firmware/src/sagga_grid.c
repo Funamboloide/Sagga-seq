@@ -651,7 +651,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         else if (x >= 5u) { c->strum = (int8_t)(((int32_t)x - 10) * 10); { char *p = msg_buf; p = put_s(p, "STRUM "); p = put_i(p, c->strum); p = put_s(p, "%"); finish(p); status_msg(msg_buf); } }
         break;
     case 1:
-        if (x < SQ_MFXS) mfx_pad(t, x);                 /* 0.16: a tap READY (orange), again: it starts; on the one playing: it stops */
+        if (x < SQ_MFXS) mfx_pad(t, x);                 /* 0.16: a tap READY (orange), again: it starts; 0.19: on one that plays: it stops */
         else if (x >= 5u) {
             sq_track_cfg_t *v = mfx_view(t);
             mfx_amount(v, ((int32_t)x - 10) - v->mfx_amt);
@@ -1595,7 +1595,7 @@ static void gr_render_track3(void)
     int32_t strum = (c->strum + (c->strum < 0 ? -5 : 5)) / 10, amt = mv->mfx_amt;
     for (x = 0; x < 16u; x++) {
         gr_put(x, 0, x < SQ_VOICES ? (c->voicing == x ? GL_WHITE : GL_VIOLET) : (int32_t)x - 10 == strum ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
-        gr_put(x, 1, x < SQ_MFXS ? (c->mfx == x && x ? GL_WHITE : mfx_shown(t) == x ? GL_ORANGE : GL_VIOLET)   /* 0.16: orange READY */
+        gr_put(x, 1, x < SQ_MFXS ? (mfx_on(t, x) ? GL_WHITE : mfx_shown(t) == x ? GL_ORANGE : GL_VIOLET)   /* 0.16: orange READY; 0.19: white, every one that plays */
                      : !mv->mfx ? GL_OFF : (int32_t)x - 10 == amt ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
         if (x < 8u) gr_put(x, 2, (mv->mfx == SQ_MFX_OCTAVE && x >= SQ_OCT_PATTERNS) ? GL_OFF : mv->mfx_time == x ? GL_WHITE : GL_BLUE);
         else gr_put(x, 2, GR_KEEP[x - 8u] <= mv->mfx_fb ? (GR_KEEP[x - 8u] == mv->mfx_fb ? GL_WHITE : GL_CYAN) : GL_FAINT);

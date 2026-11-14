@@ -1,4 +1,4 @@
-# SAGGA Remote, Mutes, Motori, Break, Mod, Live: six RaspiMIDIHub plugins for SAGGA SEQ 0.12 - 0.18
+# SAGGA Remote, Mutes, Motori, Break, Mod, Live: six RaspiMIDIHub plugins for SAGGA SEQ 0.12 - 0.19
 
 Six pages of the hub's web interface (open them full screen on the phone or a tablet) that send SAGGA SEQ's commands
 to the FM-1 as Control Changes on MIDI channels 14, 13 and 12 (the map: docs/SAGGA-SEQ.md, "SAGGA REMOTE", "channel 13",
@@ -30,7 +30,7 @@ changes them.
   MERENGUE (25 genres); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1.
 * **SAGGA Live** (0.18, channel 12): the tablet's track, everything at hand while the FM-1 works on another - TRACK and
   MODE, MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW; ARP, OCTAVES, RATE (1/4, 1/2:
-  a note every 4 / 2 steps), RUN; CHORD; MIDI FX (READY), FX AMOUNT, FX GO; ALGO (READY), A, B, C, ALGO GO; PULSES,
+  a note every 4 / 2 steps), RUN; CHORD; MIDI FX (READY), FX AMOUNT, FX GO (0.19: the effect shown joins the track's chain, again: it leaves); ALGO (READY), A, B, C, ALGO GO; PULSES,
   ROTATION, EUCLID; COOK, BEAT, PROPOSAL, QUEUE; DICE, KEEP, BACK, UNDO (on that track only); MUTE 1-16. The hub's PANIC
   leaves it alone (its switches are the FM-1's mutes).
 
@@ -56,6 +56,11 @@ In the web interface: add the plugins (they are with the controllers), connect e
 matrix (with USB PORTS 2 on the FM-1: to its port 2, "Felucca MIDI 2"), **0.18: and the FM-1's port 2 to each one's
 IN** (what the FM-1 sends back: the values; port 2 carries nothing for the synths), Save Config. Nothing else needs
 them. If an update of RaspiMIDIHub ever removes them, copy them again.
+
+**RaspiMIDIHub's own note plugins after the FM-1** (0.19: a chain of MIDI FX on the hub, beside the FM-1's own):
+docs/SAGGA-SEQ.md, "A chain on the hub too" - only the track's notes into the chain (a filtered cell of the matrix),
+its CCs and the clock straight to the synth, since the plugins come with CCs bound (MIDI Delay 74 / 75 / 76, Note
+Transpose 74, Scale Remapper 74) and a bound CC does not pass.
 
 They are written against RaspiMIDIHub 6.0's ControllerBase (the base of its Controller Mixer / FX / Performance
 pages). tests/sagga_plugin_tests.py checks them with a stand-in of the hub's API (every cell a command the FM-1

@@ -57,6 +57,14 @@ const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING'];
 const QUANT = ['AUTO','NOW','BEAT','BAR','2 BARS','4 BARS','8 BARS'];
 const EVERY = ['BEAT','2 BEATS','BAR','2 BARS'];
 const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE'];
+const ECHO_T = ['1/32','1/16','1/8T','1/16.','1/8','1/4T','1/8.','1/4'], OCT_W = ['ALT','RANDOM','3RD','4TH'];
+// 0.19: the MIDI FX chain of track t, in the order it plays (a box: that effect plays; mfxc on, a bit per effect)
+function mfxChain(t) {
+  return L('VEL CURVE', bit('mfxc', t, 'on', '-', 16) + ' curva ' + num('mfxc', t, 'amt', 3, -8, 8, 'w2')) +
+    L('OCTAVE', bit('mfxc', t, 'on', '-', 4) + ' ottave ' + num('mfxc', t, 'amt', 1, -2, 2, 'w2') + ' ' + sel('mfxc', t, 'time', 1, OCT_W)) +
+    L('HARM', bit('mfxc', t, 'on', '-', 2) + ' intervallo ' + num('mfxc', t, 'amt', 0, -12, 12, 'w2') + ' voce % ' + num('mfxc', t, 'fb', 0, 10, 100, 'w2')) +
+    L('ECHO', bit('mfxc', t, 'on', '-', 8) + ' ripetizioni ' + num('mfxc', t, 'amt', 2, 0, 4, 'w2') + ' ' + sel('mfxc', t, 'time', 2, ECHO_T) + ' resta % ' + num('mfxc', t, 'fb', 2, 10, 100, 'w2'));
+}
 const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
 const FOLLOW = ['HOLD','RETRIG','LEGATO'];
 const MASTERF = ['TEMPO','MORPH','FILTER'];
@@ -345,8 +353,8 @@ function rTraccia() {
     L('voicing', sel(g, t, 'voicing', '-', VOICE)) + L('strum %', num(g, t, 'strum', '-', -50, 50)) +
     L('arpeggio', vsel(g, t, 'arpm', '-', ARPM, c.chord_mode & 15)) + L('ottave', vsel(g, t, 'arpo', '-', ['1', '2', '3', '4'], ((c.chord_mode >> 4) & 3) + 1, 1)) +
     L('rate', sel(g, t, 'arp_rate', '-', ARPRATE)) +
-    '</div><h3>MIDI FX, EUCLID, LUNGHEZZE</h3><div class="grid">' +
-    L('MIDI FX', sel(g, t, 'mfx', '-', MFX)) + L('quantità', num(g, t, 'mfx_amt', '-', -12, 12)) + L('tempo / step', num(g, t, 'mfx_time', '-', 0, 7)) + L('feedback %', num(g, t, 'mfx_fb', '-', 0, 100)) +
+    '</div><h3>MIDI FX (IN CATENA: VEL, OCTAVE, HARM, ECHO), EUCLID, LUNGHEZZE</h3><div class="grid">' +
+    mfxChain(t) +
     L('EUCLID LIVE', bit(g, t, 'flags', '-', F_EUC)) + L('colpi', num(g, t, 'euc_pulses', '-', 1, 64)) + L('rotazione', num(g, t, 'euc_rot', '-', 0, 63)) + L('famiglia', sel(g, t, 'euc_fam', '-', N.euc_fam || [])) +
     L('loop note', num(g, t, 'plen', 0, 0, 64)) + L('loop velocity', num(g, t, 'plen', 1, 0, 64)) + L('loop gate', num(g, t, 'plen', 2, 0, 64)) +
     '</div><small>Loop 0: quello della traccia. Le lane (i CC degli step) nella scheda Lane; le catene in Catene.</small>';

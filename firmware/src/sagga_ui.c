@@ -371,18 +371,24 @@ static void ui_build(void)
             static const char *const MF[SQ_MFXS] = {"OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"};
             static const char *const ET[SQ_ECHO_TIMES] = {"1/32", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4"};
             static const char *const OP[SQ_OCT_PATTERNS] = {"ALT", "RANDOM", "3RD", "4TH"};
-            const sq_track_cfg_t *mv = mfx_view(t);                       /* 0.16: the READY one's values, if there is one */
-            uint8_t fx = mv->mfx < SQ_MFXS ? mv->mfx : 0u, rdy = mfx_pend[t] ? 1u : 0u;
+            const sq_track_cfg_t *mv = mfx_view(t);                       /* 0.19: the effect K1 shows, playing or READY */
+            uint8_t fx = mv->mfx < SQ_MFXS ? mv->mfx : 0u, plays = mfx_on(t, fx);
             uint16_t on = fx ? C_WHITE : SQ_C_DIM;
 #define cfg mv
-            ui_cell(0, rdy ? "MIDI FX READY" : "MIDI FX", MF[fx], rdy ? C_WHITE : fx ? C_ACCENT : SQ_C_DIM);
+            ui_cell(0, !fx ? "MIDI FX" : plays ? "MIDI FX ON" : "MIDI FX READY", MF[fx], !fx ? SQ_C_DIM : plays ? C_ACCENT : C_WHITE);
             ui_cell(1, fx == SQ_MFX_HARM ? (track_in_key(t) ? "INTERVAL STEPS" : "INTERVAL SEMI") : fx == SQ_MFX_ECHO ? "REPEATS" :
                        fx == SQ_MFX_OCTAVE ? "OCTAVES" : "AMOUNT", f_i(cfg->mfx_amt), on);
             ui_cell(2, fx == SQ_MFX_OCTAVE ? "WHICH STEPS" : "ECHO TIME", fx == SQ_MFX_OCTAVE ? OP[cfg->mfx_time & 3u] : ET[cfg->mfx_time < SQ_ECHO_TIMES ? cfg->mfx_time : 6u],
                     (fx == SQ_MFX_ECHO || fx == SQ_MFX_OCTAVE) ? C_WHITE : SQ_C_DIM);
             ui_cell(3, fx == SQ_MFX_HARM ? "VOICE VEL" : "ECHO KEEPS", f_pct(cfg->mfx_fb), (fx == SQ_MFX_ECHO || fx == SQ_MFX_HARM) ? C_WHITE : SQ_C_DIM);
 #undef cfg
-            ui_line(2, echo_global ? "HOME 6/8 MIDI FX  ECHO ALL ON" : "HOME 6/8 MIDI FX", C_WARN);
+            if (!project.ext.mfxc[t].on) ui_line(2, echo_global ? "HOME 6/8 MIDI FX  ECHO ALL ON" : "HOME 6/8 MIDI FX", C_WARN);
+            else {                                                         /* 0.19: the chain, in the order it plays */
+                p = b; p = put_s(p, "HOME 6/8 FX "); p = mfx_chain_put(p, t);
+                if (echo_global && !mfx_on(t, SQ_MFX_ECHO)) p = put_s(p, " +ECHO ALL");
+                finish(p);
+                ui_line(2, b, C_WARN);
+            }
         }
         break;
     case UM_EDIT:

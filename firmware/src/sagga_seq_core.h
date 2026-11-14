@@ -435,6 +435,25 @@ typedef struct __attribute__((packed)) {
 #define SQ_MOTION_NONE (-128)
 enum { SQ_KB_OFF = 0, SQ_KB_ALL, SQ_KB_SPLIT, SQ_KBS };   /* the keyboard's notes TRANSPOSE: none, all, those under C3 */
 #define SQ_KB_SPLIT_NOTE 48u     /* C3 */
+/* 0.19: a track's MIDI FX CHAIN (HOME 6). The four effects can play together, always in this order: VEL CURVE, OCTAVE,
+ * HARM, ECHO (the velocity, then the note moved, then the harmony's voice on it, then the echoes of both); each keeps
+ * its own values here, saved with the project. The track's mfx .. mfx_fb stay equal to the first effect of the chain
+ * that plays (in SQ_MFX_* order), so a 0.18 firmware, which skips this, plays that one; a 0.18 image has no chain: its
+ * one effect becomes the chain (sq_mfx_from_track). */
+#define SQ_MFX_N (SQ_MFXS - 1u)          /* the effects, OFF apart: effect x at [x - 1] */
+typedef struct __attribute__((packed)) {
+    uint8_t on;                  /* bit (1 << SQ_MFX_*): that effect plays */
+    int8_t amt[SQ_MFX_N];        /* as the track's mfx_amt (each effect its own range) */
+    uint8_t time[SQ_MFX_N];      /* as mfx_time */
+    uint8_t fb[SQ_MFX_N];        /* as mfx_fb */
+} sq_mfxc_t;                     /* 13 bytes */
+#define SQ_MFX_ON(m, fx) ((uint8_t)(((m)->on >> (fx)) & 1u))
+#define SQ_MFX_ALL (((1u << SQ_MFXS) - 1u) & ~1u)
+extern const uint8_t SQ_MFX_ORDER[SQ_MFX_N];   /* the order they play in: VEL CURVE, OCTAVE, HARM, ECHO */
+void sq_mfx_defaults(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb);   /* an effect's values when first chosen */
+void sq_mfx_sanitize(sq_mfxc_t *m);
+void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c);       /* the track's mfx .. mfx_fb from its chain */
+void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m);   /* a 0.18 track's one effect, as a chain */
 typedef struct __attribute__((packed)) {
     sq_lfox_t lfo[SQ_LFOS];
     sq_trackx_t track[SQ_TRACKS];
@@ -447,8 +466,10 @@ typedef struct __attribute__((packed)) {
     char name[SQ_NAME_LEN];      /* 0.15: the project's name (the Pi's editor writes it; SAVE + PRESETS shows it): A-Z 0-9
                                   * space - _ . + # & ! ' ( ) / :, 0 after the last; a 0.14 image has none (a 0.14 firmware
                                   * takes the 780 bytes before it) */
-} sq_ext_t;                      /* 796 bytes */
+    sq_mfxc_t mfxc[SQ_TRACKS];   /* 0.19: the MIDI FX chain of each track (a 0.18 image has none: sq_mfx_from_track) */
+} sq_ext_t;                      /* 1004 bytes */
 #define SQ_EXT_014 780u          /* the bytes of sq_ext_t a 0.13 / 0.14 image holds */
+#define SQ_EXT_018 796u          /* ... a 0.15 - 0.18 image */
 #define SQ_CHUNK_EXT 1u          /* the image's chunk of sq_ext_t */
 void sq_ext_default(sq_ext_t *x);
 void sq_ext_sanitize(sq_ext_t *x);

@@ -394,6 +394,7 @@ static void snap_apply(uint8_t n)
         sq_track_cfg_t *c = &project.track[t];
         uint8_t p = sn->pattern[t] < SQ_PATTERNS ? sn->pattern[t] : 0u, div = c->division, len = c->length, st = c->start;
         *c = sn->track[t];
+        sq_mfx_mirror(&project.ext.mfxc[t], c);          /* 0.19: the MIDI FX chain is the track's, not a snapshot's */
         if (c->division != div) tr[t].div_accum = (uint16_t)(tr[t].div_accum % sq_div_ticks(c->division));
         if (playing && p != tr[t].pattern && project.live.quant != SQ_Q_AUTO) track_restart(t);
         if (p != tr[t].pattern) pre[t].state = 0u;         /* (a step decided ahead on the old pattern: forgotten) */
