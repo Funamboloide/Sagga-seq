@@ -591,7 +591,7 @@ static void ui_build(void)
             static const char *const RN[4] = {"OFF", "RETRIG", "HOLD", "HOLD+RT"};
             ui_cell(0, "ARP", chord_name(cm), cm ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "OCTAVES", f_pre("X", SQ_CHORD_OCTS(cfg->chord_mode)), cm ? C_WHITE : SQ_C_DIM);
-            ui_cell(2, "RATE", cfg->arp_rate ? f_pre("", cfg->arp_rate) : "ROLL", cfg->arp_rate ? C_ACCENT : SQ_C_DIM);
+            ui_cell(2, "RATE", arp_rate_name(cfg->arp_rate), cfg->arp_rate ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "RUN", RN[r], r ? C_ON : SQ_C_DIM);
             ui_line(2, track_break(t) ? "ARP 1/6  WHITES: THE CHOPS (HELD: WHILE HELD)" : cfg->arp_rate ? "ARP 1/6  NOTES A STEP; RUNS ON WHILE THE GATE LASTS" : "ARP 1/6  KEYS PLAY THE TRACK; ROLL: INSIDE ITS STEP", C_WARN);
         } else if (arp_page == 1u) {

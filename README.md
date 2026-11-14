@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.17
+# SAGGA SEQ 0.18
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
@@ -10,8 +10,9 @@ the genres' harmonic rhythms and ten moods; more of them, and more variations, k
 every so many, TAPE tracks and EXPO curves, the journey (every set cut into phrases; the MOSSE, PERF's third page,
 queue moves for the phrase, the bar or the beat, and what you played becomes a song), BREAK tracks (a drum break in slices, sixteen chops on the white keys, re-ordered live),
 TAKE and THROWS, every knob also set from the keys (PICK, from the grid too), the buttons' pages as windows a tap
-opens (no button to hold), and a 16 x 8 grid made of two Launchpads through a Raspberry Pi, with five controller pages
-for the Pi's RaspiMIDIHub.
+opens (no button to hold), and a 16 x 8 grid made of two Launchpads through a Raspberry Pi that follows the FM-1's page,
+with six controller pages for the Pi's RaspiMIDIHub: the tablet works on a track of its own, and the FM-1 sends its
+values back to it.
 
 **MIDI only.** SAGGA SEQ makes no sound: the FM-1's speaker and headphone output stay silent. It plays your synths
 over USB MIDI (and listens on the TRS input). It cannot read the projects or samples of other FM-1 firmwares.
@@ -20,21 +21,21 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 
 * **In the browser:** [The Firmware Hub](https://thefirmwarehub.com) (Chrome or Edge, FM-1 on USB): one click, and one
   click back to the official firmware or any other.
-* **From a computer:** download `sagga-0.17.fwsc` (the `pacchetti` branch has every version) and run
-  `python3 tools/fm1_install.py sagga-0.17.fwsc` (Python 3 and `mido` + `python-rtmidi`).
+* **From a computer:** download `sagga-0.18.fwsc` (the `pacchetti` branch has every version) and run
+  `python3 tools/fm1_install.py sagga-0.18.fwsc` (Python 3 and `mido` + `python-rtmidi`).
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.17 is `FM-1_967`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 is `FM-1_968`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
-* [docs/SAGGA-SEQ-0.17-INSTALL.md](docs/SAGGA-SEQ-0.17-INSTALL.md): install, update the Pi (Italian); [0.16](docs/SAGGA-SEQ-0.16-INSTALL.md), [0.15](docs/SAGGA-SEQ-0.15-INSTALL.md), [0.12](docs/SAGGA-SEQ-0.12-INSTALL.md).
+* [docs/SAGGA-SEQ-0.18-INSTALL.md](docs/SAGGA-SEQ-0.18-INSTALL.md): install, update the Pi (Italian); [0.17](docs/SAGGA-SEQ-0.17-INSTALL.md), [0.16](docs/SAGGA-SEQ-0.16-INSTALL.md), [0.15](docs/SAGGA-SEQ-0.15-INSTALL.md), [0.12](docs/SAGGA-SEQ-0.12-INSTALL.md).
 * [docs/SAGGA-SEQ-0.12-DISEGNO.md](docs/SAGGA-SEQ-0.12-DISEGNO.md): the design 0.12 started from, and how it went (Italian).
 * [docs/SAGGA-GRID-ZYNTHIAN.md](docs/SAGGA-GRID-ZYNTHIAN.md): the minimal stage set-up, the bridge on a Zynthian (Italian).
-* [RELEASE-NOTES-0.17.md](RELEASE-NOTES-0.17.md): what changed (Italian); [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
+* [RELEASE-NOTES-0.18.md](RELEASE-NOTES-0.18.md): what changed (Italian); [0.17](RELEASE-NOTES-0.17.md), [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
 * [tools/m8link/LEGGIMI.md](tools/m8link/LEGGIMI.md): two headless M8s on TrimUI Bricks as MIDI instruments for the
   Pi (Italian).
 
@@ -51,7 +52,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.17         # identity FM-1_967
+./build.sh --release 0.18         # identity FM-1_968
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with

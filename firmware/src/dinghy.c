@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.17"
+#define SQ_VERSION "0.18"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -102,6 +102,7 @@ typedef struct {
     uint32_t strum_on[SQ_POLY_OUT], strum_off[SQ_POLY_OUT];
     uint32_t arp_until_us;         /* 0.10: an arpeggio with a rate runs through the empty steps until here (HOLD: always) */
     uint8_t arp_going;             /* 0.10: the arpeggio was continued into an empty step (no lanes, no new chord) */
+    uint8_t arp_wait;              /* 0.18: a slow RATE: the steps to go before the next note */
 } track_event_t;
 
 /* a step that starts before its slot (nudge < 0): it is decided one step ahead and waits for its time */
@@ -486,8 +487,29 @@ static char *put_note(char *d, uint8_t n)
 }
 static void finish(char *p) { *p = 0; }
 
+static uint8_t foc_on;                      /* 0.18: 1 while a command of the tablet runs (on its own track) */
+static char msg_tab[72];
 static void status_msg(const char *s)
 {
+    if (foc_on && s) {                          /* 0.18: the tablet's: the screen says so ("TAB T5: LFO ON": its track when the message has none) */
+        char *p = msg_tab, *e = msg_tab + sizeof msg_tab - 1u;
+        uint32_t tn = (uint32_t)selected_track + 1u;
+        *p++ = 'T'; *p++ = 'A'; *p++ = 'B'; *p++ = ' ';
+        if (!(s[0] == 'T' && s[1] >= '1' && s[1] <= '9') && !(s[0] == 'B' && s[1] == 'R')) {   /* ("T5 ...", "BREAK T5 ..." say it) */
+            *p++ = 'T';
+            if (tn >= 10u) *p++ = (char)('0' + tn / 10u);
+            *p++ = (char)('0' + tn % 10u); *p++ = ':'; *p++ = ' ';
+        }
+        while (*s && p < e) {
+            if (s[0] == 'S' && s[1] == 'E' && s[2] == 'Q' && s[3] == ' ' && s[4] == '+' && s[5] == ' ' && s[6] == 'W'
+                && s[7] == 'H' && s[8] == 'I' && s[9] == 'T' && s[10] == 'E' && s[11] == ' ' && s[12] == '6') {
+                *p++ = 'G'; if (p < e) *p++ = 'O';      /* (the tablet's GO is the panel's SEQ + white 6) */
+                s += 13;
+            } else *p++ = *s++;
+        }
+        *p = 0;
+        s = msg_tab;
+    }
     msg_text = s;
     msg_until = fm1_ms + 1600u;
     ui_dirty = 1u;
@@ -1061,7 +1083,8 @@ static void event_begin(uint32_t t, const sq_step_t *s, uint8_t idx, uint32_t fi
     if (SQ_CHORD_MODE(cfg->chord_mode) != SQ_CHORD_BLOCK) {
         ev[t].arp_n = sq_arp_build_notes(ev[t].vnote, ev[t].vn, cfg->chord_mode, ev[t].arp);
         if (cfg->arp_rate) {                           /* 0.10: so many notes a step; the arpeggio runs on through the empty steps */
-            if (s->ratchet <= 1u) slices = cfg->arp_rate;
+            if (s->ratchet <= 1u) slices = SQ_ARP_PER_STEP(cfg->arp_rate);
+            ev[t].arp_wait = (uint8_t)(SQ_ARP_EVERY(cfg->arp_rate) - 1u);   /* 0.18: a slow RATE counts from the chord's step */
             if (cfg->arp_flags & SQ_AF_RETRIG) ev[t].arp_pos = 0u;
             ev[t].arp_until_us = first_us + ((s->length > SQ_GATE_LONG_MIN) ? sq_gate_us(s->length, span_us, span_us) : span_us);
         } else if (ev[t].arp_n > 1u && s->ratchet <= 1u)   /* ROLL: an arpeggio with no ratchet spreads its notes over the step */
@@ -1181,8 +1204,10 @@ static uint8_t arp_continue(uint32_t t, uint32_t now, uint32_t dur)
     const sq_track_cfg_t *cfg = &project.track[t];
     if (!cfg->arp_rate || !ev[t].arp_n || SQ_CHORD_MODE(cfg->chord_mode) == SQ_CHORD_BLOCK) return 0u;
     if (!(cfg->arp_flags & SQ_AF_HOLD) && time_due(now, ev[t].arp_until_us)) return 0u;
-    ev[t].ratchet_left = ev[t].ratchet_total = cfg->arp_rate;
-    ev[t].slice_us = dur / cfg->arp_rate;
+    if (ev[t].arp_wait) { ev[t].arp_wait--; ev[t].ratchet_left = 0u; return 1u; }   /* 0.18: a slow RATE: no note on this step, the one sounding rings on */
+    ev[t].arp_wait = (uint8_t)(SQ_ARP_EVERY(cfg->arp_rate) - 1u);
+    ev[t].ratchet_left = ev[t].ratchet_total = SQ_ARP_PER_STEP(cfg->arp_rate);
+    ev[t].slice_us = dur / SQ_ARP_PER_STEP(cfg->arp_rate);
     if (!ev[t].slice_us) ev[t].slice_us = 1u;
     ev[t].slot_start_us = now; ev[t].slot_dur_us = dur;
     ev[t].ratchet_next_us = now;
@@ -1647,7 +1672,7 @@ static void fire_slice(uint32_t t, uint32_t now)
         {
             uint8_t note = fx_note(t, ev[t].arp[i], fxt);
             ev[t].arp_pos = (uint8_t)((mode == SQ_CHORD_ARP_RND || mode == SQ_CHORD_ARP_WALK) ? i : (i + 1u) % ev[t].arp_n);
-            if (cfg->arp_rate && s->length > 100u && !(s->flags & SQ_STEP_LEGATO)) gate = ev[t].slice_us * 4u / 5u;   /* (a long gate holds the chord, not the note) */
+            if (cfg->arp_rate && s->length > 100u && !(s->flags & SQ_STEP_LEGATO)) gate = ev[t].slice_us * SQ_ARP_EVERY(cfg->arp_rate) * 4u / 5u;   /* (a long gate holds the chord, not the note; 0.18: a slow RATE's note lasts its steps) */
             if (((s->length > 100u || held) && !cfg->arp_rate) || (s->flags & SQ_STEP_LEGATO)) held_note_on(t, ch, note, vel, now + gate);
             else {
                 midi_send(0x90u | ch, note, vel);
@@ -2780,6 +2805,36 @@ static uint8_t drum_track_for_note(uint8_t note)    /* the drum track (its bank 
     return 255u;
 }
 
+/* 0.18: the tablet (the remote on channels 14 and 13: the hub's pages) has its own track, its own LFO and cursor: what
+ * it sends acts there, and the panel's track, page and cursor stay as they are. The grid follows the panel. */
+typedef struct { uint8_t track, page, cursor, lfo, srec; uint32_t chord_ms; } focus_t;
+static focus_t foc_tab, foc_keep;
+static void focus_get(focus_t *f) { f->track = selected_track; f->page = page; f->cursor = cursor_step; f->lfo = lfo_sel; f->srec = srec_next; f->chord_ms = chord_entry_ms; }
+static void focus_put(const focus_t *f) { selected_track = f->track < SQ_TRACKS ? f->track : 0u; page = f->page; cursor_step = f->cursor; lfo_sel = f->lfo; srec_next = f->srec; chord_entry_ms = f->chord_ms; }
+static void tab_enter(void) { focus_get(&foc_keep); focus_put(&foc_tab); foc_on = 1u; }
+static void tab_leave(void) { focus_get(&foc_tab); focus_put(&foc_keep); foc_on = 0u; ui_dirty = grid_dirty = 1u; }
+static uint8_t tab_live_ch(uint8_t ch);             /* sagga_tablet.c: channel 12, the hub's LIVE page */
+static void live12_cc(uint8_t cc, uint8_t v);
+static void fb_heard(uint8_t st, uint8_t d1, uint8_t d2);
+/* a message of the tablet (the remote's channels 12, 13, 14), or 0 */
+static uint8_t tab_takes(uint8_t st)
+{
+    uint8_t ch = st & 15u, ty = st & 0xF0u;
+    if (ty == 0xB0u) return (ch == project.live.remote_ch || vg_remote_ch(ch) || tab_live_ch(ch)) ? 1u : 0u;
+    return ((ty == 0x90u || ty == 0x80u) && vg_remote_ch(ch)) ? 1u : 0u;
+}
+static void tab_cmd(uint8_t st, uint8_t d1, uint8_t d2)
+{
+    uint8_t ch = st & 15u, ty = st & 0xF0u;
+    tab_enter();
+    if (ty != 0xB0u) remote13_note(d1, d2, ty == 0x90u && d2);   /* 0.12: the Pi's pads on channel 13: the tablet track's slices or notes */
+    else if (ch == project.live.remote_ch) remote_cc(d1, d2);    /* SAGGA REMOTE (sagga_live.c) */
+    else if (vg_remote_ch(ch)) vg_remote_cc(d1, d2);             /* 0.9: channel 13 (SAVE + K2) */
+    else live12_cc(d1, d2);                                      /* 0.18: channel 12, LIVE */
+    tab_leave();
+    fb_heard(st, d1, d2);                                        /* (what goes back to the hub: those cells know it) */
+}
+
 static void handle_midi_in(uint32_t now)
 {
     uint8_t st, d1, d2;
@@ -2788,12 +2843,7 @@ static void handle_midi_in(uint32_t now)
         if (tst_booted) continue;                   /* 0.11: the PC test hears only its own SysEx (the same run each time) */
         if (usb_ports > 1u) {                       /* 0.8: two USB ports. Port 2: the grid and the remote, nothing else */
             if (midi_cable() == 1u) {
-                if (!grid_midi_in(st, d1, d2) && (st & 0xF0u) == 0xB0u) {
-                    if ((st & 15u) == project.live.remote_ch) remote_cc(d1, d2);
-                    else if (vg_remote_ch(st & 15u)) vg_remote_cc(d1, d2);     /* 0.9: VIAGGIO on channel 13 */
-                } else if (vg_remote_ch(st & 15u) && ((st & 0xF0u) == 0x90u || (st & 0xF0u) == 0x80u)) {
-                    remote13_note(d1, d2, (st & 0xF0u) == 0x90u && d2);         /* 0.12: the Pi's pads on channel 13 */
-                }
+                if (!grid_midi_in(st, d1, d2) && tab_takes(st)) tab_cmd(st, d1, d2);   /* the remote, the tablet's pages */
                 continue;
             }                                       /* port 1 (and the TRS jack): 16 channels of synths, the clock */
         } else if (grid_midi_in(st, d1, d2)) continue;   /* one port: channels 15 and 16 are the grid link */
@@ -2813,12 +2863,8 @@ static void handle_midi_in(uint32_t now)
                 song_seek(ticks);                       /* 0.5: the song goes there too */
                 ui_dirty = grid_dirty = 1u;
             }
-        } else if (usb_ports < 2u && (st & 0xF0u) == 0xB0u && (st & 15u) == project.live.remote_ch) {
-            remote_cc(d1, d2);                          /* SAGGA REMOTE (sagga_live.c; with two ports: on port 2) */
-        } else if (usb_ports < 2u && (st & 0xF0u) == 0xB0u && vg_remote_ch(st & 15u)) {
-            vg_remote_cc(d1, d2);                       /* 0.9: VIAGGIO's remote on channel 13 (SAVE + K2) */
-        } else if (usb_ports < 2u && ((st & 0xF0u) == 0x90u || (st & 0xF0u) == 0x80u) && vg_remote_ch(st & 15u)) {
-            remote13_note(d1, d2, (st & 0xF0u) == 0x90u && d2);   /* 0.12: the Pi's pads: the selected track's slices or notes */
+        } else if (usb_ports < 2u && tab_takes(st)) {
+            tab_cmd(st, d1, d2);                        /* SAGGA REMOTE, channels 12-14 (with two ports: on port 2); 0.18: the tablet's track */
         } else if ((st & 0xF0u) == 0xB0u && learn_take_v(st & 15u, d1, d2)) {
             /* MIDI LEARN took it */
         } else if ((st & 0xF0u) == 0xB0u && snap_cc_in(st & 15u, d1, d2)) {
@@ -3308,6 +3354,12 @@ static void follow_set(uint8_t t, uint8_t on);
 static void dice_browse(int32_t d);
 static uint8_t dice_pending;
 static uint8_t arp_page, save_page;               /* 0.12: ARP has six pages (the chords and the harmony), SAVE three */
+/* 0.18 the RATE knob's order: 1/4, 1/2, ROLL, 1, 2, 3, 4 - left of ROLL slower, right faster, as in 0.10-0.17 (the values
+ * stay those of 0.10: 0 ROLL, 1-4, then 5 1/2, 6 1/4) */
+static const uint8_t ARP_RATE_ORDER[SQ_ARP_RATE_MAX + 1u] = {SQ_ARP_R_QUARTER, SQ_ARP_R_HALF, 0u, 1u, 2u, 3u, 4u};
+static uint8_t arp_rate_at(uint8_t pos) { return ARP_RATE_ORDER[pos <= SQ_ARP_RATE_MAX ? pos : 0u]; }
+static uint8_t arp_rate_pos(uint8_t r) { uint8_t i; for (i = 0; i <= SQ_ARP_RATE_MAX; i++) if (ARP_RATE_ORDER[i] == r) return i; return 2u; }
+static const char *arp_rate_name(uint8_t r) { static const char *const N[SQ_ARP_RATE_MAX + 1u] = {"ROLL", "1", "2", "3", "4", "1/2", "1/4"}; return N[r <= SQ_ARP_RATE_MAX ? r : 0u]; }
 static uint8_t perf_page;                         /* 0.12: GLO (PERF) has three: LIVE, TRACK LIVE, VIAGGIO (0.17: the MOSSE) */
 
 /* 0.12: the knobs of GLO's three pages (GLO held, or PERF mode without holding it) */
@@ -3756,7 +3808,10 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 chord_set(m, SQ_CHORD_OCTS(cfg->chord_mode));
             }
             if (d2) chord_set(m, change_u8(SQ_CHORD_OCTS(cfg->chord_mode), d2, 1u, 3u));
-            if (d3) { cfg->arp_rate = change_u8(cfg->arp_rate, d3, 0u, SQ_ARP_RATE_MAX); status_msg(cfg->arp_rate ? "ARP RATE: NOTES A STEP (RUNS ON)" : "ARP ROLL: THE CHORD INSIDE THE STEP"); }
+            if (d3) {                                                         /* 0.18: 1/4, 1/2, ROLL, 1, 2, 3, 4 */
+                cfg->arp_rate = arp_rate_at((uint8_t)clamp_i32((int32_t)arp_rate_pos(cfg->arp_rate) + d3, 0, SQ_ARP_RATE_MAX));
+                status_msg(!cfg->arp_rate ? "ARP ROLL: THE CHORD INSIDE THE STEP" : SQ_ARP_EVERY(cfg->arp_rate) > 1u ? (cfg->arp_rate == SQ_ARP_R_HALF ? "ARP RATE 1/2: A NOTE EVERY 2 STEPS" : "ARP RATE 1/4: A NOTE EVERY 4 STEPS") : "ARP RATE: NOTES A STEP (RUNS ON)");
+            }
             if (d4) {                                                         /* RUN: OFF, RETRIG, HOLD, HOLD+RETRIG */
                 uint8_t r = (uint8_t)(((cfg->arp_flags & SQ_AF_HOLD) ? 2u : 0u) | ((cfg->arp_flags & SQ_AF_RETRIG) ? 1u : 0u));
                 r = change_u8(r, d4, 0u, 3u);
@@ -4074,6 +4129,7 @@ static void handle_buttons(void)
 #include "sagga_live.c"
 #include "sagga_viaggio.c"
 #include "sagga_remote2.c"                            /* 0.12: channel 13, CC 33 and up, the pads */
+#include "sagga_tablet.c"                             /* 0.18: channel 12 (the LIVE page), what goes back to the hub */
 #include "sagga_grid.c"
 #include "sagga_tape.c"
 #include "sagga_ui.c"
@@ -4349,6 +4405,7 @@ static void app_main(void)
     knob_ref = fm1_knob;
     next_master_clock_us = sq_micros();
     last_master_tick_us = next_master_clock_us;
+    tab_fb_reset();                                    /* 0.18: nothing goes to the hub before the tablet speaks */
     lcd_fill(0, 0, 240, 240, C_BLACK);
     status_msg(tst_booted ? "PC TEST: A HAND ON A KEY STOPS IT" : "SAGGA SEQ " SQ_VERSION);   /* (the first thing on the screen) */
     msg_until = fm1_ms + 3000u;
@@ -4383,6 +4440,7 @@ static void app_main(void)
         if (prev_note != SQ_NOTE_NONE && time_due(fm1_ms, prev_off_ms)) preview_stop();
         link_tick();                                   /* 0.15: the Pi's editor: positions, what it plays */
         grid_service();
+        tab_fb_service();                              /* 0.18: the hub's pages follow the FM-1 */
         store_service();
         live_service();
         vg_service();                                  /* 0.9: a track key held = the dice */

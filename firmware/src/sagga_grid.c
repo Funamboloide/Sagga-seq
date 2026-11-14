@@ -15,7 +15,7 @@
  *
  * Fourteen views share the pads; the buttons never change:
  *   top left     PLAY  REC  FILL  UNDO  STEP  PERF  TRACK  SHIFT        (with SHIFT: CONTINUE, PROJ, BANK, FX, CC, LFO, BEAT)
- *                STEP again: the DRUM view (eight tracks at once); CC again: PICK (0.12: the four knobs of the window open
+ *                STEP again: the DRUM view (eight tracks at once); CC again: FOLLOW (0.12 PICK: the four knobs of the window open
  *                on the FM-1, their values on the pads); PERF again: the SONG view; TRACK again: TRACK 2 (the
  *                loops of the notes, velocities, gates and the Program Change, 0.5), again: TRACK 3 (voicing, strum, MIDI
  *                FX, the algorithm, long gates, the channel: 0.8); PROJ again: LIB (the library, 0.5); BEAT again: EUCLID
@@ -35,7 +35,7 @@
 enum { GV_STEP = 0, GV_PERF, GV_TRACK, GV_CC, GV_LFO, GV_BEAT, GV_FX, GV_PROJ, GV_DRUM, GV_SONG, GV_TRACK2, GV_LIB,
        GV_EUCLID, GV_TRACK3, GV_VIAGGIO, GV_REGIA, GV_PICK, GV_COUNT };
 static const char *const GV_NAME[GV_COUNT] = {"STEP", "PERF", "TRACK", "CC", "LFO", "BEAT", "FX", "PROJ", "DRUM", "SONG",
-                                              "TRACK2", "LIB", "EUCLID", "TRACK3", "VIAGGIO", "REGIA", "PICK"};
+                                              "TRACK2", "LIB", "EUCLID", "TRACK3", "VIAGGIO", "REGIA", "FOLLOW"};   /* (0.18: PICK is FOLLOW) */
 
 /* LED roles: the bridge decides the colours (tools/sagga_grid_bridge.py, ROLE_RGB) */
 enum { GL_OFF = 0, GL_FAINT, GL_DIM, GL_ON, GL_ACCENT, GL_PLAY, GL_CURSOR, GL_BLUE,
@@ -68,6 +68,9 @@ static const uint8_t GR_CELLS[16] = {4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40
 static const uint8_t GR_DENSA[16] = {0, 15, 30, 45, 60, 75, 90, 100, 110, 120, 135, 150, 165, 180, 190, 200};   /* DENSITY */
 
 static uint8_t g_view = GV_STEP;
+static uint8_t g_follow;                   /* 0.18 FOLLOW: the view goes with the FM-1's page (a view chosen by hand: off) */
+static uint8_t g_follow_want = 255u;       /* ... the view the FM-1's page asks for, and since when */
+static uint32_t g_follow_ms;
 static uint32_t g_ctl_held, g_last_seen;
 static uint8_t g_shift_lock;              /* SHIFT tapped twice: it stays held */
 static uint8_t g_shift_clean, g_shift_tapped;   /* the SHIFT press held is a bare tap so far / the last one was a bare tap */
@@ -161,7 +164,7 @@ static void gr_set_attached(uint8_t on)
     ui_dirty = 1u;
 }
 
-static void gr_set_view(uint8_t v)
+static void gr_view_go(uint8_t v)
 {
     if (v >= GV_COUNT) return;
     if (v != g_view) {
@@ -176,8 +179,16 @@ static void gr_set_view(uint8_t v)
         g_fx_held = g_kill_held = 0u;      /* the pad-up of a held effect would go to another view */
         gr_fx_sync();
     }
-    status_msg(GV_NAME[v]);
-    ui_dirty = 1u;
+    ui_dirty = grid_dirty = 1u;
+}
+/* a view button: that view; 0.18: FOLLOW (SHIFT + STEP twice) goes with the FM-1 from now on, any other stops it */
+static void gr_set_view(uint8_t v)
+{
+    if (v >= GV_COUNT) return;
+    gr_view_go(v);
+    g_follow = v == GV_PICK ? 1u : 0u;
+    g_follow_want = 255u;
+    status_msg(v == GV_PICK ? "FOLLOW: THE GRID GOES WITH THE FM-1" : GV_NAME[v]);
 }
 
 static const char *gr_view_name(void) { return GV_NAME[g_view]; }
@@ -262,7 +273,7 @@ static void gr_ctl(uint8_t id, uint8_t down)
         else if (dice_pending) dice_answer(0u);                            /* a dice waits: UNDO puts it back */
         else undo_swap();
     } else if (id == GC_VSTEP) {
-        gr_set_view(shift ? (g_view == GV_CC ? GV_PICK : GV_CC) : g_view == GV_STEP ? GV_DRUM : GV_STEP);  /* STEP again: DRUM; CC again: PICK */
+        gr_set_view(shift ? (g_view == GV_CC ? GV_PICK : GV_CC) : g_view == GV_STEP ? GV_DRUM : GV_STEP);  /* STEP again: DRUM; CC again: FOLLOW */
     } else if (id == GC_VPERF) {
         /* PERF again: SONG; then VIAGGIO (0.9); then REGIA, once a regista on the Pi has spoken (SysEx 51 or 54). 0.17:
          * PERF first always (the journey always runs) */
@@ -1067,24 +1078,98 @@ static void gr_pad_regia(uint8_t x, uint8_t y, uint8_t down)
     grid_dirty = 1u;
 }
 
-/* 0.12 PICK view: the four knobs of the page open on the FM-1 (the window, else PERF's, else HOME's), a knob a row: pads
- * 1-16 of rows 1-4 are the white keys of PICK (items 1-16, lengths 4..64, the notes ...), pads 1-11 of rows 5-8 its black
- * keys (items 17-26, the odd lengths); the pad of the value now is white. A knob the keys cannot set: a faint row. */
+/* 0.12 PICK view, 0.18 FOLLOW: the four knobs of the page open on the FM-1 (a group held or its window, else PERF's,
+ * else HOME's), a knob a row: pads 1-16 of rows 1-4 are the white keys of PICK (items 1-16, lengths 4..64, the notes
+ * ...); the pad of the value now is white. A knob the keys cannot set: a faint row. Rows 5-8, 0.18: the same knobs
+ * across the sixteen tracks when they are a track's (the FM-1's track white, the tracks with its value lit, the others
+ * faint; a tap: that track gets the value, SHIFT + a tap: the FM-1 goes to that track); a knob that is no track's has
+ * the values of the black keys there, as PICK had (items 17-26, the odd lengths). */
 static int gr_pick_group(void)
 {
-    int g = win_cur != 255u ? pick_group(1u << win_cur) : -1;
+    int g = pick_group(eff_held());
     return g >= 0 ? g : perf_mode ? PG_GLO : PG_HOME;
+}
+/* which knobs of a page are a track's (bit k = knob k): HOME, GLO, SEQ, ARP, EDIT, ENV (a page a lane), LFO */
+static const uint8_t GR_PT[PG_COUNT][PICK_PAGES] = {
+    {0xEu, 0xFu, 0x0u, 0xFu, 0x7u, 0xFu, 0xFu, 0x0u},          /* HOME (not the channel, nor a scene's PROGRAM: a synth's; 2: the key; 7: CHAIN LIST's places) */
+    {0x0u, 0x3u, 0x0u},                                         /* PERF: page 2's PATTERN and LENGTH */
+    {0x7u, 0x0u, 0x0u, 0xFu, 0xFu, 0x0u, 0xFu, 0xFu},          /* SEQ: EUCLID (not HEAT), EXPO, the BREAK */
+    {0xFu, 0xFu, 0x8u, 0x1u, 0x0u, 0x0u},                       /* ARP: the arp, the chord, FOLLOW, its way */
+    {0x0u},                                                     /* EDIT: a step's notes */
+    {0xAu, 0xAu, 0xAu, 0xAu, 0xAu, 0xAu},                       /* ENV: the lane's CC and its mode */
+    {0x0u},                                                     /* LFO */
+};
+static uint8_t gr_pt(int g, uint32_t k)
+{
+    uint8_t pg = pick_page(g);
+    return (g >= 0 && g < PG_COUNT && pg < PICK_PAGES && ((GR_PT[g][pg] >> k) & 1u)) ? 1u : 0u;
+}
+static void gr_desc_of(int g, uint32_t k, uint8_t t, pick_t *d)   /* knob k as track t has it */
+{
+    uint8_t keep = selected_track;
+    selected_track = t;
+    pick_desc(g, k, d);
+    selected_track = keep;
+}
+/* track t gets the value the FM-1's track has on knob k (through the knob, as a turn would) */
+static void gr_follow_copy(int g, uint32_t k, uint8_t t)
+{
+    pick_t me, it;
+    uint8_t keep = selected_track;
+    int32_t dd[4] = {0, 0, 0, 0};
+    char *p;
+    pick_desc(g, k, &me);
+    gr_desc_of(g, k, t, &it);
+    if (t != keep && it.cur != me.cur) {
+        selected_track = t;
+        dd[k & 3u] = pick_delta(it.cur, me.cur, me.step);
+        encoders_apply(0, 0, 0, dd[0], dd[1], dd[2], dd[3], 1, 1, 1, 1, 1, pick_group_btn(g));
+        selected_track = keep;
+    }
+    p = msg_buf; p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " "); p = put_s(p, ui_cell_label(k & 3u));
+    p = put_s(p, " AS T"); p = put_u(p, (uint32_t)keep + 1u); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
 }
 static void gr_pad_pick(uint8_t x, uint8_t y)
 {
     int g = gr_pick_group();
     uint8_t pg = pick_page(g);
     uint32_t key;
+    if (y >= 4u && gr_pt(g, y & 3u)) {                                 /* 0.18: a track's knob across the tracks */
+        if (gr_shift()) select_track(x);
+        else gr_follow_copy(g, y & 3u, x);
+        return;
+    }
     if (y >= 4u && x >= 10u) return;                                   /* (black 11 is the FM-1's focus key: no value) */
     key = y < 4u ? white_key[x] : black_key[x];
     if (pg >= PICK_PAGES) pg = 0u;
     pick_focus[g][pg] = (uint8_t)(y & 3u);
     pick_key(pick_group_btn(g) | (1u << BTN_SEL), g, key);
+}
+/* FOLLOW: the view the FM-1 asks for - its steps, PERF (the MOSSE: VIAGGIO), the LFOs, the FX, the lanes (ENV), else
+ * the knobs of its page (this view); SAVE: as it is. A change waits a quarter of a second (a button tapped in passing) */
+static uint8_t gr_follow_view(void)
+{
+    uint32_t h = eff_held();
+    int g = pick_group(h);
+    if (h & (1u << BTN_SAVE)) return g_view;
+    if (h & (1u << BTN_FX)) return GV_FX;
+    if (g == PG_LFO) return GV_LFO;
+    if (g == PG_ENV) return GV_CC;
+    if (g == PG_EDIT) return GV_STEP;
+    if (g == PG_GLO || (g < 0 && perf_mode)) return perf_page == 2u ? GV_VIAGGIO : GV_PERF;
+    if (g >= 0) return GV_PICK;
+    return GV_STEP;
+}
+static void gr_follow_tick(void)
+{
+    uint8_t w;
+    if (!g_follow) return;
+    w = gr_follow_view();
+    if (w == g_view) { g_follow_want = 255u; return; }
+    if (w != g_follow_want) { g_follow_want = w; g_follow_ms = fm1_ms; return; }
+    if ((uint32_t)(fm1_ms - g_follow_ms) >= 250u && !g_down[0] && !g_down[1]) { gr_view_go(w); g_follow_want = 255u; }
 }
 static void gr_pad(uint8_t x, uint8_t y, uint8_t down)
 {
@@ -1375,6 +1460,15 @@ static void gr_render_pick(void)
     for (y = 0; y < 8u; y++) {
         pick_t d;
         pick_desc(g, y & 3u, &d);
+        if (y >= 4u && gr_pt(g, y & 3u)) {                             /* 0.18: across the tracks */
+            for (x = 0; x < 16u; x++) {
+                pick_t e;
+                if (x == selected_track) { gr_put((uint8_t)x, (uint8_t)y, GL_WHITE); continue; }
+                gr_desc_of(g, y & 3u, (uint8_t)x, &e);
+                gr_put((uint8_t)x, (uint8_t)y, e.cur == d.cur ? KC[y & 3u] : GL_FAINT);
+            }
+            continue;
+        }
         for (x = 0; x < 16u; x++) {
             uint8_t role = GL_OFF;
             if (y < 4u || x < 10u) {
@@ -1705,12 +1799,12 @@ static void gr_render_ctl(void)
     g_cwant[GC_REC] = sh ? (g_view == GV_PROJ ? GL_VIOLET : g_view == GV_LIB ? GL_CYAN : GL_ORANGE) : record_arm ? GL_PLAY : GL_DIM;
     g_cwant[GC_FILL] = sh ? GL_ORANGE : fill_active() ? GL_FILL : GL_DIM;
     g_cwant[GC_UNDO] = sh ? (g_view == GV_FX ? GL_VIOLET : GL_ORANGE) : dice_pending ? GL_PEND : undo_valid ? GL_CURSOR : GL_FAINT;
-    g_cwant[GC_VSTEP]  = g_view == GV_STEP  ? GL_CURSOR : g_view == GV_CC   ? GL_VIOLET : g_view == GV_DRUM ? GL_CYAN : sh ? GL_ORANGE : GL_DIM;
+    g_cwant[GC_VSTEP]  = g_view == GV_STEP  ? GL_CURSOR : g_view == GV_CC   ? GL_VIOLET : g_view == GV_DRUM ? GL_CYAN : g_view == GV_PICK ? GL_YELLOW : sh ? GL_ORANGE : GL_DIM;
     g_cwant[GC_VPERF]  = g_view == GV_PERF  ? GL_CURSOR : g_view == GV_LFO  ? GL_VIOLET : g_view == GV_SONG ? GL_CYAN :
                          g_view == GV_VIAGGIO ? GL_ACCENT : g_view == GV_REGIA ? GL_WHITE : sh ? GL_ORANGE : GL_DIM;
     g_cwant[GC_VTRACK] = g_view == GV_TRACK ? GL_CURSOR : g_view == GV_BEAT || g_view == GV_EUCLID ? GL_VIOLET :
                          g_view == GV_TRACK2 || g_view == GV_TRACK3 ? GL_CYAN : sh ? GL_ORANGE : GL_DIM;
-    g_cwant[GC_SHIFT] = g_shift_lock ? GL_YELLOW : sh ? GL_WHITE : GL_FAINT;
+    g_cwant[GC_SHIFT] = g_shift_lock ? GL_YELLOW : sh ? GL_WHITE : g_follow ? GL_CYAN : GL_FAINT;   /* (0.18: cyan while it FOLLOWs) */
     for (i = 0; i < 8u; i++) {
         uint32_t t = (uint32_t)bank * 8u + i;
         g_cwant[GC_TRK0 + i] = t == selected_track ? GL_CURSOR
@@ -1759,6 +1853,7 @@ static void grid_service(void)
         ui_dirty = grid_dirty = 1u;
     }
 
+    gr_follow_tick();                                   /* 0.18 FOLLOW */
     if (g_view == GV_DRUM) gr_drum_service();
     if (g_view == GV_VIAGGIO) gr_vg_service();
 

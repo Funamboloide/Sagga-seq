@@ -109,7 +109,7 @@ def piano(n, length, seed):
             gs = gs[:-1]
             sp = session_plan(sit, gs, "s%03d" % (k + 1))
         out.append(sp)
-    return {"versione": 1, "firmware": "0.17", "seme": seed, "sessioni": out}
+    return {"versione": 1, "firmware": "0.18", "seme": seed, "sessioni": out}
 
 
 # ------------------------------------------------------------------------------------------------ the simulator as an FM-1

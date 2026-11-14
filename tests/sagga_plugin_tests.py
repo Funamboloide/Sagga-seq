@@ -29,7 +29,8 @@ CH14_CCS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11} | set(range(12, 20)) | set(range(
            set(range(80, 85)) | {85, 86, 87, 88, 89} | set(range(90, 106)) | set(range(106, 114)) | set(range(114, 120))
 CH13_CCS = set(range(1, 33)) | set(range(33, 49)) | set(range(49, 65)) | set(range(65, 76)) | set(range(76, 92)) | set(range(92, 98)) | \
            set(range(101, 107)) | set(range(107, 119))
-PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod")
+CH12_CCS = set(range(1, 33)) | set(range(40, 56))                      # 0.18: the LIVE page (sagga_tablet.c)
+PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
 
 
 def stub_hub():
@@ -150,9 +151,10 @@ def structural():
         pos = [(c.col + dx, c.row + dy) for c in cells for dx in range(c.span_cols) for dy in range(c.span_rows)]
         check(len(pos) == len(set(pos)) and all(1 <= x <= grid.cols and 1 <= y <= grid.rows for x, y in pos), "%s: the cells fit the grid, none on another" % name)
         bad = [(c.param.name, c.channel, c.cc) for c in cells if not ((c.channel == 13 and c.cc in CH14_CCS) or (c.channel == 12 and c.cc in CH13_CCS)
+                                                                        or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -160,7 +162,13 @@ def structural():
             p.on_param_change(c.param.name, True)
             check(p.ccs == [(c.channel, c.cc, 127), (c.channel, c.cc, 0)] and p.get_param(c.param.name) is False, "%s: a trigger presses and lets go (%s)" % (name, p.ccs))
         held = [c for c in cells if c.param.__class__.__name__ == "Button" and not c.param.trigger]
-        if held:
+        if held and name == "sagga_live":                  # 0.18: its switches are the FM-1's states: PANIC leaves them
+            c = held[0]
+            p.ccs = []
+            p.on_param_change(c.param.name, True)
+            p.panic()
+            check(p.ccs == [(c.channel, c.cc, 127)], "%s: PANIC leaves the switches (%s)" % (name, p.ccs))
+        elif held:
             c = held[0]
             p.ccs = []
             p.on_param_change(c.param.name, True)
@@ -197,6 +205,32 @@ def structural():
     p.on_param_change("l0", 32)
     p.on_param_change("m1", True)
     check(p.ccs == [(12, 36, 5), (12, 49, 32), (13, 49, 127), (13, 49, 0)], "SAGGA Motori: track 4 pattern 6 (ch 13 CC 36), track 1 length 32, MUTE 2 on ch 14 (%s)" % p.ccs)
+    m, cls = load_plugin("sagga_live")
+    p = cls()
+    p.on_param_change("track", 4); p.on_param_change("pattern", 2); p.on_param_change("m3", True); p.on_param_change("cook", True)
+    p.on_param_change("arp_rate", 0); p.on_param_change("keep", True)
+    check(p.ccs == [(12, 112, 4), (11, 3, 2), (11, 43, 127), (11, 26, 127), (11, 26, 0), (11, 22, 0), (13, 85, 127), (13, 85, 0)],
+          "SAGGA Live: TRACK 5 (ch 13), PATTERN 3, MUTE 4, COOK, RATE 1/4 on ch 12, KEEP on ch 14 (%s)" % p.ccs)
+    cells = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells]
+    keys = [(c.channel, c.cc) for c in cells]
+    check(len(keys) == len(set(keys)), "SAGGA Live: every cell its own channel and CC (the FM-1's values come back to one)")
+    fwsrc = open(os.path.join(ROOT, "firmware", "src", "sagga_tablet.c")).read()
+    fb = set((int(a.replace("TB_CH", "11")), int(b)) for a, b in re.findall(r"\{(TB_CH|\d+), (\d+), (?:0|FBF_SCALED)\}", fwsrc))
+    knobs = {(c.channel, c.cc) for c in cells if c.param.__class__.__name__ == "Knob" or (c.param.__class__.__name__ == "Button" and not c.param.trigger)}
+    check(knobs - fb <= {(11, cc) for cc in range(40, 56)}, "SAGGA Live: every knob and switch gets the FM-1's value back (%s missing)" % sorted(knobs - fb - {(11, cc) for cc in range(40, 56)}))
+    d = {c.param.name: c.param for c in cells}
+    src = open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()
+    i = src.index("static const char *chord_name")
+    check(m.ARP_LABELS == re.findall(r'"([^"]+)"', src[i:src.index("};", i)]), "SAGGA Live: ARP names as the FM-1's")
+    core = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.c")).read()
+    i = core.index("const char *sq_chord_shape_name")
+    check(m.CHORD_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]) and d["chord"].max == 31, "SAGGA Live: the 32 CHORD shapes as the FM-1's")
+    i = core.index("GROOVE_NAME[SQ_GROOVES]")
+    check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]), "SAGGA Live: GROOVE names as the FM-1's")
+    check(m.RATE_LABELS == ["1/4", "1/2", "ROLL", "1", "2", "3", "4"] and d["arp_rate"].max == 6, "SAGGA Live: RATE in the FM-1's knob order")
+    m, cls = load_plugin("sagga_mod")
+    g = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "genre"][0]
+    check(g.param.max == 24 and m.GENRE_LABELS[24] == "MERENGUE", "SAGGA Mod: GENRE reaches MERENGUE (25 genres)")
     for k in [k for k in list(sys.modules) if k.startswith("raspimidihub")]:
         del sys.modules[k]
 
@@ -217,7 +251,7 @@ def main():
     host = PluginHost(plugins_dir=d)
     types = host.discover_plugins()
     check(set(types) == set(PLUGINS) and all(types[n]["kind"] == "controller" for n in PLUGINS),
-          "the hub's plugin host finds the five, as controllers (%s)" % types)
+          "the hub's plugin host finds the six, as controllers (%s)" % types)
     remote_cls, mutes_cls = host._plugin_types["sagga_remote"], host._plugin_types["sagga_mutes"]
 
     p, h = helpers.make_plugin(remote_cls)
@@ -240,7 +274,7 @@ def main():
     p.panic()
     check(h.ccs == [(13, 26, 127), (13, 26, 0)], "the hub's PANIC lets REPEAT go and leaves MORPH alone (%s)" % h.ccs)
     cells = remote_cls.params[1].cells
-    ccs = sorted(c.cc for c in cells)
+    ccs = sorted(c.cc for c in cells if c.channel == 13)        # (TAKE: CC 107 on channel 13, beside SNAP 2's on 14)
     pairs = {24, 25, 26, 27}                                    # LOOP (tap) and REP (held) share their CC
     check(all(ccs.count(c) == (2 if c in pairs else 1) for c in set(ccs)) and set(ccs) <= {1, 2, 4, 5, 6, 7, 8, 9, 10, 11} | set(range(20, 48)) | {85, 87, 88, 89} | set(range(12, 20)) | set(range(106, 120)) | {107},
           "every cell its own CC of the FM-1's map, LOOP and REP the same (%s)" % ccs)
@@ -270,6 +304,20 @@ def main():
     h.clear()
     p.on_param_change("r2", True)
     check(h.ccs == [(13, 92, 127), (13, 92, 0)] and p.get_param("r2") is False, "RETRIG 3: CC 92 pressed (%s)" % h.ccs)
+    # 0.18: what the FM-1 sends back moves the cells and sends nothing
+    live_cls, mod_cls = host._plugin_types["sagga_live"], host._plugin_types["sagga_mod"]
+    p, h = helpers.make_plugin(live_cls)
+    p.on_cc(11, 20, 2)
+    p.on_cc(11, 1, 127)
+    p.on_cc(12, 112, 6)
+    check(p.get_param("arp") == 2 and p.get_param("mute") is True and p.get_param("track") == 6 and not h.ccs,
+          "SAGGA Live: the FM-1's ARP DOWN, MUTE, TRACK 7 move the cells, nothing goes out (%s %s %s %s)" % (p.get_param("arp"), p.get_param("mute"), p.get_param("track"), h.ccs))
+    p, h = helpers.make_plugin(mod_cls)
+    p.on_note_on(12, 104, 127)
+    p.on_cc(12, 94, 10)
+    check(p.get_param("lfo_sw4") is True and p.get_param("rate") == 10 and not h.ccs, "SAGGA Mod: the FM-1's LFO 5 on and its RATE come back (%s)" % h.ccs)
+    p.on_note_off(12, 104)
+    check(p.get_param("lfo_sw4") is False and not h.ccs, "SAGGA Mod: LFO 5 off comes back")
     print("sagga plugins: %d checks, %d failures" % (N[0], len(FAILS)))
     return 1 if FAILS else 0
 

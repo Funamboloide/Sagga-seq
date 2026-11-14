@@ -243,8 +243,13 @@ uint8_t sq_chord_build(uint8_t note, uint8_t shape, uint8_t ck, uint8_t root, ui
 /* 0.10: the rhythm families of EUCLID LIVE and the EUCLID tool */
 enum { SQ_RF_EUCLID = 0, SQ_RF_TRESILLO, SQ_RF_NUMERIC, SQ_RF_COUNT };
 /* 0.10 the arpeggio's clock: 0 ROLL (the notes spread over the step, as before), 1..4 notes a step; it runs across
- * the empty steps while the chord holds (its gate), or always with HOLD */
-#define SQ_ARP_RATE_MAX 4u
+ * the empty steps while the chord holds (its gate), or always with HOLD. 0.18: 5 = a note every 2 steps, 6 = every 4
+ * (counted from the chord's step; the knob shows 1/4 1/2 ROLL 1 2 3 4) */
+#define SQ_ARP_R_HALF    5u
+#define SQ_ARP_R_QUARTER 6u
+#define SQ_ARP_RATE_MAX  6u
+#define SQ_ARP_PER_STEP(r) ((uint8_t)((r) >= 1u && (r) <= 4u ? (r) : (r) ? 1u : 0u))   /* notes in a step */
+#define SQ_ARP_EVERY(r)    ((uint8_t)((r) == SQ_ARP_R_HALF ? 2u : (r) == SQ_ARP_R_QUARTER ? 4u : 1u))   /* steps a note */
 #define SQ_AF_HOLD   0x01u
 #define SQ_AF_RETRIG 0x02u       /* a new chord starts the arpeggio from its first note */
 /* 0.10 a lane's flags */
@@ -292,7 +297,7 @@ typedef struct __attribute__((packed)) {
     uint8_t src_func, src_var;   /* the library function and variation this track's pattern came from (255: none): GENRE
                                   * LIVE reloads it when the genre changes */
     uint8_t euc_fam;             /* SQ_RF_*: the family of EUCLID LIVE */
-    uint8_t arp_rate;            /* 0 ROLL, 1..4 notes a step */
+    uint8_t arp_rate;            /* 0 ROLL, 1..4 notes a step, 5 / 6 a note every 2 / 4 steps (0.18) */
     uint8_t arp_flags;           /* SQ_AF_* */
     int8_t delay_ms;             /* the track's notes this many ms late (+) or early (-): the synth's latency */
     sq_expo_t expo;

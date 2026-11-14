@@ -199,7 +199,7 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
         if (pg == 0u) {
             if (k == 0u) PK(PK_LIST, 0, SQ_CHORD_COUNT - 1, 1, SQ_CHORD_MODE(cfg->chord_mode));
             if (k == 1u) PK(PK_COUNT, 1, 3, 1, SQ_CHORD_OCTS(cfg->chord_mode));
-            if (k == 2u) PK(PK_LIST, 0, SQ_ARP_RATE_MAX, 1, cfg->arp_rate);
+            if (k == 2u) PK(PK_LIST, 0, SQ_ARP_RATE_MAX, 1, arp_rate_pos(cfg->arp_rate));   /* (0.18: in the knob's order) */
             PK(PK_LIST, 0, 3, 1, ((cfg->arp_flags & SQ_AF_HOLD) ? 2 : 0) | ((cfg->arp_flags & SQ_AF_RETRIG) ? 1 : 0));
         } else if (pg == 1u) {
             if (k == 0u) PK(PK_LIST, 0, SQ_CH_COUNT - 1, 1, cfg->chord);

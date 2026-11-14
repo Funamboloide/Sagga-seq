@@ -155,7 +155,7 @@ class Log:
                             algo=int(m.group(6)), a=int(m.group(7)), b=int(m.group(8)), c=int(m.group(9)), mfx=int(m.group(10)),
                             mfx_amt=int(m.group(11)), harm=[int(x) for x in m.group(12, 13, 14, 15)], snap=int(m.group(16)),
                             pend=int(m.group(17)), capture=int(m.group(18)), mac=[int(x) for x in m.group(19, 20, 21, 22)],
-                            heard=m.group(23), msg=m.group(24))
+                            heard=m.group(23), msg=re.sub(r"^TAB (T\d+: )?", "", m.group(24)), rawmsg=m.group(24))   # (0.18: the tablet's mark aside)
                        for m in re.finditer(r"^\s*(\d+) ms  state T(\d+) flags (\d+) euc (\d+)/(\d+) algo (\d+) (\d+) (\d+) (\d+) mfx (\d+) (-?\d+) "
                                             r"harm (\d+) (\d+) (\d+) (\d+) snap (-?\d+) (-?\d+) (\d+) mac (-?\d+) (-?\d+) (-?\d+) (-?\d+) "
                                             r"HEARD:([x. ]*) MSG:(.*)$", text, re.M)]
@@ -6045,10 +6045,12 @@ def t012_remote13():
     t = s.steps(t, [0])
     s.raw(t, "midi 0xBC 49 24"); t += 50                              # track 1: LENGTH 24 (stopped: at once)
     s.raw(t, "midi 0xBC 34 3"); t += 50                               # track 2: pattern 4
-    s.raw(t, "midi 0xBC 112 2"); t += 50                              # select track 3
+    s.raw(t, "midi 0xBC 112 2"); t += 50                              # the tablet's track: 3 (0.18: the panel's stays 1)
     s.raw(t, "midi 0xBC 113 4"); t += 50                              # track 3: BREAK (a knob of 0-4 sends the index; 127 would do too)
     s.raw(t, "midi 0xBC 74 3"); s.raw(t + 20, "midi 0xBC 75 2"); t += 60   # ROLLS 3, SLICES 32 (small values are the index)
     s.at(t, "dump", 0); s.at(t, "dump", 1); s.at(t, "dump", 2)
+    s.at(t, "ui"); t += 20
+    s.tap_key(t, bk(2)); t += 80                                      # the panel on track 3 too, to see its BREAK page
     t = pg(s, t, SEQ, 6); s.press(t, SEQ); s.at(t + 60, "ui"); s.release(t + 120, SEQ); t += 180
     s.raw(t + 20, "midi 0x9C 40 100"); s.raw(t + 120, "midi 0x8C 40 0")   # a pad: note 40 on channel 13 = slice 5 of track 3
     s.raw(t + 200, "midi 0xBC 83 110"); s.raw(t + 260, "midi 0xBC 83 0")   # the same pad as a CC (76 + 7 = slice 8)
@@ -6056,7 +6058,8 @@ def t012_remote13():
     d = log.dumps
     check(d[0]["length"] == 24 and d[1]["pat"] == 4 and d[2]["mode"] == "B", "CC 49 = 24: LENGTH; CC 34 = 3: pattern 4 of track 2; 112 / 113: track 3, BREAK (%s %s %s)" % (d[0]["length"], d[1]["pat"], d[2]["mode"]))
     sc = log.screens()
-    check(bool(sc) and sc[0]["cells"][1][1] == "3" and sc[0]["cells"][3][1] == "32", "CC 74 = 3, 75 = 2: ROLLS 3, SLICES 32 (%s)" % ([c[1] for c in sc[0]["cells"]] if sc else sc))
+    check(len(sc) == 2 and " T1 " in sc[0]["lines"][0], "0.18: CC 112 is the tablet's track; the panel's stays T1 (%s)" % (sc[0]["lines"][0] if sc else sc))
+    check(len(sc) == 2 and sc[1]["cells"][1][1] == "3" and sc[1]["cells"][3][1] == "32", "CC 74 = 3, 75 = 2: ROLLS 3, SLICES 32 (%s)" % ([c[1] for c in sc[1]["cells"]] if len(sc) == 2 else sc))
     n = log.notes(ch=2, after=t)
     check(len(n) == 2 and n[0][1] == 64 and n[1][1:] == (67, 110) and [d1 for _, d1 in log.offs(ch=2)] == [64, 67], "a note on channel 13: slice 5 (pen + 4) on track 3's channel, and off; CC 83 = 110: slice 8 at 110 (%s)" % n)
     # the BREAK moves: 72 CHOP, 66 HALF, 68 BACKWARDS, 70 RESET, 65 ROLL held while playing; 69 the dice
@@ -6088,12 +6091,12 @@ def t012_remote13():
     s.raw(t, "midi 0xBC 97 127"); t += 50                             # LFO 3 on
     s.raw(t, "midi 0xBC 101 77"); t += 50                             # lane 1 of track 1: base 77, sent
     s.raw(t, "midi 0xBC 108 127"); t += 50                            # INTENSITY thrown to +63
-    s.press(t, LFO); s.at(t + 60, "ui"); s.release(t + 120, LFO); t += 180
+    s.press(t, LFO); s.at(t + 60, "ui"); s.enc(t + 90, E_SEL, 2); s.at(t + 150, "ui"); s.release(t + 200, LFO); t += 260   # the panel: LFO 1, then 3
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     sc = log.screens()
-    lfo_cells = sc[0]["cells"] if sc else []
-    check(bool(sc) and sc[0]["lines"][1].find("LFO 3") >= 0 or (lfo_cells and lfo_cells[2][1] == "100"), "CC 92 / 93 / 95: LFO 3 shown, depth 100 (%s)" % (sc[0]["lines"][1:3] + [c for c in lfo_cells] if sc else sc))
+    check(len(sc) == 2 and sc[0]["lines"][2].startswith("LFO 1/") and sc[1]["lines"][2].startswith("LFO 3/") and sc[1]["cells"][2][1] == "100",
+          "CC 92 / 93 / 95: the tablet's LFO 3 at depth 100; the panel shows its own LFO 1 until it turns to 3 (%s)" % ([x["lines"][2] for x in sc] + ([sc[1]["cells"][2]] if len(sc) == 2 else [])))
     cc74 = [m for m in log.msgs if (m[1] & 0xF0) == 0xB0 and (m[1] & 15) == 0 and m[2] == 74]
     check(cc74 and cc74[-1][3] == 77, "CC 101 = 77: lane 1's base goes out as CC 74 = 77 (%s)" % cc74[-1:])
     check(log.states[0]["mac"][0] >= 55, "CC 108 = 127: INTENSITY up to +63, as a throw (gliding back already: %s)" % log.states[0]["mac"])
@@ -6254,7 +6257,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.17", "HELLO: nothing asked yet, a normal boot, 0.17 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.18", "HELLO: nothing asked yet, a normal boot, 0.18 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -6332,39 +6335,67 @@ def t011_explorer_sessions():
 
 
 def t012_grid_pick():
-    group("0.12 grid PICK view (SHIFT + STEP twice): the four knobs of the window open on the FM-1, a row each, their values on the pads")
-    # the HOME window: row 1 = CHANNEL (items 1-12 lit, the current white), row 2 = LENGTH (4, 8 .. 64; row 6: the odd ones), row 3 = DIVISION, row 4 = TRANSPOSE
+    group("0.12 grid PICK view, 0.18 FOLLOW (SHIFT + STEP twice): the four knobs of the page open on the FM-1, a row each, their values on rows 1-4; rows 5-8 the same knobs across the 16 tracks (a track's, not its channel) or the black keys' values")
+    # the HOME window: row 1 = CHANNEL (items 1-12 lit, the current white), row 2 = LENGTH (4, 8 .. 64), row 3 = DIVISION, row 4 = TRANSPOSE;
+    # rows 5-8: the same four across the tracks (track 1, the FM-1's, white; the tracks with its value lit)
     s = Script()
     s.raw(100, "attach")
     s.tap_btn(200, HOME)                                                   # the HOME window
-    view(s, 400, GC_VSTEP, alt=True); view(s, 500, GC_VSTEP, alt=True)    # CC, again: PICK
+    view(s, 400, GC_VSTEP, alt=True); view(s, 500, GC_VSTEP, alt=True)    # CC, again: FOLLOW
     s.at(700, "ui")
     s.pad(800, 7, 1)                                                       # row 2 pad 8: LENGTH 32
-    s.pad(900, 0, 5)                                                       # row 6 pad 1: LENGTH 3 (a black key's value)
-    s.at(1000, "dump", 0)
+    s.pad(900, 2, 5)                                                       # row 6 pad 3: track 3 gets LENGTH 32 too
+    s.at(1000, "dump", 0); s.at(1005, "dump", 2); s.at(1010, "ui")
     s.pad(1100, 4, 0)                                                      # row 1 pad 5: channel 5
     s.at(1200, "dump", 0)
     s.pad(1300, 2, 3)                                                      # row 4 pad 3: TRANSPOSE -8 (the whites F3 G3 A3 = -12 -10 -8)
     s.at(1400, "dump", 0)
-    log = run(s, 1500)
+    shift(s, 1500, 1); s.pad(1520, 5, 6); shift(s, 1560, 0)                # SHIFT + row 7 pad 6: the FM-1 goes to track 6
+    s.at(1700, "ui")
+    log = run(s, 1800)
     sc = log.screens()
-    check(bool(sc) and sc[0]["lines"][2].startswith("HOME 1/8") and sc[0]["lines"][3] == "PICK", "the HOME window with the grid on PICK (%s)" % (sc[0]["lines"][2:4] if sc else sc))
+    check(bool(sc) and sc[0]["lines"][2].startswith("HOME 1/8") and sc[0]["lines"][3].startswith("FOLLOW"), "the HOME window with the grid on FOLLOW (%s)" % (sc[0]["lines"][2:4] if sc else sc))
     pads, ctls = log.leds(until=790)
-    check(pads[0 * 16 + 0] == GL_WHITE and pads[0 * 16 + 13] == GL_ON and pads[0 * 16 + 14] == GL_OFF and pads[4 * 16 + 0] == GL_OFF,
-          "row 1 CHANNEL: 1 is white, 14 lit, 15 off (the grid takes 15 and 16), row 5 (items 17+) off (%s)" % [pads.get(i) for i in (0, 13, 14, 64)])
-    check(pads[1 * 16 + 3] == GL_WHITE and pads[1 * 16 + 15] == GL_BLUE and pads[5 * 16 + 0] == GL_BLUE and pads[5 * 16 + 11] == GL_OFF, "row 2 LENGTH: 16 white (pad 4), 64 blue; row 6: the odd lengths, pad 12 off (%s)" % [pads.get(i) for i in (19, 31, 80, 91)])
+    ctls = log.leds(until=1100)[1]
+    check(pads[0 * 16 + 0] == GL_WHITE and pads[0 * 16 + 13] == GL_ON and pads[0 * 16 + 14] == GL_OFF,
+          "row 1 CHANNEL: 1 is white, 14 lit, 15 off (the grid takes 15 and 16) (%s)" % [pads.get(i) for i in (0, 13, 14)])
+    check(pads[1 * 16 + 3] == GL_WHITE and pads[1 * 16 + 15] == GL_BLUE, "row 2 LENGTH: 16 white (pad 4), 64 blue (%s)" % [pads.get(i) for i in (19, 31)])
+    check(pads[4 * 16 + 0] == GL_OFF and pads[4 * 16 + 9] == GL_OFF, "row 5: CHANNEL is not copied across (a synth's): the black keys, items 17+ off (%s)" % [pads.get(i) for i in (64, 73)])
+    check(pads[5 * 16 + 0] == GL_WHITE and all(pads[5 * 16 + x] == GL_BLUE for x in range(1, 16)), "row 6: every track 16 steps long, as track 1: lit (%s)" % [pads.get(80 + x) for x in range(4)])
+    check(ctls.get(GC_SHIFT) == GL_CYAN and ctls.get(GC_VSTEP) == GL_YELLOW, "FOLLOW: SHIFT cyan, STEP yellow (%s %s)" % (ctls.get(GC_SHIFT), ctls.get(GC_VSTEP)))
     d = log.dumps
-    check(len(d) == 3 and d[0]["length"] == 3 and d[1]["length"] == 3 and d[0]["start"] == 0, "row 2 pad 8, then row 6 pad 1: LENGTH 32, then 3 (%s)" % [x["length"] for x in d])
+    check(len(d) == 4 and d[0]["length"] == 32 and d[1]["track"] == 3 and d[1]["length"] == 32, "row 2 pad 8: LENGTH 32; row 6 pad 3: track 3 too (%s)" % [(x["track"], x["length"]) for x in d])
+    check(len(sc) > 1 and sc[1]["lines"][3].startswith("T3 LENGTH AS T1"), "the screen: T3 LENGTH AS T1 (%s)" % (sc[1]["lines"][3] if len(sc) > 1 else sc))
     ch = [int(m) for m in re.findall(r"^\s*\d+ ms  cfg T1 role \d+ chord \d+ oct -?\d+ keyslot -?\d+ trans (-?\d+) div", log.text, re.M)]
-    check(ch == [0, 0, -8], "row 4 pad 3: TRANSPOSE -8 (%s)" % ch)
-    # the CC view again on the third SHIFT + STEP; with no window the view shows HOME's page; PERF: GLO's
+    check(ch[-2:] == [0, -8], "row 4 pad 3: TRANSPOSE -8 (%s)" % ch)
+    check(len(sc) > 2 and " T6 " in sc[2]["lines"][0], "SHIFT + row 7 pad 6: the FM-1 on track 6 (%s)" % (sc[2]["lines"][0] if len(sc) > 2 else sc))
+    # a knob that is no track's (HOME 3: the key): rows 5-8 the black keys' values, as PICK had
     s = Script()
     s.raw(100, "attach")
-    view(s, 200, GC_VSTEP, alt=True); view(s, 300, GC_VSTEP, alt=True); view(s, 400, GC_VSTEP, alt=True)
-    s.at(500, "ui")
-    log = run(s, 600)
-    sc = log.screens()
-    check(bool(sc) and sc[0]["lines"][3] == "CC", "SHIFT + STEP a third time: CC again (%s)" % (sc[0]["lines"][3] if sc else sc))
+    t = 200
+    s.tap_btn(t, HOME); t += 100
+    s.tap_btn(t, OCT_UP); s.tap_btn(t + 80, OCT_UP); t += 200        # (the window: OCT+ turns HOME's pages) HOME 3: KEY, ROOT, SCALE, SHIFT
+    view(s, t, GC_VSTEP, alt=True); view(s, t + 100, GC_VSTEP, alt=True); t += 300
+    log = run(s, t + 200)
+    pads, ctls = log.leds(after=t - 100)
+    check(pads.get(5 * 16 + 0) in (GL_BLUE, GL_WHITE) and pads.get(5 * 16 + 4) in (GL_BLUE, GL_WHITE), "HOME 3: row 6 ROOT (no track's) has the black keys' notes (%s)" % [pads.get(80 + x) for x in range(5)])
+    # FOLLOW: the window closed, the grid goes to the steps; PERF: the PERF view; a view by hand: FOLLOW off
+    s = Script()
+    s.raw(100, "attach")
+    s.tap_btn(200, HOME)
+    view(s, 400, GC_VSTEP, alt=True); view(s, 500, GC_VSTEP, alt=True)
+    s.tap_btn(700, HOME)                                                   # the window closed: the steps
+    s.at(1100, "probe")
+    s.tap_btn(1200, LFO)                                                   # the LFO window: the LFO view
+    s.at(1600, "probe")
+    s.tap_btn(1700, LFO); s.tap_btn(1800, GLO)                             # PERF
+    s.at(2200, "probe")
+    view(s, 2300, GC_VTRACK)                                               # TRACK by hand: FOLLOW off
+    s.tap_btn(2500, GLO)                                                   # (PERF off: the grid stays on TRACK)
+    s.at(2900, "probe")
+    log = run(s, 3000)
+    gv = [int(x) for x in re.findall(r" gview=(\d+)", log.text)]
+    check(gv == [0, 4, 1, 2], "FOLLOW: the steps, the LFOs, PERF; TRACK by hand stays (%s)" % gv)
 
 
 def t012_window():
@@ -7570,6 +7601,133 @@ def t017_proposal():
           "a tap of BEAT: the kick on the pattern playing (%s)" % log.states[1]["msg"])
 
 
+# ------------------------------------------------------------------------------------------------ 0.18
+def t018_arp_slow():
+    group("0.18 ARP RATE 1/2 and 1/4: a chord held over 16 steps arpeggiated a note every 2 / 4 steps (the knob: 1/4 1/2 ROLL 1 2 3 4)")
+    def run_rate(turns, hold="HOLD"):
+        s = Script()
+        t = s.steps(100, [0])
+        s.press(t, SEL); s.tap_key(t + 30, wk(0)); s.tap_key(t + 90, wk(2)); s.tap_key(t + 150, wk(4)); s.release(t + 250, SEL); t += 700   # F A C on step 1
+        s.keys(t, wk(0)); s.keys(t + 500, wk(0) | wk(15)); s.keys(t + 580, wk(0)); s.keys(t + 660, 0); t += 800                           # held 1, then 16: 16 steps long
+        t = pg(s, t, ARP, 0, [(K1, 1), (K3, turns)])
+        s.press(t, ARP); s.at(t + 40, "ui"); s.release(t + 80, ARP); t += 140
+        s.tap_btn(t + 50, PLAY); t0 = t + 50
+        log = run(s, t0 + BAR_MS)
+        n = log.notes(ch=0, after=t0, before=t0 + BAR_MS - 5)
+        log.t0 = t0
+        return log, [round((x[0] - t0) / STEP_MS, 1) for x in n], [x[1] for x in n]
+    log, at, notes = run_rate(1)
+    check(at == [float(i) for i in range(16)] and log.screens()[0]["cells"][2][1] == "1", "RATE 1: a note a step over the 16 (%s)" % at)
+    log, at, notes = run_rate(-1)
+    check(at == [float(i) for i in range(0, 16, 2)] and notes[:4] == [53, 57, 60, 53] and log.screens()[0]["cells"][2][1] == "1/2",
+          "RATE 1/2: a note every 2 steps, F A C F ... (%s %s)" % (at, notes[:4]))
+    log, at, notes = run_rate(-2)
+    check(at == [0.0, 4.0, 8.0, 12.0] and log.screens()[0]["cells"][2][1] == "1/4", "RATE 1/4: every 4 steps (%s)" % at)
+    first = log.notes(ch=0, after=log.t0)[0]
+    offs = [m for m in log.msgs if m[0] > first[0] and m[2] == first[1] and ((m[1] & 0xF0) == 0x80 or ((m[1] & 0xF0) == 0x90 and not m[3]))]
+    rings = (offs[0][0] - first[0]) / STEP_MS if offs else -1
+    check(2.5 < rings < 3.5, "... each note rings on through the steps between (%.1f steps)" % rings)
+
+
+def t018_tablet_track():
+    group("0.18 the tablet has its own track: CC 112 chooses it, its notes, lanes, TAKE and LFO act there; the panel's track, page and LFO stay; the screen says TAB")
+    s = Script()
+    t = remote13_on(s, 100)
+    s.tap_key(t, bk(1)); t += 80                                      # the panel: track 2
+    s.raw(t, "midi 0xBC 112 5"); t += 50                              # the tablet: track 6
+    s.raw(t, "midi 0x9C 60 100"); s.raw(t + 100, "midi 0x8C 60 0"); t += 200   # a pad of the tablet
+    s.raw(t, "midi 0x9C 104 127"); t += 80                            # SAGGA Mod's switch: LFO 5 on
+    s.at(t, "dump", 0); s.at(t + 10, "ui"); t += 60
+    s.press(t, ARP); s.tap_key(t + 30, wk(7)); s.release(t + 120, ARP); t += 200   # the panel plays its own track meanwhile
+    log = run(s, t + 100)
+    sc = log.screens()
+    tab = [n for n in log.notes(ch=5) if n[1] == 60]
+    panel = log.notes(ch=1)
+    check(tab and not log.notes(ch=1, before=t - 200), "a pad on channel 13 plays the tablet's track 6, not the panel's (%s)" % tab[:1])
+    check(sc and " T2 " in sc[0]["lines"][0], "the panel stays on track 2 (%s)" % (sc[0]["lines"][0] if sc else sc))
+    check(log.states[0]["rawmsg"] == "TAB T6: LFO ON", "the screen: TAB T6: LFO ON (%s)" % log.states[0]["rawmsg"])
+    check(panel, "ARP + a key on the panel: track 2 plays (%s)" % panel[:1])
+
+
+
+def usb2(s, t):
+    """SAVE 3: USB PORTS 2, SEL + K1 twice: the reconnect (port 2: the grid, the remote, the hub)"""
+    t = save_sys(s, t, [(K1, 1)])
+    t = save_sys(s, t, [(K1, 1), (K1, 1)], sel=True)
+    return t + 400
+
+
+def t018_live_page():
+    group("0.18 the hub's LIVE page (channel 12) on the tablet's track; what goes back to the hub on port 2: the FM-1's changes, not the tablet's own")
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t1 = t
+    s.raw(t, "midi 0xBC 112 2 2"); t += 40                            # TRACK 3 (SAGGA Live / Motori / Mod)
+    s.raw(t, "midi 0xBB 3 1 2"); t += 40                              # PATTERN 2 (stopped: at once)
+    s.raw(t, "midi 0xBB 20 1 2"); t += 40                             # ARP UP
+    s.raw(t, "midi 0xBB 44 127 2"); t += 40                           # MUTE 5
+    s.raw(t, "midi 0xBB 9 3 2"); t += 40                              # MIDI FX ECHO READY
+    s.at(t, "dump", 2); s.at(t + 5, "ui"); t += 40
+    s.raw(t, "midi 0xBB 11 127 2"); s.raw(t + 20, "midi 0xBB 11 0 2"); t += 60   # FX GO
+    s.at(t, "dump", 2); t += 40
+    t0 = t + 600
+    s.tap_key(t0, bk(2))                                              # the panel: track 3 too, ARP K1 + 1 (DOWN)
+    s.press(t0 + 80, ARP); s.enc(t0 + 110, K1, 1); s.release(t0 + 180, ARP)
+    log = run(s, t0 + 700)
+    d = [x for x in log.dumps if x["track"] == 3]
+    st = [x for x in log.states if x["track"] == 3]
+    sc = log.screens()
+    out = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB]
+    out13 = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBC]
+    check(d and d[0]["pat"] == 2, "LIVE PATTERN 2 on the tablet's track 3 (%s)" % [x["pat"] for x in d])
+    check(sc and " T1 " in sc[0]["lines"][0], "the panel stays on track 1 (%s)" % (sc[0]["lines"][0] if sc else sc))
+    check(st and st[0]["rawmsg"] == "TAB T3 MIDI FX ECHO READY: GO", "the screen: the tablet's FX READY, GO (%s)" % (st[0]["rawmsg"] if st else st))
+    check(len(st) > 1 and st[1]["mfx"] == 3, "FX GO: ECHO plays on track 3 (%s)" % [x["mfx"] for x in st])
+    check(any(c == 4 and v == 16 for _, c, v in out), "back to the hub: LENGTH 16 of the tablet's track (%s)" % out[:6])
+    check(any(c == 40 and v == 0 for _, c, v in out) and not any(c == 44 and (v == 0 or tt < t1 + 520) for tt, c, v in out if tt >= t1 + 120),
+          "back: the mutes, not the one the tablet just sent (%s)" % [x for x in out if 40 <= x[1] < 56][:6])
+    check(not any(c == 112 for _, c, v in out13), "the tablet's own TRACK does not come back (%s)" % out13[:4])
+    arp = [x for x in out if x[1] == 20 and x[0] > t0]
+    check(arp and arp[0][2] == 2 and arp[0][0] - t0 < 250, "ARP K1 on the panel: CC 20 = 2 (DOWN) goes to the tablet (%s)" % arp[:2])
+    check(not any(x[0] < t1 for x in out), "nothing goes back before the tablet speaks (%s)" % [x for x in out if x[0] < t1][:2])
+    # one USB port: the LIVE page works (REMOTE 13 + 14), nothing goes back
+    s = Script()
+    t = remote13_on(s, 100)
+    s.raw(t, "midi 0xBB 3 2"); t += 60                                # PATTERN 3 on the tablet's track (1)
+    s.at(t, "dump", 0)
+    log = run(s, t + 500)
+    check(log.dumps and log.dumps[0]["pat"] == 3, "one port: LIVE PATTERN 3 on track 1 (%s)" % [x["pat"] for x in log.dumps])
+    check(not [m for m in log.msgs if m[1] in (0xBB, 0xBC)], "one port: nothing goes back (%s)" % [m for m in log.msgs if m[1] in (0xBB, 0xBC)][:3])
+
+
+
+def t018_live_sweep():
+    group("0.18 every command of the LIVE page (channel 12) with a few values, the band playing, the tablet's track changing: every track stays in time, no note hangs")
+    s = Script()
+    t = remote13_on(s, 100)
+    s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900   # the BAND
+    s.tap_btn(t, PLAY); t += 400
+    for tt in (0, 3, 9):
+        s.raw(t, "midi 0xBC 112 %d" % tt); t += 30
+        for cc in [c for c in range(1, 33) if c != 30] + [40, 47, 55]:      # (RETRIG: off the bar on purpose)
+            for v in (0, 2, 64, 127):
+                s.raw(t, "midi 0xBB %d %d" % (cc, v)); t += 7
+    s.at(t + int(2 * 16 * STEP_MS), "probe")
+    s.tap_btn(t + int(2 * 16 * STEP_MS) + 100, PLAY)
+    log = run(s, t + int(2 * 16 * STEP_MS) + 900)
+    ok = [m.group(2) for m in re.finditer(r"PROBE T(\d+) .* ok=(\S+) ", log.text)]
+    check(len(ok) == 16 and "0" not in ok, "every track where the bar says (%s)" % "".join(ok))
+    on = {}
+    for tm, st, d1, d2 in log.msgs:
+        if st & 0xF0 == 0x90 and d2 and st & 15 < 12:
+            on[(st & 15, d1)] = on.get((st & 15, d1), 0) + 1
+        elif (st & 0xF0 == 0x80 or (st & 0xF0 == 0x90 and not d2)) and st & 15 < 12:
+            on[(st & 15, d1)] = on.get((st & 15, d1), 0) - 1
+    hung = [k for k, n in on.items() if n > 0]
+    check(not hung, "after STOP no note hangs (%s)" % hung[:4])
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7583,7 +7741,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
-         t017_mosse, t017_proposal]
+         t017_mosse, t017_proposal,
+         t018_arp_slow, t018_tablet_track, t018_live_page, t018_live_sweep]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

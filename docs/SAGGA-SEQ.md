@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.17
+# SAGGA SEQ 0.18
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,38 @@ steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF'
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.17` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.18` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.18
+
+**Three brains, one set: the FM-1, the tablet and the grid at once.** The FM-1 is the centre; the tablet (the hub's
+pages) and the grid each do something else at the same time, and they never lose each other.
+
+* **The tablet has a track of its own.** What the hub's pages send on channels 13 and 14 (the pads, the lanes, TAKE,
+  the LFO, MODE, the patterns ...) acts on **the tablet's track**, chosen with TRACK (channel 13 CC 112, on SAGGA
+  Live, Motori and Mod); the FM-1's track, page and cursor stay where your other hand is. The tablet has its own LFO
+  too (SAGGA Mod's LFO knob). The FM-1's screen says when the tablet did something: `TAB T5: LFO ON`, `TAB T3 MIDI FX
+  ECHO READY: GO` (the tablet's GO is the panel's SEQ + white 6). Until 0.17 the tablet acted on the FM-1's track.
+* **SAGGA Live, a new page for the hub** (channel 12, see "Channel 12"): everything of the tablet's track at hand -
+  MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG, SWING, GROOVE, FOLLOW, the ARP (mode, octaves, rate, run), the CHORD,
+  the MIDI FX (READY, amount, GO), an ALGORITHM (READY, A B C, GO), EUCLID, COOK, BEAT, a PROPOSAL and QUEUE, DICE with
+  KEEP / BACK, UNDO (on that track only, whatever the SCOPE), and the sixteen MUTES.
+* **The FM-1 sends its values back to the hub** (with USB PORTS 2, on port 2, once the tablet has said something):
+  turn a knob on the FM-1 and the knob on the tablet moves; a mute on the panel lights on SAGGA Live; the patterns
+  and lengths of SAGGA Motori, the tablet's LFO and lanes on SAGGA Mod, the macros, MORPH, QUANTISE and TRANSPOSE of
+  SAGGA Remote follow. A value the tablet is moving is left alone while the hand is on it (0.4 s). In the hub's
+  matrix: the FM-1's port 2 to each page's IN (see "What goes back to the hub").
+* **The grid FOLLOWs the FM-1** (SHIFT + STEP twice: CC, then FOLLOW; it was PICK): its view goes with the FM-1's
+  page - the steps, PERF (the MOSSE: VIAGGIO), the LFOs, the FX, the lanes (ENV), else the four knobs of the page open.
+  On that view rows 1-4 are the knobs' values (as PICK), **rows 5-8 the same knobs across the sixteen tracks** (the
+  FM-1's track white, the tracks with its value lit): a tap gives that track the value, SHIFT + a tap takes the FM-1
+  to that track. A knob that is no track's (the key, the energy, the morph) has the black keys' values there, as PICK
+  had. A view chosen by hand stops FOLLOW (SHIFT lit cyan while it follows); SHIFT + STEP twice: it follows again.
+* **ARP RATE 1/2 and 1/4**: a note every 2 or 4 steps, left of ROLL on ARP 1 K3 (the knob: 1/4, 1/2, ROLL, 1, 2, 3, 4).
+  A chord held over 16 steps with RATE 1/4 is four notes, one a beat; with RUN HOLD it goes on to the next chord.
+* The 25th genre on SAGGA Mod's GENRE knob (MERENGUE). The doc's "Program Change per scene" is HOME page 5 K4.
 
 ## What is new in 0.17
 
@@ -695,7 +724,7 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE** | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
+| 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE**: **1/4**, **1/2** (0.18: a note every 4 / 2 steps), ROLL (the chord inside its step), 1-4 notes a step | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
 | 2 CHORD | **shape** (32) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
 | 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
 | 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 150) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
@@ -733,10 +762,13 @@ the knob **in focus** of the page shown, the one turned last on that page (K1 at
 before its label (`>-` when the keys cannot set it: a continuous value such as a velocity or a CC value stays on the
 knob). **Black 11** moves the focus to the next knob. The knob is then turned by the difference, so what a knob does
 (its messages, its limits, the bar line it waits for) happens the same way; the keys that mean something are lit and
-the key of the value now blinks. **On the grid** the PICK view (SHIFT + STEP, twice: CC, then PICK) shows the four knobs
-of the window open (PERF's page when PERF is on, HOME's when nothing is), a knob a row: pads 1-16 of rows 1-4 are the
-white keys of PICK, pads 1-10 of rows 5-8 its black keys 1-10, the pad of the value now white, a knob the keys cannot set a
-faint row; a pad sets the knob (the focus goes to it).
+the key of the value now blinks. **On the grid** the FOLLOW view (SHIFT + STEP, twice: CC, then FOLLOW; PICK until
+0.17) shows the four knobs of the page open (a group held or its window; PERF's page when PERF is on, HOME's when
+nothing is), a knob a row: pads 1-16 of rows 1-4 are the white keys of PICK, the pad of the value now white, a knob the
+keys cannot set a faint row; a pad sets the knob (the focus goes to it). Rows 5-8 (0.18): a knob of the track across
+the sixteen tracks (a tap: that track gets the value; SHIFT + a tap: the FM-1 goes there), a knob that is no track's
+(and the channel, a scene's program) its black keys 1-10. While it FOLLOWs, the grid's view goes with the FM-1's page
+(SAGGA-GRID.md).
 
 | the knob is | the keys |
 |---|---|
@@ -797,7 +829,7 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
   track at once, saved with the project; FX + OCT- puts them back to 0; FX + ARP twice bakes them into the patterns.
 * **TRANSPOSE the key** (PERF K3, FX view row 3, remote CC 11): the key moves (root and shift), the tracks in key with
   it, at the QUANTISE moment.
-* **Program Change per scene** (HOME page 4 K4), **RELOAD** (SEL + SAVE), **TEMP** (grid FX view), **song mode**,
+* **Program Change per scene** (HOME page 5 K4), **RELOAD** (SEL + SAVE), **TEMP** (grid FX view), **song mode**,
   **tap tempo**, **step recording**, **finger drumming** on drum tracks, **MIDI LEARN** of CC numbers: as in 0.5.
 * **The dice**: DICE SEQ (patterns of the genre with the progression of the roll), CC (the lanes' bases), LFO, GROOVE,
   ALL (the bank becomes a piece of the genre). Up to 16 rolls are remembered: ALG goes through them. OCT+ keeps,
@@ -1090,6 +1122,54 @@ takes the value as the index when it is under its size, else value / its share).
 
 The pages: **SAGGA Motori** (the tracks: 33-64, 112, 113, 69 and channel 14's mutes, kills, RETRIG), **SAGGA Break**
 (65-91, 107), **SAGGA Mod** (92-97, 101-106, 108-111, 114-118, and the notes 100-115: the sixteen LFO switches).
+
+0.18: what channels 13 and 14 do on "the selected track" (the pads, the lanes, TAKE, MODE, the LFO chosen, BREAK) they
+do on **the tablet's track**: CC 112 chooses it, and the FM-1's own track stays as it is (the screen: `TAB T5: ...`).
+
+### Channel 12 (0.18): SAGGA Live, the tablet's track
+
+With REMOTE 13 + 14, Control Changes on channel 12 are the LIVE page's (with two USB ports: on port 2, and channel 12
+of port 1 stays a track channel; with one port, channel 12's CCs coming in are the tablet's, its notes still record).
+All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-127.
+
+| CC | | CC | |
+|---|---|---|---|
+| 1 | MUTE (a switch) | 2 | SOLO (a switch) |
+| 3 | PATTERN 0-7, at the QUANTISE moment | 4 | LENGTH 1-64, at the bar |
+| 5 | OCTAVE 0-6 (3 = 0) | 6 | SWING 50-75 |
+| 7 | GROOVE 0-9 (OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP) | 8 | GROOVE AMOUNT 0-100 |
+| 9 | MIDI FX 0-4 READY (OFF HARM OCTAVE ECHO VEL CURVE) | 10 | its AMOUNT 0-24 (12 = 0) |
+| 11 | FX GO (a tap: the READY one starts; none READY: the one playing stops) | 12 | ALGO 0-4 READY on the slot shown |
+| 13 / 14 / 15 | its A / B / C, 0-127 over the algorithm's range | 16 | ALGO GO (a tap) |
+| 17 | EUCLID PULSES 1-64 | 18 | ROTATION 0-63 |
+| 19 | EUCLID LIVE on / off (a switch; this track only) | 20 | ARP 0-12 (BLOCK UP DOWN ... PINKY) |
+| 21 | OCTAVES 1-3 | 22 | RATE 0-6 (1/4 1/2 ROLL 1 2 3 4) |
+| 23 | RUN 0-3 (OFF RETRIG HOLD HOLD+RT) | 24 | CHORD 0-31 (the 32 shapes) |
+| 25 | FOLLOW (a switch) | 26 / 27 | COOK, BEAT (taps; this track only, now) |
+| 28 | PROPOSAL (as SEQ + BEAT held) | 29 | QUEUE the proposal (as PRESETS) |
+| 30 | RETRIG | 31 / 32 | DICE SEQ, UNDO (taps; this track only) |
+| 40-55 | MUTE of track 1-16 (switches) | | |
+
+### What goes back to the hub (0.18)
+
+With **USB PORTS 2**, once the tablet has said something since the FM-1 started, the FM-1 sends on its port 2 what the
+hub's pages show: when it changes (a few messages a millisecond, with room left for the clock and the notes), and
+slowly all of it again (one value every 40 ms: a hub that restarted, a page reopened, catch up within seconds). A page
+of RaspiMIDIHub takes a CC that comes in on a cell's channel and number as that cell's value and sends nothing back.
+A value the tablet has just moved is left alone for 0.4 s (no fight with the hand); a value the FM-1 did not take (a
+LENGTH past the pattern, an OCTAVE on a drum track) comes back corrected after that.
+
+* channel 12: CC 1-10, 12-15, 17-25 (the tablet's track as above), 40-55 (the mutes as meant: MUTE QUEUE's waiting ones
+  included, a BREAK's silence not);
+* channel 13: CC 33-48 (the patterns: the one queued, else the one playing), 49-64 (the lengths: the one waiting for
+  the bar, else the length), 92-97 (the tablet's LFO), 101-106 (the tablet's track's lanes), 112 (the tablet's track),
+  113 (its MODE), 114-118 (energy 0-127, genre, key, progression, HARMONY); notes 100-115 (the LFOs on / off: note on
+  127 / note off);
+* channel 14: CC 1 (MORPH), 2 (MORPH TO, scenes 1-8), 4 / 5 (EVOLVE amount, heat), 6 (QUANTISE), 7-10 (the macros, 64 =
+  0: a THROW gliding back moves them), 11 (TRANSPOSE).
+
+In RaspiMIDIHub's matrix: the FM-1's port 2 ("Felucca MIDI 2") to the IN of each SAGGA page, beside their OUT to the
+FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1 goes to the synths).
 
 ## Limits you should know
 

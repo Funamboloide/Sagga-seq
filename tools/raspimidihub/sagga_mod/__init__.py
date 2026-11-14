@@ -9,7 +9,8 @@ INTENSITY, GATE, SWING, FILTER thrown and springing back to 0 over a bar on thei
 is a note on channel 13 (100 + the LFO, note on = on, note off = off), all sixteen at hand at once; their CC 0 binding
 is a placeholder the FM-1 ignores (the hub wants a CC on every cell).
 
-Wire this plugin's OUT to the FM-1 (USB PORTS 2: its port 2); SAVE K2 on the FM-1 = REMOTE 13 + 14.
+Wire this plugin's OUT to the FM-1 (USB PORTS 2: its port 2); SAVE K2 on the FM-1 = REMOTE 13 + 14. 0.18: the FM-1's port 2
+to this plugin's IN, and the knobs and switches follow the FM-1 (the tablet's LFO, its track's lanes, VIAGGIO).
 """
 
 from raspimidihub.controller_base import ControllerBase
@@ -60,7 +61,7 @@ CELLS = [
     fader("th_filt", "THROW FILTER", 111, 3, 7),
 
     knob("energy", "ENERGY", 114, 1, 8, 0, 127, 64),
-    knob("genre", "GENRE", 115, 2, 8, 0, 23, 0, GENRE_LABELS),
+    knob("genre", "GENRE", 115, 2, 8, 0, len(GENRE_LABELS) - 1, 0, GENRE_LABELS),
     knob("key", "KEY", 116, 3, 8, 0, 11, 0, KEY_LABELS),
     knob("prog", "PROGRESSION", 117, 4, 8, 0, 10, 0, PROG_LABELS),
     knob("harm", "HARMONY", 118, 4, 2, 0, 2, 0, HARM_LABELS),
@@ -80,7 +81,7 @@ class SaggaMod(ControllerBase):
     NAME = "SAGGA Mod"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, VIAGGIO's energy, genre, key, harmony"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.13"
+    VERSION = "0.18"
     HELP = """\
 LFO picks one of the sixteen (the one the FM-1 shows under LFO); LFO ON, SHAPE, RATE, DEPTH, DEST set it.
 LANE 1-6: the base value of the selected track's CC lanes, sent to the synth as you move it (what the lane's steps
@@ -112,6 +113,19 @@ switches. The FM-1: SAVE K2 = REMOTE 13 + 14; wire OUT to it (USB PORTS 2: port 
         super().on_param_change(name, value)
         if name in self.THROWS and value != 64:          # a throw: the FM-1 glides it back; the fader follows, back to the middle
             self.set_param(name, 64, persist=False)
+
+    def on_note_on(self, channel, note, velocity):
+        """0.18: the FM-1 says which LFOs are on (notes 100-115 on channel 13, its port 2): the switches follow"""
+        if channel == CH13 and LFO_SW_NOTE <= note < LFO_SW_NOTE + 16 and velocity > 0:
+            self.set_param("lfo_sw%d" % (note - LFO_SW_NOTE), True, persist=False)
+            return
+        super().on_note_on(channel, note, velocity)
+
+    def on_note_off(self, channel, note):
+        if channel == CH13 and LFO_SW_NOTE <= note < LFO_SW_NOTE + 16:
+            self.set_param("lfo_sw%d" % (note - LFO_SW_NOTE), False, persist=False)
+            return
+        super().on_note_off(channel, note)
 
     def panic(self):
         """the hub's PANIC: the LFO switch is let go; the knobs stay (a reset would move the FM-1's settings)"""

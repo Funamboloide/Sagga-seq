@@ -181,7 +181,8 @@ own plugins, so the bridge does not appear in the matrix, and that is normal. In
 3. **Synths -> FM-1**: as you like (notes for recording, clock if the FM-1 is slave), but **block channel 14** there
    too: since 0.5 the CCs on channel 14 are SAGGA REMOTE's commands.
 4. **SAGGA Remote / SAGGA Mutes -> FM-1** (if you use the phone remote: tools/raspimidihub/README.md; with USB PORTS 2:
-   to port 2).
+   to port 2). 0.18: and **the FM-1's port 2 -> each SAGGA page** (Remote, Mutes, Motori, Break, Mod, Live): the values
+   the FM-1 sends back, so that the tablet's knobs move with the FM-1's.
 5. *Save Config.*
 
 The hub sends a MIDI-CI inquiry (a universal SysEx message) to every bidirectional device when it connects. The
@@ -265,10 +266,10 @@ view on its last line (`G:STEP`, `G:CC`, ...).
 | 1 | REC arm | the **PROJ** view; in PROJ: the **LIB** view |
 | 2 | FILL (hold) | the other bank of tracks (1-8 / 9-16) |
 | 3 | UNDO / REDO of the last tool (a dice waiting: BACK) | the **FX** view |
-| 4 | the **STEP** view; in STEP: the **DRUM** view | the **CC** view |
+| 4 | the **STEP** view; in STEP: the **DRUM** view | the **CC** view; in CC: **FOLLOW** (0.18; PICK until 0.17) |
 | 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **VIAGGIO**; in VIAGGIO: **REGIA** (once a regista has spoken), then PERF. (0.9-0.16: with VIAGGIO on, the button opened VIAGGIO first; 0.17: PERF first, always) | the **LFO** view |
 | 6 | the **TRACK** view; again: **TRACK 2**, again: **TRACK 3** | the **BEAT** view; again: the **EUCLID** view |
-| 7 | SHIFT | |
+| 7 | SHIFT (0.18: cyan while the grid FOLLOWs the FM-1) | |
 | 8-15 | select track 1-8 of the bank (blue: bank 2) | solo that track |
 | 16-23 | pattern 1-8 of the selected track, queued to the end of its loop | copy the playing pattern there (UNDO takes it back) |
 | 24-31 | scene 1-8 of the bank the scene cursor is in (1-8 / 9-16), queued to the next bar | store the scene |
@@ -332,19 +333,43 @@ length, dim red a muted track's hits.
 | 7 | the lane's base value 0 .. 127 (where it goes back after a lock) |
 | 8 | lane off (1); no base value (2) |
 
-### PICK (CC again, 0.12): the knobs of the window open on the FM-1
+### FOLLOW (CC again; PICK in 0.12-0.17): the grid goes with the FM-1
 
-The four knobs of the page open on the FM-1 (the **window** a tap opened - HOME, SEQ, EDIT, ENV, LFO, ARP; PERF's page
-when PERF is on; HOME's when nothing is), a knob a row, as the FM-1's PICK keys set them (SAGGA-SEQ.md, PICK).
+**FOLLOW** (0.18): from SHIFT + STEP twice on, the grid's view **goes with the FM-1's page** - a quarter of a second
+after the page changes (a button tapped in passing moves nothing):
+
+| the FM-1 | the grid |
+|---|---|
+| the steps (no group held, no window) | STEP |
+| PERF (GLO tapped, or held) | PERF; on page 3 (the MOSSE): VIAGGIO |
+| LFO held or its window | LFO |
+| FX held or its window | FX |
+| ENV held or its window | CC (the lanes) |
+| EDIT held or its window | STEP |
+| HOME, SEQ, ARP held or their window | this view: the four knobs of the page |
+| SAVE held | the view stays |
+
+The grid is always on the FM-1's track (the tablet has a track of its own: SAGGA-SEQ.md, channel 12). A view chosen
+by hand with a button stops FOLLOW; SHIFT + STEP twice: it follows again. While it follows, **SHIFT is cyan**; on this
+view STEP is yellow.
+
+The view: the four knobs of the page open on the FM-1 (a group held or the **window** a tap opened - HOME, SEQ, EDIT,
+ENV, LFO, ARP; PERF's page when PERF is on; HOME's when nothing is), a knob a row, as the FM-1's PICK keys set them
+(SAGGA-SEQ.md, PICK).
 
 | row | pads |
 |---|---|
 | 1-4 | K1 .. K4: the white keys of PICK. A list or a count: items 1-16; a length: 4, 8 .. 64; a root or a note: the keys from F3; semitones: F3 = -12 .. ; a percentage: 10 .. 100 % on pads 1-10. The pad of the value now is **white**; the valid pads green (K1), blue (K2), violet (K3), orange (K4); a knob the keys cannot set (a velocity, a CC value): a faint row |
-| 5-8 | K1 .. K4: the black keys 1-10 of PICK (pads 1-10; black 11 is the focus key and has no value): items 17-26, the odd lengths 3 5 6 7 9 10 11 13 14 15, the sharps |
+| 5-8 | **0.18, a knob of the track: the same knob across the sixteen tracks**, pad 1 = track 1: the FM-1's track **white**, the tracks with its value lit (green, blue, violet, orange), the others faint. **A tap: that track gets the value** (the knob turned for it, so lengths wait for the bar, patterns for the QUANTISE, and the screen says `T3 LENGTH AS T1`); **SHIFT + a tap: the FM-1 goes to that track**. A knob that is no track's (the key, the energy, the genre, the morph, the LFOs, a step's notes), and the track's MIDI channel and a scene's PROGRAM (a synth's: never copied by a tap): the black keys 1-10 of PICK there, as in 0.12-0.17 (pads 1-10; items 17-26, the odd lengths 3 5 6 7 9 10 11 13 14 15, the sharps) |
+
+The knobs across the tracks: HOME 1 LENGTH, DIVISION, TRANSPOSE; HOME 2 all four; HOME 4 all four; HOME 5 the note,
+velocity and gate lengths; HOME 6 (MIDI FX), HOME 7; PERF 2 PATTERN and LENGTH; SEQ 1 PULSES, ROTATION, FAMILY; SEQ 4
+and 5 (EXPO); SEQ 7 and 8 (the BREAK); ARP 1 and 2 all four; ARP 3 FOLLOW; ARP 4 FOLLOW's way; ENV the lane's CC and its
+mode.
 
 A pad sets the knob (the knob is turned by the difference, so its messages and the bar line it waits for are the
 same) and puts it in focus for the FM-1's keys. Turn the window's pages on the FM-1 (OCT- / OCT+). SHIFT + STEP once
-more: CC again.
+more: CC again (and FOLLOW stops).
 
 ### LFO (SHIFT + PERF)
 
