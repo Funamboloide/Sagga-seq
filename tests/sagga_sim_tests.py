@@ -6219,7 +6219,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.15", "HELLO: nothing asked yet, a normal boot, 0.15 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.16", "HELLO: nothing asked yet, a normal boot, 0.16 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -6806,14 +6806,14 @@ def t013_chain():
 
 
 # ------------------------------------------------------------------------------------------------ 0.15
-V15 = re.compile(r"^\s*(\d+) ms  v15 T(\d+) groove (\d+) amt (\d+) name \[([^\]]*)\] link (\d+) sent (\d+) aud (\d+) slots((?: \d+:(?:ok|-)\[[^\]]*\])*)$", re.M)
+V15 = re.compile(r"^\s*(\d+) ms  v15 T(\d+) groove (\d+) amt (\d+) swing (\d+) name \[([^\]]*)\] link (\d+) sent (\d+) aud (\d+) slots((?: \d+:(?:ok|-)\[[^\]]*\])*)$", re.M)
 
 
 def v15s(log):
     """the 0.15 'v15' lines of the dumps: the track's GROOVE, the project's name, the link to the Pi's editor, the slots and their names"""
-    return [dict(t=int(m.group(1)), track=int(m.group(2)), groove=int(m.group(3)), amt=int(m.group(4)), name=m.group(5), link=int(m.group(6)),
-                 sent=int(m.group(7)), aud=int(m.group(8)),
-                 slots={int(a): (ok == "ok", nm) for a, ok, nm in re.findall(r"(\d+):(ok|-)\[([^\]]*)\]", m.group(9))})
+    return [dict(t=int(m.group(1)), track=int(m.group(2)), groove=int(m.group(3)), amt=int(m.group(4)), swing=int(m.group(5)), name=m.group(6),
+                 link=int(m.group(7)), sent=int(m.group(8)), aud=int(m.group(9)),
+                 slots={int(a): (ok == "ok", nm) for a, ok, nm in re.findall(r"(\d+):(ok|-)\[([^\]]*)\]", m.group(10))})
             for m in V15.finditer(log.text)]
 
 
@@ -7068,6 +7068,91 @@ def t015_link():
     check(long_ and cut and cut[0] < t + 1300 and v and v[0]["aud"] >= 1, "PANIC cuts a long one (%s, %s)" % (cut[:1], v[:1]))
 
 
+
+# ------------------------------------------------------------------------------------------------ 0.16
+ROLE_KICK, ROLE_SNARE, ROLE_HAT, ROLE_PERC, ROLE_BASS, ROLE_CHORD = 1, 2, 3, 4, 5, 6
+G_OFF, G_HOUSE, G_GARAGE, G_HUMAN = 0, 1, 2, 8
+
+
+def t016_genre_groove():
+    group("0.16 a genre's patterns come with their GROOVE: the drums carry it, the kick stays the anchor, the bass and the chords keep the swing that meets it")
+    def band(genre_steps, extra=None):
+        s = Script()
+        t = 100
+        if genre_steps:
+            s.press(t, SEQ); s.enc(t + 30, E_PRE, genre_steps); s.release(t + 100, SEQ); t += 300
+        s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900     # BAND
+        if extra:
+            t = extra(s, t)
+        for k in range(12):
+            s.at(t + 10 * k, "dump", k)
+        log = run(s, t + 200)
+        c = {x["track"]: x["role"] for x in cfgs(log)}
+        return {x["track"]: dict(x, role=c.get(x["track"], 0)) for x in v15s(log)}
+    def by_role(tr, role):
+        return [x for x in tr.values() if x["role"] == role]
+    tr = band(4)                                                         # UK GARAGE
+    k, h, b = by_role(tr, ROLE_KICK), by_role(tr, ROLE_HAT), by_role(tr, ROLE_BASS)
+    check(k and h and b, "UK GARAGE: the band has a kick, a hat, a bass (%s)" % sorted((x["track"], x["role"]) for x in tr.values()))
+    check(h and (h[0]["groove"], h[0]["amt"], h[0]["swing"]) == (G_GARAGE, 100, 50), "UK GARAGE hat: GARAGE 100 %%, the drums straight under it (%s)" % h[:1])
+    check(k and (k[0]["groove"], k[0]["amt"], k[0]["swing"]) == (G_GARAGE, 100, 50), "UK GARAGE kick: the 2-step kick swings with the hats (%s)" % k[:1])
+    check(b and (b[0]["groove"], b[0]["swing"]) == (G_OFF, 63), "UK GARAGE bass: no template, swing 63 (as GARAGE's shuffle) (%s)" % b[:1])
+    tr = band(3)                                                         # HOUSE
+    k, h, b = by_role(tr, ROLE_KICK), by_role(tr, ROLE_HAT), by_role(tr, ROLE_BASS)
+    check(h and (h[0]["groove"], h[0]["amt"], h[0]["swing"]) == (G_HOUSE, 100, 54), "HOUSE hat: HOUSE 100 %% on the genre's swing 54 (%s)" % h[:1])
+    check(k and (k[0]["groove"], k[0]["swing"]) == (G_OFF, 54) and b and (b[0]["groove"], b[0]["amt"]) == (G_HUMAN, 30),
+          "HOUSE: the kick the anchor, the bass HUMAN 30 %% (%s %s)" % (k[:1], b[:1]))
+    tr = band(19)                                                        # TRANCE: on the grid
+    check(tr and all(x["groove"] == G_OFF for x in tr.values() if x["role"]), "TRANCE: no GROOVE anywhere (%s)" % sorted((x["role"], x["groove"]) for x in tr.values()))
+    # DICE GROOVE (SEQ + black 4): the part's template stays, its amount and the swing move a little
+    def dice(s, t):
+        s.press(t, SEQ); s.tap_key(t + 30, bk(3)); s.release(t + 100, SEQ)
+        return t + 300
+    seen = set()
+    ok = True
+    for rep in range(3):
+        tr = band(4, dice)
+        for x in tr.values():
+            if x["role"] == ROLE_HAT:
+                seen.add(x["amt"])
+                ok = ok and x["groove"] == G_GARAGE and 80 <= x["amt"] <= 100 and 47 <= x["swing"] <= 56
+            if x["role"] == ROLE_BASS:
+                ok = ok and x["groove"] == G_OFF and 60 <= x["swing"] <= 69
+    check(ok, "DICE GROOVE on UK GARAGE: the hat stays GARAGE (80-100 %%, swing near 50), the bass near 63 (%s)" % sorted(seen))
+    # a GROOVE set by hand is replaced by the next pattern loaded on that track (as the swing is)
+    s = Script()
+    t = beat_key(s, 100)                                                 # TECHNO KICK on T1
+    t = home_page(s, t, 6, [(K3, 7)])                                    # T1: PUSH by hand
+    s.at(t, "dump", 0)
+    s.press(t + 100, SEQ); s.enc(t + 130, E_PRE, 4); s.release(t + 200, SEQ)
+    t = beat_key(s, t + 400)                                             # UK GARAGE KICK on T1
+    s.at(t, "dump", 0)
+    v = v15s(run(s, t + 100))
+    check(len(v) == 2 and v[0]["groove"] == 7 and (v[1]["groove"], v[1]["amt"], v[1]["swing"]) == (G_GARAGE, 100, 50),
+          "PUSH by hand, then a UK GARAGE kick loaded: GARAGE (%s)" % [(x["groove"], x["amt"], x["swing"]) for x in v])
+    # the parts meet: a UK GARAGE hat on an off 16th (GARAGE) and the bass on one (swing 63) are within 4 %% of a step
+    s = Script()
+    t = 100
+    s.press(t, SEQ); s.enc(t + 30, E_PRE, 4); s.release(t + 100, SEQ); t += 300
+    s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900
+    for k in range(12):
+        s.at(t + 10 * k, "dump", k)
+    t += 200
+    s.tap_btn(t, PLAY)
+    log = run(s, t + int(2 * 16 * STEP_MS))
+    keep = {x["track"] - 1 for x in cfgs(log) if x["role"] in (ROLE_KICK, ROLE_SNARE, ROLE_HAT, ROLE_PERC, ROLE_BASS, 9, 11)}   # (channel = track)
+    late = {}
+    p0 = t                                                               # (step 1 starts at PLAY)
+    for tm, st, d1, d2 in log.msgs:
+        if (st & 0xF0) == 0x90 and d2 and tm > t and p0:
+            pos = (tm - p0) / STEP_MS
+            i = round(pos - 0.3)
+            if i % 2 == 1 and (st & 15) in keep:
+                late.setdefault(st & 15, []).append(round((pos - i) * 100))
+    vals = sorted(set(v for x in late.values() for v in x))
+    check(len(late) >= 3 and all(18 <= v <= 34 for v in vals), "UK GARAGE: every note on an off 16th 18-34 %% late, drums and bass alike (%s on %s)" % (vals, sorted(late)))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7080,7 +7165,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
-         t015_names_clear, t015_groove, t015_link]
+         t015_names_clear, t015_groove, t015_link, t016_genre_groove]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

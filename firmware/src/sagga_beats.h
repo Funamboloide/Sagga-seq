@@ -73,6 +73,10 @@ void sq_beat_kit_part(uint8_t genre, uint8_t part, uint8_t *func, uint8_t *note)
 
 /* the genre's feel: swing (50 = straight), tempo range, the scales it likes (for DICE ALL), chords of 3 or 4 notes */
 uint8_t sq_genre_swing(uint8_t genre);
+/* 0.16: the feel a part of the genre comes with: its swing (the genre's, or its own where a GROOVE template carries the
+ * shuffle instead), its GROOVE template and how much of it. The hats, shakers and percussion carry the groove; the kick
+ * stays the anchor; the bass and the chords keep the genre's swing (out of range: the genre's swing, no groove). */
+void sq_genre_groove(uint8_t genre, uint8_t func, uint8_t *swing, uint8_t *groove, uint8_t *amt);
 void sq_genre_bpm(uint8_t genre, uint16_t *lo, uint16_t *hi);
 uint8_t sq_genre_scale(uint8_t genre, uint8_t i);          /* i = 0..2 */
 uint8_t sq_genre_chord_size(uint8_t genre);

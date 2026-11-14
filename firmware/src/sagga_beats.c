@@ -118,6 +118,77 @@ void sq_beat_kit_part(uint8_t genre, uint8_t part, uint8_t *func, uint8_t *note)
 }
 
 uint8_t sq_genre_swing(uint8_t genre) { return GENRE[genre < SQ_GENRES ? genre : 0u].swing; }
+
+/* ---- 0.16: the GROOVE of the genre's parts. A part belongs to a group (the kick and the crash: the anchor; the snare
+ * and the clap: the backbeat; the hats and the ride; the open hat; the shaker; the percussion, the rim, the congas, the
+ * toms, the cowbell: what carries the groove; the bass; the chords; the arps, leads and voices). Each genre gives each
+ * group a template, its amount, and a swing where it is not the genre's: where GARAGE or SAMBA carry the shuffle the
+ * drums are straight under it (swing 50) and the bass and the chords take the swing that matches it (GARAGE 100 % is
+ * about swing 63, 60 % about 58), so that the parts still meet. */
+enum { GG_KICK, GG_SNARE, GG_HAT, GG_OHAT, GG_SHAKE, GG_PERC, GG_BASS, GG_CHORD, GG_TOP, GG_N };
+static const uint8_t FUNC_GG[SQ_FUNCS] = {GG_KICK, GG_SNARE, GG_HAT, GG_PERC, GG_BASS, GG_CHORD, GG_TOP, GG_CHORD, GG_KICK,
+    GG_SNARE, GG_OHAT, GG_HAT, GG_SHAKE, GG_PERC, GG_PERC, GG_PERC, GG_KICK, GG_PERC, GG_BASS, GG_BASS, GG_BASS, GG_CHORD,
+    GG_CHORD, GG_CHORD, GG_TOP, GG_TOP};
+typedef struct { uint8_t tpl, amt, swing; } genre_groove_t;      /* swing 0: the genre's */
+#define O_ {SQ_GROOVE_OFF, 0, 0}
+#define HO(a) {SQ_GROOVE_HOUSE, a, 0}
+#define GA(a, s) {SQ_GROOVE_GARAGE, a, s}
+#define DI(a) {SQ_GROOVE_DILLA, a, 0}
+#define AF(a) {SQ_GROOVE_AFRO, a, 0}
+#define SA(a, s) {SQ_GROOVE_SAMBA, a, s}
+#define LB(a) {SQ_GROOVE_LAIDBACK, a, 0}
+#define PU(a) {SQ_GROOVE_PUSH, a, 0}
+#define HU(a) {SQ_GROOVE_HUMAN, a, 0}
+#define TR(a) {SQ_GROOVE_TRAP, a, 0}
+#define SW(s) {SQ_GROOVE_OFF, 0, s}
+static const genre_groove_t GENRE_GROOVE[SQ_GENRES][GG_N] = {
+    /*            KICK    SNARE   HAT        OPEN HAT   SHAKER     PERC       BASS    CHORD   TOP */
+    /* TECHNO */ {O_,     O_,     HO(40),    O_,        HU(30),    HU(30),    O_,     O_,     O_},
+    /* HARDTEC */{O_,     O_,     PU(30),    O_,        PU(30),    PU(30),    O_,     O_,     O_},
+    /* DUBTECH */{O_,     O_,     HO(50),    HO(40),    HO(50),    HU(40),    O_,     LB(30), LB(30)},
+    /* HOUSE */  {O_,     O_,     HO(100),   HO(60),    HO(100),   HO(60),    HU(30), HU(30), HU(30)},
+    /* UKGAR */  {GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), SW(63), SW(63), SW(63)},
+    /* UKFUNKY */{O_,     AF(40), GA(50, 50), GA(50, 50), AF(80),  AF(80),    O_,     HU(30), O_},
+    /* GRIME */  {O_,     O_,     TR(50),    O_,        TR(40),    HU(30),    O_,     O_,     O_},
+    /* DUBSTEP */{O_,     O_,     LB(40),    LB(40),    LB(40),    LB(40),    O_,     O_,     O_},
+    /* JUNGLE */ {HU(30), HU(60), PU(50),    PU(40),    PU(50),    HU(50),    O_,     HU(30), O_},
+    /* BASSLN */ {O_,     O_,     GA(60, 50), GA(60, 50), GA(60, 50), GA(60, 50), SW(58), SW(58), SW(58)},
+    /* REGGAET */{O_,     AF(60), TR(40),    O_,        AF(50),    AF(60),    O_,     O_,     O_},
+    /* BATIDA */ {O_,     AF(40), AF(60),    AF(40),    AF(80),    AF(100),   O_,     O_,     O_},
+    /* GQOM */   {O_,     O_,     AF(50),    O_,        AF(60),    AF(80),    O_,     O_,     O_},
+    /* EXPERIM */{HU(30), DI(40), DI(60),    DI(40),    DI(60),    DI(60),    HU(50), HU(50), HU(50)},
+    /* ELECTRO */{O_,     O_,     TR(40),    O_,        TR(30),    HU(20),    O_,     O_,     O_},
+    /* DNB */    {O_,     O_,     PU(40),    PU(30),    PU(40),    HU(30),    O_,     HU(30), O_},
+    /* AFROHOU */{O_,     O_,     HO(70),    HO(50),    AF(100),   AF(100),   HU(30), HU(30), HU(30)},
+    /* AMAPIAN */{O_,     O_,     AF(60),    AF(40),    AF(80),    AF(80),    O_,     LB(40), LB(30)},
+    /* FOOTWRK */{O_,     O_,     TR(60),    O_,        TR(40),    HU(30),    O_,     O_,     O_},
+    /* TRANCE */ {O_,     O_,     O_,        O_,        O_,        O_,        O_,     O_,     O_},
+    /* UKDRILL */{O_,     O_,     TR(100),   TR(60),    TR(60),    TR(60),    O_,     O_,     O_},
+    /* HARDCOR */{O_,     O_,     PU(40),    PU(30),    PU(40),    PU(30),    O_,     O_,     O_},
+    /* PHONK */  {O_,     O_,     TR(80),    TR(50),    TR(50),    HU(20),    O_,     LB(30), LB(30)},
+    /* BAILE */  {O_,     AF(50), SA(80, 50), SA(60, 50), SA(100, 50), SA(100, 50), O_, O_,     O_},
+};
+#undef O_
+#undef HO
+#undef GA
+#undef DI
+#undef AF
+#undef SA
+#undef LB
+#undef PU
+#undef HU
+#undef TR
+#undef SW
+void sq_genre_groove(uint8_t genre, uint8_t func, uint8_t *swing, uint8_t *groove, uint8_t *amt)
+{
+    const genre_groove_t *e;
+    if (genre >= SQ_GENRES) genre = 0u;
+    *swing = GENRE[genre].swing; *groove = SQ_GROOVE_OFF; *amt = 0u;
+    if (func >= SQ_FUNCS) return;
+    e = &GENRE_GROOVE[genre][FUNC_GG[func]];
+    if (e->swing) *swing = e->swing;
+    *groove = e->tpl; *amt = e->tpl ? e->amt : 0u;
+}
 void sq_genre_bpm(uint8_t genre, uint16_t *lo, uint16_t *hi)
 {
     const genre_t *g = &GENRE[genre < SQ_GENRES ? genre : 0u];

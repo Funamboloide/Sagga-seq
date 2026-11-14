@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.15"
+#define SQ_VERSION "0.16"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -4164,8 +4164,8 @@ static void app_host_dump(int t)
         uint32_t k;
         char nm[SQ_NAME_LEN + 1u];
         memcpy(nm, project.ext.name, SQ_NAME_LEN); nm[SQ_NAME_LEN] = 0;
-        printf("%6u ms  v15 T%d groove %u amt %u name [%s] link %u sent %u aud %u slots", fm1_ms, t + 1, (unsigned)cx->groove, (unsigned)cx->groove_amt,
-               nm, (unsigned)link_on, (unsigned)link_sent, (unsigned)aud_n);
+        printf("%6u ms  v15 T%d groove %u amt %u swing %u name [%s] link %u sent %u aud %u slots", fm1_ms, t + 1, (unsigned)cx->groove, (unsigned)cx->groove_amt,
+               (unsigned)project.track[t].swing, nm, (unsigned)link_on, (unsigned)link_sent, (unsigned)aud_n);
         for (k = 0; k < SQ_SLOTS; k++) printf(" %u:%s[%s]", (unsigned)k + 1u, slot_info[k].ok ? "ok" : "-", slot_info[k].name);
         printf("\n");
     }

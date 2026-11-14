@@ -1066,10 +1066,42 @@ static void test_beats(void)
         CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKDRILL), "UK DRILL") && !strcmp(sq_genre_name(SQ_GENRE_DNB), "DRUM+BASS"));
     }
     CHECK(!strcmp(sq_func_name(SQ_FUNC_KICK), "KICK") && !strcmp(sq_func_name(SQ_FUNC_PROG), "PROG") && !strcmp(sq_func_name(SQ_FUNC_KIT), "KIT"));
+    {   /* 0.16: the genres' GROOVE, as the doc says */
+        uint8_t sw, gv, ga;
+        sq_genre_groove(SQ_GENRE_UKG, SQ_FUNC_HAT, &sw, &gv, &ga);
+        CHECK(sw == 50u && gv == SQ_GROOVE_GARAGE && ga == 100u);                 /* the drums straight under GARAGE */
+        sq_genre_groove(SQ_GENRE_UKG, SQ_FUNC_BASS, &sw, &gv, &ga);
+        CHECK(sw == 63u && gv == SQ_GROOVE_OFF && ga == 0u);                      /* the bass: the swing that meets it */
+        sq_genre_groove(SQ_GENRE_HOUSE, SQ_FUNC_KICK, &sw, &gv, &ga);
+        CHECK(sw == 54u && gv == SQ_GROOVE_OFF);                                  /* the kick: the anchor */
+        sq_genre_groove(SQ_GENRE_HOUSE, SQ_FUNC_SHAKER, &sw, &gv, &ga);
+        CHECK(sw == 54u && gv == SQ_GROOVE_HOUSE && ga == 100u);
+        sq_genre_groove(SQ_GENRE_AMAPIANO, SQ_FUNC_RIM, &sw, &gv, &ga);
+        CHECK(sw == 58u && gv == SQ_GROOVE_AFRO && ga == 80u);                    /* a rim carries the groove (the percussion's) */
+        sq_genre_groove(SQ_GENRE_AMAPIANO, SQ_FUNC_LOGDRUM, &sw, &gv, &ga);
+        CHECK(sw == 58u && gv == SQ_GROOVE_OFF);
+        sq_genre_groove(SQ_GENRE_BAILEFUNK, SQ_FUNC_PERC, &sw, &gv, &ga);
+        CHECK(sw == 50u && gv == SQ_GROOVE_SAMBA && ga == 100u);
+        sq_genre_groove(SQ_GENRE_UKDRILL, SQ_FUNC_HAT, &sw, &gv, &ga);
+        CHECK(sw == 54u && gv == SQ_GROOVE_TRAP && ga == 100u);
+        sq_genre_groove(SQ_GENRE_TRANCE, SQ_FUNC_HAT, &sw, &gv, &ga);
+        CHECK(gv == SQ_GROOVE_OFF);
+        sq_genre_groove(SQ_GENRE_DUBSTEP, SQ_FUNC_SNARE, &sw, &gv, &ga);
+        CHECK(sw == 52u && gv == SQ_GROOVE_OFF);                                  /* the half-time snare on the grid */
+    }
     CHECK(!strcmp(sq_genre_name(200u), "TECHNO") && !strcmp(sq_func_name(200u), "KICK"));       /* out of range: no crash */
     for (g = 0; g < SQ_GENRES; g++) {
         uint16_t lo, hi;
         CHECK(sq_genre_swing((uint8_t)g) >= 50u && sq_genre_swing((uint8_t)g) <= 66u);
+        {   /* 0.16: every part's feel: a swing in range, a template, an amount; OFF has no amount */
+            uint8_t f, sw, gv, ga;
+            for (f = 0; f < SQ_FUNCS; f++) {
+                sq_genre_groove((uint8_t)g, f, &sw, &gv, &ga);
+                CHECK(sw >= SQ_SWING_MIN && sw <= 66u && gv < SQ_GROOVES && ga <= 100u && (gv ? ga >= 20u : ga == 0u));
+            }
+            sq_genre_groove((uint8_t)g, 200u, &sw, &gv, &ga);
+            CHECK(sw == sq_genre_swing((uint8_t)g) && gv == SQ_GROOVE_OFF && ga == 0u);
+        }
         sq_genre_bpm((uint8_t)g, &lo, &hi); CHECK(lo >= 30u && lo <= hi && hi <= 300u);
         CHECK(sq_genre_scale((uint8_t)g, 0u) > 0u && sq_genre_scale((uint8_t)g, 2u) < SQ_SCALES);
         CHECK(sq_genre_chord_size((uint8_t)g) == 3u || sq_genre_chord_size((uint8_t)g) == 4u);

@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.15
+# SAGGA SEQ 0.16
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,51 @@ steps), and **VIAGGIO**: a way to play a set as a journey of phrases, with moves
 bar, or the beat). With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.15` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.16` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.16
+
+**A genre's patterns come with their GROOVE.** A pattern of the library (BEAT, BAND, KIT, GENRE LIVE, VIAGGIO's
+proposals, the Pi's variations) used to bring only the genre's swing; now it brings the part's GROOVE too, and the
+swing that goes with it. The hats, shakers and percussion carry the groove; the kick stays the anchor; the bass and
+the chords keep the genre's swing. Where a template carries the shuffle (GARAGE, SAMBA) the drums are straight under
+it (swing 50) and the bass and the chords take the swing that matches it (GARAGE 100 % is about swing 63, 60 % about
+58): the parts still meet. **DICE GROOVE** keeps each part's template and moves its amount (± 20 %) and the swing a
+little. A GROOVE or a swing set by hand is replaced by the next pattern loaded on that track, as the swing always was;
+turn them afterwards for your own feel.
+
+| genre | kick | snare / clap | hat / ride | open hat | shaker | perc / rim / conga / tom | bass | chords | arp / lead / vox |
+|---|---|---|---|---|---|---|---|---|---|
+| TECHNO (sw 50) | - | - | HOUSE 40 | - | HUMAN 30 | HUMAN 30 | - | - | - |
+| HARDTECHNO (50) | - | - | PUSH 30 | - | PUSH 30 | PUSH 30 | - | - | - |
+| DUB TECHNO (54) | - | - | HOUSE 50 | HOUSE 40 | HOUSE 50 | HUMAN 40 | - | LAID BACK 30 | LAID BACK 30 |
+| HOUSE (54) | - | - | HOUSE 100 | HOUSE 60 | HOUSE 100 | HOUSE 60 | HUMAN 30 | HUMAN 30 | HUMAN 30 |
+| UK GARAGE | GARAGE 100, sw 50 | GARAGE 100, sw 50 | GARAGE 100, sw 50 | GARAGE 100, sw 50 | GARAGE 100, sw 50 | GARAGE 100, sw 50 | sw 63 | sw 63 | sw 63 |
+| UK FUNKY (56) | - | AFRO 40 | GARAGE 50, sw 50 | GARAGE 50, sw 50 | AFRO 80 | AFRO 80 | - | HUMAN 30 | - |
+| GRIME (50) | - | - | TRAP 50 | - | TRAP 40 | HUMAN 30 | - | - | - |
+| DUBSTEP (52) | - | - | LAID BACK 40 | LAID BACK 40 | LAID BACK 40 | LAID BACK 40 | - | - | - |
+| JUNGLE (50) | HUMAN 30 | HUMAN 60 | PUSH 50 | PUSH 40 | PUSH 50 | HUMAN 50 | - | HUMAN 30 | - |
+| BASSLINE | - (56) | - (56) | GARAGE 60, sw 50 | GARAGE 60, sw 50 | GARAGE 60, sw 50 | GARAGE 60, sw 50 | sw 58 | sw 58 | sw 58 |
+| REGGAETON (50) | - | AFRO 60 | TRAP 40 | - | AFRO 50 | AFRO 60 | - | - | - |
+| BATIDA (52) | - | AFRO 40 | AFRO 60 | AFRO 40 | AFRO 80 | AFRO 100 | - | - | - |
+| GQOM (54) | - | - | AFRO 50 | - | AFRO 60 | AFRO 80 | - | - | - |
+| EXPERIMENT (50) | HUMAN 30 | DILLA 40 | DILLA 60 | DILLA 40 | DILLA 60 | DILLA 60 | HUMAN 50 | HUMAN 50 | HUMAN 50 |
+| ELECTRO (50) | - | - | TRAP 40 | - | TRAP 30 | HUMAN 20 | - | - | - |
+| DRUM+BASS (50) | - | - | PUSH 40 | PUSH 30 | PUSH 40 | HUMAN 30 | - | HUMAN 30 | - |
+| AFRO HOUSE (54) | - | - | HOUSE 70 | HOUSE 50 | AFRO 100 | AFRO 100 | HUMAN 30 | HUMAN 30 | HUMAN 30 |
+| AMAPIANO (58) | - | - | AFRO 60 | AFRO 40 | AFRO 80 | AFRO 80 | - (the log drum too) | LAID BACK 40 | LAID BACK 30 |
+| FOOTWORK (50) | - | - | TRAP 60 | - | TRAP 40 | HUMAN 30 | - | - | - |
+| TRANCE (50) | - | - | - | - | - | - | - | - | - |
+| UK DRILL (54) | - | - | TRAP 100 | TRAP 60 | TRAP 60 | TRAP 60 | - | - | - |
+| HARDCORE (50) | - | - | PUSH 40 | PUSH 30 | PUSH 40 | PUSH 30 | - | - | - |
+| PHONK (52) | - | - | TRAP 80 | TRAP 50 | TRAP 50 | HUMAN 20 | - | LAID BACK 30 | LAID BACK 30 |
+| BAILE FUNK (54) | - | AFRO 50 | SAMBA 80, sw 50 | SAMBA 60, sw 50 | SAMBA 100, sw 50 | SAMBA 100, sw 50 | - | - | - |
+
+(sw: the swing; in brackets the genre's, which every part has where nothing else is said. The crash goes with the
+kick, the rim with the percussion, the sub, the rumble and the log drum with the bass, the stab, pad and piano with
+the chords.)
 
 ## What is new in 0.15
 

@@ -1051,7 +1051,7 @@ static void follow_set(uint8_t t, uint8_t on)
 static void beat_onto(uint8_t t, uint8_t func, uint8_t var);
 
 /* PROG: the tonic chord on the genre's chord rhythm; the track follows the HARMONY, which starts if it was off */
-typedef struct { uint8_t length, swing, flags, pen; } beat_cfg_t;
+typedef struct { uint8_t length, swing, flags, pen, groove, groove_amt; } beat_cfg_t;   /* (0.16: the part's GROOVE too) */
 static uint8_t prog_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t var, uint8_t apply, beat_cfg_t *cfg)
 {
     sq_track_cfg_t *c = &project.track[t];
@@ -1078,7 +1078,8 @@ static void beat_cfg_for(const sq_track_cfg_t *c, uint8_t genre, uint8_t func, u
 {
     uint8_t melodic = sq_func_kind(func) != SQ_KIND_DRUM;
     o->length = n;
-    o->swing = sq_genre_swing(genre);                     /* the genre's feel (UK garage swings) */
+    sq_genre_groove(genre, func, &o->swing, &o->groove, &o->groove_amt);   /* the genre's feel (UK garage swings; 0.16: the
+                                                                            * part's GROOVE, and the swing that goes with it) */
     if (melodic) {
         o->flags = (uint8_t)((c->flags & ~SQ_TF_DRUM) | SQ_TF_SCALE);
         if (project.gen.harm_on) o->flags |= SQ_TF_FOLLOW;   /* with the chords (0.11: every melodic part: a PAD, a STAB too) */
@@ -1092,6 +1093,8 @@ static void beat_cfg_apply(uint8_t t, const beat_cfg_t *o)
     c->swing = o->swing;
     c->flags = o->flags;
     PEN(t) = o->pen;
+    project.ext.track[t].groove = o->groove;           /* 0.16 */
+    project.ext.track[t].groove_amt = o->groove_amt;
 }
 
 /* a pattern of the library onto pattern `pat` of track t; `cfg` (may be 0): what the track should become, applied now
@@ -1625,7 +1628,15 @@ static void dice_groove(uint16_t mask)
         sq_step_t *row = project.step[t][tr[t].pattern];
         uint8_t drum = track_drum(t);
         if (!(mask & (1u << t))) continue;
-        c->swing = (uint8_t)clamp_i32((int32_t)sq_genre_swing(beat_genre) + (int32_t)grand(10u) - 3, SQ_SWING_MIN, SQ_SWING_MAX);
+        {   /* 0.16: the part's swing and GROOVE (the track's part: where it came from, else its role), a little off */
+            uint8_t fn = c->src_func < SQ_FUNCS ? c->src_func : c->role ? sq_role_func(c->role) : 255u, sw, gv, ga;
+            sq_genre_groove(beat_genre, fn, &sw, &gv, &ga);
+            c->swing = (uint8_t)clamp_i32((int32_t)sw + (int32_t)grand(10u) - 3, SQ_SWING_MIN, SQ_SWING_MAX);
+            if (fn < SQ_FUNCS && !track_tape(t)) {
+                project.ext.track[t].groove = gv;
+                project.ext.track[t].groove_amt = gv ? (uint8_t)clamp_i32((int32_t)ga + (int32_t)grand(41u) - 20, 10, 100) : 0u;
+            }
+        }
         c->hum_time = (uint8_t)grand(1u + heat / 8u);
         c->hum_vel = (uint8_t)grand(1u + heat / 5u);
         for (i = c->start; i < c->length; i++) {
