@@ -1722,7 +1722,7 @@ static void test_v09(void)
 
     /* the energy */
     sq_energy_map(50u, &fx);
-    CHECK(fx.vel == 0 && fx.filt == 0 && fx.gate == 0 && fx.density == 100u && fx.lfo_pct == 75u && !fx.color7);
+    CHECK(fx.vel == 0 && fx.filt == 0 && fx.gate == 0 && fx.density == 100u && fx.lfo_pct == 100u && !fx.color7);   /* 0.17: 50 neutral */
     sq_energy_map(0u, &fx);
     CHECK(fx.vel == -20 && fx.filt == -40 && fx.density == 60u && fx.lfo_pct == 50u);
     sq_energy_map(100u, &fx);
@@ -1846,6 +1846,14 @@ static void test_v09(void)
     proj_a.viaggio.phrase_bars = 5u; proj_a.viaggio.energy = 250u; proj_a.viaggio.set_genre = 99u; proj_a.viaggio.state[0] = 7u; proj_a.viaggio.phrase_count = 200u; proj_a.viaggio.quant = 9u;
     n = sq_serialize(&proj_a, image, sizeof image);
     CHECK(sq_deserialize(&proj_b, image, n) == 0 && proj_b.viaggio.phrase_bars == 16u && proj_b.viaggio.energy == 100u && proj_b.viaggio.set_genre == 0u && proj_b.viaggio.state[0] == SQ_TS_EMPTY && proj_b.viaggio.phrase_count == 0u && proj_b.viaggio.quant == SQ_VQ_PHRASE);
+    /* 0.17: a project saved with VIAGGIO off (0.9-0.16) comes back with the journey running and its energy neutral: it
+     * plays as it did */
+    proj_a.viaggio.on = 0u; proj_a.viaggio.energy = 80u; proj_a.viaggio.phrase_bars = 8u; proj_a.viaggio.set_genre = 0u; proj_a.viaggio.state[0] = SQ_TS_EMPTY;
+    n = sq_serialize(&proj_a, image, sizeof image);
+    CHECK(sq_deserialize(&proj_b, image, n) == 0 && proj_b.viaggio.on == 1u && proj_b.viaggio.energy == 50u && proj_b.viaggio.phrase_bars == 8u);
+    proj_a.viaggio.on = 1u;
+    sq_project_init(&proj_b);
+    CHECK(proj_b.viaggio.on == 1u && proj_b.viaggio.energy == 50u);
     proj_a.live.remote_mode = 9u;
     sq_project_sanitize(&proj_a);
     CHECK(proj_a.live.remote_mode == SQ_RM_14);

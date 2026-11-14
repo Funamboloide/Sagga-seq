@@ -3767,16 +3767,33 @@ def t08_usb_two_ports():
 BAR_MS = 16 * STEP_MS                                       # 1875 ms at 128 BPM
 
 
-def vg_on(s, t):
-    """SEL + GLO, a tap: VIAGGIO mode (0.12: the panel; the first time it starts the journey)"""
+def vg_on(s, t, remote=True):
+    """0.17: SEL + GLO, a tap: PERF on its third page, the MOSSE (the journey always runs: there is no VIAGGIO mode).
+    remote: SAVE + K2 first, the remote on 13 + 14: channel 13 has the journey's tracks (CC 1-16 a tap on the track, CC 32
+    the track queued in / out), what the white keys did in VIAGGIO mode until 0.16"""
+    if remote:
+        s.press(t, SAVE); s.enc(t + 30, K2, 1); s.release(t + 100, SAVE); t += 150
+    s.press(t, SEL); s.tap_btn(t + 30, GLO); s.release(t + 100, SEL)
+    s.pages[GLO] = 2
+    return t + 160
+
+
+def vg_studio(s, t):
+    """0.17: SEL + GLO again on the MOSSE: the studio (PERF off); the journey goes on"""
     s.press(t, SEL); s.tap_btn(t + 30, GLO); s.release(t + 100, SEL)
     return t + 160
 
 
-def vg_off(s, t):
-    """0.12: SEL + GLO held 0.6 s: the journey off"""
-    s.press(t, SEL); s.press(t + 30, GLO); s.release(t + 730, GLO); s.release(t + 760, SEL)
-    return t + 820
+def vg_tap(s, t, i):
+    """0.17: a tap on track i of the journey (the remote's CC i + 1 on channel 13): a proposal on an empty track"""
+    s.raw(t, "midi 0xBC %d 127" % (i + 1))
+    return t + 60
+
+
+def vg_cc(s, t, cc):
+    """0.17: a move of the remote on channel 13 (CC 17-27: FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW)"""
+    s.raw(t, "midi 0xBC %d 127" % cc)
+    return t + 60
 
 
 def vg_bars4(s, t):
@@ -3785,17 +3802,18 @@ def vg_bars4(s, t):
 
 
 def vg_queue_track(s, t, i):
-    """SEL + a white key: the track in (a proposal made if it has none) or out at the boundary"""
-    s.press(t, SEL); s.tap_key(t + 30, wk(i)); s.release(t + 100, SEL)
-    return t + 160
+    """the track in (a proposal made if it has none) or out at the boundary (0.17: the remote's CC 32 = 8 x the track;
+    until 0.16 SEL + a white key in VIAGGIO mode)"""
+    s.raw(t, "midi 0xBC 32 %d" % (8 * i))
+    return t + 60
 
 
 def t09_viaggio_phrase():
-    group("0.9 VIAGGIO: the mode, a proposal, the queue, the boundary, NOW, the trail")
+    group("0.9 VIAGGIO (0.17: the MOSSE): a proposal, the queue, the boundary, NOW, the trail")
     s = Script()
     t = vg_on(s, 100)
     s.at(t, "dump", 0)
-    s.tap_key(t + 50, wk(0))                                 # track 1 (empty): a proposal
+    vg_tap(s, t + 50, 0)                                     # track 1 (empty): a proposal
     s.at(t + 150, "dump", 0)
     t = vg_queue_track(s, t + 200, 0)                        # SEL + key 1: IN at the boundary
     s.at(t, "dump", 0)
@@ -3808,20 +3826,20 @@ def t09_viaggio_phrase():
     log = run(s, t0 + 5 * BAR_MS)
     v = log.viaggio
     check(v[0]["on"] == 1 and v[0]["states"] == "E" * 16 and v[0]["bars"] == 16 and v[0]["energy"] == 50 and v[0]["genre"] == 0,
-          "SEL + PERF: VIAGGIO on, every track empty, 16-bar phrase, energy 50, TECHNO (the project's genre) (%s)" % v[0])
-    check(log.states[0]["msg"].startswith("VIAGGIO: WHITE = TRACKS"), "the screen says how (%s)" % log.states[0]["msg"])
+          "SEL + GLO: the MOSSE, every track empty, 16-bar phrase, energy 50, TECHNO (the project's genre) (%s)" % v[0])
+    check(log.states[0]["msg"].startswith("MOSSE: BLACK = MOVES"), "the screen says how (%s)" % log.states[0]["msg"])
     check(v[1]["states"].startswith("P") and log.states[1]["msg"].startswith("T1 KICK P2") and log.dumps[1]["on"].count("x") == 0,
           "a tap on an empty track: a proposal in pattern 2 (the playing one stays empty), the track is PROPOSED (%s)" % log.states[1]["msg"])
-    check(v[2]["queue"] == ["IN/0/1"] and log.states[2]["msg"] == "QUEUED: T1 IN", "SEL + the key: IN queued (%s)" % v[2]["queue"])
+    check(v[2]["queue"] == ["IN/0/1"] and log.states[2]["msg"] == "QUEUED: T1 IN", "CC 32: IN queued (%s)" % v[2]["queue"])
     check(log.dumps[1]["pen"] == 36, "the empty track took the kick's note (%s)" % log.dumps[1]["pen"])
-    check(v[3]["bars"] == 4 and log.states[3]["msg"] == "PHRASE: BARS 4", "HOME 6/6, K2: a 4-bar phrase")
+    check(v[3]["bars"] == 4 and log.states[3]["msg"] == "PHRASE: BARS 4", "GLO 3 (the MOSSE), K2: a 4-bar phrase")
     n = log.notes(ch=0, after=t0)
     check(not [x for x in n if x[0] < t0 + 4 * BAR_MS - 5] and n and near(n[0][0], t0 + 4 * BAR_MS, 20),
           "nothing until the boundary; at bar 5 the kick comes in (first note at +%.0f ms)" % ((n[0][0] - t0) if n else -1))
     check(v[4]["bar"] == 2 and v[4]["queue"] == ["IN/0/1"] and v[4]["trail"] == 0, "bar 3 of 4: the move still waits (%s)" % v[4])
     check(v[5]["bar"] == 0 and v[5]["queue"] == [] and v[5]["trail"] == 1 and v[5]["states"].startswith("I") and v[5]["patterns"].startswith("2"),
           "after the boundary: the queue ran, the trail holds the first phrase, track 1 IN on pattern 2 (%s)" % v[5])
-    # NOW: the queue runs at the next bar instead; OCT+ cancels the last move; a second track joins
+    # NOW: the queue runs at the next bar instead; black 10 cancels the last move (0.9-0.16: OCT+); a second track joins
     s = Script()
     t = vg_on(s, 100)
     t = vg_queue_track(s, t, 0)
@@ -3833,7 +3851,7 @@ def t09_viaggio_phrase():
     s.at(t0 + BAR_MS + 200, "dump", 0)
     t = vg_queue_track(s, t0 + BAR_MS + 300, 1)              # track 2 at the boundary ...
     s.tap_key(t, bk(0))                                      # ... and a FILL
-    s.tap_btn(t + 100, OCT_UP)                               # cancelled
+    s.tap_key(t + 100, bk(9))                                # cancelled
     s.at(t + 200, "dump", 1)
     s.at(t0 + 4 * BAR_MS + 200, "dump", 1)
     log = run(s, t0 + 5 * BAR_MS)
@@ -3842,33 +3860,34 @@ def t09_viaggio_phrase():
     check(log.states[0]["msg"] == "NOW: AT THE NEXT BAR" and v[1]["bar"] == 1 and v[1]["queue"] == [] and v[1]["states"].startswith("I") and v[1]["trail"] == 0,
           "NOW: the move ran at bar 2, no phrase in the trail yet (%s)" % v[1])
     check(n and near(n[0][0], t0 + BAR_MS, 20), "the kick came in at bar 2 (%s)" % (n[:1]))
-    check(v[2]["queue"] == ["IN/1/255"] and log.states[2]["msg"] == "CANCELLED FILL", "OCT+: the FILL is cancelled, track 2 still waits (%s)" % v[2]["queue"])
+    check(v[2]["queue"] == ["IN/1/255"] and log.states[2]["msg"] == "CANCELLED FILL", "black 10: the FILL is cancelled, track 2 still waits (%s)" % v[2]["queue"])
     check(v[3]["states"].startswith("II") and v[3]["trail"] == 1 and v[3]["bar"] == 0, "at the boundary track 2 joins (%s)" % v[3]["states"])
     check(log.notes(ch=1, after=t0 + 4 * BAR_MS) and not log.notes(ch=1, after=t0, before=t0 + 4 * BAR_MS - 5), "... and plays from bar 5 only")
-    # a tap on IN: no silence; PERF (GLO) leaves the mode, the engine stays on; SEL + PERF comes back
+    # a tap on IN: no silence; the MOSSE are PERF: a white key mutes; SEL + GLO again: the studio, the journey goes on
     s = Script()
     t = vg_on(s, 100)
     t = vg_queue_track(s, t, 0)
     s.tap_key(t, bk(10)); t += 100                           # NOW, stopped: at once
     s.at(t, "dump", 0)
     s.tap_btn(t, PLAY); t0 = t
-    s.tap_key(t0 + BAR_MS + 200, wk(0))                      # a tap on the track that plays
+    vg_tap(s, t0 + BAR_MS + 200, 0)                          # a tap on the track that plays
     s.at(t0 + BAR_MS + 300, "dump", 0)
-    s.tap_btn(t0 + BAR_MS + 400, GLO)                        # PERF: the panel mutes again, the journey goes on
+    s.tap_key(t0 + BAR_MS + 400, wk(1))                      # PERF's white key: mute track 2 (nothing to hear)
     s.at(t0 + BAR_MS + 500, "dump", 0)
-    s.tap_key(t0 + BAR_MS + 600, wk(1))                      # PERF: mute track 2 (nothing to hear)
-    s.at(t0 + BAR_MS + 700, "dump", 0)
+    vg_studio(s, t0 + BAR_MS + 600)                          # SEL + GLO: the studio
+    s.at(t0 + BAR_MS + 800, "dump", 0)
     log = run(s, t0 + 2 * BAR_MS)
     v = log.viaggio
     check(v[0]["states"].startswith("I") and v[0]["queue"] == [] and log.states[0]["msg"] == "NOW: DONE", "NOW while stopped: the queue runs at once")
-    check(v[1]["states"].startswith("I") and "IN: HOLD = PROPOSAL" in log.states[1]["msg"] and v[1]["mute"] == 0,
+    check(v[1]["states"].startswith("I") and log.states[1]["msg"] == "T1 IN" and v[1]["mute"] == 0,
           "a tap on a track that is IN never silences it (%s)" % log.states[1]["msg"])
-    check(v[2]["on"] == 0 and log.states[2]["msg"].startswith("PERF") and v[3]["mute"] == 2, "PERF: the keys are mutes again (%s), VIAGGIO's engine stays" % log.states[2]["msg"])
-    check(len(log.notes(ch=0, after=t0 + BAR_MS + 700)) > 0, "track 1 keeps playing")
+    check(v[2]["on"] == 1 and v[2]["mute"] == 2, "on the MOSSE the white keys are PERF's mutes (%04X)" % v[2]["mute"])
+    check(v[3]["on"] == 0 and v[3]["journey"] == 1 and log.states[3]["msg"].startswith("STUDIO"), "SEL + GLO again: the studio, the journey goes on (%s)" % log.states[3]["msg"])
+    check(len(log.notes(ch=0, after=t0 + BAR_MS + 800)) > 0, "track 1 keeps playing")
 
 
 def vg_track_in_now(s, t, i):
-    """SEL + key i, then NOW while stopped: the track is IN at once (a proposal of its role)"""
+    """track i queued, then NOW (black 11 on the MOSSE) while stopped: the track is IN at once (a proposal of its role)"""
     t = vg_queue_track(s, t, i)
     s.tap_key(t, bk(10))
     return t + 100
@@ -3876,7 +3895,7 @@ def vg_track_in_now(s, t, i):
 
 def t09_viaggio_moves():
     group("0.9 VIAGGIO: energy, HALF / DOUBLE, BREAK, OUT with a fade, THIN / SWELL, DROP, RISER, FILL, INDIETRO, SALVA VIAGGIO")
-    # the energy: K1 in VIAGGIO mode; 100 = velocity +20, 0 = -20; the glide over the phrase
+    # the energy: K1 on the MOSSE (GLO 3); 100 = velocity +20, 0 = -20; the glide over the phrase
     def energy_run(e):
         s = Script()
         t = vg_on(s, 100)
@@ -3949,7 +3968,7 @@ def t09_viaggio_moves():
     t = vg_track_in_now(s, t, 0)
     t = vg_track_in_now(s, t, 1)
     t = vg_bars4(s, t)
-    s.tap_key(t, wk(0))                                      # track 1 selected
+    vg_tap(s, t, 0)                                          # track 1 selected
     s.tap_btn(t + 100, PLAY); t0 = t + 100
     s.tap_key(t0 + 200, bk(1))
     s.at(t0 + 4 * BAR_MS + 100, "dump", 0)
@@ -3957,7 +3976,7 @@ def t09_viaggio_moves():
     check(log.viaggio[0]["mute"] == 0xFFFE and log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and not log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10) and log.notes(ch=1, after=t0 + 5 * BAR_MS + 10),
           "black 2 alone: one bar with track 1 alone, then track 2 is back (%04X)" % log.viaggio[0]["mute"])
-    # OUT: the track fades through its last bar, is muted at the boundary; SEL + key again: IN cancels the OUT
+    # OUT: the track fades through its last bar, is muted at the boundary; queued again: IN cancels the OUT
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0)
@@ -3971,16 +3990,16 @@ def t09_viaggio_moves():
     s.at(t, "dump", 1)
     t = vg_queue_track(s, t + 50, 1)                         # ... and OUT: replaces it
     s.at(t, "dump", 1)
-    s.tap_btn(t + 50, OCT_UP)                                # cancelled: nothing queued
+    s.tap_key(t + 50, bk(9))                                 # cancelled: nothing queued
     s.at(t + 150, "dump", 1)
     log = run(s, t0 + 5 * BAR_MS)
     v = log.viaggio
-    check(v[0]["queue"] == ["OUT/1/0"] and log.states[0]["msg"] == "QUEUED: T2 OUT", "SEL + key 2: OUT queued")
+    check(v[0]["queue"] == ["OUT/1/0"] and log.states[0]["msg"] == "QUEUED: T2 OUT", "track 2 queued: OUT")
     vel = [x[2] for x in log.notes(ch=1, after=t0 + 3 * BAR_MS, before=t0 + 4 * BAR_MS)]
     check(len(vel) >= 3 and vel[0] > vel[-1] and vel[0] - vel[-1] >= 30, "the last bar fades: %s" % vel)
     check(v[1]["mute"] == 2 and v[1]["states"][:2] == "IO" and not log.notes(ch=1, after=t0 + 4 * BAR_MS + 10), "at the boundary track 2 is OUT, silent")
     check(v[2]["queue"] == ["IN/1/255"] and v[3]["queue"] == ["IN/1/255"] and v[4]["queue"] == [],
-          "SEL + key on an OUT track: IN; again: still IN (a proposal is not an OUT); OCT+: empty (%s %s %s)" % (v[2]["queue"], v[3]["queue"], v[4]["queue"]))
+          "an OUT track queued: IN; again: still IN (a proposal is not an OUT); black 10: empty (%s %s %s)" % (v[2]["queue"], v[3]["queue"], v[4]["queue"]))
     # THIN takes the two tracks with the highest ladder energy (never the last), SWELL brings back two; DROP: everything in, energy 100
     s = Script()
     t = vg_on(s, 100)
@@ -4018,7 +4037,7 @@ def t09_viaggio_moves():
     n7 = len(log.notes(ch=0, after=t0 + 7 * BAR_MS - 10, before=t0 + 8 * BAR_MS - 10))
     n6 = len(log.notes(ch=0, after=t0 + 6 * BAR_MS - 10, before=t0 + 7 * BAR_MS - 10))
     check(n7 > n6, "FILL: the last bar has more hits than the one before (%d vs %d)" % (n7, n6))
-    # INDIETRO: OCT- queues BACK; at the boundary the phrase before comes back (track 2 out again)
+    # INDIETRO: black 9 queues BACK (0.9-0.16: OCT-); at the boundary the phrase before comes back (track 2 out again)
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0)
@@ -4026,9 +4045,9 @@ def t09_viaggio_moves():
     s.tap_btn(t, PLAY); t0 = t
     t = vg_queue_track(s, t0 + 200, 1)                       # phrase 2: track 2 in
     s.at(t0 + 4 * BAR_MS + 100, "dump", 0)
-    s.tap_btn(t0 + 4 * BAR_MS + 300, OCT_DOWN)               # BACK 1
+    s.tap_key(t0 + 4 * BAR_MS + 300, bk(8))                  # BACK 1
     s.at(t0 + 4 * BAR_MS + 400, "dump", 0)
-    s.tap_btn(t0 + 4 * BAR_MS + 500, OCT_DOWN)               # BACK 2? only one phrase in the trail: stays 1
+    s.tap_key(t0 + 4 * BAR_MS + 500, bk(8))                  # BACK 2? only one phrase in the trail: stays 1
     s.at(t0 + 4 * BAR_MS + 600, "dump", 0)
     s.at(t0 + 8 * BAR_MS + 100, "dump", 0)
     s.press(t0 + 8 * BAR_MS + 300, SAVE); s.tap_key(t0 + 8 * BAR_MS + 330, wk(15)); s.release(t0 + 8 * BAR_MS + 400, SAVE)   # SALVA VIAGGIO
@@ -4037,21 +4056,22 @@ def t09_viaggio_moves():
     v = log.viaggio
     check(v[0]["states"][:2] == "II" and v[0]["trail"] == 1, "phrase 2: both in, one phrase in the trail")
     check(v[1]["queue"] == ["BACK/1/0"] and log.states[1]["msg"] == "QUEUED: BACK 1 PHRASE" and v[2]["queue"] == ["BACK/1/0"],
-          "OCT-: BACK 1 queued; again: still 1, the trail has no more (%s)" % v[2]["queue"])
+          "black 9: BACK 1 queued; again: still 1, the trail has no more (%s)" % v[2]["queue"])
     check(v[3]["states"][:2] == "IO" and v[3]["mute"] == 2 and v[3]["trail"] == 1, "at the boundary the first phrase is back: track 2 out (%s, trail %d)" % (v[3]["states"][:2], v[3]["trail"]))
     check(v[4]["song"] == 1 and log.states[4]["msg"].startswith("JOURNEY SAVED: 1 SCENES"), "SAVE + white 16: the trail becomes scenes and the song (%s)" % log.states[4]["msg"])
 
 
 def t09_viaggio_loop_genre_remote():
     group("0.9 VIAGGIO: LOOP records a phrase by hand, GENRE / KEY / PROG queued, the remote on channel 13, the SEED")
-    # LOOP: black 10 on the selected track; from the boundary the keys play and record on it; the next boundary closes it
+    # LOOP (0.17: the remote's CC 26 or the grid; 0.9-0.16 black 10 in VIAGGIO mode) on the selected track; from the
+    # boundary the keys play and record on it; the next boundary closes it
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0)
     t = vg_bars4(s, t)
-    s.tap_key(t, wk(1)); t += 100                            # track 2: a proposal, and it is selected
+    vg_tap(s, t, 1); t += 100                                # track 2: a proposal, and it is selected
     s.tap_btn(t, PLAY); t0 = t
-    s.tap_key(t0 + 200, bk(9))                               # LOOP
+    vg_cc(s, t0 + 200, 26)                                   # LOOP
     s.at(t0 + 300, "dump", 1)
     s.at(t0 + 4 * BAR_MS + 100, "dump", 1)
     s.tap_key(t0 + 4 * BAR_MS + int(2 * STEP_MS), wk(4))     # played by hand in the phrase: steps 3 and 11 (two bars in: steps 35 and 43)
@@ -4076,9 +4096,11 @@ def t09_viaggio_loop_genre_remote():
     looped = moments(log.notes(ch=1, after=t0 + 8 * BAR_MS, before=t0 + 12 * BAR_MS))
     check(len(played) == 4 and len(looped) == 4 and all(near(b - a, 4 * BAR_MS, STEP_MS) for a, b in zip(played, looped)),
           "phrase 3 plays the four notes where they were played (%s -> %s)" % ([x - t0 for x in played], [x - t0 for x in looped]))
-    # GENRE (HOME 6/6 K3), KEY (K4) and PROG (PRESETS) queued while it plays, applied at the boundary; stopped: at once
+    # GENRE (GLO 3 K3), KEY (K4) and PROG (PRESETS on the MOSSE, the HARMONY on) queued while it plays, applied at the
+    # boundary; stopped: at once
     s = Script()
-    t = vg_on(s, 100)
+    t = harm_knobs(s, 100, [(K1, 1)])                              # the HARMONY on (0.17: off, PRESETS makes the progression READY)
+    t = vg_on(s, t)
     t = vg_track_in_now(s, t, 0)
     t = vg_bars4(s, t)
     s.tap_btn(t, PLAY); t0 = t
@@ -4091,14 +4113,14 @@ def t09_viaggio_loop_genre_remote():
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     v = log.viaggio
-    check(v[0]["queue"] == ["GENRE/1/0", "KEY/2/0", "PROG/1/0"] and v[0]["genre"] == 0 and log.states[0]["harm"][0] == 0,
+    check(v[0]["queue"] == ["GENRE/1/0", "KEY/2/0", "PROG/1/0"] and v[0]["genre"] == 0 and log.states[0]["harm"][:2] == [1, 0],
           "GENRE HARDTECHNO, KEY D, PROG 2 queued; nothing changed yet (%s)" % v[0]["queue"])
     check(v[1]["genre"] == 1 and log.states[1]["harm"] == [1, 1, 1, 0] and v[1]["queue"] == [],
           "at the boundary: HARDTECHNO (0.10: one genre, the library's), the harmony on with progression 2 (%s %s)" % (v[1]["genre"], log.states[1]["harm"]))
     check(v[2]["genre"] == 2 and log.states[2]["msg"] == "GENRE DUB TECHNO", "stopped, K3: the genre changes at once (%s)" % log.states[2]["msg"])
     # the remote on channel 13 (SAVE + K2: OFF / 14 / 13 + 14): CC 1-16 a tap on the track, 17-27 the moves, 32 = queue track v / 8
     s = Script()
-    t = vg_on(s, 100)
+    t = vg_on(s, 100, remote=False)
     s.raw(t, "midi 0xBC 1 127")                              # channel 13 with the remote on 14 only: a track channel, nothing
     s.at(t + 50, "dump", 0)
     s.press(t + 100, SAVE); s.enc(t + 130, K2, 1); s.release(t + 200, SAVE)
@@ -4114,7 +4136,7 @@ def t09_viaggio_loop_genre_remote():
     check(v[0]["states"] == "E" * 16 and v[1]["states"].startswith("P") and log.states[1]["msg"].startswith("T1 KICK P2"),
           "channel 13 does nothing until SAVE + K2 says 13 + 14; then CC 1 taps track 1 (%s)" % log.states[1]["msg"])
     check(v[2]["queue"] == ["IN/1/255", "FILL/0/0"] and v[3]["queue"] == ["IN/1/255"], "CC 32 = 8 queues track 2, CC 17 a FILL, CC 29 cancels it (%s)" % v[2]["queue"])
-    # the SEED: SEL + PLAY while stopped throws the dice on genre, key and tempo
+    # the SEED: SEL + PLAY on the MOSSE while stopped throws the dice on genre, key and tempo
     s = Script()
     t = vg_on(s, 100)
     s.press(t, SEL); s.tap_btn(t + 30, PLAY); s.release(t + 100, SEL)
@@ -4139,7 +4161,7 @@ def t09_profiles_persist():
     s.tap_btn(t + 400, SAVE)
     log = run(s, t + 1500, flash)
     v = log.viaggio
-    check(v[0]["on"] == 1 and log.states[0]["msg"] == "PROFILE PALCO", "SAVE + K4: PALCO, VIAGGIO on at once (%s)" % log.states[0]["msg"])
+    check(v[0]["on"] == 1 and log.states[0]["msg"] == "PROFILE PALCO", "SAVE + K4: PALCO, the MOSSE at once (%s)" % log.states[0]["msg"])
     check(log.states[1]["msg"].startswith("NOT IN THIS PROFILE") and v[1]["states"] == "E" * 16, "SEQ + a key: refused (%s)" % log.states[1]["msg"])
     check(v[2]["states"].startswith("I") and v[2]["target"] == 80, "track 1 in, energy 80 (%s)" % v[2]["target"])
     check(len(log.saves) == 1 and "settings saved" in log.text, "the project and the settings are saved")
@@ -4149,7 +4171,7 @@ def t09_profiles_persist():
     log = run(s, 300 + BAR_MS, flash)
     v = log.viaggio
     check(v[0]["on"] == 1 and v[0]["states"].startswith("I") and v[0]["target"] == 80 and v[0]["energy"] == 80 and v[0]["bars"] == 16,
-          "after the power cycle: VIAGGIO on, track 1 IN, energy 80, 16 bars (%s)" % v[0])
+          "after the power cycle: the MOSSE, track 1 IN, energy 80, 16 bars (%s)" % v[0])
     check(log.notes(ch=0, after=300), "and the kick plays")
     s = Script()
     s.press(100, SAVE); s.enc(130, K4, -1); s.release(200, SAVE)     # FULL again
@@ -4167,7 +4189,7 @@ def t09_grid_viaggio():
     t = view(s, 200, GC_VPERF)                               # PERF (the grid starts in STEP)
     t = view(s, t, GC_VPERF)                                 # SONG
     t = view(s, t, GC_VPERF)                                 # VIAGGIO
-    s.pad(t, 0, 1); t += 100                                 # track 1: a proposal (VIAGGIO switches on)
+    s.pad(t, 0, 1); t += 100                                 # track 1: a proposal (0.17: the journey always runs)
     s.at(t, "dump", 0)
     s.pad(t, 1, 2); t += 100                                 # track 2 queued
     s.pad(t, 0, 3); t += 100                                 # FILL
@@ -4183,7 +4205,7 @@ def t09_grid_viaggio():
     t = view(s, t, GC_VPERF)                                 # PERF again (no regista: no REGIA view)
     log = run(s, t + 500)
     v = log.viaggio
-    check(v[0]["on"] == 1 and v[0]["states"].startswith("P") and log.states[0]["msg"].startswith("T1 KICK P2"), "a tap on the track row: VIAGGIO on, a proposal (%s)" % log.states[0]["msg"])
+    check(v[0]["journey"] == 1 and v[0]["states"].startswith("P") and log.states[0]["msg"].startswith("T1 KICK P2"), "a tap on the track row: a proposal (%s)" % log.states[0]["msg"])
     check(v[1]["queue"] == ["IN/1/255"] and v[1]["target"] == 53 and v[1]["energy"] == 53, "row 3 queues track 2, FILL cancelled by pad 16 of row 4, row 5 sets the energy (%s %s)" % (v[1]["queue"], v[1]["target"]))
     check(v[2]["queue"] == [] and v[2]["states"][:2] == "PI" and log.states[2]["msg"] == "NOW: DONE", "row 1 (NOW) while stopped: track 2 is in (%s)" % v[2]["states"][:2])
     check(log.states[3]["msg"] == "THE TRAIL IS SHORTER", "row 8: no phrase to go back to yet (%s)" % log.states[3]["msg"])
@@ -4212,7 +4234,7 @@ def t09_grid_viaggio():
 
 
 def t09_review_fixes():
-    group("0.9: what the review found: HALF on the grid, a BREAK in a BREAK, VIAGGIO off mid-move, the LOOP's patterns and settings, BACK + NOW, FILL late, a save in a BREAK")
+    group("0.9: what the review found: HALF on the grid, a BREAK in a BREAK, the studio mid-move (0.17), the LOOP's patterns and settings, BACK + NOW, FILL late, a save in a BREAK")
     def onsets(log, a, b):
         return [round((x[0] - a) / STEP_MS, 1) for x in log.notes(ch=0, after=a - 5, before=b)]
     # HALF: the kicks stay on the grid (bar starts), and the phrase after is on the grid again
@@ -4240,9 +4262,9 @@ def t09_review_fixes():
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0)
-    s.tap_key(t, wk(1)); t += 100                            # T2: a proposal
+    vg_tap(s, t, 1); t += 100                                # T2: a proposal
     t = vg_bars4(s, t)
-    s.tap_key(t, wk(0)); t += 100
+    vg_tap(s, t, 0); t += 100
     s.tap_btn(t, PLAY); t0 = t
     s.tap_key(t0 + 200, bk(1))                               # BREAK 1 bar, T1 stays ...
     t = vg_queue_track(s, t0 + 300, 1)                       # ... then T2 IN
@@ -4252,7 +4274,8 @@ def t09_review_fixes():
     v = log.viaggio
     check(v[0]["queue"] == [] and v[0]["states"][:2] == "II" and v[1]["mute"] == 0 and not log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and log.notes(ch=1, after=t0 + 5 * BAR_MS + 10), "a track that enters during a BREAK waits for its end (%04X -> %04X)" % (v[0]["mute"], v[1]["mute"]))
-    # VIAGGIO off (SEL + PERF) in a HALF phrase, in a BREAK, with an OUT fading: everything is let go
+    # 0.17: no VIAGGIO off any more: the studio (SEL + GLO) in a HALF phrase with an OUT fading lets the journey go on:
+    # HALF for its phrase, track 2 out at the boundary, the phrase after on the grid again
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0); t = vg_track_in_now(s, t, 1)
@@ -4260,13 +4283,15 @@ def t09_review_fixes():
     s.tap_btn(t, PLAY); t0 = t
     s.tap_key(t0 + 200, bk(4))                               # HALF
     t = vg_queue_track(s, t0 + 300, 1)                       # T2 OUT (fades in bar 4)
-    vg_off(s, t0 + 3 * BAR_MS + 300)                        # off in the last bar (0.12: SEL + GLO held)
+    vg_studio(s, t0 + 3 * BAR_MS + 300)                      # the studio in the last bar
     s.at(t0 + 5 * BAR_MS + 100, "dump", 0)
-    log = run(s, t0 + 6 * BAR_MS)
-    vel = [x[2] for x in log.notes(ch=1, after=t0 + 5 * BAR_MS, before=t0 + 6 * BAR_MS)]
-    vel1 = [x[2] for x in log.notes(ch=1, after=t0 + BAR_MS, before=t0 + 2 * BAR_MS)]   # (0.11: the same bar of its pattern: a proposal may be two bars long)
-    check(log.viaggio[0]["speed"] == 0 and log.viaggio[0]["on"] == 0 and onsets(log, t0 + 5 * BAR_MS, t0 + 6 * BAR_MS)[:2] == [0.0, 4.0]
-          and vel == vel1, "VIAGGIO off: no HALF, no fade left behind (%s, %s)" % (log.viaggio[0]["speed"], vel[:4]))
+    s.at(t0 + 8 * BAR_MS + 100, "dump", 0)
+    log = run(s, t0 + 9 * BAR_MS)
+    v = log.viaggio
+    check(v[0]["on"] == 0 and v[0]["journey"] == 1 and v[0]["speed"] == -1 and v[0]["mute"] == 2 and not log.notes(ch=1, after=t0 + 4 * BAR_MS + 10)
+          and onsets(log, t0 + 4 * BAR_MS, t0 + 5 * BAR_MS)[:2] == [0.0, 8.0],
+          "the studio mid-move: HALF plays its phrase, track 2 went out at the boundary (%s, %04X)" % (v[0]["speed"], v[0]["mute"]))
+    check(v[1]["speed"] == 0 and onsets(log, t0 + 8 * BAR_MS, t0 + 9 * BAR_MS)[:3] == [0.0, 4.0, 8.0], "... and the phrase after is on the grid again (%s)" % onsets(log, t0 + 8 * BAR_MS, t0 + 9 * BAR_MS)[:3])
     # a LOOP's patterns are never wiped under the playing pattern; its settings go away with it (BACK, SWAP) and come
     # back with it; a loop nothing was played into is forgotten
     s = Script()
@@ -4275,10 +4300,10 @@ def t09_review_fixes():
     t = vg_bars4(s, t)
     s.at(t, "dump", 0)
     s.tap_btn(t, PLAY); t0 = t
-    s.tap_key(t0 + 200, bk(9))                               # LOOP T1 (phrase 2: patterns 3)
+    vg_cc(s, t0 + 200, 26)                                   # LOOP T1 (phrase 2: patterns 3)
     s.tap_key(t0 + 4 * BAR_MS + int(2 * STEP_MS), wk(0))     # one kick played by hand
     s.at(t0 + 8 * BAR_MS + 100, "dump", 0)
-    s.tap_btn(t0 + 8 * BAR_MS + 300, OCT_DOWN); s.tap_btn(t0 + 8 * BAR_MS + 500, OCT_DOWN)   # BACK 2: phrase 1 again, with its own length
+    s.tap_key(t0 + 8 * BAR_MS + 300, bk(8)); s.tap_key(t0 + 8 * BAR_MS + 500, bk(8))   # BACK 2: phrase 1 again, with its own length
     s.at(t0 + 12 * BAR_MS + 100, "dump", 0)
     log = run(s, t0 + 13 * BAR_MS)
     d = log.dumps
@@ -4291,7 +4316,7 @@ def t09_review_fixes():
     t = vg_track_in_now(s, t, 0)
     t = vg_bars4(s, t)
     s.tap_btn(t, PLAY); t0 = t
-    s.tap_key(t0 + 200, bk(9))
+    vg_cc(s, t0 + 200, 26)                                   # LOOP
     s.at(t0 + 8 * BAR_MS + 100, "dump", 0)
     log = run(s, t0 + 8 * BAR_MS + 200)
     check(log.states[0]["msg"] == "LOOP: NOTHING PLAYED ON T1" and log.dumps[0]["pat"] == 2 and log.dumps[0]["length"] in (16, 32, 64) and log.viaggio[0]["states"][0] == "I",
@@ -4303,7 +4328,7 @@ def t09_review_fixes():
     t = vg_bars4(s, t)
     s.tap_btn(t, PLAY); t0 = t
     t = vg_queue_track(s, t0 + 200, 1)
-    s.tap_btn(t0 + 4 * BAR_MS + 300, OCT_DOWN); s.tap_key(t0 + 4 * BAR_MS + 400, bk(10))
+    s.tap_key(t0 + 4 * BAR_MS + 300, bk(8)); s.tap_key(t0 + 4 * BAR_MS + 400, bk(10))
     s.at(t0 + 5 * BAR_MS + 100, "dump", 0)
     s.tap_key(t0 + 7 * BAR_MS + 100, bk(0))                  # FILL in the last bar
     log = run(s, t0 + 8 * BAR_MS)
@@ -4983,31 +5008,32 @@ def t010_keys():
 def t010_viaggio2():
     group("0.10 VIAGGIO: every genre, the roles and channels you choose, browsing the proposals, moves at the bar or the beat")
     BAR = 16 * STEP_MS
-    # the role (K3) and channel (K4) of a track in VIAGGIO mode; a tap proposes that role; ALG browses the proposals
+    # the role (0.17: HOME 4 K2; 0.10-0.16 K3 in VIAGGIO mode) of a track; a tap of the grid's VIAGGIO view proposes that
+    # role, held: the dice; a tap on a PROPOSED track goes through its proposals (0.10-0.16: ALG in VIAGGIO mode)
     s = Script()
-    t = vg_on(s, 100)
-    s.enc(t, K3, 5); t += 50                                       # role BASS
-    s.enc(t, K4, 2); t += 50                                       # channel 3
-    s.tap_key(t, wk(0)); t += 100                                  # a proposal
+    t = home_page(s, 100, 3, [(K2, 5)])                            # role BASS
+    s.raw(t, "attach")
+    t = view(s, t + 100, GC_VPERF); t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)   # PERF, SONG, VIAGGIO
+    s.pad(t, 0, 1); t += 100                                       # a proposal
     s.at(t, "dump", 0)
-    s.tap_key(t, wk(0), hold=600); t += 700                        # held: another one (the dice)
-    s.tap_key(t, wk(0), hold=600); t += 700                        # and a third
+    s.pad(t, 0, 1, hold=600); t += 700                             # held: another one (the dice)
+    s.pad(t, 0, 1, hold=600); t += 700                             # and a third
     s.at(t, "dump", 0)
-    s.enc(t + 50, E_ALG, -1)                                       # ALG: the one before
+    s.pad(t + 50, 0, 1)                                            # a tap: the one before
     s.at(t + 150, "dump", 0)
     log = run(s, t + 250)
     c = cfgs(log)
-    check(c[0]["role"] == 5 and log.states[0]["msg"].startswith("T1 BASS P2"), "K3 BASS, a tap: T1 BASS P2 ... (%s)" % log.states[0]["msg"])
-    check(log.states[1]["msg"].startswith(("T1 BASS P4 (3/3)", "T1 RUMBLE P4 (3/3)")), "the key held twice: three proposals, P4 the last (0.11: a dice of HARDTECHNO plays its RUMBLE for the BASS) (%s)" % log.states[1]["msg"])
-    check(log.states[2]["msg"].startswith("T1 BASS P3 (2/3)"), "ALG back: P3, 2 of 3 (%s)" % log.states[2]["msg"])
+    check(c[0]["role"] == 5 and log.states[0]["msg"].startswith("T1 BASS P2"), "role BASS, a tap: T1 BASS P2 ... (%s)" % log.states[0]["msg"])
+    check(log.states[1]["msg"].startswith(("T1 BASS P4 (3/3)", "T1 RUMBLE P4 (3/3)")), "the pad held twice: three proposals, P4 the last (0.11: a dice of HARDTECHNO plays its RUMBLE for the BASS) (%s)" % log.states[1]["msg"])
+    check(log.states[2]["msg"].startswith("T1 BASS P3 (2/3)"), "a tap: P3, 2 of 3 (%s)" % log.states[2]["msg"])
     check(log.viaggio[2]["states"][0] == "P" and log.viaggio[2]["patterns"][0] == "1", "the track is PROPOSED, the playing pattern still 1 (%s %s)" % (log.viaggio[2]["states"][0], log.viaggio[2]["patterns"][0]))
     s = Script()
-    t = vg_on(s, 100)
-    s.enc(t, K4, 2); t += 50
+    t = home_page(s, 100, 0, [(K1, 2)])                            # channel 3 (0.10-0.16: K4 in VIAGGIO mode)
+    t = vg_on(s, t)
     t = vg_track_in_now(s, t, 0)
     s.tap_btn(t, PLAY); p0 = t
     log = run(s, p0 + 300)
-    check(log.notes(ch=2, after=p0) and not log.notes(ch=0, after=p0), "K4: the track plays on channel 3")
+    check(log.notes(ch=2, after=p0) and not log.notes(ch=0, after=p0), "HOME 1 K1: the track plays on channel 3")
     # the grid: SHIFT + a track pad of the VIAGGIO view = its next role
     s = Script()
     s.raw(100, "attach")
@@ -5016,35 +5042,36 @@ def t010_viaggio2():
     s.at(t, "dump", 1)
     log = run(s, t + 100)
     check(cfgs(log)[0]["role"] == 2 and log.states[0]["msg"] == "T2 ROLE SNARE", "grid SHIFT + track pad twice: T2 ROLE SNARE (%s)" % log.states[0]["msg"])
-    # MOVES AT (K2): BAR: SEL + key IN lands at the next bar, not the phrase; BEAT: at the next beat
+    # MOVES AT (0.17: ALG on the MOSSE; 0.10-0.16 K2 in VIAGGIO mode): BAR: an IN lands at the next bar, not the
+    # phrase; BEAT: at the next beat
     s = Script()
     t = vg_on(s, 100)
-    s.enc(t, K2, 1); t += 50                                       # BAR
+    s.enc(t, E_ALG, 1); t += 50                                    # BAR
     s.at(t, "dump", 0); t += 20
     t = vg_track_in_now(s, t, 0)
     s.tap_btn(t, PLAY); p0 = t
-    s.tap_key(p0 + 200, wk(1)); vg_queue_track(s, p0 + 300, 1)     # track 2: a proposal, IN
+    vg_tap(s, p0 + 200, 1); vg_queue_track(s, p0 + 300, 1)         # track 2: a proposal, IN
     s.at(p0 + int(BAR) + 200, "dump", 1)
     log = run(s, p0 + int(BAR) + 300)
     v = log.viaggio
-    check(log.states[0]["msg"] == "MOVES AT EVERY BAR", "K2: MOVES AT EVERY BAR (%s)" % log.states[0]["msg"])
+    check(log.states[0]["msg"] == "MOVES AT EVERY BAR", "ALG: MOVES AT EVERY BAR (%s)" % log.states[0]["msg"])
     check(v[1]["states"][:2] == "II" and v[1]["queue"] == [], "track 2 is IN after one bar (not sixteen) (%s %s)" % (v[1]["states"][:2], v[1]["queue"]))
     s = Script()
     t = vg_on(s, 100)
-    s.enc(t, K2, 2); t += 50                                       # BEAT
+    s.enc(t, E_ALG, 2); t += 50                                    # BEAT
     t = vg_track_in_now(s, t, 0)
     s.tap_btn(t, PLAY); p0 = t
-    s.tap_key(p0 + 200, wk(1)); vg_queue_track(s, p0 + 300, 1)
+    vg_tap(s, p0 + 200, 1); vg_queue_track(s, p0 + 300, 1)
     s.at(p0 + int(8 * STEP_MS), "dump", 1)
     log = run(s, p0 + int(8 * STEP_MS) + 100)
     check(log.viaggio[0]["states"][:2] == "II", "MOVES AT THE BEAT: track 2 is IN within two beats (%s)" % log.viaggio[0]["states"][:2])
-    # every genre of the library is a VIAGGIO genre: HOME 8 K3 walks all 25 (0.16: the merengue last), each with a kick proposal
+    # every genre of the library is a VIAGGIO genre: GLO 3 K3 walks all 25 (0.16: the merengue last), each with a kick proposal
     s = Script()
     t = vg_on(s, 100)
     for g in range(24):
         t = viaggio_knobs(s, t, [(K3, 1)])
     s.at(t, "dump", 0)
-    s.tap_key(t + 50, wk(0))
+    vg_tap(s, t + 50, 0)
     s.at(t + 150, "dump", 0)
     log = run(s, t + 250)
     check(log.viaggio[0]["genre"] == 24 and "MERENGUE" in log.states[0]["msg"], "K3 x 24: MERENGUE, the last genre (%s)" % log.states[0]["msg"])
@@ -5053,8 +5080,8 @@ def t010_viaggio2():
     t = vg_on(s, 100)
     for g in range(22):
         t = viaggio_knobs(s, t, [(K3, 1)])
-    s.enc(t, K3, 7); t += 50                                       # role ARP: the cowbell riff
-    s.tap_key(t, wk(0)); t += 100
+    t = home_page(s, t, 3, [(K2, 7)])                              # role ARP: the cowbell riff
+    vg_tap(s, t, 0); t += 100
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     check(log.states[0]["msg"].startswith("T1 LEAD P2") and log.dumps[0]["on"].count("x") == 0, "PHONK, role ARP: a proposal of its LEAD, the cowbell riff (%s)" % log.states[0]["msg"])
@@ -5063,8 +5090,8 @@ def t010_viaggio2():
     t = vg_on(s, 100)
     for g in range(20):
         t = viaggio_knobs(s, t, [(K3, 1)])
-    s.enc(t, K3, 6); t += 50                                       # role CHORD
-    s.tap_key(t, wk(0)); t += 100
+    t = home_page(s, t, 3, [(K2, 6)])                              # role CHORD
+    vg_tap(s, t, 0); t += 100
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     check(log.states[0]["msg"].startswith("T1 PAD P2"), "UK DRILL, role CHORD: a proposal of its PAD (%s)" % log.states[0]["msg"])
@@ -5665,7 +5692,7 @@ def t011_in_time_after():
 # the sessions of tests/sagga_explore.py that found a track out of time (the explorer's own words for the gestures)
 EXPLORER_SESSIONS = [
     ("vuoto, in play", ["HOME 1 K2 +1", "HOME 1 SEL+K4 +1", "SEQ+nero 1", "SEQ 6 K1 -1"]),   # a dice put back after a length at the bar
-    ("VIAGGIO in play", ["EDIT+bianco 15", "tocca SAVE", "FX K2 +1", "LFO 2 PRESETS -1", "HOME 5 K3 -1", "ARP+bianco 2",
+    ("MOSSE in play", ["EDIT+bianco 15", "tocca SAVE", "FX K2 +1", "LFO 2 PRESETS -1", "HOME 5 K3 -1", "ARP+bianco 2",
                          "SEL+nero 10", "ARP+GLO", "HOME 2 ALG +1", "HOME 5 SELECT +1", "SEQ+SEL+bianco 3", "SEQ 3 SEL+K1 +1",
                          "SEL+bianco 9", "SEL+FX", "ENV+SAVE", "ARP+bianco 5", "SEQ 5 SEL+SELECT +1", "ENV 4 SELECT +1",
                          "HOME 1 K3 -1", "GLO 3 SEL+PRESETS -1", "tocca OCT+", "SAVE+OCT-", "ARP 2 PRESETS -1",
@@ -5677,12 +5704,12 @@ EXPLORER_SESSIONS = [
     ("note lunghe e loop fra due step, in play", ["FX+nero 4", "SEQ 5 SELECT -1", "SEL+FX, poi tieni bianco 3 + bianco 6",
                                                   "ARP 6 K2 -1", "tocca PLAY", "SEL+PLAY"]),   # STOP in a DJ LOOP, CONTINUE
     ("progressione USER, FOLLOW RETRIG, 3+3+2, in play", ["SEQ+nero 1", "HOME 4 K1 +1", "SEQ 6 SEL+K2 +1"]),   # a dice put back over TAPE
-    ("VIAGGIO in play", ["SAVE, SAVE (salva)", "GLO 3 ALG +1", "SEL+SAVE"]),   # RELOAD of a track whose loop VIAGGIO changed
+    ("MOSSE in play", ["SAVE, SAVE (salva)", "GLO 3 ALG +1", "SEL+SAVE"]),   # RELOAD of a track whose loop VIAGGIO changed
     ("vuoto, fermo", ["HOME 2 K1 +1", "SEL+PLAY"]),                               # a direction changed while stopped, CONTINUE
     ("vuoto, fermo", ["SEQ+SEL+nero 2", "HOME 5 ALG +1", "SEQ 2 SEL+K1 -1", "SEL+PLAY"]),   # settings put back while stopped, CONTINUE
     # 0.12: the new pages and gestures in a row
     ("BREAK sulla traccia 1, band in play", ["ARP+nero 1", "ARP+bianco 5", "SEQ 7 K1 +1", "ARP+nero 6", "SEQ+nero 1", "ARP+nero 7", "tieni REC", "SEL+PLAY"]),
-    ("VIAGGIO in play", ["SEL+GLO", "EDIT+bianco 3", "SEL+GLO", "GLO+SEL+OCT+", "SEL, tieni GLO", "tocca PLAY", "SEL+PLAY"]),
+    ("MOSSE in play", ["SEL+GLO", "EDIT+bianco 3", "SEL+GLO", "GLO+SEL+OCT+", "SEL, tieni GLO", "tocca PLAY", "SEL+PLAY"]),
 ]
 
 
@@ -5845,38 +5872,35 @@ def t012_blocks():
 
 
 def t012_studio_viaggio():
-    group("0.12: studio and VIAGGIO on the same tracks - SEL+GLO tap = the panel, the journey goes on; held = off; hand edits set the states")
+    group("0.12 / 0.17: the studio and the journey on the same tracks - SEL+GLO = the MOSSE (PERF page 3) and back, the journey always runs; hand edits set the states")
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0); t = vg_track_in_now(s, t, 1)
     s.at(t, "dump", 0)
     s.tap_btn(t, PLAY); t0 = t
-    t = vg_on(s, t0 + 300)                                   # SEL + GLO again: the studio's keyboard, the journey on
+    t = vg_studio(s, t0 + 300)                               # SEL + GLO again: the studio's keyboard, the journey on
     s.at(t, "dump", 0)
-    s.tap_key(t + 50, wk(8)); t += 150                       # a white key: a step of track 1, not a queue
+    s.tap_key(t + 50, wk(8)); t += 150                       # a white key: a step of track 1, not a mute
     s.at(t, "dump", 0)
     s.press(t, GLO); s.tap_key(t + 30, wk(1)); s.release(t + 100, GLO); t += 160   # GLO + white 2: track 2 muted by hand: OUT
     s.at(t, "dump", 0)
-    t = vg_on(s, t + 50)                                     # SEL + GLO: VIAGGIO's keyboard again, the same journey
+    t = vg_on(s, t + 50, remote=False)                       # SEL + GLO: the MOSSE again, the same journey
     s.at(t, "dump", 0)
     s.at(t0 + BAR_MS + 200, "dump", 0)                       # the phrase went on meanwhile
-    t = vg_off(s, t0 + BAR_MS + 300)                         # held: the journey off
-    s.at(t, "dump", 0)
-    log = run(s, t + 100)
+    log = run(s, t0 + BAR_MS + 300)
     v = log.viaggio
     d = log.dumps
-    check(v[0]["on"] == 1 and v[0]["journey"] == 1 and v[0]["states"][:2] == "II", "VIAGGIO on: the panel and the journey (%s %s)" % (v[0]["on"], v[0]["states"][:2]))
-    check(v[1]["on"] == 0 and v[1]["journey"] == 1 and log.states[1]["msg"].startswith("STUDIO: THE JOURNEY GOES ON"), "SEL+GLO tap: the studio's keyboard, the journey goes on (%s)" % log.states[1]["msg"])
+    check(v[0]["on"] == 1 and v[0]["journey"] == 1 and v[0]["states"][:2] == "II", "the MOSSE: the panel and the journey (%s %s)" % (v[0]["on"], v[0]["states"][:2]))
+    check(v[1]["on"] == 0 and v[1]["journey"] == 1 and log.states[1]["msg"].startswith("STUDIO"), "SEL+GLO tap: the studio's keyboard, the journey goes on (%s)" % log.states[1]["msg"])
     check(d[2]["hash"] != d[1]["hash"] and v[2]["states"][:2] == "II" and v[2]["journey"] == 1, "a white key writes a step of the track, the states stay (%s)" % v[2]["states"][:2])
     check(v[3]["states"][:2] == "IO" and v[3]["mute"] == 2, "GLO + white 2 mutes track 2 by hand: its state is OUT (%s)" % v[3]["states"][:2])
-    check(v[4]["on"] == 1 and v[4]["journey"] == 1 and v[4]["states"][:2] == "IO", "SEL+GLO tap again: VIAGGIO's keyboard, the same journey (%s)" % v[4]["states"][:2])
+    check(v[4]["on"] == 1 and v[4]["journey"] == 1 and v[4]["states"][:2] == "IO" and log.states[4]["msg"].startswith("MOSSE"), "SEL+GLO tap again: the MOSSE, the same journey (%s)" % v[4]["states"][:2])
     check(v[5]["bar"] >= 1, "the phrase went on meanwhile (bar %s)" % v[5]["bar"])
-    check(v[6]["on"] == 0 and v[6]["journey"] == 0 and log.states[6]["msg"] == "VIAGGIO OFF", "SEL+GLO held 0.6 s: the journey off (%s)" % log.states[6]["msg"])
     # the states follow the hand: an EMPTY track written in the studio while the journey runs is IN; cleared, EMPTY again
     s = Script()
     t = vg_on(s, 100)
     t = vg_track_in_now(s, t, 0)
-    t = vg_on(s, t)                                          # the studio's keyboard
+    t = vg_studio(s, t)                                      # the studio's keyboard
     s.tap_key(t, bk(2)); t += 100                            # track 3 (empty)
     s.at(t, "dump", 2)
     t = s.steps(t, [0, 4, 8, 12])
@@ -6230,7 +6254,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.16", "HELLO: nothing asked yet, a normal boot, 0.16 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.17", "HELLO: nothing asked yet, a normal boot, 0.17 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7437,6 +7461,115 @@ def t016_ready_elsewhere():
     check(len(n1) == 1 and len(n3) == 5, "READY: the step alone; started: the step and its 4 repeats (%d, %d)" % (len(n1), len(n3)))
 
 
+# ------------------------------------------------------------------------------------------------ 0.17
+def t017_mosse():
+    group("0.17 the MOSSE: no VIAGGIO mode; the journey always runs (energy 50 changes nothing), its moves on the black keys of GLO / PERF page 3, the trail always kept")
+    # two tracks written in the studio, nothing opened: they play as written; GLO held on page 3 + black 2: a BREAK at the
+    # phrase's end; SAVE + white 16: what was played becomes scenes and the song
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])                          # track 1
+    s.tap_key(t, bk(1)); t += 60                             # track 2 selected
+    t = s.steps(t, [2, 6, 10, 14])
+    t = viaggio_knobs(s, t, [(K2, -1), (K2, -1)])            # GLO 3: a 4-bar phrase
+    s.at(t, "dump", 1)
+    s.tap_btn(t, PLAY); t0 = t
+    s.press(t0 + 200, GLO); s.tap_key(t0 + 230, bk(1)); s.release(t0 + 300, GLO)   # BREAK: 1 bar, track 2 stays
+    s.at(t0 + 400, "dump", 1)
+    s.at(t0 + 4 * BAR_MS + 100, "dump", 1)
+    s.at(t0 + 5 * BAR_MS + 100, "dump", 1)
+    s.press(t0 + 8 * BAR_MS + 300, SAVE); s.tap_key(t0 + 8 * BAR_MS + 330, wk(15)); s.release(t0 + 8 * BAR_MS + 400, SAVE)
+    s.at(t0 + 8 * BAR_MS + 500, "dump", 1)
+    log = run(s, t0 + 8 * BAR_MS + 600)
+    v = log.viaggio
+    n1 = log.notes(ch=0, after=t0, before=t0 + BAR_MS - 10)
+    n2 = log.notes(ch=1, after=t0, before=t0 + BAR_MS - 10)
+    vel = sorted(set(x[2] for x in log.notes(after=t0, before=t0 + 4 * BAR_MS - 10)))
+    check(v[0]["on"] == 0 and v[0]["journey"] == 1 and v[0]["states"][:3] == "IIE" and v[0]["energy"] == 50 and v[0]["bars"] == 4,
+          "nothing opened: the journey runs, the two tracks IN, energy 50, a 4-bar phrase (%s)" % v[0])
+    check(len(n1) == 4 and len(n2) == 4 and vel == [100], "energy 50 plays the steps as written: 4 + 4 a bar, velocity 100 (%d %d %s)" % (len(n1), len(n2), vel))
+    check(v[1]["queue"] == ["BREAK/1/1"] and log.states[1]["msg"] == "QUEUED: BREAK 1 BAR, THIS TRACK STAYS" and v[1]["mute"] == 0,
+          "GLO held on page 3 + black 2: a BREAK queued, no scene recalled (%s %s)" % (v[1]["queue"], log.states[1]["msg"]))
+    check(v[2]["mute"] == 0xFFFD and not log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
+          and log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10), "bar 5: track 2 alone (%04X)" % v[2]["mute"])
+    check(v[3]["mute"] == 0 and log.notes(ch=0, after=t0 + 5 * BAR_MS + 10), "bar 6: both again (%04X)" % v[3]["mute"])
+    check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("JOURNEY SAVED"),
+          "SAVE + white 16 with the MOSSE never opened: the phrases played are scenes and the song (%s)" % log.states[4]["msg"])
+    # SEL + GLO: PERF on page 3; the black keys are the moves there (black 10 cancels the last), the scenes on pages 1-2;
+    # SEL + GLO from another page: the MOSSE again; on them: the studio
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    t = vg_on(s, t, remote=False)
+    s.at(t, "ui")
+    s.tap_key(t + 50, bk(0)); t += 150                       # FILL
+    s.at(t, "dump", 0)
+    s.at(t + 10, "leds")
+    s.tap_key(t + 20, bk(9)); t += 120                       # cancelled
+    s.at(t, "dump", 0)
+    s.at(t + 10, "leds"); t += 20
+    t = pg(s, t, GLO, 0)                                     # GLO page 1 (PERF stays on)
+    s.press(t, SEL); s.tap_key(t + 30, bk(0)); s.release(t + 100, SEL); t += 160   # SEL + black 1: scene 1 stored
+    s.at(t, "dump", 0)
+    t = vg_on(s, t, remote=False)                            # SEL + GLO on page 1: the MOSSE
+    s.at(t, "ui")
+    t = vg_studio(s, t)
+    s.at(t, "dump", 0)
+    log = run(s, t + 200)
+    v = log.viaggio
+    sc = log.screens()
+    check(sc and sc[0]["lines"][2].startswith("PERF 3/3 MOSSE  AT PHRASE") and sc[0]["cells"][0] == ("ENERGY", "50"),
+          "SEL + GLO: PERF 3/3 MOSSE, the energy at 50 (%s %s)" % (sc[0]["lines"][2] if sc else None, sc[0]["cells"][0] if sc else None))
+    check(v[0]["queue"] == ["FILL/0/0"] and log.states[0]["msg"] == "QUEUED: FILL", "black 1: FILL queued (%s)" % v[0]["queue"])
+    check(v[1]["queue"] == [] and log.states[1]["msg"] == "CANCELLED FILL", "black 10: the last move cancelled (%s)" % log.states[1]["msg"])
+    kl = log.key_leds()
+    check(len(kl) == 2 and kl[0][1][BLACK[0]] == "X" and kl[0][1][BLACK[9]] == "X" and kl[0][1][BLACK[1]] != "X"
+          and kl[1][1][BLACK[0]] != "X" and kl[1][1][BLACK[9]] != "X", "the black keys light what waits: FILL and black 10, then nothing (%s)" % [x[1] for x in kl])
+    check(v[2]["queue"] == [] and log.states[2]["msg"] == "SCENE STORED 1", "page 1: SEL + black 1 stores scene 1, as ever (%s)" % log.states[2]["msg"])
+    check(len(sc) == 2 and sc[1]["lines"][2].startswith("PERF 3/3 MOSSE"), "SEL + GLO from page 1: the MOSSE (%s)" % (sc[1]["lines"][2] if len(sc) == 2 else sc))
+    check(v[3]["on"] == 0 and v[3]["journey"] == 1 and log.states[3]["msg"].startswith("STUDIO"), "SEL + GLO on the MOSSE: the studio (%s)" % log.states[3]["msg"])
+    # PRESETS on the MOSSE with the HARMONY off: the progression READY (as ARP 3 K2 since 0.16), not switched on
+    s = Script()
+    t = vg_on(s, 100, remote=False)
+    s.enc(t, E_PRE, 1); t += 60
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    check(log.states[0]["msg"].startswith("READY ") and log.states[0]["msg"].endswith(": ARP 3 K1 ON") and log.states[0]["harm"][0] == 0 and log.states[0]["harm"][2] == 1,
+          "PRESETS, the HARMONY off: progression 2 READY (%s %s)" % (log.states[0]["msg"], log.states[0]["harm"]))
+
+
+def t017_proposal():
+    group("0.17 a PROPOSAL in SEQ: BEAT held 0.6 s writes the part into a free pattern, the one playing untouched; PRESETS queues it; it enters with its settings")
+    s = Script()
+    t = s.steps(100, [0, 8])                                 # track 1, pattern 1 by hand: two hits
+    s.at(t, "dump", 0)
+    s.press(t, SEQ); s.tap_key(t + 30, wk(9), hold=700); s.release(t + 800, SEQ); t += 860   # SEQ + BEAT held: a proposal
+    s.at(t, "dump", 0)
+    s.press(t, SEQ); s.tap_key(t + 30, wk(9), hold=700); s.release(t + 800, SEQ); t += 860   # again: the next variation
+    s.at(t, "dump", 0)
+    s.tap_btn(t, PLAY); t0 = t
+    s.enc(t0 + 200, E_PRE, 1)                                # PRESETS: the proposal waiting (the last one made) is queued
+    s.at(t0 + 300, "dump", 0)
+    s.at(t0 + BAR_MS + 200, "dump", 0)
+    log = run(s, t0 + 3 * BAR_MS)
+    d = log.dumps
+    st = log.states
+    check(d[1]["pat"] == 1 and d[1]["hash"] == d[0]["hash"] and "KICK #1 IN P2: PRESETS QUEUES IT" in st[1]["msg"],
+          "BEAT held: the kick into P2, pattern 1 plays untouched (%s)" % st[1]["msg"])
+    check(d[2]["pat"] == 1 and "KICK #2 IN P3" in st[2]["msg"], "held again: the next variation into P3 (%s)" % st[2]["msg"])
+    check(st[3]["msg"] == "T1 PROPOSAL P3 QUEUED" and d[3]["pat"] == 1, "PRESETS: the proposal waiting queued (%s)" % st[3]["msg"])
+    k1 = [round((x[0] - t0) / STEP_MS) for x in log.notes(ch=0, after=t0, before=t0 + BAR_MS - 10)]
+    k2 = [round((x[0] - t0 - BAR_MS) / STEP_MS) for x in log.notes(ch=0, after=t0 + BAR_MS - 10, before=t0 + 2 * BAR_MS - 10)]
+    check(k1 == [0, 8] and d[4]["pat"] == 3 and len(k2) >= 4 and k2 != k1, "bar 1 the hand's two hits, then the proposal (%s -> %s)" % (k1, k2))
+    # a tap of BEAT writes on the pattern playing, as before 0.17
+    s = Script()
+    t = s.steps(100, [0, 8])
+    s.at(t, "dump", 0)
+    s.press(t, SEQ); s.tap_key(t + 30, wk(9)); s.release(t + 120, SEQ); t += 180
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    check(log.dumps[1]["pat"] == 1 and log.dumps[1]["hash"] != log.dumps[0]["hash"] and log.states[1]["msg"].startswith("TECHNO KICK #1"),
+          "a tap of BEAT: the kick on the pattern playing (%s)" % log.states[1]["msg"])
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7449,7 +7582,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
-         t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue]
+         t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
+         t017_mosse, t017_proposal]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

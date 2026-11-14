@@ -266,7 +266,7 @@ view on its last line (`G:STEP`, `G:CC`, ...).
 | 2 | FILL (hold) | the other bank of tracks (1-8 / 9-16) |
 | 3 | UNDO / REDO of the last tool (a dice waiting: BACK) | the **FX** view |
 | 4 | the **STEP** view; in STEP: the **DRUM** view | the **CC** view |
-| 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **VIAGGIO**; in VIAGGIO: **REGIA** (once a regista has spoken), then PERF. With VIAGGIO on, the button opens VIAGGIO first | the **LFO** view |
+| 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **VIAGGIO**; in VIAGGIO: **REGIA** (once a regista has spoken), then PERF. (0.9-0.16: with VIAGGIO on, the button opened VIAGGIO first; 0.17: PERF first, always) | the **LFO** view |
 | 6 | the **TRACK** view; again: **TRACK 2**, again: **TRACK 3** | the **BEAT** view; again: the **EUCLID** view |
 | 7 | SHIFT | |
 | 8-15 | select track 1-8 of the bank (blue: bank 2) | solo that track |
@@ -397,17 +397,18 @@ starts on the next bar.
 
 ### VIAGGIO (SONG again, 0.9): the journey
 
-A tap on any pad of this view switches VIAGGIO on. See VIAGGIO in SAGGA-SEQ.md for what the moves do.
+The journey always runs (0.17: this view switches nothing on; until 0.16 a tap switched VIAGGIO on). See "The journey
+and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF's page 3 (SEL + GLO).
 
 | row | pads |
 |---|---|
 | 1 | the bars of the phrase (red: playing, lit: past, the last one in the FILL colour when a fill waits); any pad: **NOW** (stopped: the queue at once) |
 | 2 | the 16 tracks: faint EMPTY, dim PROPOSED, lit IN, muted OUT; the selected one amber; red: LOOP records on it. **Tap**: a proposal (on an IN track nothing changes); **hold**: the dice; **SHIFT + tap** (0.10): the track's next **role** (KICK SNARE HAT PERC BASS CHORD ARP, or none: by its note) — the proposals follow it |
-| 3 | the queue: a track with a move waiting is lit; **tap**: IN / OUT at the boundary (SEL + key) |
+| 3 | the queue: a track with a move waiting is lit; **tap**: IN / OUT at the boundary (the remote's CC 32) |
 | 4 | the moves 1-11 (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW; SHIFT: BREAK all / LOOP 4 bars); 15 **INDIETRO**; 16 **cancel** the last |
 | 5 | the energy 0-100 (the bar: what sounds; the target in the waiting colour while it glides) |
 | 6 | the patterns of the selected track: the one playing red, the proposals lit; tap one: SWAP (IN track) or IN at the boundary; 16: the dice |
-| 7 | the progressions: 1-6 the genre's, 7-10 yours (violet; SEQ page 8 writes them), queued |
+| 7 | the progressions: 1-6 the genre's, 7-10 yours (violet; ARP 5 writes them), queued (0.17: with the HARMONY off, READY) |
 | 8 | the trail: 16 = this phrase, 15 = one back ... (queues INDIETRO that far) |
 
 ### REGIA (VIAGGIO again, 0.9; only when a regista on the Pi has spoken)

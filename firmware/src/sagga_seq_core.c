@@ -2515,7 +2515,7 @@ int sq_image_track(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_t
 void sq_viaggio_default(sq_viaggio_t *v)
 {
     uint32_t i;
-    v->on = 0u;
+    v->on = 1u;                    /* 0.17: the journey always runs (it is neutral at energy 50, nothing queued) */
     v->phrase_bars = 16u;
     v->energy = 50u;
     v->set_genre = 0u;             /* (kept equal to the project's genre) */
@@ -2528,7 +2528,8 @@ void sq_viaggio_default(sq_viaggio_t *v)
 void sq_viaggio_sanitize(sq_viaggio_t *v)
 {
     uint32_t i;
-    v->on = v->on ? 1u : 0u;
+    if (!v->on) v->energy = 50u;   /* 0.17: a project saved with VIAGGIO off plays as it did: energy 50 (neutral) */
+    v->on = 1u;
     if (v->phrase_bars != 4u && v->phrase_bars != 8u && v->phrase_bars != 16u) v->phrase_bars = 16u;
     if (v->energy > 100u) v->energy = 100u;
     if (v->set_genre >= SQ_SET_GENRES) v->set_genre = 0u;
@@ -2660,7 +2661,7 @@ void sq_energy_map(uint8_t e, sq_energy_fx_t *o)
     o->filt = (int8_t)(d * 40 / 50);
     o->gate = (int8_t)(d * 10 / 50);
     o->density = (uint8_t)(d < 0 ? 100 + d * 40 / 50 : 100 + d * 30 / 50);
-    o->lfo_pct = (uint8_t)(50 + (int32_t)(e > 100u ? 100u : e) / 2);
+    o->lfo_pct = (uint8_t)(e >= 50u ? 100u : 50u + e);           /* 0.17: 50 neutral (the journey always runs); under it shallower */
     o->color7 = e >= 70u ? 1u : 0u;
 }
 

@@ -434,7 +434,8 @@ static void pick_map_lines(int g, char *l1, char *l2)
     pick_desc(g, f, &d);
     p = put_s(l1, g == PG_ARP && track_break(selected_track) ? "W CHOP 1-16  B ROLL HALF DBL" :
                   g == PG_ARP && track_drum(selected_track) ? "W PLAY  B1-4 REPEAT (PLAYING)" :
-                  g == PG_EDIT ? "B LOCK CPY PST CLR PLN TIE SLD" : L1[g]);   /* (0.13) */
+                  g == PG_EDIT ? "B LOCK CPY PST CLR PLN TIE SLD" :
+                  g == PG_GLO && perf_page == 2u ? "B FIL BRK RIS DRP HLF DBL ..." : L1[g]);   /* (0.13; 0.17 the MOSSE) */
     *p = 0;
     p = put_s(l2, pick_kind_help(&d));
     *p = 0;
@@ -448,7 +449,7 @@ static uint8_t pick_map_any(uint32_t held, char *l1, char *l2)
     if (g >= 0 && !(held & (1u << BTN_SAVE))) { pick_map_lines(g, l1, l2); return 1u; }
     if (held & (1u << BTN_SAVE)) { a = "W1-8 SLOT W16 JOURNEY REC CLR"; b = "B SNAP SEL+B STORE 9CAP 10SND"; }
     else if (held & (1u << BTN_FX)) { a = "W: FX  B: LOOPS RESTART STOP"; b = "B11 EXIT  SEL+K: THROWS"; }
-    else if (held & (1u << BTN_SEL)) { a = "KEYS: STEP NOTE  OCT: OCTAVE"; b = "SEL+GLO: VIAGGIO SEL+PLAY: GO"; }
+    else if (held & (1u << BTN_SEL)) { a = "KEYS: STEP NOTE  OCT: OCTAVE"; b = "SEL+GLO: MOSSE  SEL+PLAY: GO"; }
     if (!a) return 0u;
     { char *p = put_s(l1, a); *p = 0; p = put_s(l2, b); *p = 0; }
     return 1u;
@@ -465,16 +466,19 @@ static void pick_tick(void)
 }
 static uint8_t pick_map_due(void) { return map_shown == 1u; }
 
-/* ---- the SEQ keys that hold a second meaning: UNDO / REDO, COOK / random COOK, KIT / BAND, DICE SEQ / DICE PROG */
+/* ---- the SEQ keys that hold a second meaning: UNDO / REDO, COOK / random COOK, KIT / BAND, DICE SEQ / DICE PROG,
+ * 0.17 BEAT / a PROPOSAL (sagga_viaggio.c) */
+static void beat_propose(void);
 static uint8_t seqhold_key = 255u;               /* the key (0..26) down with SEQ, waiting */
 static uint32_t seqhold_ms;
 static uint8_t seqhold_done;
-static uint8_t seqhold_is(int wi, int bi) { return (wi == TOOL_UNDO || wi == TOOL_COOK || bi == 0 || bi == 6) ? 1u : 0u; }
+static uint8_t seqhold_is(int wi, int bi) { return (wi == TOOL_UNDO || wi == TOOL_COOK || wi == TOOL_BEAT || bi == 0 || bi == 6) ? 1u : 0u; }
 static void seqhold_fire(uint32_t k, uint8_t held_long)
 {
     int wi = key_is_in(white_key, 16u, k), bi = key_is_in(black_key, 11u, k);
     if (wi == TOOL_UNDO) { if (held_long) undo_redo(); else tool_apply(TOOL_UNDO); }
     else if (wi == TOOL_COOK) { if (held_long) { cook_random = 1u; tool_apply(TOOL_COOK); } else tool_apply(TOOL_COOK); }
+    else if (wi == TOOL_BEAT) { if (held_long) beat_propose(); else tool_apply(TOOL_BEAT); }
     else if (bi == 0) { if (held_long) harm_dice(); else dice_roll(DICE_SEQ); }
     else if (bi == 6) { if (held_long) beat_band(); else beat_kit(); }
 }

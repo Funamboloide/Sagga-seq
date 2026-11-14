@@ -1,16 +1,52 @@
-# SAGGA SEQ 0.16
+# SAGGA SEQ 0.17
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
 tracks**, eight patterns of up to 64 steps per track, **sixteen scenes**, eight **snapshots**, a song of **64
 entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
-steps), and **VIAGGIO**: a way to play a set as a journey of phrases, with moves queued for the phrase's end (or the
-bar, or the beat). With two Launchpads through the Pi it becomes a 16 x 8
+steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
+phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.16` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.17` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.17
+
+**No VIAGGIO mode: the journey is part of every set.** Until 0.16 VIAGGIO was a keyboard of its own (SEL + GLO), where
+the same keys did other things, and the journey ran only once it was switched on. In 0.17:
+
+* **The journey always runs.** Its phrase counts from PLAY (16 bars; GLO 3 K2: 4, 8, 16), the queue runs at its end,
+  the trail keeps every phrase. At energy 50 (the default) with nothing queued it changes nothing: the music plays as
+  written. (0.9-0.16, VIAGGIO on: the LFOs at 75 % depth at energy 50; now 100 %, shallower below 50.)
+* **The MOSSE are PERF's page 3** (GLO 3). **SEL + GLO** opens PERF on that page; SEL + GLO again: the studio. Its
+  **black keys are the moves**, at the end of the phrase: 1 FILL, 2 BREAK (SEL: all, 2 bars), 3 RISER, 4 DROP, 5 HALF,
+  6 DOUBLE, 7 THIN, 8 SWELL, **9 INDIETRO** (0.9-0.16: OCT-), **10 the last move cancelled** (0.9-0.16: OCT+), 11 NOW.
+  The white keys stay PERF's mutes (MUTE QUEUE and QUANTISE bring tracks in and out on time). K1 the energy, K2 the
+  phrase, K3 the genre and K4 the key (queued while playing), **ALG: MOVES AT** (phrase, bar, beat; 0.10-0.16: K2 in
+  VIAGGIO mode), **PRESETS: the progression** (queued; with the HARMONY off it is READY, as ARP 3 K2 since 0.16).
+  SEL + PLAY stopped: the SEED. GLO held on page 3: the same moves from any mode. On pages 1 and 2 the black keys are
+  the scenes, as ever. The difference: **FX acts now, while you hold it; the MOSSE act at the end of the phrase, by
+  themselves.**
+* **The PROPOSALS are made in SEQ.** **SEQ + BEAT held 0.6 s** writes what BEAT would (SEQ's genre, part and variation)
+  into a free pattern of the selected track, the pattern playing untouched: `PROPOSAL KICK #1 IN P2: PRESETS QUEUES
+  IT`. Held again: the next variation, in the next free pattern. **PRESETS** (nothing held) then queues it first
+  (`T1 PROPOSAL P2 QUEUED`): it plays at the QUANTISE, with its settings (length, division, swing, groove). A tap of
+  BEAT writes on the pattern playing, as before (it acts when the key is let go, as UNDO and COOK). A proposal never
+  takes a pattern written by hand: with no empty one the oldest proposal goes, else `NO FREE PATTERN`.
+* **The set is always recorded.** **SAVE + white 16** turns the phrases played into scenes and the song, however you
+  played them (with the MOSSE or without).
+* The grid's VIAGGIO view and the remote on channel 13 work as before (the tracks EMPTY / PROPOSED / IN / OUT, the
+  proposals, SWAP, LOOP); they switch nothing on any more. The grid's PERF button opens PERF first, always. The
+  tracks' states follow the hands at every boundary (a mute in PERF, a scene, a pattern changed): THIN, SWELL and the
+  trail see the music as it is. "No silence by mistake" (a track kept when the moves leave none) acts only when the
+  moves made the silence: a silence made by hand stays.
+* The PROGRESSION move no longer switches the HARMONY on: the progression changes at the boundary, the HARMONY stays as
+  the hands left it.
+* **PALCO** (SAVE + K4) starts on the MOSSE; SEQ pressed there no longer leaves PERF (PALCO has no SEQ).
+* Projects: one saved with VIAGGIO off plays as it did (its energy comes back at 50); one saved with VIAGGIO on keeps
+  its energy, phrase and states. A project of 0.17 loads on 0.16 with VIAGGIO on.
 
 ## What is new in 0.16
 
@@ -549,12 +585,12 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | EDIT | the cursor to that step (not switched) | **1 STEP LOCK**, 2 COPY, 3 PASTE, 4 CLEAR the step, **5 PLAIN** (no EXPO from this step), **6 TIE** (legato into the next step), **7 SLIDE** (0.13: TIE, and the next note glides: CC 65) | gate (1 % .. 100 %, 1.5 .. 64 STEP), condition (16), nudge, ramp; **SEL + K1-K4 (0.12): the step's four notes** (a knob below the first: the note taken away) |
 | ENV | the cursor to that step | | **one lane a page (OCT- / OCT+: lanes 1-6)**: K1 the lock on the step, K2 the CC number (SEL + K2: the NRPN MSB), K3 the base, K4 the mode NORMAL / SLIDE / TRIGLESS / NRPN |
 | LFO | that LFO on / off | | page 1 shape, rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination, target, CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T16, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate |
-| SEQ | the 16 tools (WHEN / EVERY: when they happen; **0.12: UNDO held 0.6 s = REDO, COOK held = the random COOK**; the tap acts when the key is let go) | dice SEQ CC LFO GROOVE ALL (**0.12: black 1 held = DICE PROG**), SCOPE, KIT (**held: BAND**), DRIFT, EVOLVE, FREEZE, REVERT | see SEQ pages (7) |
+| SEQ | the 16 tools (WHEN / EVERY: when they happen; **0.12: UNDO held 0.6 s = REDO, COOK held = the random COOK**; **0.17: BEAT held = a PROPOSAL** in a free pattern; the tap acts when the key is let go) | dice SEQ CC LFO GROOVE ALL (**0.12: black 1 held = DICE PROG**), SCOPE, KIT (**held: BAND**), DRIFT, EVOLVE, FREEZE, REVERT | see SEQ pages (7) |
 | FX | the 16 effects while held | 1-8 LOOP (tap) / REPEAT (hold) 1/32 .. 4 bars, 9 RESTART, 10 STOP at the bar, 11 EXIT (a DJ loop, or the step loop of the selected track; SEL also held: the selected track only) | INTENSITY, GATE, SWING, FILTER (the macros, saved); **SEL + K1-K4 (0.12): the THROWS** (the same four, gliding back to 0 over a bar); FX + OCT-: to 0; FX + OCT+: ECHO ALL; **FX + ARP twice: BAKE**; **FX + HOME: PANIC** |
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
-| SAVE | slot 1-8; **white 16: SALVA VIAGGIO** | **1-8 SNAPSHOT** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (4); PRESETS: the slot |
-| GLO (PERF) | **0.12: mute 1-16 in any mode** (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert | see GLO pages (3); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
-| **VIAGGIO** (SEL + GLO) | the tracks (tap: a proposal / browse; hold: the dice; SEL + key: in / out at the boundary) | the moves (below) | K1 the energy, **K2 MOVES AT** (phrase, bar, beat), **K3 the track's role**, **K4 its channel**; ALG the proposals of the selected track; SEL + ALG the tempo; PRESETS the progression (queued) |
+| SAVE | slot 1-8; **white 16: the set played becomes scenes and the song** (SALVA VIAGGIO) | **1-8 SNAPSHOT** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (4); PRESETS: the slot |
+| GLO (PERF) | **0.12: mute 1-16 in any mode** (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (3); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
+| **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE, THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
 
 A group **held half a second** with nothing else shows the map of its keys on the screen's message lines, and what
 SEL + a key does for the knob in focus (in a window the map stays four seconds, then the key and genre lines come back).
@@ -572,7 +608,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
-(VIAGGIO's knobs, HOME 8 until 0.11, are **GLO 3**.)
+(VIAGGIO's knobs, HOME 8 until 0.11, are **GLO 3**: 0.17 the MOSSE.)
 
 MIDI FX amounts: HARM -7 .. +7 steps of the key (a FREE track: -12 .. +12 semitones); OCTAVE -2 .. +2 octaves, on
 ALT (every other step), RANDOM, 3RD, 4TH; ECHO 0-4 repeats, every 1/32, 1/16, 1/8T, 1/16 dotted, 1/8, 1/4T, 1/8 dotted
@@ -635,9 +671,9 @@ tracks).
 | HOME, SEQ, EDIT, ENV, LFO, FX | **tap (0.12): the window** of the button (closed by the same tap, or by another window; a button really held wins). **SEL + FX tapped: the next two steps are a LOOP** (FX alone in 0.11) |
 | OCT - / + | page of 16 steps; SEL: octave of the keys; HOME / ENV / LFO / SEQ / ARP / SAVE / **GLO** held, **or their window open**: the pages. A dice waiting: OCT+ keeps it, OCT- puts it back. **FX + OCT-: the macros to 0. FX + OCT+: ECHO ALL on / off** (off: the repeats waiting go too). **GLO + SEL held: the track an octave down / up**. **PERF: GLO's pages; SEL + OCT-: the white keys mute, SEL + OCT+: solo** |
 | SELECT encoder | the track (LFO held: the LFO; SEQ held: the BEAT function) |
-| ALG encoder | the cursor; **a dice waiting: the rolls**; SEL + ALG: tempo; HOME + ALG: loop start; SEQ + ALG: BEAT variation |
-| PRESETS encoder | the track's pattern (queued while playing); PERF: the scene cursor; SAVE + PRESETS: the slot; SEQ + PRESETS: the genre |
-| GLO | a tap: PERF on / off - **its window** (another window tapped leaves it; SEQ pressed leaves it). Held: its pages' knobs and the PERF keys. HOME + GLO: the song on / off. **SEL + GLO (0.12): a tap switches the keyboard between VIAGGIO and the studio, the journey going on (the first time it starts it); held 0.6 s: the journey off** |
+| ALG encoder | the cursor; **a dice waiting: the rolls**; SEL + ALG: tempo; HOME + ALG: loop start; SEQ + ALG: BEAT variation; **the MOSSE: MOVES AT** |
+| PRESETS encoder | the track's pattern (queued while playing; **0.17: a PROPOSAL waiting is queued first**); PERF: the scene cursor (**the MOSSE: the progression**); SAVE + PRESETS: the slot; SEQ + PRESETS: the genre |
+| GLO | a tap: PERF on / off - **its window** (another window tapped leaves it; SEQ pressed leaves it). Held: its pages' knobs and the PERF keys. HOME + GLO: the song on / off. **SEL + GLO (0.17): PERF on page 3, the MOSSE; again: the studio** (0.12-0.16: VIAGGIO's keyboard; held: the journey off) |
 | SAVE | tap, then again within 3 s: saved. HOME + SAVE, twice: load the slot (0.14: an empty slot = a new project). SEL + SAVE: RELOAD |
 | **FX + HOME** | **PANIC**: sustain up, All Notes Off, All Sound Off on every channel; again within 2 s: the transport stops too |
 | HOME + EDIT | the button lights: OFF, LOW, MID, HIGH, MAX (SAVE 3 K2 too) |
@@ -672,10 +708,11 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 |---|---|---|---|---|
 | 1 LIVE | MORPH | MORPH TO (the scene) | TRANSPOSE (the key) | QUANTISE |
 | 2 TRACK LIVE | the track's pattern (queued) | its length | the scale | MUTE QUEUE |
-| 3 VIAGGIO | the energy (the target) | the phrase: 4, 8, 16 bars | the genre (queued while playing) | the key's root (queued while playing) |
+| 3 MOSSE (0.17; VIAGGIO until 0.16) | the energy (the target) | the phrase: 4, 8, 16 bars | the genre (queued while playing) | the key's root (queued while playing) |
 
 In PERF mode (GLO tapped), **SEL + the knobs are TRACK LIVE** whatever page is shown, as in 0.11; SEL + ALG the tempo;
-**OCT- / OCT+ turn the pages** and **SEL + OCT- / OCT+** make the white keys mutes / solos.
+**OCT- / OCT+ turn the pages** and **SEL + OCT- / OCT+** make the white keys mutes / solos. On page 3 (the MOSSE) ALG is
+MOVES AT and PRESETS the progression; the black keys are the moves.
 
 ### SAVE pages
 
@@ -769,37 +806,42 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
   move the rhythm more, melodic ones the notes; on FOLLOW tracks the beats get chord tones of the tonic, the steps
   between move by step. A locked step (EDIT + black 1) never changes.
 
-## VIAGGIO
+## The journey and the MOSSE (VIAGGIO until 0.16)
 
-**SEL + GLO** switches VIAGGIO on (and off). GLO alone goes to PERF and back to the keys as mutes: the journey goes on
-underneath (its phrases, queue and energy), SEL + GLO brings the VIAGGIO keys back. HOME jumps to page 8/8.
+**The journey always runs** (0.17): there is nothing to switch on. **SEL + GLO** opens PERF on its third page, **the
+MOSSE**; SEL + GLO again goes back to the studio; GLO + OCT reaches the page too, and GLO held on it gives its black
+keys from any mode. The white keys are PERF's mutes, as on every PERF page. The black keys light what waits in the
+queue (black 10: something to cancel; black 11 blinks while NOW waits for the bar).
 
-**The phrase.** 16 bars (HOME 8/8 K2: 4, 8, 16), counted from PLAY. At its end (the **boundary**) the queue runs, in
-the order it was filled, and the phrase is written into the trail. **MOVES AT** (K2 in VIAGGIO mode) chooses when the
+**The phrase.** 16 bars (GLO 3 K2: 4, 8, 16), counted from PLAY. At its end (the **boundary**) the queue runs, in
+the order it was filled, and the phrase is written into the trail. **MOVES AT** (ALG on the MOSSE) chooses when the
 queue runs: the phrase boundary (the default), **every bar**, or **every beat** (you decide when things happen; the
-phrase still counts for FILL, RISER, DROP and the trail). The screen shows the bar of the phrase, the energy, the genre
-and the queue; the grid's VIAGGIO view shows it all at once.
+phrase still counts for FILL, RISER, DROP and the trail). The screen shows the energy, the bar of the phrase, the genre
+and key (with `>` when one is queued) and the queue; the grid's VIAGGIO view shows it all at once.
 
-**Roles and channels.** In VIAGGIO mode K3 is the selected track's **role** (KICK SNARE HAT PERC BASS CHORD ARP, or
-none) and K4 its **channel**: you say what each track is and where it goes, the proposals follow (a track with no role
-takes the next free one on the genre's ladder).
+**Roles.** A track's role (HOME 4 K2: KICK SNARE HAT PERC BASS CHORD ARP ..., or none) says what it is in the genre:
+the proposals follow it, THIN and SWELL read its place on the genre's ladder (a track with no role takes the next free
+one).
 
-**The tracks** (white keys 1-16; the grid's row 2) have a state: EMPTY, PROPOSED, IN (it plays), OUT (it has notes and
-is muted).
+**The tracks** have a state: EMPTY, PROPOSED (it has patterns that do not play), IN (it plays), OUT (it has notes and
+is muted). It follows the hands: a mute in PERF, a scene, a pattern changed, a row written or cleared.
 
-* A tap on an EMPTY track: a **proposal** from the library of the genre, in a free pattern of the track (the one that
-  plays is not touched): `T1 KICK P2 SEL+KEY: IN`. The role is the track's (K3), else the next free one on the genre's
-  ladder, with its note. A tap on a PROPOSED track selects it and says what it has; **held** (0.45 s): the dice
-  (another variant, maybe the genre's neighbour; for PERC in the afro / latin genres a tresillo, son clave 3-2 and
-  2-3, rumba, cascara, bossa, cinquillo, bembé 12/8). Up to seven proposals a track, each with the settings it asks
-  for; when the patterns are full the oldest proposal goes.
-* A tap on a track that is IN: nothing changes in the sound, ever. The screen says what you can do.
-* **SEL + the key**: IN at the boundary (an OUT track, or a proposal); on an IN track: OUT at the boundary, its last
-  bar fading out. The opposite move cancels the queued one.
-* **ALG** browses the proposals of the selected track (`T1 KICK P3 (2/3)`); **SWAP** (black 9) queues the one browsed
-  in place of what plays.
+* **On the panel** a track goes in and out with PERF's mutes (MUTE QUEUE and QUANTISE make them wait for the bar or
+  the phrase), and a **proposal** is made in SEQ: **SEQ + BEAT held 0.6 s** writes what BEAT would (SEQ's genre, part
+  and variation) into a free pattern of the selected track, the one playing untouched; held again: the next
+  variation; **PRESETS** queues the proposal waiting first, and it enters at the QUANTISE with its settings.
+* **On the grid's VIAGGIO view and the remote on channel 13** the journey has its tracks as VIAGGIO mode had them: a
+  tap on an EMPTY track, a proposal from the library of the genre (`T1 KICK P2 READY`), with the track's role, else
+  the next free one on the genre's ladder, and its note; a tap on a PROPOSED track goes through its proposals
+  (`T1 KICK P3 (2/3)`); **held** (the grid, 0.45 s): the dice (another variant, maybe the genre's neighbour; for PERC in
+  the afro / latin genres a tresillo, son clave 3-2 and 2-3, rumba, cascara, bossa, cinquillo, bembé 12/8). Up to seven
+  proposals a track, each with the settings it asks for; when the patterns are full the oldest proposal goes. A tap on
+  a track that is IN changes nothing in the sound. Queued (the grid's row 3, CC 32): IN at the boundary (an OUT track,
+  or a proposal); on an IN track: OUT at the boundary, its last bar fading out; the opposite move cancels the queued
+  one. SWAP queues the proposal chosen in place of what plays.
 
-**The moves** (black keys; the grid's row 4; remote channel 13 CC 17-27):
+**The moves** (the MOSSE's black keys; the grid's row 4; remote channel 13 CC 17-27, in the old order: 9 SWAP, 10 LOOP,
+11 NOW):
 
 | black | move | at the boundary |
 |---|---|---|
@@ -810,21 +852,21 @@ is muted).
 | 5 / 6 | HALF / DOUBLE | every track at half / double speed for one phrase (the tempo and the tracks' divisions stay; every track restarts on the bar line at both ends) |
 | 7 | THIN | two tracks out: the two highest on the genre's ladder (never the last one); they fade in the last bar |
 | 8 | SWELL | two tracks back in, the nearest to the energy |
-| 9 | SWAP | the selected track's browsed proposal replaces what it plays |
-| 10 | LOOP | from the boundary the keys play and record on the selected track (64 steps of 1/16, in key; on a drum track every white key is that drum; an external keyboard records there too); the next boundary closes it and it loops. With SEL: 4 bars repeated. The track's length and division come back when it leaves the loop (BACK, SWAP) and return with it; a loop nothing was played into is forgotten |
+| 9 | INDIETRO | the phrase before the one that ends plays again (patterns, mutes, key, genre, progression, energy; not the tempo); again before the boundary: one more back; with NOW (or stopped) it is the phrase before the one playing (0.9-0.16: OCT-) |
+| 10 | cancel | the last move queued goes (0.9-0.16: OCT+) |
 | 11 | NOW | the queue runs at the next bar instead (stopped: at once) |
+| grid / CC 25 | SWAP | the selected track's proposal replaces what it plays |
+| grid / CC 26 | LOOP | from the boundary the keys play and record on the selected track (64 steps of 1/16, in key; on a drum track every white key is that drum; an external keyboard records there too); the next boundary closes it and it loops. With SHIFT on the grid: 4 bars repeated. The track's length and division come back when it leaves the loop (BACK, SWAP) and return with it; a loop nothing was played into is forgotten |
 
-**OCT-** queues INDIETRO: at the boundary the phrase before the one that ends plays again (patterns, mutes, key,
-genre, progression, energy; not the tempo); again before the boundary: one more back; with NOW (or stopped) it is
-the phrase before the one playing. **OCT+** cancels the last move
-queued. HOME 8/8 K3 / K4 and PRESETS queue a new GENRE, KEY, PROGRESSION (stopped: at once).
+GLO 3 K3 / K4 and PRESETS on the MOSSE queue a new GENRE, KEY, PROGRESSION (stopped: at once; the PROGRESSION with the
+HARMONY off is READY, ARP 3 K1 starts it).
 
-**The energy** (K1, the grid's row 5, remote CC 3 on channel 14): 0-100, 50 is neutral. It moves velocity (-20 ..
+**The energy** (GLO 3 K1, the grid's row 5, remote CC 3 on channel 14): 0-100, 50 is neutral (0.17: at 50 nothing changes). It moves velocity (-20 ..
 +20), the FILTER macro (-40 .. +40), gate (-10 .. +10 %), density (60-130 %: fewer hits, or ghost notes; the kick
-stays whole; tracks with their own DENSITY algorithm keep it), the LFOs' depth (50-100 %), and from 70 the chords take
+stays whole; tracks with their own DENSITY algorithm keep it), the LFOs' depth (50-100 % up to 50, then 100 %), and from 70 the chords take
 their 7th. A new target glides there over the rest of the phrase, a step a bar; DROP jumps.
 
-**The genres** (HOME 8/8 K3, SEQ + PRESETS, the BEAT view: one genre for the library, the progressions and VIAGGIO):
+**The genres** (GLO 3 K3, SEQ + PRESETS, the BEAT view: one genre for the library, the progressions and the journey):
 each has a neighbour the dice may borrow from, a swing, and a ladder: the energy at which a role enters, in the order
 kick snare hat perc bass chord arp (THIN takes the roles with the highest thresholds out, SWELL puts the nearest to
 the energy back).
@@ -855,18 +897,21 @@ the energy back).
 | HARDCORE | HARDTECHNO | 50 | 0 35 15 55 20 40 70 |
 | PHONK | UK DRILL | 52 | 0 20 15 45 10 55 30; half-time (the cowbell riff is the ARP) |
 | BAILE FUNK | REGGAETON | 54 | 0 25 30 10 20 60 70; afro / latin percussion |
+| MERENGUE | BATIDA | 50 | 0 40 5 10 25 35 55; afro / latin percussion |
 
-**SEL + PLAY** while stopped: the SEED, a dice on the set genre, the key and a tempo of the genre.
+**SEL + PLAY** on the MOSSE while stopped: the SEED, a dice on the set genre, the key and a tempo of the genre.
 
-**The trail and SALVA VIAGGIO.** Every phrase is kept (the last 128). **SAVE + white 16** makes the journey a song:
+**The trail and SALVA VIAGGIO.** Every phrase is kept (the last 128), always (0.17). **SAVE + white 16** makes the
+set a song:
 the runs of equal phrases become scenes 1.. (at most 16, the shortest runs left out), the song plays them for as many
 bars as they lasted. Then save the project as usual.
 
 **The remote on channel 13** (SAVE + K2 on 13 + 14; with two USB ports on port 2): CC 1-16 a tap on track 1-16, CC
-17-27 the moves (black 1-11), 28 INDIETRO, 29 cancel the last, 30 the phrase's length (0-95 shorter, 96-127 longer),
-31 the next progression, 32 SEL + key on track value / 8. A button: 64-127.
+17-27 the moves (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW), 28 INDIETRO, 29 cancel the last, 30 the
+phrase's length (0-95 shorter, 96-127 longer), 31 the next progression, 32 track value / 8 queued in / out. A button:
+64-127.
 
-**The profiles** (SAVE + K4): FULL and PALCO. PALCO switches VIAGGIO on, shows HOME pages 1, 3 and 8 only, refuses SEQ,
+**The profiles** (SAVE + K4): FULL and PALCO. PALCO opens the MOSSE, shows HOME pages 1 and 3 only, refuses SEQ,
 EDIT and ENV (the screen says so) and puts the remote on 13 + 14. The profile is kept in the FM-1's settings, not in
 the project: power-on comes back in it.
 
@@ -1039,8 +1084,8 @@ takes the value as the index when it is under its size, else value / its share).
 | 93 / 94 / 95 / 96 | that LFO's SHAPE, RATE, DEPTH, DEST | 97 | that LFO on / off |
 | 101-106 | lane 1-6 of the selected track: the base, sent at once | 107 | TAKE |
 | 108-111 | THROWS: INTENSITY, GATE, SWING, FILTER (64 = 0), gliding back | 112 | the selected track (0-15, or value / 8) |
-| 113 | its MODE (FREE IN KEY DRUM TAPE BREAK) | 114 | VIAGGIO energy 0-100 |
-| 115 | VIAGGIO genre 0-23 | 116 | VIAGGIO key, the root 0-11 |
+| 113 | its MODE (FREE IN KEY DRUM TAPE BREAK) | 114 | the journey's energy 0-100 |
+| 115 | the set's genre 0-24 | 116 | the set's key, the root 0-11 |
 | 117 | the harmony's progression | 118 | HARMONY OFF / ON / LOCK |
 
 The pages: **SAGGA Motori** (the tracks: 33-64, 112, 113, 69 and channel 14's mutes, kills, RETRIG), **SAGGA Break**
@@ -1058,8 +1103,9 @@ The pages: **SAGGA Motori** (the tracks: 33-64, 112, 113, 69 and channel 14's mu
 * FILTER moves lane 1 of every track (put the synth's cutoff on lane 1); a lane with no base value is not moved.
 * The ornaments (HARM, ECHO) share 128 places: when they are full the faintest echo waiting gives way.
 * A snapshot keeps which pattern plays, not the pattern's steps.
-* VIAGGIO's proposals take free patterns of the track (8 per track): when none is free the oldest proposal is
-  replaced. The trail lives in RAM: a power cycle starts it again (SALVA VIAGGIO before that).
+* The proposals (SEQ + BEAT held, the grid's VIAGGIO view, the remote) take free patterns of the track (8 per track):
+  when none is free the oldest proposal is replaced (SEQ + BEAT never takes a pattern written by hand). The trail
+  lives in RAM: a power cycle starts it again (SAVE + white 16 before that).
 * The remote's scene CCs 40-47 reach scenes 1-8; scenes 9-16 through CC 2, 28 / 29 or the panel.
 * The patches need the bridge running on the Pi and the synths connected to the Pi; a synth that cannot send its patch
   over MIDI cannot have it kept.

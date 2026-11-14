@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.16"
+#define SQ_VERSION "0.17"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -241,7 +241,7 @@ static uint16_t panic_snd;                 /* ... and All Sound Off too (the PAN
 static uint32_t panic_ms;                  /* when PANIC was last pressed (0: never) */
 static uint32_t glo_down_ms;               /* 0.10: PERF toggles when the button is let go (held + OCT-/+ is the octave) */
 static uint8_t glo_used;
-static uint8_t selglo_pend;                                /* 0.12: SEL + GLO pressed, waiting for the release (a tap) or 0.6 s (held) */
+static uint8_t selglo_pend;                                /* 0.12: SEL + GLO pressed, waiting for the release (0.17: the MOSSE) */
 static void vg_panel_toggle(void);                         /* sagga_viaggio.c */
 static uint8_t tie_pend[SQ_TRACKS];        /* 0.10 TIE: the step playing holds into the next one */
 static uint8_t lane_rec[SQ_TRACKS];        /* 0.10: lanes being recorded (bit per lane) with REC: the knob writes the step playing */
@@ -331,10 +331,14 @@ static uint8_t vg_color7(void);
 static uint8_t vg_lfo_pct(void);
 static void vg_transport_start(void);
 static void vg_transport_stop(void);
-static void vg_mode_set(uint8_t on);
 static void vg_reset(void);
-static void vg_key_down(uint32_t k, int wi, int bi, uint8_t sel_held);
-static void vg_key_up(int wi);
+static void vg_move_black(int bi, uint8_t sel_held);       /* 0.17: the MOSSE (PERF page 3) */
+static uint8_t vg_mosse_shown(void);
+static uint8_t vg_move_lit(int bi, uint8_t blink);
+static uint8_t perf_page;                                  /* (GLO's page: 0.17 the MOSSE on the third) */
+static void vg_pattern_in(uint32_t t);                     /* 0.17: a pattern entered by the hands: a proposal's settings */
+static uint8_t vg_prop_queue(uint8_t t);                   /* 0.17 PRESETS: a proposal waiting is queued first */
+static void vg_quant_turn(int32_t d);
 static void vg_service(void);
 static void vg_back(void);
 static void vg_cancel_last(void);
@@ -369,7 +373,6 @@ static void vg_save_journey(void);
 static uint8_t vg_edit_keys(void);
 static uint16_t vg_mutes_to_keep(void);                    /* the mutes without a BREAK's silence (a save, a snapshot) */
 static uint8_t vg_allows_home(uint8_t page);
-static uint8_t vg_mode;                                    /* the panel is in VIAGGIO mode */
 static uint8_t vg_fill;                                    /* FILL in the last bar of the phrase */
 static uint8_t vg_rec_t;                                   /* LOOP: the track recording this phrase (255: none) */
 static uint8_t vg_profile;                                 /* the profile (settings) */
@@ -1402,6 +1405,7 @@ static void quant_tick(void)
         if (tr[t].pending_pattern >= SQ_PATTERNS) continue;
         tr[t].pattern = tr[t].pending_pattern;
         tr[t].pending_pattern = SQ_NO_PENDING;
+        vg_pattern_in(t);                                /* 0.17: a proposal brings its settings */
         track_restart(t);
         ui_dirty = grid_dirty = 1u;
     }
@@ -1536,6 +1540,7 @@ static void seq_clock_tick(uint32_t now)
                 if (wrapped && tr[t].pending_pattern < SQ_PATTERNS && project.live.quant == SQ_Q_AUTO) {   /* (else quant_tick) */
                     tr[t].pattern = tr[t].pending_pattern;
                     tr[t].pending_pattern = SQ_NO_PENDING;
+                    vg_pattern_in(t);                    /* 0.17 */
                 } else if (wrapped && project.ext.track[t].chain_on) {
                     chain_wrap(t);                       /* 0.13 CHAIN LIST: the next pattern of the list */
                 } else if (wrapped && (project.track[t].flags & SQ_TF_CHAIN)) {
@@ -2110,6 +2115,7 @@ static void queue_pattern(uint8_t t, uint8_t p)
         tr[t].pattern = p;
         tr[t].pending_pattern = SQ_NO_PENDING;
         pre[t].state = 0u;
+        vg_pattern_in(t);                                      /* 0.17 */
     } else tr[t].pending_pattern = p != tr[t].pattern ? p : SQ_NO_PENDING;
     ui_dirty = grid_dirty = 1u;
 }
@@ -2984,9 +2990,10 @@ static void step_key_down(uint32_t k, int wi)
 
 /* PERF: black 1-8 the scenes (SEL: store), 9 all on, 10 only the selected track, 11 invert the mutes.
  * With HOME: the song. 1-8 add that scene (the same one again: four bars more), 9 loop on / off, 10 take the last one
- * away, 11 clear it. */
+ * away, 11 clear it. 0.17: on the third page (the MOSSE) the black keys are the moves (sagga_viaggio.c). */
 static void perf_black(int bi, uint8_t sel_held, uint8_t home_held)
 {
+    if (!home_held && perf_page == 2u) { vg_move_black(bi, sel_held); ui_dirty = grid_dirty = 1u; return; }
     if (home_held) {
         if (bi < 8) song_append((uint8_t)((scene_cursor & 8u) + (uint8_t)bi));
         else if (bi == 8) song_loop_toggle();
@@ -3133,7 +3140,6 @@ static void handle_keys(uint32_t keys)
     if (hold_key < 27u && (up & (1u << hold_key))) hold_key = 255u;
     if (up && brk_roll_held) { for (k = 0; k < 2u; k++) if (up & (1u << black_key[k])) brk_black_up((int)k); }   /* 0.12 */
     if (up) rep_up(up);                                    /* 0.13: NOTE REPEAT let go */
-    if (vg_mode && up) { for (k = 0; k < 16u; k++) if (up & (1u << white_key[k])) vg_key_up((int)k); }
     if (hold_key == 254u && !(keys & (0x7FFFFFFu))) hold_key = 255u;
     for (k = 0; k < 8u; k++)                               /* a LOOP / REPEAT key let go (FX may be up already) */
         if ((up & (1u << black_key[k])) && (lp_held & (1u << (LP_PANEL + k)))) loop_release((uint8_t)(LP_PANEL + k));
@@ -3243,10 +3249,9 @@ static void handle_keys(uint32_t keys)
         }
         if (held & (1u << BTN_GLO)) {                          /* 0.12: GLO held: the PERF keys, in any mode (mutes, scenes) */
             if (wi >= 0) { if (perf_solo_mode) toggle_solo((uint8_t)wi); else toggle_mute((uint8_t)wi); }
-            else if (bi >= 0) perf_black(bi, 0u, 0u);
+            else if (bi >= 0) perf_black(bi, 0u, 0u);   /* (GLO + SEL + a key is PICK: on the MOSSE the long BREAK is PERF + SEL + black 2) */
             continue;
         }
-        if (vg_mode) { vg_key_down(k, wi, bi, sel_held); continue; }   /* 0.9: tracks and moves */
         if (perf_mode) {
             if (wi >= 0) {
                 if (sel_held || perf_solo_mode) toggle_solo((uint8_t)wi); else toggle_mute((uint8_t)wi);
@@ -3303,7 +3308,7 @@ static void follow_set(uint8_t t, uint8_t on);
 static void dice_browse(int32_t d);
 static uint8_t dice_pending;
 static uint8_t arp_page, save_page;               /* 0.12: ARP has six pages (the chords and the harmony), SAVE three */
-static uint8_t perf_page;                         /* 0.12: GLO (PERF) has three: LIVE, TRACK LIVE, VIAGGIO */
+static uint8_t perf_page;                         /* 0.12: GLO (PERF) has three: LIVE, TRACK LIVE, VIAGGIO (0.17: the MOSSE) */
 
 /* 0.12: the knobs of GLO's three pages (GLO held, or PERF mode without holding it) */
 static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int32_t d4, int32_t f1, int32_t f2)
@@ -3313,7 +3318,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
         if (d2) set_length(selected_track, (uint8_t)kstep(len_shown(selected_track), d2, f2, 1, 64));
         if (d3) set_key_scale(d3);
         if (d4 && ((d4 > 0) != (project.live.mute_q != 0u))) mute_q_toggle();
-    } else if (page == 2u) {                       /* 3 VIAGGIO: energy, phrase, genre, key */
+    } else if (page == 2u) {                       /* 3 the MOSSE (0.17; VIAGGIO until 0.16): energy, phrase, genre, key */
         if (d1) vg_energy_turn(d1 * f1);
         while (d2) { vg_bars_turn(d2 > 0 ? 1 : -1); d2 += d2 > 0 ? -1 : 1; }   /* (one step a detent: PICK turns it by several) */
         if (d3) vg_genre_turn(d3);
@@ -3437,7 +3442,6 @@ static void uprog_note(void)
     finish(p);
     status_msg(msg_buf);
 }
-static void vg_quant_turn(int32_t d);             /* sagga_viaggio.c */
 
 static void pick_knob_turned(uint32_t held, int32_t d1, int32_t d2, int32_t d3, int32_t d4);   /* sagga_pick.c */
 static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, int32_t d2, int32_t d3, int32_t d4,
@@ -3533,35 +3537,30 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
 
     if ((held & (1u << BTN_GLO)) && !(held & (GROUPS & ~(1u << BTN_SEL)))) {   /* 0.12: GLO held: its three pages (in VIAGGIO mode too) */
         if (d1 || d2 || d3 || d4 || dalg || dp) { glo_used = 1u; selglo_pend = 0u; }
-        if (dp) { scene_cursor = change_u8(scene_cursor, dp, 0u, SQ_SCENES - 1u); ui_dirty = 1u; }
+        if (dp && perf_page == 2u && !(held & (1u << BTN_SEL))) vg_prog_turn(dp);   /* 0.17 the MOSSE: PRESETS the progression, in the queue */
+        else if (dp) { scene_cursor = change_u8(scene_cursor, dp, 0u, SQ_SCENES - 1u); ui_dirty = 1u; }
         if (dalg && (held & (1u << BTN_SEL))) set_bpm_to(kstep(project.bpm, dalg, fa, 30, 300));   /* SEL + ALG: the tempo */
+        else if (dalg && perf_page == 2u) vg_quant_turn(dalg);           /* 0.17 the MOSSE: ALG, when the moves happen */
         glo_page_knobs(perf_page, d1, d2, d3, d4, f1, f2);
         return;
     }
 
     if (dalg && dice_pending && !(held & GROUPS)) { dice_browse(dalg); dalg = 0; }   /* 0.8: a dice waits: ALG the rolls */
-    if (vg_mode && !(held & (GROUPS & ~(1u << BTN_SEL)))) {                          /* 0.9 VIAGGIO: ALG the proposals, PRESETS the progression */
-        if (held & (1u << BTN_SEL)) { if (dalg) set_bpm_to(kstep(project.bpm, dalg, fa, 30, 300)); }   /* SEL + ALG: the tempo, now */
-        else if (dalg) vg_browse(selected_track, dalg);
-        if (dp) vg_prog_turn(dp);
-        if (d1) vg_energy_turn(d1 * f1);
-        if (d2) vg_quant_turn(d2);                                                           /* 0.10: when the moves happen */
-        if (d3) { cfg->role = change_u8(cfg->role, d3, 0u, SQ_ROLE_COUNT - 1u); status_msg(sq_role_name(cfg->role)); ui_dirty = grid_dirty = 1u; }   /* 0.10: the track's role */
-        if (d4) { cfg->channel = change_u8(cfg->channel, d4, 0u, (uint8_t)(ch_limit() - 1u)); status_num("CHANNEL ", (uint32_t)track_ch(selected_track) + 1u); ui_dirty = grid_dirty = 1u; }
-        return;
-    }
-
     if (perf_mode && !(held & (GROUPS & ~(1u << BTN_SEL)))) {   /* PERF mode: GLO's pages without holding it; SEL + knobs: TRACK LIVE, as in 0.11 */
+        uint8_t mosse = perf_page == 2u && !(held & (1u << BTN_SEL)) ? 1u : 0u;
         if (d1 || d2 || d3 || d4 || dalg || dp) glo_used = 1u;
-        if (dp) { scene_cursor = change_u8(scene_cursor, dp, 0u, SQ_SCENES - 1u); ui_dirty = 1u; }
+        if (dp && mosse) vg_prog_turn(dp);                                 /* 0.17 the MOSSE: PRESETS the progression, in the queue */
+        else if (dp) { scene_cursor = change_u8(scene_cursor, dp, 0u, SQ_SCENES - 1u); ui_dirty = 1u; }
         if (dalg && (held & (1u << BTN_SEL))) set_bpm_to(kstep(project.bpm, dalg, fa, 30, 300));   /* SEL + ALG: the tempo */
+        else if (dalg && mosse) vg_quant_turn(dalg);                      /* 0.17 the MOSSE: ALG, when the moves happen */
         glo_page_knobs((held & (1u << BTN_SEL)) ? 1u : perf_page, d1, d2, d3, d4, f1, f2);
         return;
     }
 
     if (dp) {
         if (held & (1u << BTN_SEQ)) gen_genre_set((uint8_t)clamp_i32((int32_t)beat_genre + dp, 0, SQ_GENRES - 1));   /* SEQ + PRESETS: genre */
-        else queue_pattern(selected_track, change_u8(tr[selected_track].pending_pattern < SQ_PATTERNS ? tr[selected_track].pending_pattern : tr[selected_track].pattern, dp, 0u, 7u));
+        else if (!vg_prop_queue(selected_track))                             /* 0.17: a proposal waiting: PRESETS queues it first */
+            queue_pattern(selected_track, change_u8(tr[selected_track].pending_pattern < SQ_PATTERNS ? tr[selected_track].pending_pattern : tr[selected_track].pattern, dp, 0u, 7u));
     }
     if (dalg) {
         if (held & (1u << BTN_HOME)) set_loop_start(selected_track, change_u8(cfg->start, dalg, 0u, 63u));
@@ -3971,8 +3970,8 @@ static void handle_buttons(void)
             project.clock_mode ^= 1u;
             knob_live = 0u; knob_ref = fm1_knob;
             status_msg(project.clock_mode == SQ_CLOCK_MASTER ? "CLOCK MASTER" : "CLOCK SLAVE (EXT)");
-        } else if (held & (1u << BTN_SEL)) {                   /* SEL + PLAY: carry on from where it stopped (VIAGGIO: the seed) */
-            if (vg_mode && !playing) vg_seed();
+        } else if (held & (1u << BTN_SEL)) {                   /* SEL + PLAY: carry on from where it stopped (0.17: on the MOSSE, the seed) */
+            if (vg_mosse_shown() && !playing) vg_seed();
             else if (!playing) transport_continue();
         } else if (playing) transport_stop();
         else transport_start();
@@ -3992,21 +3991,19 @@ static void handle_buttons(void)
     if (b & (1u << BTN_GLO)) {                                  /* PERF: a tap = the mode on / off (held: its pages, the PERF keys) */
         glo_down_ms = fm1_ms; glo_used = 0u;
         if (held & (1u << BTN_HOME)) { song_toggle(); glo_used = 1u; }                        /* HOME + GLO: the song on / off */
-        else if (held & (1u << BTN_SEL)) { selglo_pend = 1u; glo_used = 1u; }                 /* 0.12 SEL + GLO: tap = the panel, held = the journey off */
+        else if (held & (1u << BTN_SEL)) { selglo_pend = 1u; glo_used = 1u; }                 /* 0.17 SEL + GLO: the MOSSE (PERF page 3) on / off */
         ui_dirty = grid_dirty = 1u;
     }
-    if (selglo_pend && (held & (1u << BTN_GLO)) && (uint32_t)(fm1_ms - glo_down_ms) >= 600u) { selglo_pend = 0u; vg_mode_set(0u); }
     if (rel & (1u << BTN_GLO)) {
         if (selglo_pend) { selglo_pend = 0u; vg_panel_toggle(); }
         else if (!glo_used && (uint32_t)(fm1_ms - glo_down_ms) < 600u) {
-            if (vg_mode) { vg_mode = 0u; perf_mode = 1u; status_msg("PERF (SEL+GLO: BACK TO VIAGGIO)"); }
-            else perf_mode ^= 1u;
+            perf_mode ^= 1u;
             if (perf_mode) win_close();                         /* 0.12: PERF is GLO's window: the one open goes */
         }
         glo_used = 1u;
         ui_dirty = grid_dirty = 1u;
     }
-    if (b & (1u << BTN_SEQ)) { perf_mode = 0u; ui_dirty = grid_dirty = 1u; }
+    if ((b & (1u << BTN_SEQ)) && vg_edit_keys()) { perf_mode = 0u; ui_dirty = grid_dirty = 1u; }   /* (0.17: PALCO has no SEQ: its MOSSE stay) */
     if (b & (1u << BTN_ARP)) {                                  /* ARP: a tap = its window (0.12; SEL + ARP: the arpeggio on / off) */
         if (held & (1u << BTN_HOME)) key_bake();                /* HOME + ARP: bake the key (asks twice) */
         else if (held & (1u << BTN_FX)) macros_bake();          /* 0.10 FX + ARP: bake the macros (asks twice) */
@@ -4025,10 +4022,6 @@ static void handle_buttons(void)
         if ((b & ((1u << BTN_OCT_DOWN) | (1u << BTN_OCT_UP))) && dice_pending &&
             !(eh & ((1u << BTN_SEL) | (1u << BTN_FX) | (1u << BTN_HOME) | (1u << BTN_EDIT) | (1u << BTN_ENV) | (1u << BTN_LFO) | (1u << BTN_ARP) | (1u << BTN_SAVE)))) {
             dice_answer((b & (1u << BTN_OCT_UP)) ? 1u : 0u);                  /* a dice waits: OCT+ keeps it, OCT- puts it back */
-            b &= ~((1u << BTN_OCT_DOWN) | (1u << BTN_OCT_UP));
-        }
-        if ((b & ((1u << BTN_OCT_DOWN) | (1u << BTN_OCT_UP))) && vg_mode && !(eh & (NOGRP | (1u << BTN_GLO)))) {
-            if (b & (1u << BTN_OCT_DOWN)) vg_back(); else vg_cancel_last();   /* 0.9 VIAGGIO: INDIETRO, cancel the last move */
             b &= ~((1u << BTN_OCT_DOWN) | (1u << BTN_OCT_UP));
         }
         if (b & (1u << BTN_OCT_DOWN)) {
@@ -4156,7 +4149,8 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[9]), evo_run == 2u);
     } else if (perf_mode || (held & (1u << BTN_GLO))) {        /* (0.12: GLO held shows the PERF keys in any mode) */
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), perf_solo_mode ? ((solo_mask >> i) & 1u) : (((pending_mute >> i) & 1u) ? blink : track_audible(i)));
-        for (i = 0; i < 8u; i++) { uint32_t sc = (scene_cursor & 8u) + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
+        if (perf_page == 2u) for (i = 0; i < 11u; i++) fm1_led_key(KEY_LED(black_key[i]), vg_move_lit((int)i, blink));   /* 0.17 the MOSSE: what waits */
+        else for (i = 0; i < 8u; i++) { uint32_t sc = (scene_cursor & 8u) + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
     } else if (record_arm) {
         if (track_drum(selected_track))                        /* the drum keys */
             for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), drum_track_n((uint8_t)i) < SQ_TRACKS);

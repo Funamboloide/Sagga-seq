@@ -101,7 +101,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("play", playing); pr_ku("bpm", project.bpm); pr_ku("sel", selected_track + 1u); pr_ku("ui", ui_mode());
     pr_ku("home", home_page); pr_ku("seqp", seq_page); pr_ku("perf", perf_mode); pr_ku("fx", fx_now()); pr_ku("loop", loop_on);
     pr_k("win"); pr_d(win_cur == 255u ? -1 : (int32_t)win_cur);
-    pr_ku("vg", project.viaggio.on); pr_k("vgspeed"); pr_d(vg_speed); pr_ku("grid", grid_attached); pr_ku("gview", g_view);
+    pr_ku("vg", vg_mosse_shown());   /* (0.17: the MOSSE page; the journey always runs) */ pr_k("vgspeed"); pr_d(vg_speed); pr_ku("grid", grid_attached); pr_ku("gview", g_view);
     pr_ku("genre", g->genre); pr_ku("gmode", g->genre_mode); pr_ku("bfunc", g->func); pr_ku("bvar", g->var);
     pr_ku("harm", g->harm_on); pr_ku("hlock", g->harm_lock); pr_ku("hgenre", g->harm_genre); pr_ku("hprog", g->harm_prog);
     pr_ku("hbars", g->harm_bars); pr_ku("hrhythm", g->harm_rhythm); pr_ku("hmood", g->harm_mood); pr_k("chord"); pr_s(nm);

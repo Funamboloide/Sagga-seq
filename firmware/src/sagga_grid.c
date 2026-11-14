@@ -264,11 +264,11 @@ static void gr_ctl(uint8_t id, uint8_t down)
     } else if (id == GC_VSTEP) {
         gr_set_view(shift ? (g_view == GV_CC ? GV_PICK : GV_CC) : g_view == GV_STEP ? GV_DRUM : GV_STEP);  /* STEP again: DRUM; CC again: PICK */
     } else if (id == GC_VPERF) {
-        /* PERF again: SONG; then VIAGGIO (0.9), which comes first when the journey is on; then REGIA, once a regista
-         * on the Pi has spoken (SysEx 51 or 54) */
+        /* PERF again: SONG; then VIAGGIO (0.9); then REGIA, once a regista on the Pi has spoken (SysEx 51 or 54). 0.17:
+         * PERF first always (the journey always runs) */
         gr_set_view(shift ? GV_LFO : g_view == GV_PERF ? GV_SONG : g_view == GV_SONG ? GV_VIAGGIO :
                     g_view == GV_VIAGGIO ? (rg_active ? GV_REGIA : GV_PERF) :
-                    g_view == GV_REGIA ? GV_PERF : project.viaggio.on ? GV_VIAGGIO : GV_PERF);
+                    g_view == GV_REGIA ? GV_PERF : GV_PERF);
     } else if (id == GC_VTRACK) {                                           /* TRACK again: TRACK 2, TRACK 3; BEAT again: EUCLID */
         if (shift) gr_set_view(g_view == GV_BEAT ? GV_EUCLID : GV_BEAT);
         else gr_set_view(g_view == GV_TRACK ? GV_TRACK2 : g_view == GV_TRACK2 ? GV_TRACK3 : GV_TRACK);
@@ -1012,12 +1012,11 @@ static void gr_pad_viaggio(uint8_t x, uint8_t y, uint8_t down)
             ui_dirty = grid_dirty = 1u;
             return;
         }
-        if (down) { g_vg_hold = x; g_vg_hold_ms = fm1_ms; if (!vg_mode) vg_mode_set(1u); vg_track_tap(x); }
+        if (down) { g_vg_hold = x; g_vg_hold_ms = fm1_ms; vg_track_tap(x); }
         else if (g_vg_hold == x) g_vg_hold = 255u;
         return;
     }
     if (!down) return;
-    if (!vg_mode) vg_mode_set(1u);
     switch (y) {
     case 0u: vg_now_tap(); break;
     case 2u: vg_track_queue(x); break;

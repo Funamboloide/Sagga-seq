@@ -21,7 +21,7 @@
 
 #define C_LABEL RGB(135, 135, 150)
 
-enum { UM_STEP = 0, UM_EDIT, UM_ENV, UM_LFO, UM_SEQ, UM_SEL, UM_HOME, UM_FX, UM_PERF, UM_SAVE, UM_ARP, UM_VIAGGIO, UM_COUNT };
+enum { UM_STEP = 0, UM_EDIT, UM_ENV, UM_LFO, UM_SEQ, UM_SEL, UM_HOME, UM_FX, UM_PERF, UM_SAVE, UM_ARP, UM_COUNT };   /* (0.17: UM_VIAGGIO gone: the MOSSE are PERF page 3) */
 
 #define UI_LINES 6u
 #define UI_COLS  29u                          /* characters on a line (FONT_S is 8 px wide, 232 px) */
@@ -179,12 +179,18 @@ static uint8_t ui_mode(void)
     if (h & (1u << BTN_SEQ)) return UM_SEQ;
     if (h & (1u << BTN_FX)) return UM_FX;
     if (h & (1u << BTN_ARP)) return UM_ARP;
-    if (h & (1u << BTN_GLO)) return UM_PERF;                       /* 0.12: GLO held: its pages (LIVE, TRACK LIVE, VIAGGIO) */
-    if (vg_mode) return UM_VIAGGIO;                                /* 0.9 (SEL too: the keys queue the tracks) */
+    if (h & (1u << BTN_GLO)) return UM_PERF;                       /* 0.12: GLO held: its pages (LIVE, TRACK LIVE, the MOSSE) */
     if (perf_mode && (h & (1u << BTN_SEL))) return UM_PERF;       /* PERF + SEL: TRACK LIVE's knobs, the solos (0.12) */
     if (h & (1u << BTN_SEL)) return UM_SEL;
     if (perf_mode) return UM_PERF;
     return UM_STEP;
+}
+
+/* the page of GLO shown (PERF + SEL: TRACK LIVE) */
+static uint8_t ui_perf_pp(void)
+{
+    uint32_t hh = in_held();
+    return (perf_mode && (hh & (1u << BTN_SEL)) && !(hh & (1u << BTN_GLO))) ? 1u : perf_page;
 }
 
 /* the text of the screen for the moment: four lines and four cells */
@@ -316,7 +322,7 @@ static void ui_build(void)
             ui_cell(1, "ROLE", sq_role_name(cfg->role), cfg->role ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "CHORD", sq_chord_shape_name(cfg->chord), cfg->chord ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "KEY SLOT", cfg->key_slot == SQ_KEY_FOLLOW ? "FOLLOWS" : f_u((uint32_t)cfg->key_slot + 1u), cfg->key_slot == SQ_KEY_FOLLOW ? SQ_C_DIM : C_ACCENT);
-            ui_line(2, track_break(t) ? "HOME 4/8 BREAK: SLICES FROM THE PEN NOTE" : "HOME 4/8 TRACK  ROLE: LIBRARY, COOK, VIAGGIO", C_WARN);
+            ui_line(2, track_break(t) ? "HOME 4/8 BREAK: SLICES FROM THE PEN NOTE" : "HOME 4/8 TRACK  ROLE: LIBRARY, COOK, MOSSE", C_WARN);
         } else if (home_page == 6u) {                                /* 0.10 TIMING */
             int8_t dl = cfg->delay_ms;
             uint8_t chain = chain_mode(t), pp = tr[t].pattern;
@@ -670,28 +676,8 @@ static void ui_build(void)
         }
         break;
     }
-    case UM_VIAGGIO: {                                /* 0.9: the phrase, the energy, the genre, the queue */
-        char nm[24];
-        ui_cell(0, project.viaggio.energy != vg_energy_cur ? "ENERGY >" : "ENERGY", f_u(vg_energy_cur), C_ACCENT);
-        {
-            static const char *const VQ2[SQ_VQS] = {"PHRASE", "BAR", "BEAT"};
-            p = b; p = put_u(p, (uint32_t)vg_bar + 1u); p = put_s(p, "/"); p = put_u(p, vg_bars()); p = put_s(p, " "); p = put_s(p, VQ2[project.viaggio.quant < SQ_VQS ? project.viaggio.quant : 0u]); finish(p);
-            ui_cell(1, "BAR / MOVES", b, vg_bar + 1u == vg_bars() ? C_WARN : C_WHITE);
-        }
-        ui_cell(2, f_pre("ROLE CH", (uint32_t)track_ch(t) + 1u), sq_role_name(cfg->role), cfg->role ? C_ACCENT : SQ_C_DIM);
-        harm_name(nm, sizeof nm);
-        ui_cell(3, project.gen.harm_on ? "PROG" : "PROG OFF", nm, project.gen.harm_on ? C_ACCENT : SQ_C_DIM);
-        p = b; p = put_s(p, "VIAGGIO "); p = put_u(p, (uint32_t)project.viaggio.phrase_count + 1u);
-        p = put_s(p, " "); p = put_s(p, sq_root_name(project.key_root)); p = put_s(p, " "); p = put_s(p, sq_scale_name(project.key_scale));
-        p = put_s(p, " T"); p = put_u(p, t + 1u); p = put_s(p, " "); p = put_s(p, vg_state_name(t));
-        if (vg_rec_t < SQ_TRACKS) p = put_s(p, " LOOP REC");
-        finish(p);
-        ui_line(2, b, C_WARN);
-        break;
-    }
     case UM_PERF: {                                   /* 0.12: GLO's pages: 1 LIVE, 2 TRACK LIVE, 3 VIAGGIO */
-        uint32_t hh = in_held();
-        uint8_t pp = (perf_mode && (hh & (1u << BTN_SEL)) && !(hh & (1u << BTN_GLO))) ? 1u : perf_page;   /* PERF + SEL: TRACK LIVE */
+        uint8_t pp = ui_perf_pp();                    /* (PERF + SEL: TRACK LIVE) */
         if (pp == 1u) {
             ui_cell(0, "PATTERN", tr[t].pending_pattern < SQ_PATTERNS ? f_pre("P", (uint32_t)tr[t].pending_pattern + 1u) : f_pre("P", (uint32_t)tr[t].pattern + 1u),
                     tr[t].pending_pattern < SQ_PATTERNS ? C_WARN : C_WHITE);
@@ -700,12 +686,19 @@ static void ui_build(void)
             ui_cell(3, "MUTE QUEUE", f_onoff(project.live.mute_q), project.live.mute_q ? C_ACCENT : SQ_C_DIM);
             p = b; p = put_s(p, pp != perf_page ? "PERF+SEL TRACK LIVE  T" : "GLO 2/3 TRACK LIVE  T"); p = put_u(p, t + 1u); finish(p);
             ui_line(2, b, C_WARN);
-        } else if (pp == 2u) {
-            ui_cell(0, "ENERGY", f_u(project.viaggio.energy), project.viaggio.energy != vg_energy_cur ? C_WARN : C_ACCENT);
-            ui_cell(1, "PHRASE BARS", f_u(project.viaggio.phrase_bars), C_WHITE);
-            ui_cell(2, "GENRE", vg_genre()->name, C_ACCENT);
-            ui_cell(3, "KEY", sq_root_name(project.key_root), project.key_scale ? C_ACCENT : SQ_C_DIM);
-            ui_line(2, project.viaggio.on ? "GLO 3/3 VIAGGIO  K3 K4: IN QUEUE" : "GLO 3/3 VIAGGIO (SEL+GLO: ON)", C_WARN);
+        } else if (pp == 2u) {                       /* 0.17 the MOSSE: the energy, the phrase, the genre and key (queued) */
+            static const char *const VQ2[SQ_VQS] = {"PHRASE", "BAR", "BEAT"};
+            int32_t gq = vg_genre_shown(), kq = vg_key_shown();
+            ui_cell(0, project.viaggio.energy != vg_energy_cur ? "ENERGY >" : "ENERGY", project.viaggio.energy != vg_energy_cur ? f_u(project.viaggio.energy) : f_u(vg_energy_cur),
+                    project.viaggio.energy != vg_energy_cur ? C_WARN : project.viaggio.energy != 50u ? C_ACCENT : C_WHITE);
+            p = b; p = put_u(p, (uint32_t)vg_bar + 1u); p = put_s(p, "/"); p = put_u(p, vg_bars()); finish(p);
+            ui_cell(1, "PHRASE BAR", b, vg_bar + 1u == vg_bars() ? C_WARN : C_WHITE);
+            ui_cell(2, gq != (int32_t)vg_set_genre_cur() ? "GENRE >" : "GENRE", sq_set_genre((uint8_t)gq)->name, gq != (int32_t)vg_set_genre_cur() ? C_WARN : C_ACCENT);
+            ui_cell(3, kq != (int32_t)project.key_root ? "KEY >" : "KEY", sq_root_name((uint8_t)kq), kq != (int32_t)project.key_root ? C_WARN : project.key_scale ? C_ACCENT : SQ_C_DIM);
+            p = b; p = put_s(p, perf_mode ? "PERF 3/3 MOSSE  AT " : "GLO 3/3 MOSSE  AT "); p = put_s(p, VQ2[project.viaggio.quant < SQ_VQS ? project.viaggio.quant : 0u]);
+            if (vg_rec_t < SQ_TRACKS) p = put_s(p, " LOOP REC");
+            finish(p);
+            ui_line(2, b, C_WARN);
         } else {
             int32_t kt = ktrans_target();
             ui_cell(0, "MORPH", f_pct(((uint32_t)morph_pos * 100u + 63u) / 127u), morph_pos ? C_ACCENT : SQ_C_DIM);
@@ -778,11 +771,11 @@ static void ui_build(void)
         msg_text = 0;
         ui_line(3, b, C_CYAN);
         ui_line(4, b + 32, C_CYAN);
-    } else if (mode == UM_VIAGGIO) {                  /* 0.9: the queue */
+    } else if (mode == UM_PERF && ui_perf_pp() == 2u) {   /* 0.17 the MOSSE: the queue (0.9-0.16: VIAGGIO mode's) */
         uint32_t k;
         msg_text = 0;
         p = b;
-        if (!vg_q.n) p = put_s(p, "QUEUE EMPTY  (BLACK: MOVES, SEL+WHITE: IN/OUT)");
+        if (!vg_q.n) p = put_s(p, "QUEUE EMPTY  BLACK: THE MOVES, AT THE END OF THE PHRASE");
         else {
             p = put_s(p, vg_now ? "NOW: " : "QUEUE: ");
             for (k = 0; k < vg_q.n && (uint32_t)(p - b) < 44u; k++) {
@@ -893,7 +886,7 @@ static uint16_t strip_color(uint32_t i)
     }
     if (mode == UM_FX) return (fx_now() >> i) & 1u ? C_WARN : SQ_C_DIM;
     if (mode == UM_LFO) return i == lfo_sel ? C_ACCENT : project.lfo[i].enabled ? C_ON : SQ_C_DIM;
-    if (mode == UM_PERF || mode == UM_HOME || mode == UM_VIAGGIO) {
+    if (mode == UM_PERF || mode == UM_HOME) {
         if (i == selected_track) return C_ACCENT;
         if (solo_mask & (1u << i)) return C_WARN;
         if (!track_audible(i)) return SQ_C_OUT;

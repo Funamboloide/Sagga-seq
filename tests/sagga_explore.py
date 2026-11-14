@@ -153,7 +153,7 @@ def g_mods_btn(mods, b, kind="comando"):
 
 
 def g_hold_btn(b, ms):
-    """a button held `ms` ms (0.12: REC 0.7 s = TAKE; SEL + GLO 0.7 s = the journey off)"""
+    """a button held `ms` ms (0.12: REC 0.7 s = TAKE)"""
     def do(s, t):
         s.press(t, b); s.release(t + ms, b)
         return t + ms + 60
@@ -320,7 +320,7 @@ def catalogo(veloce=False, grid=False):
     out.append(g_mods_btn([S.GLO, S.SEL], S.OCT_UP))                        # 0.12: the live octave (a command: the music moves)
     out.append(g_mods_btn([S.GLO, S.SEL], S.OCT_DOWN))
     out.append(g_hold_btn(S.REC, 700))                                       # TAKE
-    out.append(g_hold_mod_btn(S.SEL, S.GLO, 700))                            # the journey off
+    out.append(g_hold_mod_btn(S.SEL, S.GLO, 700))                            # (0.12-0.16 the journey off; 0.17 the MOSSE)
     for b in (S.ARP, S.SEQ):                                                 # (ARP held 0.7 s alone; SEQ + a key held: the hold variants)
         out.append(g_hold_btn(b, 700))
     for i, j in ((0, 3), (2, 5), (4, 11), (0, 15), (7, 8)):
@@ -415,6 +415,7 @@ def sit_user_prog(s):
 
 
 def sit_viaggio(s):
+    """0.17: SEL + GLO, the MOSSE (PERF page 3: the black keys are the journey's moves); until 0.16 VIAGGIO mode"""
     t = _band(s, 200)
     s.press(t, S.SEL); s.tap_btn(t + 30, S.GLO); s.release(t + 90, S.SEL); t += 150
     return _play(s, t)
@@ -490,7 +491,7 @@ SITUAZIONI = [
     Situazione("progressione USER, FOLLOW RETRIG, 3+3+2, in play", sit_user_prog),
     Situazione("GENRE LIVE, band in play", sit_genre_live),
     Situazione("BREAK sulla traccia 1, band in play", sit_break),
-    Situazione("VIAGGIO in play", sit_viaggio),
+    Situazione("MOSSE in play", sit_viaggio),
     Situazione("PERF in play", sit_perf),
     Situazione("note lunghe e loop fra due step, in play", sit_note_loop),
     Situazione("0.13 CHAIN LIST, MOTION, KEYBOARD, SLIDE, in play", sit_013_live),
@@ -645,18 +646,17 @@ def is_music(field):
 # the gestures that may change the harmony (by hand, or by loading something of a genre)
 # (SEQ + black 1-5: DICE SEQ CC LFO GROOVE ALL - ALL may pick a progression; black 7: KIT; white 10 BEAT, 11 PROG; SEQ +
 #  SEL + black 1: DICE PROG, black 7: BAND; 0.12: the harmony is ARP 3 / 4 (HARMONY, HARMONY 2), the user progressions ARP 5
-#  / 6, PICK (ARP + SEL + a key) sets those knobs by key; GLO 3 K3 is VIAGGIO's genre: a move of the set (stopped it happens
+#  / 6, PICK (ARP + SEL + a key) sets those knobs by key; GLO 3 K3 is the set's genre: a move (stopped it happens
 #  at once), and the harmony follows a genre that is played, as with a load; 0.16: EDIT + ARP copies the progression into a
-#  USER slot, which plays from then on)
+#  USER slot, which plays from then on; 0.17: PRESETS on the MOSSE (GLO 3) is the progression, a move of the set)
 HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
-                     r"GLO 3 (SEL\+)?K3 |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
+                     r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
                      r"HOME\+SAVE|SAVE, SAVE)")
 HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
                    r"grid PICK pad \d+,1$)")      # (0.12: the PICK view's row 1 is K1 of the page open: HOME 1's CHANNEL when no window is)
-CH_OK_VIAGGIO = re.compile(r"^((SEL |GLO )?K4 |grid VIAGGIO|grid PERF)")     # (VIAGGIO: K4 is the track's channel)
 
 
 class Finding:
@@ -676,7 +676,7 @@ REGOLE = {
     "ARMONIA": ("ERRORE", "l'armonia (genere dell'armonia, progressione, accordo) cambia solo a mano (ARP 3-6, DICE PROG, EDIT + ARP) o "
                           "caricando qualcosa di un genere (BEAT, KIT, BAND, PROG, una scena, uno snapshot, un progetto)"),
     "LOCK": ("ERRORE", "con l'armonia su LOCK solo ARP 3-6, DICE PROG ed EDIT + ARP la cambiano"),
-    "CANALE": ("ERRORE", "il canale MIDI di una traccia lo cambia solo chi deve (HOME 1 K1, VIAGGIO K4, il grid TRACK 3, uno "
+    "CANALE": ("ERRORE", "il canale MIDI di una traccia lo cambia solo chi deve (HOME 1 K1, il grid TRACK 3, uno "
                          "snapshot, un progetto caricato)"),
     "NOTE SCRITTE": ("ERRORE", "BAND e KIT non cambiano la nota di una traccia dove e' scritto qualcosa"),
     "FASE": ("ERRORE", "due battute dopo qualunque gesto ogni traccia e' dove la battuta dice (la 0.9 le lasciava spostate)"),
@@ -765,14 +765,15 @@ def _check(sit, g, base, br, null, findings, off):
     harm = [(f, a, b) for f, a, b in after if f in ("G.hgenre", "G.hprog", "G.harm", "G.hlock")]
     locked = base["G"].get("hlock") == "1"
     live_genre = base["G"].get("gmode") == "2" and "PRESETS" in name     # (GENRE LIVE: a genre change reloads: wanted)
-    if harm and g.kind not in ("sfoglia", "dado") and not live_genre:
+    mosse_prog = base["G"].get("vg") == "1" and re.match(r"^PRESETS ", name)   # (0.17: on the MOSSE PRESETS is the progression, a move)
+    if harm and g.kind not in ("sfoglia", "dado") and not live_genre and not mosse_prog:
         if locked and not HARM_OK_LOCK.match(name):
             findings.append(Finding("LOCK", "ERRORE", sit.name, name, _fmt(harm)))
         elif not locked and not HARM_OK.match(name):
             findings.append(Finding("ARMONIA", "ERRORE", sit.name, name, _fmt(harm)))
     # CANALE
     ch = [(f, a, b) for f, a, b in after if f.endswith(".ch")]
-    if ch and not (CH_OK.match(name) or (base["G"].get("vg") == "1" and CH_OK_VIAGGIO.match(name))):
+    if ch and not CH_OK.match(name):                         # (0.17: no VIAGGIO mode, whose K4 was the track's channel)
         findings.append(Finding("CANALE", "ERRORE", sit.name, name, _fmt(ch)))
     # NOTE SCRITTE
     if re.match(r"^SEQ\+(SEL\+)?nero 7$", name):

@@ -8,9 +8,12 @@
  * energy of the moment; the proposals are the track's patterns after the one that plays. The ENERGY (0..100) moves the
  * velocity, the filter, the gates, the density of the hits, the depth of the LFOs and the colour of the chords, gliding
  * along the phrase. The MOVES: FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP, TRANSPOSE, PROG, GENRE, KEY,
- * ENERGY, and INDIETRO through the TRAIL, which keeps every phrase. The panel in VIAGGIO mode (SEL + PERF), the grid's
- * VIAGGIO view (sagga_grid.c), the remote on channel 13, HOME page 0 (sagga_ui.c). The profiles: what the firmware
- * shows and allows (FULL, PALCO).
+ * ENERGY, and INDIETRO through the TRAIL, which keeps every phrase. The grid's VIAGGIO view (sagga_grid.c), the remote
+ * on channel 13. The profiles: what the firmware shows and allows (FULL, PALCO).
+ *
+ * 0.17: no VIAGGIO mode any more: the journey always runs (at energy 50 with nothing queued it changes nothing), the
+ * trail always keeps the phrases (SAVE + white 16 makes them scenes and the song), the MOVES are on the black keys of
+ * PERF's third page (the MOSSE: SEL + GLO opens it), and a PROPOSAL is made in SEQ (BEAT held) and queued with PRESETS.
  */
 
 /* ---- the profiles */
@@ -19,14 +22,14 @@ typedef struct {
     uint8_t home_pages;          /* bit per HOME page 0..7 */
     uint32_t moves;              /* bit per SQ_MV_* */
     uint8_t edit_keys;           /* 1: SEQ tools, EDIT / ENV pages, step keys; 0: the panel plays the set only */
-    uint8_t viaggio_on;          /* VIAGGIO mode when the profile is chosen */
+    uint8_t viaggio_on;          /* 0.17: PERF on the MOSSE page when the profile is chosen */
     uint8_t remote_mode;         /* SQ_RM_* the profile prefers */
 } vg_profile_t;
 #define VG_ALL_MOVES 0xFFFFFFFFu
 static const vg_profile_t VG_PROFILE[SQ_PROFILES] = {
     { "FULL",  0xFFu, VG_ALL_MOVES, 1u, 0u, SQ_RM_14 },
     /* PALCO: the set is played, not edited: no SEQ tools, no EDIT / ENV pages; HOME pages 1 (the channel), 3 (the key)
-     * and 8 (VIAGGIO); every move; VIAGGIO on from the start; the remote on 13 + 14. (The grid's views are not gated.) */
+     * and 8 (VIAGGIO); every move; the MOSSE from the start; the remote on 13 + 14. (The grid's views are not gated.) */
     { "PALCO", 0x05u, VG_ALL_MOVES, 0u, 1u, SQ_RM_13_14 },   /* 0.12: VIAGGIO's page is GLO 3, always allowed */
 };
 static uint8_t vg_profile = SQ_PROF_FULL;   /* kept in the settings (sagga_store.c) */
@@ -42,7 +45,6 @@ static void vg_profile_service(void);
 static sq_queue_t vg_q;
 static sq_trail_t vg_trail;
 static sq_phrase_t vg_ring[SQ_TRAIL] __attribute__((section(".pool")));
-static uint8_t vg_mode;                     /* the panel is in VIAGGIO mode */
 static uint8_t vg_bar;                      /* the bar of the phrase, 0..phrase_bars-1 */
 static uint8_t vg_now;                      /* NOW: the queue runs at the next bar */
 static uint8_t vg_energy_from;              /* the energy the phrase started from (it glides to project.viaggio.energy) */
@@ -71,9 +73,6 @@ static vg_tcfg_t vg_loop_cfg[SQ_TRACKS], vg_pre_cfg[SQ_TRACKS];   /* the track a
 static uint8_t vg_pre_pattern[SQ_TRACKS];   /* ... and the pattern it played before the loop */
 static uint16_t vg_exit;                    /* tracks leaving at the boundary: the last bar fades */
 static uint8_t vg_tira_n[SQ_TRACKS];        /* proposals made on the track (the dice's memory) */
-static uint8_t vg_hold_t = 255u;            /* a white key held in VIAGGIO mode (hold = another proposal) */
-static uint32_t vg_hold_ms;
-static uint8_t vg_hold_done;
 static sq_energy_fx_t vg_fx;                /* what the energy does now */
 #define VG_HOLD_MS 450u
 
@@ -145,15 +144,12 @@ static void vg_msg_t(const char *a, uint32_t t, const char *b)
 
 /* ---- the states of the tracks from what the project holds (VIAGGIO switched on, a project loaded): a track with
  * notes only outside the pattern that plays is a proposal, not a track that plays */
+static uint16_t vg_mutes_to_keep(void);
+static void vg_state_sync(uint32_t t);
 static void vg_states_from_project(void)
 {
     uint32_t t;
-    for (t = 0; t < SQ_TRACKS; t++) {
-        if (!track_has_notes(t)) vg_set_state(t, SQ_TS_EMPTY);
-        else if (mute_mask & (1u << t)) { if (vg_state(t) != SQ_TS_PROPOSED) vg_set_state(t, SQ_TS_OUT); }
-        else if (pattern_empty(t, tr[t].pattern)) vg_set_state(t, SQ_TS_PROPOSED);
-        else vg_set_state(t, SQ_TS_IN);
-    }
+    for (t = 0; t < SQ_TRACKS; t++) vg_state_sync(t);
 }
 /* a mute the journey sets: during a BREAK it goes to the mask the break puts back, the break itself stays whole */
 static void vg_mute_set(uint32_t t, uint8_t on)
@@ -322,7 +318,7 @@ static void vg_tira(uint8_t t, uint8_t dice)
     vg_pcfg_has[t] |= (uint8_t)(1u << pat);
     vg_tira_n[t]++;
     if (vg_state(t) == SQ_TS_EMPTY) vg_set_state(t, SQ_TS_PROPOSED);
-    {   /* "T1 KICK P4 (3/3) SEL+KEY: IN" (the count: the proposals the track has, this one's place among them) */
+    {   /* "T1 KICK P4 (3/3) READY" (the count: the proposals the track has, this one's place among them) */
         uint8_t m = vg_proposals(t), n = 0u, i = 0u, c;
         for (c = 0; c < SQ_PATTERNS; c++) if (m & (1u << c)) { n++; if (c == pat) i = n; }
         p = msg_buf;
@@ -330,7 +326,7 @@ static void vg_tira(uint8_t t, uint8_t dice)
         p = put_s(p, " P"); p = put_u(p, (uint32_t)pat + 1u);
         if (n > 1u) { p = put_s(p, " ("); p = put_u(p, i); p = put_s(p, "/"); p = put_u(p, n); p = put_s(p, ")"); }
         p = put_s(p, dice ? " DICE" : "");
-        p = put_s(p, vg_state(t) == SQ_TS_IN ? " BLACK 9: SWAP" : " SEL+KEY: IN");
+        p = put_s(p, " READY");                          /* (0.17: the grid, the remote or PRESETS bring it in) */
         finish(p);
         status_msg(msg_buf);
     }
@@ -344,13 +340,13 @@ static void vg_browse(uint8_t t, int32_t d)             /* the ALG encoder: the 
         uint8_t c = (uint8_t)((cur + SQ_PATTERNS + (d > 0 ? k : SQ_PATTERNS - k)) % SQ_PATTERNS);
         if (m & (1u << c)) { vg_prop[t] = c; break; }
     }
-    {   /* "T1 KICK P5 (3/7)  BLACK 9 = SWAP" */
+    {   /* "T1 KICK P5 (3/7)" */
         uint8_t n = 0u, i = 0u, c;
         char *p = msg_buf;
         for (c = 0; c < SQ_PATTERNS; c++) if (m & (1u << c)) { n++; if (c == vg_prop[t]) i = n; }
         p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " "); p = put_s(p, sq_func_name(vg_role_of(t)));
         p = put_s(p, " P"); p = put_u(p, (uint32_t)vg_prop[t] + 1u); p = put_s(p, " ("); p = put_u(p, i); p = put_s(p, "/"); p = put_u(p, n); p = put_s(p, ")");
-        p = put_s(p, vg_track_in(t) ? " BLACK 9: SWAP" : " SEL+KEY: IN"); finish(p);
+        finish(p);
         status_msg(msg_buf);
         ui_dirty = grid_dirty = 1u;
     }
@@ -614,7 +610,8 @@ static void vg_run_queue(uint8_t boundary)              /* boundary 0: NOW, or s
 {
     uint32_t i, t;
     uint16_t was_in = 0u;
-    uint8_t had_break = vg_break_left ? 1u : 0u;
+    uint8_t had_break = vg_break_left ? 1u : 0u, had_moves = vg_q.n ? 1u : 0u;
+    vg_states_from_project();                                /* 0.17: the states as the hands left them (PERF, scenes, patterns) */
     for (t = 0; t < SQ_TRACKS; t++) if (vg_track_in(t)) was_in |= (uint16_t)(1u << t);
     for (i = 0; i < vg_q.n; i++) {
         const sq_move_t *m = &vg_q.m[i];
@@ -637,9 +634,8 @@ static void vg_run_queue(uint8_t boundary)              /* boundary 0: NOW, or s
         case SQ_MV_HALF: vg_speed_set(-1); break;
         case SQ_MV_DOUBLE: vg_speed_set(1); break;
         case SQ_MV_TRANSPOSE: ktrans_apply((int32_t)m->a - SQ_KTRANS_MAX); break;
-        case SQ_MV_PROG:
+        case SQ_MV_PROG:                                 /* (0.17: the HARMONY stays as the hands left it: queued only when it was on) */
             project.gen.harm_prog = m->a < SQ_PROGS_ALL ? m->a : 0u;
-            project.gen.harm_on = 1u;
             break;
         case SQ_MV_GENRE: vg_set_genre_apply(m->a); break;
         case SQ_MV_THIN: vg_thin(); break;
@@ -669,7 +665,7 @@ static void vg_run_queue(uint8_t boundary)              /* boundary 0: NOW, or s
         sq_queue_clear(&vg_q);
         for (i = 0; i < nk; i++) sq_queue_push(&vg_q, keep[i].kind, keep[i].a, keep[i].b);
     }
-    if (!had_break && !vg_break_left) vg_silence_guard(was_in);
+    if (had_moves && !had_break && !vg_break_left) vg_silence_guard(was_in);   /* (0.17: only a silence the moves made: the hands may want one) */
     vg_exit = 0u;
     vg_fill = 0u; if (boundary) vg_riser = 0u;
 }
@@ -714,6 +710,7 @@ static void vg_bar_tick(void)
         vg_now = 0u;
         if (boundary) {
             sq_phrase_t ph;
+            vg_states_from_project();                      /* 0.17: the phrase as it was heard */
             vg_phrase_now(&ph);
             sq_trail_push(&vg_trail, vg_ring, &ph);
             project.viaggio.phrase_count = (uint8_t)((project.viaggio.phrase_count + 1u) % SQ_TRAIL);
@@ -770,39 +767,14 @@ static void vg_transport_stop(void)
     vg_speed = 0;
     vg_exit = 0u; vg_fill = 0u; vg_riser = 0u;
 }
-/* the journey's hold on the music let go: a break, HALF / DOUBLE, a loop recording, a fade, a riser */
-static void vg_engine_release(void)
-{
-    if (vg_rec_t < SQ_TRACKS) vg_loop_close();
-    vg_rec_arm = 255u;
-    vg_break_end();
-    vg_speed_set(0);
-    vg_exit = 0u; vg_fill = 0u; vg_riser = 0u; vg_now = 0u;
-}
 
-/* VIAGGIO on / off (SEL + PERF on the panel; the profile) */
-static void vg_mode_set(uint8_t on)
+/* 0.17 the MOSSE: PERF's third page (SEL + GLO; the profile PALCO starts there). The journey itself always runs. */
+static uint8_t vg_mosse_shown(void) { return (perf_mode || (in_held() & (1u << BTN_GLO))) && perf_page == 2u ? 1u : 0u; }
+static void vg_mosse_open(void)
 {
-    uint32_t t;
-    vg_mode = on ? 1u : 0u;
-    if (on) {
-        uint8_t was_on = project.viaggio.on;
-        project.viaggio.on = 1u;
-        perf_mode = 0u;
-        if (!was_on) vg_states_from_project();           /* (on already: the states, and the proposals browsed, stay) */
-        project.viaggio.set_genre = vg_set_genre_cur();  /* (0.10: the set's genre is the project's) */
-        vg_energy_from = project.viaggio.energy;
-        vg_energy_apply(project.viaggio.energy);
-        perf_page = 2u;                                  /* 0.12: GLO shows the VIAGGIO page first */
-        status_msg("VIAGGIO: WHITE = TRACKS, BLACK = MOVES, SEL+KEY = QUEUE");
-    } else {
-        vg_engine_release();
-        project.viaggio.on = 0u;
-        sq_queue_clear(&vg_q);
-        vg_energy_apply(50u);
-        status_msg("VIAGGIO OFF");
-    }
-    (void)t;
+    win_close();
+    perf_mode = 1u; perf_page = 2u;
+    status_msg("MOSSE: BLACK = MOVES AT THE PHRASE, WHITE = MUTES");
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -817,8 +789,8 @@ static void vg_reset(void)
     record_arm = 0u;
     for (t = 0; t < SQ_TRACKS; t++) { vg_prop[t] = 255u; vg_pcfg_has[t] = 0u; vg_loop_has[t] = 0u; vg_chain_on[t] = 0u; vg_chain[t] = 1u; vg_chain_base[t] = 0u; vg_tira_n[t] = 0u; }
     project.viaggio.set_genre = vg_set_genre_cur();
-    vg_mode = project.viaggio.on;
-    if (vg_mode) vg_states_from_project();
+    project.viaggio.on = 1u;                                  /* 0.17: always */
+    vg_states_from_project();
     vg_energy_from = project.viaggio.energy;
     vg_energy_apply(project.viaggio.energy);
 }
@@ -871,8 +843,8 @@ static void vg_track_tap(uint8_t t)
         if (vg_proposals(t)) vg_browse(t, 0); else vg_tira(t, 0u);
         break;
     default:                                             /* IN or OUT: the track and its proposals */
-        if (!vg_proposals(t)) vg_msg_t("", t, vg_track_in(t) ? " IN: HOLD = PROPOSAL, SEL+KEY = OUT" : " OUT: SEL+KEY = IN");
-        else vg_msg_t("", t, " PROPOSALS: ALG BROWSES, BLACK 9 = SWAP");
+        if (!vg_proposals(t)) vg_msg_t("", t, vg_track_in(t) ? " IN" : " OUT");
+        else vg_msg_t("", t, vg_track_in(t) ? " IN, WITH PROPOSALS" : " OUT, WITH PROPOSALS");
         break;
     }
 }
@@ -899,26 +871,7 @@ static void vg_black(uint8_t bi, uint8_t sel_held)
     default: if (!vg_queue(kind, 0u, 0u)) vg_msg2("QUEUED: ", sq_move_name(kind)); break;
     }
 }
-static void vg_key_down(uint32_t k, int wi, int bi, uint8_t sel_held)
-{
-    if (wi >= 0) {
-        if (sel_held) { vg_track_queue((uint8_t)wi); return; }
-        vg_hold_t = (uint8_t)wi; vg_hold_ms = fm1_ms; vg_hold_done = 0u;
-        vg_track_tap((uint8_t)wi);
-        return;
-    }
-    if (bi >= 0) vg_black((uint8_t)bi, sel_held);
-    (void)k;
-}
-static void vg_key_up(int wi) { if (wi >= 0 && vg_hold_t == (uint8_t)wi) vg_hold_t = 255u; }
-static void vg_service(void)                               /* a white key held: the dice on that track */
-{
-    vg_profile_service();
-    if (vg_hold_t < SQ_TRACKS && !vg_hold_done && (uint32_t)(fm1_ms - vg_hold_ms) >= VG_HOLD_MS) {
-        vg_hold_done = 1u;
-        vg_tira(vg_hold_t, 1u);
-    }
-}
+static void vg_service(void) { vg_profile_service(); }
 static void vg_back(void)                                  /* OCT-: INDIETRO, in the queue */
 {
     int i = sq_queue_find(&vg_q, SQ_MV_BACK, 0u);
@@ -926,6 +879,27 @@ static void vg_back(void)                                  /* OCT-: INDIETRO, in
     if (!vg_trail.n) { status_msg("THE TRAIL IS EMPTY"); ui_dirty = 1u; return; }
     if (n > vg_trail.n) n = vg_trail.n;
     if (!vg_queue(SQ_MV_BACK, n, 0u)) { char *p = msg_buf; p = put_s(p, "QUEUED: BACK "); p = put_u(p, n); p = put_s(p, n == 1u ? " PHRASE" : " PHRASES"); finish(p); status_msg(msg_buf); }
+}
+/* 0.17 the MOSSE's key lights: a move waiting in the queue lit (9: INDIETRO; 10: anything to cancel), NOW blinking
+ * while it waits for the bar */
+static uint8_t vg_move_lit(int bi, uint8_t blink)
+{
+    uint32_t i;
+    uint8_t kind = bi >= 0 && bi < 8 ? VG_BLACK_MOVE[bi] : bi == 8 ? SQ_MV_BACK : 0u;
+    if (bi == 9) return vg_q.n ? 1u : 0u;
+    if (bi == 10) return vg_now ? blink : 0u;
+    for (i = 0; kind && i < vg_q.n; i++) if (vg_q.m[i].kind == kind) return 1u;
+    return 0u;
+}
+/* 0.17 the MOSSE on the panel (PERF page 3, or GLO held on page 3): black 1 FILL, 2 BREAK (SEL: all, 2 bars), 3 RISER,
+ * 4 DROP, 5 HALF, 6 DOUBLE, 7 THIN, 8 SWELL, 9 INDIETRO, 10 the last move cancelled, 11 NOW */
+static void vg_move_black(int bi, uint8_t sel_held)
+{
+    if (bi < 0 || bi > 10) return;
+    if (bi < 8) vg_black((uint8_t)bi, sel_held);
+    else if (bi == 8) vg_back();
+    else if (bi == 9) vg_cancel_last();
+    else vg_now_tap();
 }
 static void vg_energy_turn(int32_t d)                       /* K1 on HOME page 0: the target */
 {
@@ -976,7 +950,8 @@ static void vg_prog_turn(int32_t d)                         /* the PRESETS encod
     cur = (uint8_t)(((int32_t)cur + d + SQ_PROGS_ALL * 4) % SQ_PROGS_ALL);
     if (cur >= SQ_PROGS) sq_uprog_name(&project.uprog[(cur - SQ_PROGS) % SQ_UPROGS], project.key_scale, name, sizeof name);
     else sq_prog_name(vg_lib_genre(), cur, project.key_scale, name, sizeof name);
-    if (!playing) { project.gen.harm_prog = cur; project.gen.harm_on = 1u; vg_msg2(cur >= SQ_PROGS ? "USER PROG " : "PROG ", name); return; }
+    if (!project.gen.harm_on) { project.gen.harm_prog = cur; harm_say("READY ", ": ARP 3 K1 ON"); ui_dirty = grid_dirty = 1u; return; }   /* 0.17: the HARMONY off: READY, as in 0.16 (0.9-0.16 here: switched on) */
+    if (!playing) { project.gen.harm_prog = cur; vg_msg2(cur >= SQ_PROGS ? "USER PROG " : "PROG ", name); return; }
     if (!vg_queue(SQ_MV_PROG, cur, 0u)) vg_msg2("QUEUED: PROG ", name);
 }
 
@@ -1009,7 +984,7 @@ static void vg_profile_note(void)
 {
     const vg_profile_t *pr = vg_prof();
     vg_profile_dirty = 1u;
-    if (pr->viaggio_on && !vg_mode) vg_mode_set(1u);
+    if (pr->viaggio_on) { perf_mode = 1u; perf_page = 2u; }      /* 0.17: the MOSSE */
     if (project.live.remote_mode != pr->remote_mode && pr->remote_mode == SQ_RM_13_14) {
         project.live.remote_mode = SQ_RM_13_14; project.live.remote_ch = 13u;
     }
@@ -1019,7 +994,7 @@ static void vg_profile_note(void)
 static void vg_profile_boot(void)
 {
     const vg_profile_t *pr = vg_prof();
-    if (pr->viaggio_on && !vg_mode) vg_mode_set(1u);
+    if (pr->viaggio_on) { perf_mode = 1u; perf_page = 2u; }      /* 0.17: the MOSSE */
     if (!vg_allows_home(home_page)) home_page = 0u;
 }
 static void vg_profile_service(void)                       /* the settings, when it is safe (nothing plays) */
@@ -1033,7 +1008,7 @@ static void vg_profile_service(void)                       /* the settings, when
 static void vg_host_dump(void)
 {
     uint32_t k;
-    printf("%6u ms  viaggio %u bar %u/%u energy %u/%u genre %u mute %04X speed %d rec %d STATES:", fm1_ms, (unsigned)vg_mode,
+    printf("%6u ms  viaggio %u bar %u/%u energy %u/%u genre %u mute %04X speed %d rec %d STATES:", fm1_ms, (unsigned)vg_mosse_shown(),
            (unsigned)vg_bar, (unsigned)vg_bars(), (unsigned)vg_energy_cur, (unsigned)project.viaggio.energy,
            (unsigned)vg_set_genre_cur(), (unsigned)mute_mask, (int)vg_speed, vg_rec_t < SQ_TRACKS ? (int)vg_rec_t : -1);
     for (k = 0; k < SQ_TRACKS; k++) putchar("EPIO"[vg_state(k) & 3u]);
@@ -1045,12 +1020,6 @@ static void vg_host_dump(void)
 }
 #endif
 
-/* what the screen says about the set (sagga_ui.c) */
-static const char *vg_state_name(uint32_t t)
-{
-    static const char *const N[4] = {"EMPTY", "PROP", "IN", "OUT"};
-    return N[vg_state(t) & 3u];
-}
 
 /* ================================================================ 0.9 the REGISTA: SysEx with the Pi (docs/SAGGA-SEQ.md)
  * Every frame F0 7D 53 47 CMD ... F7, 7-bit bytes. Sent without waiting (sysex_try_send): what does not fit goes at
@@ -1175,24 +1144,94 @@ static void regia_key_send(uint8_t rule) { rg_key_pend = (uint8_t)(rule & 15u); 
  * (PROPOSED when the playing pattern is empty but others are not); THIN, SWELL, the energy and the proposals see it */
 static void vg_state_sync(uint32_t t)
 {
-    if (!project.viaggio.on || t >= SQ_TRACKS) return;
+    if (t >= SQ_TRACKS) return;
     if (!track_has_notes(t)) vg_set_state(t, SQ_TS_EMPTY);
-    else if (mute_mask & (1u << t)) { if (vg_state(t) != SQ_TS_PROPOSED) vg_set_state(t, SQ_TS_OUT); }
+    else if (vg_mutes_to_keep() & (1u << t)) { if (vg_state(t) != SQ_TS_PROPOSED) vg_set_state(t, SQ_TS_OUT); }   /* (0.17: not a BREAK's mutes) */
     else if (pattern_empty(t, tr[t].pattern)) vg_set_state(t, SQ_TS_PROPOSED);
     else vg_set_state(t, SQ_TS_IN);
 }
-static void vg_states_sync_all(void) { uint32_t t; if (!project.viaggio.on) return; for (t = 0; t < SQ_TRACKS; t++) vg_state_sync(t); }
+static void vg_states_sync_all(void) { vg_states_from_project(); }
 static void regia_touched(uint8_t t) { if (t < SQ_TRACKS) { rg_touched |= (uint16_t)(1u << t); vg_state_sync(t); } }
 
-/* 0.12 SEL + GLO, a tap: the panel between VIAGGIO's keyboard and the studio's (the steps), the journey untouched; the
- * first time it starts the journey. Held 0.6 s: the journey off (dinghy.c) */
+/* 0.17 SEL + GLO, a tap: PERF on the MOSSE page; again: the studio (the steps) */
 static void vg_panel_toggle(void)
 {
-    if (vg_mode) {
-        vg_mode = 0u; perf_mode = 0u;
-        status_msg(project.viaggio.on ? "STUDIO: THE JOURNEY GOES ON (SEL+GLO: BACK)" : "STUDIO");
-    } else if (!project.viaggio.on) vg_mode_set(1u);
-    else { vg_mode = 1u; perf_mode = 0u; perf_page = 2u; status_msg("VIAGGIO: WHITE = TRACKS, BLACK = MOVES, SEL+KEY = QUEUE"); }
+    if (perf_mode && perf_page == 2u) { perf_mode = 0u; status_msg("STUDIO (SEL+GLO: THE MOSSE)"); ui_dirty = grid_dirty = 1u; }
+    else vg_mosse_open();
+}
+
+/* 0.17: a track's pattern changed by the hands (PRESETS, at the QUANTISE, at the loop's end): a proposal entering
+ * brings its settings, once (as when the journey brings it in) */
+static void vg_pattern_in(uint32_t t)
+{
+    uint8_t pat;
+    if (t >= SQ_TRACKS) return;
+    pat = tr[t].pattern;
+    if (pat < SQ_PATTERNS && (vg_pcfg_has[t] & (1u << pat))) {
+        beat_cfg_apply((uint8_t)t, &vg_pcfg[t][pat]);
+        vg_pcfg_has[t] &= (uint8_t)~(1u << pat);
+        if (tr[t].step >= project.track[t].length) tr[t].step = project.track[t].start;
+    }
+    if (vg_prop[t] == pat) vg_prop[t] = 255u;
+    vg_state_sync(t);
+}
+
+/* 0.17 PRESETS with nothing held: a proposal waiting on the track is queued first (it plays at the QUANTISE) */
+static uint8_t vg_prop_queue(uint8_t t)
+{
+    uint8_t pp = t < SQ_TRACKS ? vg_prop[t] : 255u;
+    char *p = msg_buf;
+    if (pp >= SQ_PATTERNS || pp == tr[t].pattern || tr[t].pending_pattern < SQ_PATTERNS || pattern_empty(t, pp)) return 0u;
+    queue_pattern(t, pp);
+    p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " PROPOSAL P"); p = put_u(p, (uint32_t)pp + 1u);
+    p = put_s(p, playing && project.live.quant != SQ_Q_NOW ? " QUEUED" : " PLAYS"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+    return 1u;
+}
+
+/* 0.17 SEQ + BEAT held 0.6 s: a PROPOSAL. What BEAT would write on the selected track (SEQ's genre, part and variation)
+ * goes into a free pattern of it (an empty one, else its oldest proposal; never one written by hand), the pattern
+ * playing untouched; its settings wait for it. PRESETS queues it; held again: the next variation. */
+static void beat_propose(void)
+{
+    uint8_t t = selected_track, fn = beat_func, nv, v, pat = 255u, k, n;
+    beat_cfg_t cfg;
+    char *p = msg_buf;
+    if (track_tape(t) || track_break(t)) { status_msg("NO PROPOSALS ON A TAPE OR BREAK TRACK"); ui_dirty = 1u; return; }
+    if (fn == SQ_FUNC_KIT || fn == SQ_FUNC_PROG || fn >= SQ_FUNCS) { status_msg("A PROPOSAL IS ONE PART (SEQ + SEL ENC: THE PART)"); ui_dirty = 1u; return; }
+    nv = sq_beat_variants(beat_genre, fn);
+    if (!nv) { status_msg("NO PATTERN"); ui_dirty = 1u; return; }
+    v = (uint8_t)(beat_var % nv);
+    for (k = 1; k < SQ_PATTERNS && pat == 255u; k++) {         /* an empty pattern after the one playing */
+        uint8_t c = (uint8_t)((tr[t].pattern + k) % SQ_PATTERNS);
+        if (!vg_slot_busy(t, c) && tr[t].pending_pattern != c && pattern_empty(t, c)) pat = c;
+    }
+    if (pat == 255u) {                                          /* none: the oldest proposal */
+        uint8_t best = 255u;
+        for (k = 1; k < SQ_PATTERNS; k++) {
+            uint8_t c = (uint8_t)((tr[t].pattern + k) % SQ_PATTERNS);
+            if (vg_slot_busy(t, c) || tr[t].pending_pattern == c || !(vg_pcfg_has[t] & (1u << c))) continue;
+            if (best == 255u || (uint8_t)(vg_pcfg_age[t][c] - vg_age_n) > (uint8_t)(vg_pcfg_age[t][best] - vg_age_n)) best = c;
+        }
+        pat = best;
+    }
+    if (pat == 255u) { status_msg("NO FREE PATTERN ON THIS TRACK FOR A PROPOSAL"); ui_dirty = 1u; return; }
+    undo_begin();
+    undo_add(t, pat);
+    sq_row_clear(project.step[t][pat]);
+    n = beat_onto_x(t, pat, beat_genre, fn, v, 0u, &cfg);
+    if (!n) { status_msg("NO PATTERN"); ui_dirty = 1u; return; }
+    vg_prop[t] = pat;
+    vg_pcfg[t][pat] = cfg;
+    vg_pcfg_role[t][pat] = (uint8_t)(sq_role_family(sq_func_role(fn)) - 1u);
+    vg_pcfg_age[t][pat] = ++vg_age_n;
+    vg_pcfg_has[t] |= (uint8_t)(1u << pat);
+    vg_state_sync(t);
+    beat_var = (uint8_t)((v + 1u) % nv);
+    p = put_s(p, "PROPOSAL "); p = put_s(p, sq_func_name(fn)); p = put_s(p, " #"); p = put_u(p, (uint32_t)v + 1u);
+    p = put_s(p, " IN P"); p = put_u(p, (uint32_t)pat + 1u); p = put_s(p, ": PRESETS QUEUES IT"); finish(p);
+    status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
 }
 
