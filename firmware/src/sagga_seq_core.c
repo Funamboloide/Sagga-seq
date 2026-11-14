@@ -435,8 +435,7 @@ void sq_gen_default(sq_gen_t *g)
     g->custom = 0u;
     g->panel_lights = 0u;
     g->when = SQ_WHEN_NOW; g->every = SQ_EVERY_OFF; g->every_tool = 255u; g->lib_len = SQ_LL_16;
-    g->harm_genre = 0u; g->harm_lock = 0u;
-    for (i = 0; i < sizeof g->reserved; i++) g->reserved[i] = 0u;
+    g->harm_genre = 0u; g->harm_lock = 0u; g->harm_free = 0u;
     g->harm_rhythm = SQ_HR_BARS; g->harm_mood = SQ_MOOD_ANY;               /* 0.11 */
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
 }
@@ -725,7 +724,7 @@ void sq_project_sanitize(sq_project_t *p)
         if (g->lib_len >= SQ_LLS) g->lib_len = SQ_LL_16;
         if (g->harm_genre >= 64u) g->harm_genre = g->genre;
         g->harm_lock = g->harm_lock ? 1u : 0u;
-        for (n = 0; n < sizeof g->reserved; n++) g->reserved[n] = 0u;
+        g->harm_free = g->harm_free ? 1u : 0u;      /* (0.16; a 0.15 image: 0) */
         if (g->harm_rhythm >= SQ_HRS) g->harm_rhythm = SQ_HR_BARS;
         if (g->harm_mood >= SQ_MOODS) g->harm_mood = SQ_MOOD_ANY;
         for (n = 0; n < sizeof g->reserved11; n++) g->reserved11[n] = 0u;

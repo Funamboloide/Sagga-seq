@@ -623,7 +623,10 @@ def t_tools():
     p = positions(play_notes(s, 400, 3000))[:5]
     check(p == [0, 4, 8, 12, 16], "euclid 4/16 -> every 4th step (%s)" % p)
     s = Script()
-    s.press(100, SEQ); s.enc(120, K1, 4); s.enc(130, K2, 1); s.release(400, SEQ)      # 0.8: turning EUCLID makes it live
+    s.press(100, SEQ); s.enc(120, K1, 4); s.enc(130, K2, 1); s.release(400, SEQ)      # 0.16: turning EUCLID sets it up, READY
+    check(len(play_notes(s, 500, 3000)) == 0, "0.16: EUCLID's knobs alone start nothing (the empty row stays silent)")
+    s = Script()
+    s.press(100, SEQ); s.enc(120, K1, 4); s.enc(130, K2, 1); s.tap_key(200, wk(5)); s.release(400, SEQ)   # then SEQ + white 6
     p = positions(play_notes(s, 500, 3000))[:5]
     check(p == [0, 2, 4, 6, 8], "euclid 8/16 rot 1 -> every 2nd step from step 2 (%s)" % p)
     s = Script()
@@ -643,8 +646,9 @@ def t_tools():
     check(near(n[0][0] - n_ref[0][0], STEP_MS), "SHIFT RIGHT moves the step one place (%.1f)" % (n[0][0] - n_ref[0][0]))
     for dens, want in ((100, True), (0, False)):
         s = Script()
-        s.press(100, SEQ); s.enc(120, K3, (dens - 50) // 5); s.tap_key(200, wk(4)); s.release(300, SEQ)
-        n = play_notes(s, 400, 2500)
+        t = seq_page(s, 100, 5, encs=[(K1, (dens - 50) // 5)])     # SEQ 6 K1: the density (SEQ 1 K3 is EUCLID's family)
+        t = seq_page(s, t, 5, keys=[wk(4)])
+        n = play_notes(s, t, 2500)
         check((len(n) >= 16) == want, "RANDOM density %d%% (%d notes)" % (dens, len(n)))
     # DOUBLE: a pattern of 4 steps (1 and 3 on) becomes 8 steps with the same two hits repeated
     s = Script()
@@ -1174,7 +1178,7 @@ def t010_expo_plain():
     # RAMP 8 hits over 2 BEATS; steps 1, 5, 9, 13 on; step 9 (the second span's start) plain; steps 10 and 12 on too
     s = Script()
     t = s.steps(100, (0, 4, 12, 9, 11, 8))                      # (the cursor follows the last key: step 9)
-    t = expo_knobs(s, t, 0, [(K3, -1)])                      # SPAN BAR -> 2 BEATS (the knob switches RAMP on)
+    t = expo_knobs(s, t, 0, [(K3, -1), (K4, 1)])             # SPAN BAR -> 2 BEATS, RAMP (0.16: K4 starts it)
     s.press(t, EDIT); s.tap_key(t + 30, bk(4), hold=40); s.release(t + 100, EDIT); t += 200   # PLAIN
     s.at(t, "dump", 0)
     t0 = t + 100
@@ -1192,7 +1196,7 @@ def t010_expo_grace():
     group("0.10 EXPO grace (Marea): STEP span, 2 hits, curve -3, VEL GRACE, the step 35 % early: a soft hit 86 ms before the beat, the main on it")
     s = Script()
     t = s.steps(100, (4,))
-    t = expo_knobs(s, t, 0, [(K1, -6), (K2, -7), (K3, -3)])  # hits 2, curve -3, span STEP (RAMP from the knob)
+    t = expo_knobs(s, t, 0, [(K1, -6), (K2, -7), (K3, -3), (K4, 1)])   # hits 2, curve -3, span STEP, RAMP
     t = expo_knobs(s, t, 1, [(K1, 4)])                       # VEL GRACE
     s.press(t, EDIT); s.enc(t + 30, K3, -35); s.release(t + 100, EDIT); t += 200   # the cursor step (5): nudge -35 %
     t0 = t + 100
@@ -3345,7 +3349,7 @@ def t08_bugs():
     # 3. the algorithm stays on its track when another track is selected (0.7: the scope THIS followed the selection)
     s = Script()
     t = seq_page(s, 100, 0, keys=[wk(14)])                     # track 1 all on
-    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)])           # DENSITY 0: track 1 silent
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)], keys=[wk(5)])   # DENSITY 0 READY, SEQ + white 6 (0.16): track 1 silent
     s.tap_key(t, bk(1)); t += 80                               # track 2
     t = seq_page(s, t, 0, keys=[wk(14)])                       # track 2 all on
     s.at(t, "dump", 0); s.at(t, "dump", 1)
@@ -3404,7 +3408,7 @@ def t08_bugs():
     # 6. TURING keeps its register when its knobs turn (0.7 began again from the written rhythm at every touch)
     s = Script()
     t = s.steps(100, [0, 3, 6, 10])
-    t = seq_page(s, t + 30, 1, encs=[(K1, 1), (K3, 8)])        # TURING, 16 steps, 10 % mutation
+    t = seq_page(s, t + 30, 1, encs=[(K1, 1), (K3, 8)], keys=[wk(5)])   # TURING, 16 steps, 10 % mutation; started (0.16)
     p = t + 100
     s.tap_btn(p, PLAY)
     seq_page(s, p + int(0.5 * BAR), 1, encs=[(K2, 90)], cur=1)  # mutation 100 %: it changes
@@ -3419,7 +3423,7 @@ def t08_bugs():
     # 7. CELL: the CELLS knob (B) sets how many cells; the row repeats every that many steps
     s = Script()
     t = s.steps(100, [0, 5])
-    t = seq_page(s, t + 30, 1, encs=[(K1, 2), (K3, -12)])      # CELL, 16 -> 4 cells
+    t = seq_page(s, t + 30, 1, encs=[(K1, 2), (K3, -12)], keys=[wk(5)])   # CELL, 16 -> 4 cells; started
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     st = states(log)[0]
@@ -3428,10 +3432,10 @@ def t08_bugs():
 
     # 8. EUCLID live per track, heard and shown; SEQ + OCT+ still turns the pages
     s = Script()
-    t = seq_page(s, 100, 0, encs=[(K1, 1)])                    # track 1: 5 pulses, live
+    t = seq_page(s, 100, 0, encs=[(K1, 1)], keys=[wk(5)])      # track 1: 5 pulses, live (0.16: SEQ + white 6 starts it)
     s.tap_key(t, bk(1)); t += 80
-    t = seq_page(s, t, 0, encs=[(K1, -1)])                     # track 2: 3 pulses, live
-    t = seq_page(s, t, 1, encs=[(K1, 1)])                      # page 2 (OCT+): TURING on track 2
+    t = seq_page(s, t, 0, encs=[(K1, -1)], keys=[wk(5)])       # track 2: 3 pulses, live
+    t = seq_page(s, t, 1, encs=[(K1, 1)], keys=[wk(5)])        # page 2 (OCT+): TURING on track 2
     s.at(t, "dump", 0); s.at(t, "dump", 1)
     s.raw(t + 10, "attach")
     p = t + 200
@@ -4360,27 +4364,30 @@ def t010_expo():
     check(len(n) >= 16 and near(n[8][0], BAR_MS, 12), "RAMP: 8 hits a bar, the next bar starts its own (%s)" % [x[0] for x in n[:9]])
     check(all(0.78 < g[i + 1] / g[i] < 0.86 for i in range(len(g) - 1)) and near(g[0] / g[-1], 3.3, 0.5),
           "RAMP +4: the gaps shrink by a constant ratio, first / last = 3.3 (%s)" % g)
-    # RAMP -4: the same backwards (a decelerando); the first knob turned switches EXPO on (RAMP)
+    # RAMP -4: the same backwards (a decelerando); 0.16: the curve set first plays nothing new, K4 starts it with it
     n, log, _ = scenario([(K2, -8)])
+    check(len(n) >= 2 and all(near(b[0] - a[0], BAR_MS, 6) for a, b in zip(n, n[1:])),
+          "0.16: EXPO's knobs alone start nothing: the written step, once a bar (%s)" % [round(x[0]) for x in n])
+    n, log, _ = scenario([(K2, -8), (K4, 1)])
     g = gaps(n, 8)
     check(all(g[i + 1] > g[i] for i in range(len(g) - 1)) and near(g[-1] / g[0], 3.3, 0.5), "RAMP -4: the gaps grow (%s)" % g)
     # BOUNCE +6, 12 hits: fast in the middle, symmetrical
-    n, log, _ = scenario([(K1, 4), (K2, 2), (K4, 1)])             # (RAMP from the first knob, then +1: BOUNCE)
+    n, log, _ = scenario([(K1, 4), (K2, 2), (K4, 2)])             # (0.16: OFF + 2: BOUNCE, with the hits and curve set)
     g = gaps(n, 12)
     check(len(g) == 11 and min(g) == min(g[5], g[6]) and all(abs(g[i] - g[11 - i]) <= 2 for i in range(1, 6)) and g[0] > g[1],
           "BOUNCE +6: 12 hits, the shortest gaps in the middle, mirrored (%s)" % g)
     # the STEP span on 1/16 steps: every hit step bounces inside its own slot (2 hits, decelerando)
-    n, log, _ = scenario([(K1, -6), (K2, -6), (K3, -3)], steps=(0, 4, 8, 12), bars=1)
+    n, log, _ = scenario([(K1, -6), (K2, -6), (K3, -3), (K4, 1)], steps=(0, 4, 8, 12), bars=1)
     n = [x for x in n if x[0] < BAR_MS - 20]
     check(len(n) == 8 and near(n[1][0], STEP_MS / 3, 6) and near(n[2][0], 4 * STEP_MS, 6),
           "STEP span, 2 hits, curve -2: a hit, one a third of the step later, then the next step's pair (%s)" % [round(x[0]) for x in n[:6]])
     # ARP +1 OCT: a C major chord on step 1 goes up through two octaves, one note a hit
     def chord(s, t):
         s.press(t, SEL); s.keys(t + 30, KEY_C4 | KEY_E4 | KEY_G4); s.keys(t + 120, 0); s.release(t + 200, SEL); return t + 300
-    n, log, _ = scenario([(K1, 4)], encs6=[(K4, 2)], before=chord)
+    n, log, _ = scenario([(K1, 4), (K4, 1)], encs6=[(K4, 2)], before=chord)
     check([x[1] for x in n[:7]] == [60, 64, 67, 72, 76, 79, 60], "ARP +1 OCT: the chord's notes low to high, then an octave up, round again (%s)" % [x[1] for x in n[:7]])
     # CHORD: every hit the whole chord
-    n, log, _ = scenario([(K1, -4)], before=chord)
+    n, log, _ = scenario([(K1, -4), (K4, 1)], before=chord)
     check(len(n) >= 12 and sorted(x[1] for x in n[:3]) == [60, 64, 67] and n[0][0] == n[2][0], "CHORD: the three notes together on every hit")
     # VEL FALL: the velocity decays along the hits; GATE 20 %: the note ends before a fifth of the gap
     n, log, t0 = scenario([(K4, 1)], encs6=[(K1, 1), (K2, -8)])
@@ -4410,7 +4417,7 @@ def t010_expo():
         flash = f.name
     s = Script()
     t = s.steps(100, (0, 4, 8, 12))                         # a span starts on a step that is on: one a beat
-    t = expo_knobs(s, t, 0, [(K1, 2), (K2, -10), (K3, -2)])   # 10 hits, -6, 1 BEAT, RAMP (a knob: on)
+    t = expo_knobs(s, t, 0, [(K1, 2), (K2, -10), (K3, -2), (K4, 1)])   # 10 hits, -6, 1 BEAT, RAMP
     s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE); t += 1500       # SAVE twice: the slot
     log = run(s, t + 100, flash=flash)
     check(log.saves, "saved to the slot")
@@ -4903,7 +4910,7 @@ def t010_tools():
     out = {}
     for fam in range(3):
         s = Script()
-        t = seq_page(s, 100, 0, encs=[(K1, 1), (K3, fam)] if fam else [(K1, 1)])    # 5 pulses (the knob turns EUCLID LIVE on)
+        t = seq_page(s, 100, 0, encs=[(K1, 1), (K3, fam)] if fam else [(K1, 1)], keys=[wk(5)])   # 5 pulses; 0.16: SEQ + white 6 starts it
         s.at(t, "dump", 0)
         log = run(s, t + 100)
         out[fam] = (log.states[0]["heard"].replace(" ", ""), cfgs(log)[0]["fam"])
@@ -4917,7 +4924,7 @@ def t010_tools():
     t = s.steps(t, [0])
     t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
     t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])        # USER 1: pos 1 = I (root 0), pos 2 = V (0.11: K3 the root, 7 semitones)
-    t = harm_knobs(s, t, [(K2, 6)])                   # HARMONY: progression 7 = USER 1
+    t = harm_knobs(s, t, [(K2, 6), (K1, 1)])          # HARMONY: progression 7 = USER 1, READY; K1 ON (0.16)
     s.at(t, "dump", 0)
     s.tap_btn(t, PLAY); p0 = t
     log = run(s, p0 + int(4 * BAR) - 20)
@@ -5088,10 +5095,11 @@ def t011_algo_slots():
     # slot 1 DENSITY 200 (every rest gains a ghost), slot 2 ACCENT: all 16 steps play, the velocities move with the accent
     s = Script()
     t = s.steps(100, [0, 4, 8, 12])
-    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, 20)])                    # slot 1: DENSITY, 200 %
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, 20)], keys=[wk(5)])      # slot 1: DENSITY, 200 % (0.16: SEQ + white 6 starts it)
     s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); t += 130   # SEL + K1: slot 2
     s.enc(t, K1, 3); t += 30                                            # slot 2: ACCENT
     s.enc(t, K3, 8); t += 30                                            # amount up
+    s.tap_key(t, wk(5), hold=40); t += 80                               # started
     s.release(t, SEQ); t += 60
     s.at(t, "dump", 0)
     s.tap_btn(t + 50, PLAY); p = t + 50
@@ -5106,23 +5114,23 @@ def t011_algo_slots():
     # the order: slot 1 CELL makes the rhythm, slot 2 DENSITY 0 takes it all away; the other way round the CELL plays
     s = Script()
     t = s.steps(100, [0, 4, 8, 12])
-    t = seq_page(s, t, 1, encs=[(K1, 2)])                               # slot 1: CELL
-    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 4); s.enc(t + 160, K2, -20); s.release(t + 200, SEQ); t += 260   # slot 2: DENSITY 0
+    t = seq_page(s, t, 1, encs=[(K1, 2)], keys=[wk(5)])                 # slot 1: CELL
+    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 4); s.enc(t + 160, K2, -20); s.tap_key(t + 175, wk(5), hold=10); s.release(t + 200, SEQ); t += 260   # slot 2: DENSITY 0
     s.tap_btn(t, PLAY); p = t
     log = run(s, p + int(BAR) - 20)
     check(not log.notes(ch=0, after=p), "CELL then DENSITY 0: silence (%d notes)" % len(log.notes(ch=0, after=p)))
     s = Script()
     t = s.steps(100, [0, 4, 8, 12])
-    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)])                    # slot 1: DENSITY 0
-    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 2); s.release(t + 200, SEQ); t += 260   # slot 2: CELL
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)], keys=[wk(5)])      # slot 1: DENSITY 0
+    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 2); s.tap_key(t + 160, wk(5), hold=10); s.release(t + 200, SEQ); t += 260   # slot 2: CELL
     s.tap_btn(t, PLAY); p = t
     log = run(s, p + int(BAR) - 20)
     check(len(log.notes(ch=0, after=p)) >= 2, "DENSITY 0 then CELL: the CELL's rhythm plays, the slots run in order (%d notes)" % len(log.notes(ch=0, after=p)))
     # WRITE LIVE: what is heard is written, DENSITY goes off, the ACCENT stays (it changes no hit)
     s = Script()
     t = s.steps(100, [0, 4, 8, 12])
-    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, 20)])
-    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 3); s.release(t + 200, SEQ); t += 260
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, 20)], keys=[wk(5)])
+    s.press(t, SEQ); s.press(t + 30, SEL); s.enc(t + 60, K1, 1); s.release(t + 100, SEL); s.enc(t + 130, K1, 3); s.tap_key(t + 160, wk(5), hold=10); s.release(t + 200, SEQ); t += 260
     s.press(t, SEQ); s.tap_key(t + 30, wk(6)); s.release(t + 100, SEQ); t += 160                      # WRITE LIVE
     s.at(t, "dump", 0)
     log = run(s, t + 100)
@@ -5132,7 +5140,8 @@ def t011_algo_slots():
     s = Script()
     s.raw(100, "attach"); view(s, 200, GC_VTRACK); view(s, 300, GC_VTRACK); view(s, 400, GC_VTRACK); t = 500   # TRACK, 2, 3
     s.pad(t, 7, 3); t += 100                                            # next slot: 2
-    s.pad(t, 1, 3); t += 100                                            # TURING on slot 2
+    s.pad(t, 1, 3); t += 100                                            # TURING READY on slot 2 (0.16)
+    s.pad(t, 1, 3); t += 100                                            # again: it starts
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     v = v11s(log)[0]
@@ -5336,7 +5345,7 @@ def t011_note_lengths():
         t = home_page(s, t, 0, [], cur=3)
         t = s.steps(t, [0, 8])
         if slot_algo:
-            t = seq_page(s, t, 1, encs=[(K1, slot_algo)])
+            t = seq_page(s, t, 1, encs=[(K1, slot_algo)], keys=[wk(5)])   # (0.16: SEQ + white 6 starts it)
         s.tap_btn(t + 50, PLAY); p = t + 50
         log = run(s, p + int(16 * STEP_MS))
         on = log.notes(ch=0, after=p)
@@ -5444,7 +5453,7 @@ def t011_progressions():
         t = s.steps(t, list(steps))
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])        # USER 1: I, V
-        t = harm_knobs(s, t, [(K2, 6)])                   # HARMONY: USER 1
+        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])          # HARMONY: USER 1, ON (0.16: K2 alone makes it READY)
         if rhythm:
             t = harm2_knobs(s, t, [(K4, rhythm)])
         return t
@@ -6806,14 +6815,15 @@ def t013_chain():
 
 
 # ------------------------------------------------------------------------------------------------ 0.15
-V15 = re.compile(r"^\s*(\d+) ms  v15 T(\d+) groove (\d+) amt (\d+) swing (\d+) name \[([^\]]*)\] link (\d+) sent (\d+) aud (\d+) slots((?: \d+:(?:ok|-)\[[^\]]*\])*)$", re.M)
+V15 = re.compile(r"^\s*(\d+) ms  v15 T(\d+) groove (\d+) amt (\d+) swing (\d+) name \[([^\]]*)\] link (\d+) sent (\d+) aud (\d+) hfree (\d+) hgenre (\d+) hprog (\d+) up((?: \d+)*) slots((?: \d+:(?:ok|-)\[[^\]]*\])*)$", re.M)
 
 
 def v15s(log):
     """the 0.15 'v15' lines of the dumps: the track's GROOVE, the project's name, the link to the Pi's editor, the slots and their names"""
     return [dict(t=int(m.group(1)), track=int(m.group(2)), groove=int(m.group(3)), amt=int(m.group(4)), swing=int(m.group(5)), name=m.group(6),
-                 link=int(m.group(7)), sent=int(m.group(8)), aud=int(m.group(9)),
-                 slots={int(a): (ok == "ok", nm) for a, ok, nm in re.findall(r"(\d+):(ok|-)\[([^\]]*)\]", m.group(10))})
+                 link=int(m.group(7)), sent=int(m.group(8)), aud=int(m.group(9)), hfree=int(m.group(10)), hgenre=int(m.group(11)),
+                 hprog=int(m.group(12)), up=[int(x) for x in m.group(13).split()],
+                 slots={int(a): (ok == "ok", nm) for a, ok, nm in re.findall(r"(\d+):(ok|-)\[([^\]]*)\]", m.group(14))})
             for m in V15.finditer(log.text)]
 
 
@@ -7153,6 +7163,229 @@ def t016_genre_groove():
     check(len(late) >= 3 and all(18 <= v <= 34 for v in vals), "UK GARAGE: every note on an off 16th 18-34 %% late, drums and bass alike (%s on %s)" % (vals, sorted(late)))
 
 
+
+def t016_harm_free_copy():
+    group("0.16 ARP 4 K2 FREE: the chords are nobody's genre (ARP 3 K2 through all 144, a loaded pattern does not move them); EDIT + ARP copies the progression into a USER slot")
+    # FREE: from TECHNO, K2 one to the left
+    s = Script()
+    t = harm2_knobs(s, 100, [(K2, -1)])
+    s.at(t, "dump", 0); s.press(t + 20, ARP); s.at(t + 200, "ui"); s.release(t + 300, ARP); t += 400   # (ARP 4 still: the Script remembers)
+    t = harm_knobs(s, t, [(K2, 7)])                                      # TECHNO 1 + 7 = HARDTECHNO 2
+    s.at(t, "dump", 0)
+    s.press(t + 100, SEQ); s.enc(t + 130, E_PRE, 4); s.release(t + 200, SEQ)
+    t = beat_key(s, t + 400)                                             # a UK GARAGE kick loaded
+    s.at(t, "dump", 0)
+    t = harm2_knobs(s, t + 100, [(K2, 1)])                               # FREE -> TECHNO
+    s.at(t, "dump", 0)
+    s.press(t + 100, SEQ); s.enc(t + 130, E_PRE, 1); s.release(t + 200, SEQ)   # (UK FUNKY)
+    t = beat_key(s, t + 400)                                             # not FREE: the harmony follows the pattern's genre
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    v = v15s(log)
+    got = [(x["hfree"], x["hgenre"], x["hprog"]) for x in v]
+    check(got[:4] == [(1, 0, 0), (1, 1, 1), (1, 1, 1), (0, 0, 1)] and got[4][1] == 5,
+          "FREE; K2 on ARP 3 goes on into HARDTECHNO; a UK GARAGE pattern does not move it; K2 back: TECHNO; then a pattern moves it again (%s)" % got)
+    sc = [x for x in log.screens() if x["cells"][1][0].endswith("HARM GENRE")]
+    check(sc and sc[0]["cells"][1][1] == "FREE", "ARP 4: HARM GENRE FREE (%r)" % ((sc[0]["cells"][1],) if sc else ([x["cells"] for x in log.screens()][:1],)))
+    # FREE with a MOOD: every progression K2 lands on is of that mood, from any genre
+    s = Script()
+    t = harm2_knobs(s, 100, [(K2, -1), (K3, 8)])                         # FREE, MOOD DARK
+    for k in range(4):
+        t = harm_knobs(s, t, [(K2, 1)])
+        s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    h, v = harm11(log), v15s(log)
+    moods = [(x["mood"], x["pmood"]) for x in h]
+    gs = sorted({x["hgenre"] for x in v})
+    check(len(h) == 4 and all(m == pm and m == 8 for m, pm in moods) and len({(x["hgenre"], x["hprog"]) for x in v}) == 4,
+          "FREE + MOOD DARK: four DARK progressions (genres %s, %s)" % (gs, moods))
+    # EDIT + ARP: TECHNO 4 copied into USER 1 plays the same chords
+    def follow_run(copy):
+        s = Script()
+        t = s.steps(100, [0, 8])
+        t = home_page(s, t, 1, [(K4, 1)])                                # T1 FOLLOW
+        t = harm_knobs(s, t, [(K1, 1), (K2, 3)])                         # HARMONY ON, TECHNO 4
+        if copy:
+            s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); t += 200
+        s.at(t, "dump", 0)
+        s.tap_btn(t, PLAY)
+        log = run(s, t + int(4 * 16 * STEP_MS) + 100)
+        return log, [d1 for tm, d1, vv in log.notes(ch=0, after=t)]
+    log0, n0 = follow_run(False)
+    log1, n1 = follow_run(True)
+    v = v15s(log1)
+    st = [x["msg"] for x in log1.states]
+    check(v and v[0]["hprog"] == 6 and v[0]["up"][0] == 4 and st and st[0] == "COPIED TO USER 1: ARP 5 TO CHANGE IT", "EDIT + ARP: into USER 1, which plays (%s %s)" % (v[:1], st[:1]))
+    check(len(n0) >= 8 and n0 == n1 and len(set(n0)) >= 3, "the copy plays the same chords as TECHNO 4 (%s / %s)" % (n0, n1))
+    # again: USER 1 plays, so the next empty one; then over a full one: asked twice
+    s = Script()
+    t = harm_knobs(s, 100, [(K2, 3)])
+    s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); t += 200          # -> USER 1 (plays)
+    s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); t += 200          # -> USER 2 (USER 1 is the one playing)
+    s.at(t, "dump", 0)
+    t = harm_knobs(s, t, [(K2, -10)])                                    # back to TECHNO 1
+    t = uprog_knobs(s, t, [(K1, -5)])                                    # ARP 5: USER 1
+    s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); s.at(t + 150, "dump", 0); t += 300
+    s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); s.at(t + 150, "dump", 0); t += 300
+    log = run(s, t + 100)
+    v, st = v15s(log), [x["msg"] for x in log.states]
+    check(v and v[0]["up"][:2] == [4, 4] and v[0]["hprog"] == 7, "copied again: USER 2 (%s)" % v[:1])
+    check(len(v) == 3 and st[1] == "COPY OVER USER 1: EDIT+ARP AGAIN" and v[1]["up"][0] == 4 and v[2]["up"][0] == 1 and v[2]["hprog"] == 6,
+          "over USER 1: asked, then TECHNO 1 (one chord) copied (%s %s)" % ([(x["up"], x["hprog"]) for x in v], st))
+
+
+V16 = re.compile(r"^\s*(\d+) ms  v16 T(\d+) pend((?: \d+){4}) shown (\d+) edit (\d+)/(\d+)/(\d+)/(\d+) euc (\d+) (\d+)/(\d+)$", re.M)
+
+
+def v16s(log):
+    """the 0.16 'v16' lines of the dumps: the algorithm READY on each slot (0 none, 128 OFF while one plays), the one the
+    panel shows, the values the knobs set (algo, a, b, c), EUCLID LIVE and its pulses / rotation"""
+    return [dict(t=int(m.group(1)), track=int(m.group(2)), pend=[int(x) for x in m.group(3).split()], shown=int(m.group(4)),
+                 edit=(int(m.group(5)), int(m.group(6)), int(m.group(7)), int(m.group(8))), euc=int(m.group(9)),
+                 pulses=int(m.group(10)), rot=int(m.group(11)))
+            for m in V16.finditer(log.text)]
+
+
+def t016_algo_ready():
+    group("0.16: an algorithm is set up before it plays: K1 makes it READY, K2-K4 set it, SEQ + white 6 starts it with them; EUCLID too")
+    BAR = 16 * STEP_MS
+    # DENSITY 0 READY: nothing changes, the four steps play; SEQ + white 6 in bar 2: silence from there (DENSITY at 0, not 100)
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)])                    # DENSITY READY, 0 %
+    s.press(t, SEQ); s.at(t + 60, "ui"); s.release(t + 100, SEQ); t += 160
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    ts = p + int(1.5 * BAR)
+    seq_page(s, ts, 1, keys=[wk(5)])                                    # started
+    s.at(ts + 200, "dump", 0)
+    log = run(s, p + int(3 * BAR))
+    v, v1 = v16s(log), v11s(log)
+    before, after = log.notes(ch=0, after=p, before=ts), log.notes(ch=0, after=ts + 60)
+    check(v and v[0]["pend"][0] == 4 and v[0]["shown"] == 4 and v[0]["edit"][:2] == (4, 0) and v1[0]["algos"][0][0] == 0,
+          "K1 and K2: DENSITY 0 READY, the slot still empty (%s %s)" % (v[:1], v1[0]["algos"][:1] if v1 else v1))
+    sc = [x for x in log.screens() if x["cells"][0] and x["cells"][0][0].endswith("READY")]
+    check(sc and sc[0]["cells"][0] == ("ALGO 1 READY", "DENSITY"),
+          "the screen: ALGO 1 READY DENSITY (%s)" % ([x["cells"][0] for x in log.screens()][:2],))
+    check(len(before) == 6 and not after, "READY plays nothing; started in bar 2 it is silent at once, at 0 %% (%d before, %d after)" % (len(before), len(after)))
+    check(len(v1) == 2 and v1[1]["algos"][0][:2] == (4, 0) and v[1]["pend"][0] == 0 and log.states[1]["msg"].startswith("T1 ALGO 1: DENSITY STARTS"),
+          "SEQ + white 6: DENSITY plays with the 0 set before (%s, %s)" % (v1[1]["algos"][:1] if len(v1) > 1 else v1, log.states[1]["msg"] if len(log.states) > 1 else "-"))
+    # while DENSITY plays: CELL READY with 4 cells (DENSITY plays on); SEQ + white 6 swaps them; again: it stops, READY as it
+    # was; again: the same CELL; K1 on OFF and SEQ + white 6: it stops
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    t = seq_page(s, t, 1, encs=[(K1, 4), (K2, -20)], keys=[wk(5)])      # DENSITY 0 plays
+    t = seq_page(s, t, 1, encs=[(K1, -2), (K3, -12)])                   # CELL READY, 4 cells
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    ts = p + int(BAR) + 30
+    t = seq_page(s, ts, 1, keys=[wk(5)])                                # CELL in place of DENSITY
+    s.at(t + int(BAR), "dump", 0)
+    t = seq_page(s, t + int(BAR) + 50, 1, keys=[wk(5)]); s.at(t, "dump", 0)          # stops
+    t = seq_page(s, t + 50, 1, keys=[wk(5)]); s.at(t, "dump", 0)                     # the same CELL again
+    t = seq_page(s, t + 50, 1, encs=[(K1, -2)]); s.at(t, "dump", 0)                  # OFF chosen
+    t = seq_page(s, t + 50, 1, keys=[wk(5)]); s.at(t, "dump", 0)                     # it stops
+    log = run(s, t + 100)
+    v, v1 = v16s(log), v11s(log)
+    st = states(log)
+    algos = [x["algos"][0] for x in v1]
+    check(len(v) == 6 and v[0]["pend"][0] == 2 and v[0]["edit"] == (2, 90, 4, 0) and algos[0] == (4, 0, 40, 0) and not log.notes(ch=0, after=p, before=ts),
+          "CELL READY with 4 cells while DENSITY 0 plays on, silent (%s %s)" % (v[:1], algos[:1]))
+    hh = st[1]["heard"].replace(" ", "") if len(st) > 1 else ""
+    check(len(algos) == 6 and algos[1] == (2, 90, 4, 0) and hh == hh[:4] * 4 and log.notes(ch=0, after=ts + 60),
+          "SEQ + white 6: CELL with its 4 cells in place of DENSITY (%s, %s)" % (algos[1:2], hh))
+    check(len(algos) == 6 and algos[2][0] == 0 and v[2]["pend"][0] == 2 and v[2]["edit"] == (2, 90, 4, 0) and algos[3] == (2, 90, 4, 0),
+          "again: it stops, READY as it was; again: the same CELL (%s, %s)" % (algos[2:4], [x["pend"][0] for x in v[2:4]]))
+    check(len(algos) == 6 and v[4]["pend"][0] == 128 and v[4]["shown"] == 0 and algos[4][0] == 2 and algos[5][0] == 0 and v[5]["pend"][0] == 2,
+          "K1 on OFF: CELL plays on until SEQ + white 6 stops it (%s, %s)" % (algos[4:], [x["pend"][0] for x in v[4:]]))
+    # each algorithm keeps its values: TURING 16 steps READY, K1 to CELL and back: TURING still 16; NOTHING READY said
+    s = Script()
+    t = seq_page(s, 100, 1, encs=[(K1, 1), (K3, 8)]); s.at(t, "dump", 0)
+    t = seq_page(s, t, 1, encs=[(K1, 1), (K1, -1)]); s.at(t, "dump", 0)
+    t = seq_page(s, t, 1, encs=[(K1, -1)], keys=[wk(5)]); s.at(t, "dump", 0)          # OFF: nothing to start
+    log = run(s, t + 100)
+    v = v16s(log)
+    check(len(v) == 3 and v[0]["edit"] == (1, 10, 16, 0) and v[1]["edit"] == (1, 10, 16, 0) and v[2]["pend"][0] == 0
+          and log.states[2]["msg"].startswith("NOTHING READY"), "TURING keeps its 16 steps READY through K1; OFF: NOTHING READY (%s %s)" % ([x["edit"] for x in v], log.states[2]["msg"] if len(log.states) > 2 else "-"))
+    # EUCLID: the knobs set it up (READY), SEQ + white 6 starts it with them
+    s = Script()
+    t = seq_page(s, 100, 0, encs=[(K1, 1), (K2, 2)])                    # 5 pulses, rotation 2
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    ts = p + int(BAR) + 30
+    t = seq_page(s, ts, 0, keys=[wk(5)])
+    s.at(t, "dump", 0)
+    log = run(s, p + int(3 * BAR) - 40)
+    v = v16s(log)
+    n2 = log.notes(ch=0, after=p + int(2 * BAR) - 20)
+    check(v and v[0]["euc"] == 0 and (v[0]["pulses"], v[0]["rot"]) == (5, 2) and log.states[0]["msg"].startswith("EUCLID READY T1: 5/16 ROT 2"),
+          "EUCLID's knobs: READY 5/16 rotation 2, not playing (%s %s)" % (v[:1], log.states[0]["msg"]))
+    check(not log.notes(ch=0, after=p, before=ts) and len(v) == 2 and v[1]["euc"] == 1 and len(n2) == 5,
+          "silent until SEQ + white 6; then its 5 hits (%d)" % len(n2))
+    # the grid (TRACK 3, row 4): a tap READY (orange), again: it plays (white), again: it stops
+    s = Script()
+    s.raw(100, "attach"); view(s, 200, GC_VTRACK); view(s, 300, GC_VTRACK); view(s, 400, GC_VTRACK); t = 500
+    s.pad(t, 4, 3); t += 100; s.at(t, "dump", 0); t1 = t
+    s.pad(t, 4, 3); t += 100; s.at(t, "dump", 0); t2 = t
+    s.pad(t, 4, 3); t += 100; s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    v, v1 = v16s(log), v11s(log)
+    l1, l2 = log.leds(until=t1 - 1)[0], log.leds(until=t2 - 1)[0]          # (the pads as they were before the next tap)
+    check(len(v) == 3 and v[0]["pend"][0] == 4 and v1[0]["algos"][0][0] == 0 and l1.get(3 * 16 + 4) == GL_ORANGE,
+          "grid: a tap, DENSITY READY, orange (%s %s)" % (v[:1], l1.get(3 * 16 + 4)))
+    check(len(v) == 3 and v1[1]["algos"][0][0] == 4 and l2.get(3 * 16 + 4) == GL_WHITE and v1[2]["algos"][0][0] == 0 and v[2]["pend"][0] == 4,
+          "again: it plays, white; again: it stops, READY (%s)" % [x["algos"][0][0] for x in v1])
+
+
+
+def t016_ready_elsewhere():
+    group("0.16: the HARMONY's progression READY before K1 starts it; EXPO set up before K4 starts it; a MIDI FX comes back with its own values")
+    # HARMONY off: ARP 3 K2 chooses (READY), nothing follows yet; K1 ON plays the one chosen
+    s = Script()
+    t = kp(s, 100, [(K4, 1)])                                          # track 1 in key (C minor)
+    t = s.steps(t, [0])
+    t = home_page(s, t, 1, [(K4, 1)], cur=2)                           # FOLLOW
+    t = harm_knobs(s, t, [(K2, 3)])                                    # TECHNO 4, READY
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    harm_knobs(s, p + int(2 * BAR_MS) + 30, [(K1, 1)])                 # bar 3: ON
+    s.at(p + int(2 * BAR_MS) + 300, "dump", 0)
+    log = run(s, p + int(6 * BAR_MS) - 20)
+    st = states(log)
+    before = {d1 for tm, d1, v in log.notes(ch=0, after=p, before=p + int(2 * BAR_MS))}
+    after = {d1 for tm, d1, v in log.notes(ch=0, after=p + int(2 * BAR_MS) + 100)}
+    check(st[0]["harm"][0] == 0 and st[0]["harm"][2] == 3 and st[0]["msg"].startswith("READY TECHNO") and st[0]["msg"].endswith(": K1 ON"),
+          "ARP 3 K2 with the HARMONY off: TECHNO 4 READY, still off (%s %r)" % (st[0]["harm"], st[0]["msg"]))
+    check(before == {60} and st[1]["harm"][:3:2] == [1, 3] and len(after) >= 2,
+          "the tonic until K1, then the progression chosen (%s, then %s)" % (sorted(before), sorted(after)))
+    # EXPO: K1-K3 set it up (EXPO READY), K4 starts it with them
+    s = Script()
+    t = s.steps(100, (0,))
+    t = expo_knobs(s, t, 0, [(K1, 4)])                                 # 12 hits, READY
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    expo_knobs(s, p + int(BAR_MS) + 30, 0, [(K4, 1)])                 # bar 2: RAMP
+    log = run(s, p + int(3 * BAR_MS) - 20)
+    n1 = log.notes(ch=0, after=p, before=p + int(BAR_MS))
+    n3 = log.notes(ch=0, after=p + int(2 * BAR_MS) - 5)
+    check(log.states[0]["msg"] == "EXPO READY: K4 SHAPE STARTS IT" and len(n1) == 1 and len(n3) == 12,
+          "EXPO's knob: READY, the step plays once; K4 RAMP: its 12 hits (%r, %d, %d)" % (log.states[0]["msg"], len(n1), len(n3)))
+    # MIDI FX (HOME 6): ECHO set to 4 repeats; HARM; back to ECHO: 4 again, not its default 2
+    s = Script()
+    t = home_page(s, 100, 5, [(K1, 3), (K2, 2)])                       # ECHO, 4 repeats
+    s.at(t, "dump", 0)
+    t = home_page(s, t, 5, [(K1, -2)], cur=5); s.at(t, "dump", 0)       # HARM
+    t = home_page(s, t, 5, [(K1, 2)], cur=5); s.at(t, "dump", 0)        # ECHO again
+    log = run(s, t + 100)
+    got = [(x["mfx"], x["mfx_amt"]) for x in states(log)]
+    check(got == [(3, 4), (1, 2), (3, 4)], "ECHO 4, HARM (its own 2), ECHO again with its 4 (%s)" % got)
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7165,7 +7398,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
          t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
-         t015_names_clear, t015_groove, t015_link, t016_genre_groove]
+         t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

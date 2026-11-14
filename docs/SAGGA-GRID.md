@@ -367,7 +367,7 @@ more: CC again.
 | 2 | the genre's **parts** (0.11: its band, violet, then PROG and KIT; more than nine: pads 1-8 a page, pad 9 the next page); **scope**: this track, bank, all, drums, melodic, CUSTOM (10-15); **WRITE LIVE** (16, orange while the track has a live layer) |
 | 3 | the genre's **progressions** 1-6 (cyan: playing); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16) |
 | 4 | **DICE** SEQ, CC, LFO, GROOVE, ALL (1-5); **KEEP** (6); **BACK** (7); targets RHYTHM, +NOTES, +CC, +NOTES+CC, +CC+LFO, ALL (9-14); **the roll before / after** (15 / 16, yellow when there is one) |
-| 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once (cyan: live); with scope CUSTOM, track membership 1-16. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
+| 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-16. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
 | 6 | EUCLID rotation 0 .. 15 |
 | 7 | random density 10 .. 90 % (1-8); heat 5 .. 90 % (9-16) |
 | 8 | **EVOLVE** on / off (1); **FREEZE** (2); **REVERT** (3); DRIFT (4); every 1, 2, 4, 8, 16 bars (5-9); amount 5 .. 80 % (10-16) |
@@ -377,7 +377,7 @@ more: CC again.
 | pads | |
 |---|---|
 | 1 of a row | EUCLID LIVE of that track on / off (red: live and heard, dim red: live but muted) |
-| 2-16 | pulses 1-15, heard at once (it goes live); **SHIFT**: the rotation 0-14 |
+| 2-16 | pulses 1-15, heard at once if the row is live (0.16: off, they set it up, READY: pad 1 starts it); **SHIFT**: the rotation 0-14 |
 
 Eight tracks of Euclidean rhythms, each its own, played over what is written. WRITE LIVE (TRACK row 1 pad 7, BEAT row
 2 pad 16, SEQ + white 7) puts them into the patterns.
@@ -460,10 +460,10 @@ The colour of a bar is its page: green 1-16, cyan 17-32, blue 33-48, violet 49-6
 | row | pads |
 |---|---|
 | 1 | voicing CLOSE, INV 1, INV 2, DROP 2, OPEN (1-5); strum -50 .. +50 % (6-16, pad 11 = 0; minus: from the top) |
-| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5); amount -5 .. +5 (6-16, pad 11 = 0) |
+| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5; 0.16: each with the values it had on the track); amount -5 .. +5 (6-16, pad 11 = 0) |
 | 3 | ECHO time 1/32 .. 1/4 (1-8; OCTAVE: ALT, RANDOM, 3RD, 4TH); how much each ECHO keeps / the HARM voice's velocity 20 .. 100 % (9-16) |
-| 4 | algorithm OFF, TURING, CELL, ACCENT, DENSITY (1-5) of the slot shown; FOLLOW (6); EUCLID LIVE (7); **the slot 1-4** (8, 0.11: tap for the next); C (9-16): TURING rhythm / notes / both, CELL every 1 / 2 / 4 bars / loop, ACCENT offset |
-| 5 | A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels, 0 .. 200 %) |
+| 4 | algorithm OFF, TURING, CELL, ACCENT, DENSITY (1-5) of the slot shown (**0.16: a tap READY, orange; again: it starts with what rows 5-6 set, white; a tap on the one playing stops it**); FOLLOW (6); EUCLID LIVE (7); **the slot 1-4** (8, 0.11: tap for the next); C (9-16): TURING rhythm / notes / both, CELL every 1 / 2 / 4 bars / loop, ACCENT offset |
+| 5 | A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels, 0 .. 200 %) — of the READY algorithm if there is one, else of the one playing |
 | 6 | B: TURING length 2-16, CELL cells, ACCENT amount, DENSITY the ghosts' velocity |
 | 7 | the cursor step's long gate: 1.5, 2 .. 6, 8 .. 16, 20 .. 64 steps — a whole four-bar pattern (SHIFT: 17 .. 32 one by one) |
 | 8 | the MIDI channel 1-16 (15 and 16 need two USB ports) |

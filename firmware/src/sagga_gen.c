@@ -165,7 +165,7 @@ static void beat_func_fit(void);
  * knobs only browse the library; and never while HARM LOCK is on (the player changes it by hand: SEQ 4, SEL + K2). */
 static void harm_follow_genre(uint8_t g)
 {
-    if (g >= SQ_GENRES || project.gen.harm_lock || g == project.gen.harm_genre) return;
+    if (g >= SQ_GENRES || project.gen.harm_lock || project.gen.harm_free || g == project.gen.harm_genre) return;   /* (0.16 FREE: nobody's) */
     project.gen.harm_genre = g;
     ui_dirty = grid_dirty = 1u;
 }
@@ -668,11 +668,20 @@ static void euclid_status(uint32_t t)
     status_msg(msg_buf);
 }
 
-/* a knob of EUCLID turned: it is heard at once (EUCLID LIVE goes on for the track) */
+/* a knob of EUCLID turned: heard at once if EUCLID LIVE is on; 0.16: off, the knobs set it up (READY) and SEQ + white 6
+ * starts it with them (0.8-0.15 switched it on at the first touch, with what the knobs had before) */
 static void euclid_touch(uint8_t t)
 {
-    project.track[t].flags |= SQ_TF_EUC;
-    euclid_status(t);
+    const sq_track_cfg_t *c = &project.track[t];
+    if (c->flags & SQ_TF_EUC) euclid_status(t);
+    else {
+        char *p = msg_buf;
+        p = put_s(p, "EUCLID READY T"); p = put_u(p, t + 1u); p = put_s(p, ": "); p = put_u(p, c->euc_pulses); p = put_s(p, "/");
+        p = put_u(p, live_span(t));
+        if (c->euc_rot) { p = put_s(p, " ROT "); p = put_u(p, c->euc_rot); }
+        p = put_s(p, " SEQ + WHITE 6 STARTS IT"); finish(p);
+        status_msg(msg_buf);
+    }
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -692,13 +701,56 @@ static void euclid_toggle(void)
 }
 
 static sq_algo_t *algo_slot(uint32_t t) { return SQ_ALGO_AT(&project.track[t], algo_cur[t] < SQ_ALGO_SLOTS ? algo_cur[t] : 0u); }
+
+/* 0.16: an algorithm is set up before it plays. K1 (SEQ 2, the grid's pads) makes one READY on the slot: K2-K4 set its
+ * values, SEQ + white 6 starts it with them; SEQ + white 6 again stops it (its values stay, READY for the next start).
+ * While one plays, K1 on another makes that one READY: the one playing goes on until SEQ + white 6 swaps them; K1 back on
+ * the one playing and K2-K4 change it as it plays. K1 on OFF while one plays: SEQ + white 6 stops it. The values of
+ * each algorithm of each slot are kept while the FM-1 is on (the project saves the one playing).
+ * (0.11-0.15: K1 started an algorithm at once, with its default values.) */
+#define ALGO_PEND_STOP 0x80u                            /* algo_pend: OFF chosen while one plays */
+static uint8_t algo_k(uint32_t t) { return algo_cur[t] < SQ_ALGO_SLOTS ? algo_cur[t] : 0u; }
+static uint8_t algo_pend_of(uint32_t t) { return algo_pend[t][algo_k(t)]; }
+/* the algorithm the panel shows on the slot: the READY one, else the one playing */
+static uint8_t algo_shown(uint32_t t)
+{
+    uint8_t p = algo_pend_of(t), a = algo_slot(t)->algo;
+    if (p == ALGO_PEND_STOP) return SQ_ALGO_OFF;
+    if (p && p < SQ_ALGOS) return p;
+    return a < SQ_ALGOS ? a : SQ_ALGO_OFF;
+}
+/* the values kept for algorithm `a` of the slot shown (its defaults the first time) */
+static sq_algo_t *algo_ready(uint32_t t, uint8_t a)
+{
+    sq_algo_t *m;
+    if (a >= SQ_ALGOS) a = SQ_ALGO_OFF;
+    m = &algo_mem[t][algo_k(t)][a];
+    if (m->algo != a || a == SQ_ALGO_OFF) sq_algo_slot_default(m, a);
+    return m;
+}
+/* what K2-K4 and the grid's rows change: the READY algorithm, or the one playing */
+static sq_algo_t *algo_edit(uint32_t t)
+{
+    uint8_t p = algo_pend_of(t);
+    if (p == ALGO_PEND_STOP) return algo_ready(t, SQ_ALGO_OFF);
+    if (p && p < SQ_ALGOS) return algo_ready(t, p);
+    return algo_slot(t);
+}
 static void algo_status(uint32_t t)
 {
     const sq_algo_t *s = algo_slot(t);
+    uint8_t pd = algo_pend_of(t), run = s->algo < SQ_ALGOS ? s->algo : 0u;
     char *p = msg_buf;
-    p = put_s(p, "T"); p = put_u(p, t + 1u); p = put_s(p, " ALGO "); p = put_u(p, (uint32_t)algo_cur[t] + 1u); p = put_s(p, ": ");
-    p = put_s(p, ALGO_NAME[s->algo < SQ_ALGOS ? s->algo : 0u]);
-    if (live_algos(t) > 1u) { p = put_s(p, " ("); p = put_u(p, live_algos(t)); p = put_s(p, " RUN)"); }
+    p = put_s(p, "T"); p = put_u(p, t + 1u); p = put_s(p, " ALGO "); p = put_u(p, (uint32_t)algo_k(t) + 1u); p = put_s(p, ": ");
+    if (pd == ALGO_PEND_STOP) { p = put_s(p, "SEQ + WHITE 6 STOPS "); p = put_s(p, ALGO_NAME[run]); }
+    else if (pd && pd < SQ_ALGOS) {
+        p = put_s(p, ALGO_NAME[pd]); p = put_s(p, " READY");
+        if (run) { p = put_s(p, " ("); p = put_s(p, ALGO_NAME[run]); p = put_s(p, " PLAYS)"); }
+        p = put_s(p, ": SEQ + WHITE 6");
+    } else {
+        p = put_s(p, ALGO_NAME[run]);
+        if (live_algos(t) > 1u) { p = put_s(p, " ("); p = put_u(p, live_algos(t)); p = put_s(p, " RUN)"); }
+    }
     finish(p);
     status_msg(msg_buf);
 }
@@ -711,21 +763,62 @@ static void algo_slot_select(uint8_t t, uint8_t k)
     ui_dirty = grid_dirty = 1u;
 }
 
-static void algo_set(uint8_t t, uint8_t a)
+/* K1 on SEQ 2, a pad of the grid: algorithm `a` READY on the slot shown (the one playing: its knobs again) */
+static void algo_choose(uint8_t t, uint8_t a)
 {
-    sq_algo_t *s = algo_slot(t);
+    uint8_t run = algo_slot(t)->algo;
     if (a >= SQ_ALGOS) a = SQ_ALGO_OFF;
-    if (a == s->algo) return;
-    sq_algo_slot_default(s, a);
-    algo_seen[t][algo_cur[t]] = 255u;                /* its state is made new, from the written pattern */
+    if (a == run) algo_pend[t][algo_k(t)] = 0u;
+    else algo_pend[t][algo_k(t)] = a == SQ_ALGO_OFF ? (uint8_t)ALGO_PEND_STOP : a;
     algo_status(t);
     ui_dirty = grid_dirty = 1u;
 }
 
-/* SEQ page 2, K2-K4: the algorithm's A, B, C (each its range; the state stays) */
+/* SEQ + white 6 on SEQ 2: the READY algorithm starts with its values (in place of the one playing); none READY: the one
+ * playing stops, READY again as it was */
+static void algo_go(uint8_t t)
+{
+    uint8_t k = algo_k(t), pd = algo_pend[t][k];
+    sq_algo_t *s = algo_slot(t);
+    char *p = msg_buf;
+    p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " ALGO "); p = put_u(p, (uint32_t)k + 1u); p = put_s(p, ": ");
+    if (pd && pd < SQ_ALGOS) {
+        if (s->algo != SQ_ALGO_OFF && s->algo < SQ_ALGOS) *algo_ready(t, s->algo) = *s;   /* (the one it replaces keeps its values) */
+        *s = *algo_ready(t, pd);
+        p = put_s(p, ALGO_NAME[pd]); p = put_s(p, " STARTS");
+        if (live_algos(t) > 1u) { p = put_s(p, " ("); p = put_u(p, live_algos(t)); p = put_s(p, " RUN)"); }
+    } else if (s->algo != SQ_ALGO_OFF && s->algo < SQ_ALGOS) {
+        uint8_t was = s->algo;
+        *algo_ready(t, was) = *s;
+        sq_algo_slot_default(s, SQ_ALGO_OFF);
+        pd = was;
+        p = put_s(p, ALGO_NAME[was]); p = put_s(p, " STOPS (READY AGAIN)");
+    } else {
+        algo_pend[t][k] = 0u;
+        status_msg("NOTHING READY: K1 CHOOSES, K2-K4 SET, SEQ + WHITE 6 STARTS");
+        ui_dirty = grid_dirty = 1u;
+        return;
+    }
+    algo_pend[t][k] = (pd && pd < SQ_ALGOS && s->algo == SQ_ALGO_OFF) ? pd : 0u;
+    algo_seen[t][k] = 255u;                              /* its state is made new, from the written pattern */
+    ca_bars[t][k] = 0u;
+    finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
+/* the grid's pads 1-5 of the ALGO row: a tap makes it READY, a tap on the READY one starts it, on the one playing stops it */
+static void algo_pad(uint8_t t, uint8_t a)
+{
+    uint8_t pd = algo_pend_of(t);
+    if (a == algo_shown(t) && (pd || algo_slot(t)->algo != SQ_ALGO_OFF)) algo_go(t);
+    else algo_choose(t, a);
+}
+
+/* SEQ page 2, K2-K4: the algorithm's A, B, C (each its range; the state stays); 0.16: of the READY one if there is one */
 static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2, int32_t f3, int32_t f4)
 {
-    sq_algo_t *s = algo_slot(t);
+    sq_algo_t *s = algo_edit(t);
     switch (s->algo) {
     case SQ_ALGO_TURING:
         if (d2) s->a = (uint8_t)kstep(s->a, d2, f2, 0, 100);
@@ -735,7 +828,7 @@ static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2,
     case SQ_ALGO_CELL:
         if (d2) s->a = (uint8_t)kstep(s->a, d2, f2, 0, 255);
         if (d3) s->b = (uint8_t)kstep(s->b, d3, f3, 4, 64);
-        if (d4) { s->c = change_u8(s->c, d4, 0u, 3u); ca_bars[t][algo_cur[t]] = 0u; }
+        if (d4) { s->c = change_u8(s->c, d4, 0u, 3u); if (s == algo_slot(t)) ca_bars[t][algo_k(t)] = 0u; }
         break;
     case SQ_ALGO_ACCENT:
         if (d2) s->a = change_u8(s->a, d2, 0u, 4u);
@@ -747,7 +840,8 @@ static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2,
         if (d3) s->b = (uint8_t)kstep(s->b, d3, 5 * f3, 10, 100);
         break;
     default:
-        if (d2 || d3 || d4) status_msg("ALGORITHM OFF: K1 CHOOSES ONE (SEL + K1: THE SLOT)");
+        if (d2 || d3 || d4) status_msg(algo_pend_of(t) == ALGO_PEND_STOP ? "OFF CHOSEN: SEQ + WHITE 6 STOPS IT (K1: ANOTHER)"
+                                                                     : "ALGORITHM OFF: K1 CHOOSES ONE (SEL + K1: THE SLOT)");
         break;
     }
     (void)f4;
@@ -877,19 +971,29 @@ static uint8_t harm_mood_of(uint8_t prog)
     return sq_hprog_mood(&h, project.key_scale);
 }
 
-static void harm_status(void)
+/* the progression after a head: FREE, the genre (USER, DICE/PI), the chords, as much of them as the line holds */
+static void harm_say(const char *head, const char *tail)
 {
     const sq_gen_t *g = &project.gen;
-    char *p = msg_buf;
-    if (!g->harm_on) { status_msg("HARMONY OFF"); return; }
-    p = put_s(p, g->harm_lock ? "HARMONY LOCK " : "HARMONY ");
+    char *p = msg_buf, *end;
+    uint32_t tl = 0u;
+    while (tail && tail[tl]) tl++;
+    p = put_s(p, head);
+    if (g->harm_free && g->harm_prog < SQ_PROGS) p = put_s(p, "FREE ");              /* 0.16 */
     if (g->harm_prog == SQ_PROG_PI) p = put_s(p, "DICE/PI ");
     else if (g->harm_prog >= SQ_PROGS) p = put_s(p, "USER ");
     else { p = put_s(p, sq_genre_name(project.gen.harm_genre)); p = put_s(p, " "); }
-    harm_name(p, 40u);
-    while (*p) p++;
+    end = msg_buf + sizeof msg_buf - 1u - tl;           /* (0.16: FREE made a long one run past the 64 bytes) */
+    if (p < end) { harm_name(p, (uint32_t)(end - p) + 1u); while (*p) p++; }
+    if (tail) p = put_s(p, tail);
     finish(p);
     status_msg(msg_buf);
+}
+static void harm_status(void)
+{
+    const sq_gen_t *g = &project.gen;
+    if (!g->harm_on) { status_msg("HARMONY OFF"); return; }
+    harm_say(g->harm_lock ? "HARMONY LOCK " : "HARMONY ", 0);
 }
 
 static void piprog_leave(void);                    /* sagga_pipat.c: 0.11 no longer browsing the Pi's progressions */
@@ -917,6 +1021,26 @@ static void harm_genre_set(uint8_t g)
     ui_dirty = grid_dirty = 1u;
 }
 
+/* 0.16 ARP 4 K2: FREE, then the 24 genres. FREE keeps the progression playing (its genre stays harm_genre, for what
+ * reads it) and from then on no pattern loaded moves it; K2 on ARP 3 goes through every genre's six */
+static uint8_t harm_genre_pos(void) { return project.gen.harm_free ? 0u : (uint8_t)(project.gen.harm_genre + 1u); }
+static void harm_genre_turn(int32_t d)
+{
+    uint8_t pos = change_u8(harm_genre_pos(), d, 0u, SQ_GENRES);
+    if (!pos) {
+        if (!project.gen.harm_free) {
+            char *p = msg_buf;
+            project.gen.harm_free = 1u;
+            p = put_s(p, "HARMONY FREE: NO GENRE MOVES IT, ARP 3 K2 ALL "); p = put_u(p, (uint32_t)SQ_GENRES * SQ_PROGS); finish(p);
+            status_msg(msg_buf);
+            ui_dirty = grid_dirty = 1u;
+        }
+        return;
+    }
+    project.gen.harm_free = 0u;
+    harm_genre_set((uint8_t)(pos - 1u));
+}
+
 static uint8_t any_follow(void)
 {
     uint32_t t;
@@ -932,11 +1056,13 @@ static void harm_toggle(void)
     ui_dirty = grid_dirty = 1u;
 }
 
-static void harm_prog_set(uint8_t i)                /* a progression of the genre, or one of the player's (6..9), 0.11 the DICE/PI one (10) */
+/* a progression of the genre, or one of the player's (6..9), 0.11 the DICE/PI one (10). 0.16: with the HARMONY off it is
+ * READY, ARP 3 K1 starts it (0.11-0.15 choosing one switched the HARMONY on: live, before you had the one you wanted) */
+static void harm_prog_set(uint8_t i)
 {
     project.gen.harm_prog = i < SQ_PROGS_ALL ? i : 0u;
-    if (!project.gen.harm_on) project.gen.harm_on = 1u;
-    harm_status();
+    if (project.gen.harm_on) harm_status();
+    else harm_say("READY ", ": K1 ON");
     ui_dirty = grid_dirty = 1u;
 }
 /* 0.11 SEQ 4 K2: the next progression, of the MOOD chosen (SEL + K3) when there is one: the genre's six, the player's
@@ -944,11 +1070,63 @@ static void harm_prog_set(uint8_t i)                /* a progression of the genr
 static uint8_t piprog_enter(void);
 static void piprog_turn(int32_t d);
 static uint8_t piprog_browsing(void);
+/* 0.16: the mood of progression p of genre g (as harm_mood_of, for a genre that is not the harmony's) */
+static uint8_t harm_lib_mood(uint8_t g, uint8_t p)
+{
+    sq_hprog_t h;
+    const sq_prog_t *pg = sq_prog_get(g, p);
+    uint8_t r = project.gen.harm_rhythm == SQ_HR_GENRE ? sq_genre_hrhythm(g) : project.gen.harm_rhythm;
+    sq_hprog_lib(&h, pg->deg, pg->col, pg->n, project.gen.harm_bars ? project.gen.harm_bars : pg->bars, r);
+    return sq_hprog_mood(&h, project.key_scale);
+}
+/* 0.16 FREE: K2 goes through the 24 genres' six (TECHNO 1 .. BAILE FUNK 6), then the player's, DICE/PI, the Pi's;
+ * the MOOD chooses among all of them */
+static void harm_free_turn(int32_t d)
+{
+    const int32_t lib = (int32_t)SQ_GENRES * SQ_PROGS, total = lib + (int32_t)(SQ_PROGS_ALL - SQ_PROGS);
+    uint8_t mood = project.gen.harm_mood;
+    int32_t cur = project.gen.harm_prog < SQ_PROGS ? (int32_t)project.gen.harm_genre * SQ_PROGS + project.gen.harm_prog
+                                                   : lib + (int32_t)(project.gen.harm_prog - SQ_PROGS);
+    int32_t start = cur, step = d > 0 ? 1 : -1, left = d > 0 ? d : -d;
+    piprog_leave();
+    while (left-- > 0) {
+        int32_t next = cur;
+        uint8_t found = 0u;
+        for (;;) {
+            next += step;
+            if (next < 0 || next >= total) break;
+            if (next < lib) { if (mood && harm_lib_mood((uint8_t)(next / SQ_PROGS), (uint8_t)(next % SQ_PROGS)) != mood) continue; }
+            else {
+                uint8_t pr = (uint8_t)(SQ_PROGS + (next - lib));
+                if (pr == SQ_PROG_PI && !project.uprog[SQ_UPROGS].n) continue;
+                if (mood && harm_mood_of(pr) != mood) continue;
+            }
+            found = 1u; break;
+        }
+        if (!found) {
+            if (d > 0 && cur >= lib) {                             /* on into the Pi's, from the last of the FM-1's */
+                if (cur != start) harm_prog_set((uint8_t)(SQ_PROGS + (cur - lib)));
+                if (piprog_enter()) return;
+            }
+            if (mood && cur == start) {
+                char *p = msg_buf;
+                p = put_s(p, "NO MORE "); p = put_s(p, sq_mood_name(mood)); p = put_s(p, " (SEQ+BLACK 1 HELD: DICE PROG)"); finish(p);
+                status_msg(msg_buf);
+                return;
+            }
+            break;
+        }
+        cur = next;
+    }
+    if (cur < lib) { project.gen.harm_genre = (uint8_t)(cur / SQ_PROGS); harm_prog_set((uint8_t)(cur % SQ_PROGS)); }
+    else harm_prog_set((uint8_t)(SQ_PROGS + (cur - lib)));
+}
 static void harm_prog_turn(int32_t d)
 {
     uint8_t mood = project.gen.harm_mood, cur = project.gen.harm_prog, start = cur, k, step = d > 0 ? 1u : (uint8_t)(SQ_PROGS_ALL - 1u);
     int32_t left = d > 0 ? d : -d;
     if (piprog_browsing()) { piprog_turn(d); return; }
+    if (project.gen.harm_free) { harm_free_turn(d); return; }     /* 0.16 */
     piprog_leave();
     while (left-- > 0) {
         uint8_t next = cur, found = 0u;
@@ -2113,6 +2291,7 @@ static void gen_reset(void)
     dice_pending = 0u;
     dhist_n = dhist_pos = 0u;
     memset(algo_seen, 255, sizeof algo_seen);       /* the live layers start again from the patterns */
+    memset(algo_pend, 0, sizeof algo_pend);         /* 0.16: nothing READY (the values kept stay: they are the player's) */
     evo_run = 0u;
     temp_on = 0u;
     song_on = 0u; song_wait = 0u; song_pos = 0u; song_bar = 0u; song_skip_bar = 0u;

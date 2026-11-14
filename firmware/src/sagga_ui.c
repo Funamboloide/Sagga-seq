@@ -455,7 +455,7 @@ static void ui_build(void)
         uint8_t nv = sq_beat_variants(beat_genre, beat_func), euc = (cfg->flags & SQ_TF_EUC) ? 1u : 0u;
         if (seq_page == 0u) {
             p = b; p = put_u(p, cfg->euc_pulses); p = put_s(p, "/"); p = put_u(p, (uint32_t)(cfg->length - cfg->start)); finish(p);
-            ui_cell(0, euc ? "EUCLID LIVE" : "EUCLID (OFF)", b, euc ? C_ACCENT : SQ_C_DIM);
+            ui_cell(0, euc ? "EUCLID LIVE" : "EUCLID READY", b, euc ? C_ACCENT : C_WHITE);   /* 0.16: off, the knobs set it up */
             ui_cell(1, cfg->euc_fam == SQ_RF_NUMERIC ? "ROTATE (PRIME)" : "EUC ROTATE", f_u(cfg->euc_rot), euc ? C_WHITE : SQ_C_DIM);
             ui_cell(2, "FAMILY", sq_rhythm_name(cfg->euc_fam), cfg->euc_fam ? C_ACCENT : C_WHITE);
             ui_cell(3, "HEAT", f_pct(tool_heat), C_WHITE);
@@ -463,10 +463,11 @@ static void ui_build(void)
             static const char *const TM[SQ_TM_MODES] = {"RHYTHM", "NOTES", "BOTH"};
             static const char *const CR[4] = {"1 BAR", "2 BARS", "4 BARS", "LOOP"};
             static const char *const AS[5] = {"BEAT", "OFFBEAT", "POLY3", "SYNC", "RANDOM"};
-            const sq_algo_t *al = algo_slot(selected_track);              /* 0.11: the slot shown (SEL + K1 picks it) */
-            uint8_t a = al->algo < SQ_ALGOS ? al->algo : 0u;
+            const sq_algo_t *al = algo_edit(selected_track);              /* 0.11: the slot shown (SEL + K1 picks it); 0.16: the READY one */
+            uint8_t a = al->algo < SQ_ALGOS ? al->algo : 0u, rdy = algo_pend_of(selected_track) ? 1u : 0u;
             static const char *const SLOT[SQ_ALGO_SLOTS] = {"ALGO 1", "ALGO 2", "ALGO 3", "ALGO 4"};
-            ui_cell(0, SLOT[algo_cur[selected_track] < SQ_ALGO_SLOTS ? algo_cur[selected_track] : 0u], ALGO_NAME[a], a ? C_ACCENT : SQ_C_DIM);
+            static const char *const SLOTR[SQ_ALGO_SLOTS] = {"ALGO 1 READY", "ALGO 2 READY", "ALGO 3 READY", "ALGO 4 READY"};
+            ui_cell(0, (rdy ? SLOTR : SLOT)[algo_k(selected_track)], ALGO_NAME[a], rdy ? C_WHITE : a ? C_ACCENT : SQ_C_DIM);
             switch (a) {
             case SQ_ALGO_TURING:
                 ui_cell(1, "MUTATION", f_pct(al->a), C_WHITE); ui_cell(2, "LENGTH", f_u(al->b), C_WHITE);
@@ -494,7 +495,7 @@ static void ui_build(void)
             static const char *const XV[SQ_X_VELS] = {"FLAT", "FALL", "RISE", "BOUNCE", "GRACE"};
             static const char *const XN[SQ_X_NOTES] = {"CHORD", "ARP", "ARP +1 OCT", "ARP +2 OCT", "ARP +3 OCT"};
             const sq_expo_t *x = &cfg->expo;
-            uint16_t on = x->shape != SQ_XS_OFF ? C_ACCENT : SQ_C_DIM;
+            uint16_t on = x->shape != SQ_XS_OFF ? C_ACCENT : C_WHITE;   /* (0.16: off, set up for K4 to start it) */
             if (seq_page == 3u) {
                 ui_cell(0, x->shape == SQ_XS_SETTLE ? "RATE /BEAT" : "EXPO HITS", f_u(x->hits), on);
                 ui_cell(1, x->shape == SQ_XS_SETTLE ? "DEPTH" : "CURVE", f_i(x->curve), on);
@@ -629,7 +630,7 @@ static void ui_build(void)
             const sq_gen_t *g = &project.gen;
             static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO"};
             ui_cell(0, "FOLLOW MODE", FMN[cfg->follow_mode < SQ_FMS ? cfg->follow_mode : 0u], (cfg->flags & SQ_TF_FOLLOW) ? C_ACCENT : SQ_C_DIM);
-            ui_cell(1, "HARM GENRE", sq_genre_name(g->harm_genre), g->harm_lock ? C_WARN : C_ACCENT);
+            ui_cell(1, "HARM GENRE", g->harm_free ? "FREE" : sq_genre_name(g->harm_genre), g->harm_lock ? C_WARN : C_ACCENT);   /* (0.16 FREE) */
             ui_cell(2, "MOOD", g->harm_mood ? sq_mood_name(g->harm_mood) : "ANY", g->harm_mood ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "RHYTHM", sq_hrhythm_name(g->harm_rhythm), g->harm_rhythm ? C_ACCENT : C_WHITE);
             ui_line(2, "ARP 4/6 HARMONY 2  FOLLOW, THE HARMONY'S GENRE, MOOD, RHYTHM", C_WARN);

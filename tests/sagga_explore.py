@@ -646,12 +646,13 @@ def is_music(field):
 # (SEQ + black 1-5: DICE SEQ CC LFO GROOVE ALL - ALL may pick a progression; black 7: KIT; white 10 BEAT, 11 PROG; SEQ +
 #  SEL + black 1: DICE PROG, black 7: BAND; 0.12: the harmony is ARP 3 / 4 (HARMONY, HARMONY 2), the user progressions ARP 5
 #  / 6, PICK (ARP + SEL + a key) sets those knobs by key; GLO 3 K3 is VIAGGIO's genre: a move of the set (stopped it happens
-#  at once), and the harmony follows a genre that is played, as with a load)
-HARM_OK = re.compile(r"^(ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
+#  at once), and the harmony follows a genre that is played, as with a load; 0.16: EDIT + ARP copies the progression into a
+#  USER slot, which plays from then on)
+HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
                      r"GLO 3 (SEL\+)?K3 |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
                      r"HOME\+SAVE|SAVE, SAVE)")
-HARM_OK_LOCK = re.compile(r"^(ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
+HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
                    r"grid PICK pad \d+,1$)")      # (0.12: the PICK view's row 1 is K1 of the page open: HOME 1's CHANNEL when no window is)
@@ -672,9 +673,9 @@ class Finding:
 REGOLE = {
     "SFOGLIARE": ("ERRORE", "sfogliare (pagine, cursore, traccia, la libreria: genere, parte, variazione) non deve cambiare la musica "
                             "ne' l'armonia: solo cio' che e' sullo schermo"),
-    "ARMONIA": ("ERRORE", "l'armonia (genere dell'armonia, progressione, accordo) cambia solo a mano (ARP 3-6, DICE PROG) o "
+    "ARMONIA": ("ERRORE", "l'armonia (genere dell'armonia, progressione, accordo) cambia solo a mano (ARP 3-6, DICE PROG, EDIT + ARP) o "
                           "caricando qualcosa di un genere (BEAT, KIT, BAND, PROG, una scena, uno snapshot, un progetto)"),
-    "LOCK": ("ERRORE", "con l'armonia su LOCK solo ARP 3-6 e DICE PROG la cambiano"),
+    "LOCK": ("ERRORE", "con l'armonia su LOCK solo ARP 3-6, DICE PROG ed EDIT + ARP la cambiano"),
     "CANALE": ("ERRORE", "il canale MIDI di una traccia lo cambia solo chi deve (HOME 1 K1, VIAGGIO K4, il grid TRACK 3, uno "
                          "snapshot, un progetto caricato)"),
     "NOTE SCRITTE": ("ERRORE", "BAND e KIT non cambiano la nota di una traccia dove e' scritto qualcosa"),
@@ -690,8 +691,7 @@ REGOLE = {
 
 # what the rules see and is meant so: (rule, the gesture, why). These go to the report's last section, not counted.
 ACCETTATI = [
-    ("RITORNO", r"^SEQ 1 (SEL\+)?K[123] ", "toccare una manopola di EUCLID accende EUCLID LIVE (e lo lascia acceso)"),
-    ("RITORNO", r"^ARP 3 K2 ", "girare la progressione accende l'ARMONIA (e la lascia accesa)"),
+    # (0.16: EUCLID's knobs and the progression's no longer switch EUCLID LIVE / the HARMONY on: they set them up, READY)
     ("RITORNO", r"^HOME 7 (SEL\+)?K2 ", "CHAIN acceso e spento: se la fine del loop cade in mezzo, la traccia e' gia' passata al pattern dopo"),
     ("RITORNO", r"^HOME \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),
     ("RITORNO", r"^GLO 3 (SEL\+)?K3 ", "il genere di VIAGGIO porta con se' il genere dell'armonia: tornato indietro, l'armonia resta sul genere del set"),

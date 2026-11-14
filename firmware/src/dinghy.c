@@ -266,6 +266,8 @@ static uint64_t ca_row[SQ_TRACKS][SQ_ALGO_SLOTS];   /* CELL: the generation play
 static uint8_t algo_seen[SQ_TRACKS][SQ_ALGO_SLOTS]; /* the algorithm the state was made for (255: none yet) */
 static uint8_t ca_bars[SQ_TRACKS][SQ_ALGO_SLOTS];   /* CELL: bars since the last generation */
 static uint8_t algo_cur[SQ_TRACKS];         /* 0.11: the slot the panel and the grid show and edit (0..3) */
+static uint8_t algo_pend[SQ_TRACKS][SQ_ALGO_SLOTS];   /* 0.16: the algorithm READY on a slot, for SEQ + white 6 (0: none) */
+static sq_algo_t algo_mem[SQ_TRACKS][SQ_ALGO_SLOTS][SQ_ALGOS];   /* 0.16: the values of each algorithm of a slot (.algo: set) */
 static uint8_t live_ghost[SQ_TRACKS];       /* DENSITY: the step playing is a hit it added */
 /* SNAPSHOTS (sagga_live.c) */
 static uint8_t snap_cur = 255u;             /* the snapshot playing, or stored last (255: none) */
@@ -2466,6 +2468,24 @@ static void mfx_defaults(sq_track_cfg_t *c)
     default:              c->mfx_amt = 0; break;
     }
 }
+/* 0.16: an effect chosen comes back with the values it had on this track (its defaults only the first time; 0.8-0.15
+ * gave it its defaults every time it was chosen). Kept while the FM-1 is on; the project saves the one playing. */
+static uint8_t mfx_mem[SQ_TRACKS][SQ_MFXS][4];  /* amount, time, keeps, set */
+static void mfx_choose(uint32_t t, uint8_t fx)
+{
+    sq_track_cfg_t *c = &project.track[t];
+    uint8_t *m;
+    if (fx >= SQ_MFXS) fx = SQ_MFX_OFF;
+    if (c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS) {
+        m = mfx_mem[t][c->mfx];
+        m[0] = (uint8_t)c->mfx_amt; m[1] = c->mfx_time; m[2] = c->mfx_fb; m[3] = 1u;
+    }
+    if (fx == c->mfx) return;
+    c->mfx = fx;
+    m = mfx_mem[t][fx];
+    if (fx != SQ_MFX_OFF && m[3]) { c->mfx_amt = (int8_t)m[0]; c->mfx_time = m[1]; c->mfx_fb = m[2]; }
+    else mfx_defaults(c);
+}
 static void mfx_amount(sq_track_cfg_t *c, int32_t d)
 {
     int32_t lo = -12, hi = 12;
@@ -3132,6 +3152,7 @@ static void handle_keys(uint32_t keys)
         if (held & (1u << BTN_SEQ)) {                          /* SEQ + a white key: a tool; + a black key: dice, EVOLVE */
             if (wi >= 0 && (keys & (1u << black_key[5]))) { gen_custom_toggle((uint8_t)wi); continue; }
             if (seqhold_is(wi, bi)) seqhold_down(k);           /* 0.12: UNDO COOK DICE KIT when let go; held 0.6 s: REDO, random COOK, DICE PROG, BAND */
+            else if (wi == (int)TOOL_EUC && seq_page == 1u && !track_tape(selected_track)) algo_go(selected_track);   /* 0.16: on SEQ 2 the algorithm starts / stops */
             else if (wi >= 0 && wi < (int)TOOL_COUNT) tool_apply((uint8_t)wi);
             else if (bi >= 0) seq_black(bi);
             continue;
@@ -3214,7 +3235,8 @@ static const char *const LIGHTS_NAME[LIGHTS_N] = {"OFF", "LOW", "MID", "HIGH", "
 static uint8_t lights_level(void);
 static void lights_apply(void);
 static void euclid_touch(uint8_t t);              /* sagga_gen.c */
-static void algo_set(uint8_t t, uint8_t a);
+static void algo_choose(uint8_t t, uint8_t a);
+static void algo_go(uint8_t t);
 static void algo_slot_select(uint8_t t, uint8_t k);
 static sq_algo_t *algo_slot(uint32_t t);
 static void harm_toggle(void);
@@ -3277,6 +3299,48 @@ static void uprog_root_turn(sq_uprog_t *u, int32_t d)
     }
     uprog_note();
 }
+/* 0.16 EDIT + ARP: the progression that plays (the genre's, the player's, DICE/PI's) copied into a USER slot, so that it
+ * can be changed on ARP 5 / 6: the slot ARP 5 K1 shows, else the first empty one; over one that holds a progression:
+ * asked twice. The copy plays from then on, as it was (a genre's keeps its steps and colours: it moves with the key) */
+static uint32_t pcopy_ask_ms;
+static uint8_t pcopy_ask_to = 255u;
+static void prog_copy(void)
+{
+    const sq_gen_t *g = &project.gen;
+    uint8_t from = g->harm_prog, to = 255u, k;
+    sq_uprog_t u;
+    char *p = msg_buf;
+    if (uprog_sel < SQ_UPROGS && from != SQ_PROGS + uprog_sel) to = uprog_sel;
+    else for (k = 0; k < SQ_UPROGS; k++) if (!project.uprog[k].n && from != SQ_PROGS + k) { to = k; break; }
+    if (to == 255u) { status_msg("COPY: CHOOSE A USER SLOT ON ARP 5 K1"); return; }
+    if (from >= SQ_PROGS) u = project.uprog[(from - SQ_PROGS) % SQ_UPROG_SLOTS];
+    else {
+        const sq_prog_t *pg = sq_prog_get(g->harm_genre, from);
+        memset(&u, 0, sizeof u);
+        u.n = pg->n > SQ_HPROG_CH ? (uint8_t)SQ_HPROG_CH : pg->n;
+        u.bars = pg->bars;
+        for (k = 0; k < SQ_HPROG_CH; k++) {
+            u.deg[k] = k < u.n ? pg->deg[k] : 0; u.col[k] = k < u.n ? pg->col[k] : SQ_HC_TRIAD;
+            u.semi[k] = 255u; u.shape[k] = u.col[k];
+        }
+    }
+    if (!u.n) { status_msg("COPY: NO PROGRESSION PLAYS"); return; }
+    if (project.uprog[to].n && !(pcopy_ask_to == to && pcopy_ask_ms && (uint32_t)(fm1_ms - pcopy_ask_ms) < 3000u)) {
+        pcopy_ask_to = to; pcopy_ask_ms = fm1_ms ? fm1_ms : 1u;
+        p = put_s(p, "COPY OVER USER "); p = put_u(p, (uint32_t)to + 1u); p = put_s(p, ": EDIT+ARP AGAIN"); finish(p);
+        status_msg(msg_buf);
+        return;
+    }
+    pcopy_ask_to = 255u;
+    project.uprog[to] = u;
+    piprog_leave();
+    project.gen.harm_prog = (uint8_t)(SQ_PROGS + to);
+    uprog_sel = to; uprog_pos = 0u;
+    p = put_s(p, "COPIED TO USER "); p = put_u(p, (uint32_t)to + 1u); p = put_s(p, ": ARP 5 TO CHANGE IT"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void uprog_shape_turn(sq_uprog_t *u, int32_t d)
 {
     uint8_t k = uprog_pos;
@@ -3497,7 +3561,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 scene_pc_set(scene_cursor, ch, kstep(v, d4, f4, -1, 127));
             }
         } else if (home_page == 5u) {                                           /* the MIDI effect */
-            if (d1) { cfg->mfx = change_u8(cfg->mfx, d1, 0u, SQ_MFXS - 1u); mfx_defaults(cfg); }
+            if (d1) mfx_choose(selected_track, change_u8(cfg->mfx, d1, 0u, SQ_MFXS - 1u));   /* 0.16: with its values */
             if (d2) mfx_amount(cfg, d2);
             if (d3) cfg->mfx_time = change_u8(cfg->mfx_time, d3, 0u, cfg->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1u : SQ_ECHO_TIMES - 1u);
             if (d4) cfg->mfx_fb = (uint8_t)kstep(cfg->mfx_fb, d4, 5 * f4, 10, 100);
@@ -3611,7 +3675,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d4) follow_set(t, d4 > 0 ? 1u : 0u);
         } else if (arp_page == 3u) {                                          /* HARMONY 2: FOLLOW's way, the harmony's genre, the mood, the rhythm */
             if (d1) follow_mode_set(t, change_u8(cfg->follow_mode, d1, 0u, SQ_FMS - 1u));
-            if (d2) harm_genre_set(change_u8(project.gen.harm_genre, d2, 0u, SQ_GENRES - 1u));
+            if (d2) harm_genre_turn(d2);                                      /* 0.16: FREE, then the genres */
             if (d3) harm_mood_set(change_u8(g->harm_mood, d3, 0u, SQ_MOODS - 1u));
             if (d4) harm_rhythm_set(change_u8(g->harm_rhythm, d4, 0u, SQ_HRS - 1u));
         } else if (arp_page == 4u) {                                          /* USER PROG: which, the chord, its root, its shape */
@@ -3663,7 +3727,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d4) g->heat = (uint8_t)kstep(g->heat, d4, 5 * f4, 1, 100);
         } else if (seq_page == 1u) {                                      /* the ALGORITHMS of this track: 0.11 four slots, SEL + K1 picks one */
             if (d1 && (held & (1u << BTN_SEL))) algo_slot_select(t, change_u8(algo_cur[t], d1, 0u, SQ_ALGO_SLOTS - 1u));
-            else if (d1) algo_set(t, change_u8(algo_slot(t)->algo, d1, 0u, SQ_ALGOS - 1u));
+            else if (d1) algo_choose(t, change_u8(algo_shown(t), d1, 0u, SQ_ALGOS - 1u));   /* 0.16: READY, not yet playing */
             if (d2 || d3 || d4) algo_turn(t, d2, d3, d4, f2, f3, f4);
         } else if (seq_page == 2u) {                                      /* EVOLVE, and the scope */
             if (d1) gen_targets_set(change_u8(gen_target_index(), d1, 0u, GEN_TARGET_SETS - 1u));
@@ -3677,7 +3741,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 if (d2) x->curve = (int8_t)kstep(x->curve, d2, f2, -8, 8);
                 if (d3) x->span = change_u8(x->span, d3, 0u, SQ_X_SPANS - 1u);
                 if (d4) x->shape = change_u8(x->shape, d4, 0u, SQ_X_SHAPES - 1u);
-                if ((d1 || d2 || d3) && x->shape == SQ_XS_OFF) x->shape = SQ_XS_RAMP;   /* a knob turned: on */
+                if ((d1 || d2 || d3) && x->shape == SQ_XS_OFF) status_msg("EXPO READY: K4 SHAPE STARTS IT");   /* 0.16: set up, not on (0.10-0.15: on, RAMP) */
             } else {
                 if (d1) x->vel = change_u8(x->vel, d1, 0u, SQ_X_VELS - 1u);
                 if (d2) x->gate = (uint8_t)kstep(x->gate, d2, 5 * f2, 5, 100);
@@ -3886,6 +3950,7 @@ static void handle_buttons(void)
     if (b & (1u << BTN_ARP)) {                                  /* ARP: a tap = its window (0.12; SEL + ARP: the arpeggio on / off) */
         if (held & (1u << BTN_HOME)) key_bake();                /* HOME + ARP: bake the key (asks twice) */
         else if (held & (1u << BTN_FX)) macros_bake();          /* 0.10 FX + ARP: bake the macros (asks twice) */
+        else if (held & (1u << BTN_EDIT)) prog_copy();          /* 0.16 EDIT + ARP: the progression playing into a USER slot */
         ui_dirty = 1u;
     }
     if ((b & ((1u << BTN_FX) | (1u << BTN_HOME))) && (held & (1u << BTN_FX)) && (held & (1u << BTN_HOME))) {   /* PANIC (once a gesture) */
@@ -4164,10 +4229,21 @@ static void app_host_dump(int t)
         uint32_t k;
         char nm[SQ_NAME_LEN + 1u];
         memcpy(nm, project.ext.name, SQ_NAME_LEN); nm[SQ_NAME_LEN] = 0;
-        printf("%6u ms  v15 T%d groove %u amt %u swing %u name [%s] link %u sent %u aud %u slots", fm1_ms, t + 1, (unsigned)cx->groove, (unsigned)cx->groove_amt,
-               (unsigned)project.track[t].swing, nm, (unsigned)link_on, (unsigned)link_sent, (unsigned)aud_n);
+        printf("%6u ms  v15 T%d groove %u amt %u swing %u name [%s] link %u sent %u aud %u hfree %u hgenre %u hprog %u up", fm1_ms, t + 1, (unsigned)cx->groove,
+               (unsigned)cx->groove_amt, (unsigned)project.track[t].swing, nm, (unsigned)link_on, (unsigned)link_sent, (unsigned)aud_n,
+               (unsigned)project.gen.harm_free, (unsigned)project.gen.harm_genre, (unsigned)project.gen.harm_prog);
+        for (k = 0; k < SQ_UPROG_SLOTS; k++) printf(" %u", (unsigned)project.uprog[k].n);
+        printf(" slots");
         for (k = 0; k < SQ_SLOTS; k++) printf(" %u:%s[%s]", (unsigned)k + 1u, slot_info[k].ok ? "ok" : "-", slot_info[k].name);
         printf("\n");
+    }
+    {   /* 0.16: the algorithms READY on the track's slots, what the knobs set (the READY one or the one playing) */
+        uint32_t k;
+        const sq_algo_t *e = algo_edit(t);
+        printf("%6u ms  v16 T%d pend", fm1_ms, t + 1);
+        for (k = 0; k < SQ_ALGO_SLOTS; k++) printf(" %u", (unsigned)algo_pend[t][k]);
+        printf(" shown %u edit %u/%u/%u/%u euc %u %u/%u\n", (unsigned)algo_shown(t), e->algo, e->a, e->b, e->c,
+               (unsigned)((project.track[t].flags & SQ_TF_EUC) ? 1u : 0u), (unsigned)project.track[t].euc_pulses, (unsigned)project.track[t].euc_rot);
     }
     {   /* 0.11: the HARMONY's progression, rhythm, mood, the track's FOLLOW way, the chord now, the player's five */
         uint32_t k, j;

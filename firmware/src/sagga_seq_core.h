@@ -497,7 +497,9 @@ typedef struct __attribute__((packed)) {
                                   * pattern is LOADED from another genre (or VIAGGIO / GENRE LIVE change the genre), not
                                   * while the knobs browse the library; HARM LOCK keeps it where the player put it */
     uint8_t harm_lock;           /* 0.11: 1 = the harmony changes only by the player's hand (SEQ 4 K1: LOCK) */
-    uint8_t reserved[1];
+    uint8_t harm_free;           /* 0.16: 1 = FREE (ARP 4 K2): the chords are nobody's genre - a pattern loaded never
+                                  * changes harm_genre, and ARP 3 K2 goes through every genre's progressions (harm_genre
+                                  * is then the genre of the one that plays) */
     /* 0.11 (SGQB; a 0.10 image ends at 24 bytes) */
     uint8_t harm_rhythm;         /* SQ_HR_*: when the chords change (BARS: a chord every harm_bars, as 0.10) */
     uint8_t harm_mood;           /* SQ_MOOD_*: the progressions K2 goes through, and DICE PROG's (ANY: all) */

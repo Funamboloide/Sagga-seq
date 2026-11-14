@@ -165,7 +165,7 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             if (k == 2u) PK(PK_LIST, 0, SQ_RF_COUNT - 1, 1, cfg->euc_fam);
             PK(PK_PCT, 1, 100, 5, gn->heat);
         } else if (pg == 1u) {
-            if (k == 0u) PK(PK_LIST, 0, SQ_ALGOS - 1, 1, algo_slot(t)->algo);
+            if (k == 0u) PK(PK_LIST, 0, SQ_ALGOS - 1, 1, algo_shown(t));
             PK(PK_NONE, 0, 0, 1, 0);
         } else if (pg == 2u) {
             if (k == 0u) PK(PK_LIST, 0, GEN_TARGET_SETS - 1, 1, gen_target_index());
@@ -212,7 +212,7 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             PK(PK_LIST, 0, 1, 1, (cfg->flags & SQ_TF_FOLLOW) ? 1 : 0);
         } else if (pg == 3u) {
             if (k == 0u) PK(PK_LIST, 0, SQ_FMS - 1, 1, cfg->follow_mode);
-            if (k == 1u) PK(PK_LIST, 0, SQ_GENRES - 1, 1, gn->harm_genre);
+            if (k == 1u) PK(PK_LIST, 0, SQ_GENRES, 1, harm_genre_pos());          /* 0.16: FREE, then the genres */
             if (k == 2u) PK(PK_LIST, 0, SQ_MOODS - 1, 1, gn->harm_mood);
             PK(PK_LIST, 0, SQ_HRS - 1, 1, gn->harm_rhythm);
         } else if (pg == 4u) {

@@ -54,6 +54,47 @@ turn them afterwards for your own feel.
 kick, the rim with the percussion, the sub, the rumble and the log drum with the bass, the stab, pad and piano with
 the chords.)
 
+**The algorithms are set up before they play.** Until 0.15, K1 on SEQ 2 started an algorithm at once with its
+default values, and the first touch of EUCLID's knobs switched EUCLID LIVE on with what they had: live, the track
+jumped somewhere before you could set it. Now **K1 makes the algorithm READY** on the slot (the screen: `ALGO 1 READY
+TURING`, the grid's pad orange), **K2-K4 set its values**, and **SEQ + white 6 starts it with them** (`T1 ALGO 1:
+TURING STARTS`). While it plays, K2-K4 change it as before. SEQ + white 6 again stops it (`TURING STOPS (READY
+AGAIN)`): its values stay, and the next SEQ + white 6 starts it the same. While one plays, K1 on another makes that
+one READY and K2-K4 set it; the one playing goes on until SEQ + white 6 swaps them (K1 back on the one playing: its
+knobs again; K1 on OFF: SEQ + white 6 stops it). Each algorithm of each slot keeps its own values while the FM-1 is on
+(the project saves the one that plays). **EUCLID** the same: with EUCLID LIVE off its knobs set it up (`EUCLID READY
+T1: 5/16 ROT 2 SEQ + WHITE 6 STARTS IT`), SEQ + white 6 starts it (on the scope, as before); on, they change it as it
+plays. SEQ + white 6 is EUCLID LIVE on every SEQ page but SEQ 2, where it is the slot's algorithm. The grid's TRACK 3
+view: a tap on an algorithm makes it READY (orange), a second tap starts it (white), a tap on the one playing stops
+it; its rows 4-5 set the READY one. Its EUCLID view: the pulses and the rotation of a row whose EUCLID LIVE is off are
+set up, pad 1 starts it.
+
+**The same elsewhere.** The **HARMONY**: with it off, ARP 3 K2 chooses the progression (`READY TECHNO i-VII-VI-VII: K1
+ON`) and K1 starts it (until 0.15 turning K2 switched the HARMONY on). **EXPO** (SEQ 4): with SHAPE OFF, K1-K3 set it
+up (`EXPO READY: K4 SHAPE STARTS IT`), K4 starts it with them (until 0.15 the first touch switched it on, on RAMP). A
+**MIDI FX** (HOME 6 K1, the grid's TRACK 3 row 2) comes back with the values it had on the track (until 0.15 its
+defaults every time it was chosen): set ECHO, go to HARM or OFF, back to ECHO, and it is the ECHO you set (its defaults
+only the first time; kept while the FM-1 is on, the project saves the one playing). ARP and CHORD were already so: the
+octaves, RATE, RUN, the voicing and the strum are the track's and stay when the mode or the shape changes (set them
+with the mode on BLOCK, the shape OFF, then choose); the LFOs, EVOLVE, the GROOVE amount too.
+
+**Harmony FREE.** ARP 4 K2, one to the left of the first genre: **FREE**. The chords are nobody's genre: ARP 3 K2
+walks through all 144 progressions of the library (6 of each of the 24 genres, in the genre's order: `TECHNO 1` ..
+`BAILE FUNK 6`), then the USER ones and DICE/PI; with a MOOD (ARP 4 K3) only those of that mood. A pattern loaded, BAND,
+GENRE LIVE or VIAGGIO's genre do not move the harmony any more (without FREE the harmony follows the genre of what is
+loaded, as in 0.11). ARP 4 K2 to the right: the genres again. Saved with the project.
+
+**Copy a progression into a USER slot: EDIT + ARP.** The progression that plays (one of the library, a USER, the
+Pi's) is written into a USER slot, chord by chord with its shapes: the one shown on ARP 5 if it is not the one
+playing, else the first empty one (`COPIED TO USER 2: ARP 5 TO CHANGE IT`). It plays from the copy at once (it sounds
+the same) and ARP 5 / ARP 6 change it: a chord, its root, its shape, its length. Over a slot that has a progression the
+FM-1 asks first (`COPY OVER USER 1: EDIT+ARP AGAIN`, within 3 s).
+
+**A note on FOLLOW.** A track with FOLLOW keeps the rhythm written in it: the harmony changes its notes (the pitch, in
+steps of the scale), never where they fall or how long they last. Only RETRIG and LEGATO act on a note held across a
+chord change (RETRIG strikes it again on the new chord, LEGATO bends it there). A pad that should follow the harmonic
+rhythm: one long note (a long gate or TIE) with FOLLOW RETRIG.
+
 ## What is new in 0.15
 
 **Clear a slot.** Choose the slot (SAVE + PRESETS), then **SAVE + REC**: `CLEAR SLOT 3 MY SONG: SAVE+REC AGAIN`; again
@@ -326,7 +367,7 @@ taught: the second part of this list is that rework.
   an envelope). K1 HITS 2-64 (SETTLE: the RATE a beat), K2 CURVE -8..+8 (SETTLE: DEPTH), K3 SPAN (STEP, BEAT, 2 BEATS,
   BAR, 2 BARS, 4 BARS); page 6: VEL (FLAT, FALL, RISE, BOUNCE, GRACE: the first hit at 75 %), GATE 5-100 %, JITTER 0-50 %, NOTES (CHORD, ARP, ARP +1..+3
   octaves). A step that is ON starts a span and gives it its notes; inside a span the other steps are silent. Turning
-  K1-K3 switches it on (RAMP). **EDIT + black 5** makes the cursor step **PLAIN**: a span that begins on it plays its
+  K1-K3 switches it on (RAMP); **0.16: they set it up (`EXPO READY`), K4 SHAPE starts it**. **EDIT + black 5** makes the cursor step **PLAIN**: a span that begins on it plays its
   steps as written, no curve, so a pattern can mix curves and plain beats. With VIAGGIO on, the **energy** halves or
   doubles the hits (0 / 100).
 * **REC keeps the length**: a note played while recording (keys or MIDI in) gives its step the gate it was held, or the
@@ -513,7 +554,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
-| 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL | amount | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
+| 6 MIDI FX | effect: OFF HARM OCTAVE ECHO VEL (**0.16: each with the values it had on the track**) | amount | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
 | 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
@@ -528,10 +569,10 @@ effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones wait
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 EUCLID | pulses (this track, live) | rotation (live) | **FAMILY**: EUCLID, TRESILLO, NUMERIC | heat (COOK, the dice) |
-| 2 ALGORITHM | OFF TURING CELL ACCENT DENSITY (the slot shown; **SEL + K1: the slot 1-4**) | A | B | C |
+| 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC | heat (COOK, the dice) |
+| 2 ALGORITHM | OFF TURING CELL ACCENT DENSITY (the slot shown; **SEL + K1: the slot 1-4**; **0.16: READY, SEQ + white 6 starts / stops it**) | A (of the READY one, else the one playing) | B | C |
 | 3 EVOLVE | targets RHYTHM .. ALL | amount | every 1 2 4 8 16 bars | scope |
-| 4 EXPO | HITS 2-64 (SETTLE: RATE a beat) | CURVE -8 .. +8 (SETTLE: DEPTH) | SPAN STEP, BEAT, 2 BEATS, BAR, 2 BARS, 4 BARS | SHAPE OFF, RAMP, BOUNCE, SETTLE |
+| 4 EXPO | HITS 2-64 (SETTLE: RATE a beat) | CURVE -8 .. +8 (SETTLE: DEPTH) | SPAN STEP, BEAT, 2 BEATS, BAR, 2 BARS, 4 BARS | SHAPE OFF, RAMP, BOUNCE, SETTLE (**0.16: the one that starts it**; K1-K3 set it up while OFF) |
 | 5 EXPO 2 | VEL FLAT, FALL, RISE, BOUNCE, GRACE (the first hit at 75 %) | GATE 5-100 % | JITTER 0-50 % | NOTES CHORD, ARP, ARP +1 .. +3 OCT |
 | 6 TOOLS | random density 0-100 % | **WHEN**: NOW, BAR, 2, 4, 8, 16 BARS | **EVERY**: OFF, 1, 2, 4, 8, 16, 32 BARS | **GENRE**: FREE, ON, LIVE |
 | **7 BREAK** (0.12) | **CHOP**: the re-order written over the loop (16, one a white key: STRAIGHT .. BUILD; UNDO takes it back) | **ROLLS** 0-7: how many steps the dice rolls | **SWAP** 0-100 %: how much of the bar the dice re-orders | **SLICES** 8 / 16 / 32 |
@@ -545,8 +586,9 @@ effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones wait
 | ACCENT | BEAT, OFFBEAT, POLY3, SYNC 3+3+2, RANDOM | amount 0-63 | offset 0-15 steps |
 | DENSITY | 0-200 % (100: as written; under: fewer, the beat last; over: ghost notes added) | the ghosts' velocity 10-100 % | |
 
-Turning EUCLID's knobs switches EUCLID LIVE on for the track. SEQ + white 6 switches it on / off (on the scope). A new
-algorithm starts from the written rhythm; its knobs never restart it. The families: EUCLID spreads the pulses as evenly
+Turning EUCLID's knobs while EUCLID LIVE is off sets it up (0.16: READY; until 0.15 it switched it on); SEQ + white 6
+switches it on / off (on the scope). On SEQ 2 K1 makes an algorithm READY, K2-K4 set it, SEQ + white 6 starts it with
+those values (and stops it). A new algorithm starts from the written rhythm; its knobs never restart it. The families: EUCLID spreads the pulses as evenly
 as they go (E(5,16) = x..x..x..x..x...); TRESILLO fills 3-3-2 cells, half a bar at a time; NUMERIC writes the binary
 digits of the n-th prime number (n = the pulses): a rhythm that is neither even nor random.
 
@@ -558,7 +600,7 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 
 | | |
 |---|---|
-| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off**, **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
+| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
 | black keys 1-11 | DICE SEQ (**held: DICE PROG**; on a BREAK: the backbone kept), DICE CC, DICE LFO, DICE GROOVE, DICE ALL, SCOPE (next; held + white keys: the CUSTOM tracks), KIT (**held: BAND**), DRIFT, EVOLVE on / off, FREEZE, REVERT |
 | SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** / **the genre** (of everything; the harmony follows only what is loaded) |
 | SAVE | **the selected track's loop to the Pi** as a variation of its part (**ARP + SAVE**: the progression, the one being written on ARP 5 / 6, else the one playing) |
@@ -605,8 +647,8 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 |---|---|---|---|---|
 | 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE** | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
 | 2 CHORD | **shape** (32) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
-| 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD) | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
-| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
+| 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
+| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 144) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
 | 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8 |
 | 6 USER PROG 2 | **MOOD** (GUESSED: the machine's) | the lengths of a RHYTHM written into the chords | **the chord's length**: 1-64 16ths (0: the HARMONY's rhythm) | **PUSH** 0-4 16ths |
 

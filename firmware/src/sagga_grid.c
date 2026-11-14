@@ -604,7 +604,8 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
 }
 
 /* EUCLID view (0.8): the eight tracks of the bank, a row each. Pad 1: EUCLID LIVE on / off; pads 2-16: pulses 1-15 (heard
- * at once); SHIFT + pads 2-16: the rotation 0-14. The pads show the pulses (the rotation with SHIFT). */
+ * at once if the row's EUCLID LIVE is on; 0.16: off, set up for pad 1 to start it); SHIFT + pads 2-16: the rotation 0-14.
+ * The pads show the pulses (the rotation with SHIFT). */
 static void gr_pad_euclid(uint8_t x, uint8_t y)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y);
@@ -621,7 +622,8 @@ static void gr_pad_euclid(uint8_t x, uint8_t y)
  *   row 0  voicing CLOSE INV1 INV2 DROP2 OPEN    strum -50 .. 0 .. +50 % (pads 6-16)
  *   row 1  MIDI FX OFF HARM OCTAVE ECHO VEL      amount -5 .. 0 .. +5 (pads 6-16; HARM in key: steps, free: semitones)
  *   row 2  ECHO time 1/32 .. 1/4 (OCTAVE: ALT RANDOM 3RD 4TH)   ECHO keeps / HARM velocity 20 .. 100 %
- *   row 3  algorithm OFF TURING CELL ACCENT DENSITY   FOLLOW   EUCLID LIVE   -   C: TURING moves (rhythm, notes, both),
+ *   row 3  algorithm OFF TURING CELL ACCENT DENSITY (0.16: a tap READY, orange; again: it starts, white; on the one
+ *          playing: it stops)   FOLLOW   EUCLID LIVE   the slot   C: TURING moves (rhythm, notes, both),
  *          CELL a new row every (1 2 4 bars, loop), ACCENT starts (0-7)
  *   row 4  A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels)
  *   row 5  B: TURING length 2-16, CELL cells, ACCENT amount, DENSITY ghosts' velocity
@@ -637,7 +639,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         else if (x >= 5u) { c->strum = (int8_t)(((int32_t)x - 10) * 10); { char *p = msg_buf; p = put_s(p, "STRUM "); p = put_i(p, c->strum); p = put_s(p, "%"); finish(p); status_msg(msg_buf); } }
         break;
     case 1:
-        if (x < SQ_MFXS) { c->mfx = x; mfx_defaults(c); { static const char *const MF[SQ_MFXS] = {"MIDI FX OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"}; status_msg(MF[x]); } }
+        if (x < SQ_MFXS) { mfx_choose(t, x); { static const char *const MF[SQ_MFXS] = {"MIDI FX OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"}; status_msg(MF[x]); } }
         else if (x >= 5u) { mfx_amount(c, ((int32_t)x - 10) - c->mfx_amt); { char *p = msg_buf; p = put_s(p, "FX AMOUNT "); p = put_i(p, c->mfx_amt); finish(p); status_msg(msg_buf); } }
         break;
     case 2:
@@ -648,22 +650,22 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         } else { c->mfx_fb = GR_KEEP[x - 8u]; status_num("FX KEEPS ", c->mfx_fb); }
         break;
     case 3: {
-        sq_algo_t *al = algo_slot(t);                   /* 0.11: the slot shown; pad 8 goes to the next slot */
-        if (x < SQ_ALGOS) algo_set(t, x);
+        sq_algo_t *al = algo_edit(t);                   /* 0.11: the slot shown; pad 8 goes to the next slot; 0.16: the READY one */
+        if (x < SQ_ALGOS) algo_pad(t, x);               /* 0.16: a tap READY, again: it starts (on the one playing: it stops) */
         else if (x == 5u) follow_set(t, (c->flags & SQ_TF_FOLLOW) ? 0u : 1u);
         else if (x == 6u) { c->flags ^= SQ_TF_EUC; euclid_status(t); }
         else if (x == 7u) algo_slot_select(t, (uint8_t)((algo_cur[t] + 1u) % SQ_ALGO_SLOTS));
         else if (x >= 8u) {
             uint8_t v = (uint8_t)(x - 8u);
             if (al->algo == SQ_ALGO_TURING && v < SQ_TM_MODES) al->c = v;
-            else if (al->algo == SQ_ALGO_CELL && v < 4u) { al->c = v; ca_bars[t][algo_cur[t]] = 0u; }
+            else if (al->algo == SQ_ALGO_CELL && v < 4u) { al->c = v; if (al == algo_slot(t)) ca_bars[t][algo_k(t)] = 0u; }
             else if (al->algo == SQ_ALGO_ACCENT) al->c = v;
             algo_status(t);
         }
         break;
     }
     case 4: {
-        sq_algo_t *al = algo_slot(t);
+        sq_algo_t *al = algo_edit(t);
         if (al->algo == SQ_ALGO_TURING) al->a = GR_MUT[x];
         else if (al->algo == SQ_ALGO_CELL) al->a = GR_RULE[x];
         else if (al->algo == SQ_ALGO_ACCENT) { if (x < 5u) al->a = x; }
@@ -672,7 +674,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         break;
     }
     case 5: {
-        sq_algo_t *al = algo_slot(t);
+        sq_algo_t *al = algo_edit(t);
         if (al->algo == SQ_ALGO_TURING) { if (x < 15u) al->b = (uint8_t)(x + 2u); }
         else if (al->algo == SQ_ALGO_CELL) al->b = GR_CELLS[x];
         else if (al->algo == SQ_ALGO_ACCENT) al->b = (uint8_t)(x * 4u + 3u);
@@ -1483,7 +1485,8 @@ static void gr_render_track3(void)
     static const uint8_t SLOTC[SQ_ALGO_SLOTS] = {GL_FAINT, GL_BLUE, GL_CYAN, GL_WHITE};
     uint32_t t = selected_track, x;
     const sq_track_cfg_t *c = &project.track[t];
-    const sq_algo_t *al = algo_slot(t);
+    const sq_algo_t *al = algo_edit(t);               /* 0.16: the READY one's values, if there is one */
+    uint8_t run = algo_slot(t)->algo, shown = algo_shown(t);
     const sq_step_t *cs = &gr_row()[cursor_step];
     int32_t strum = (c->strum + (c->strum < 0 ? -5 : 5)) / 10, amt = c->mfx_amt;
     for (x = 0; x < 16u; x++) {
@@ -1491,7 +1494,7 @@ static void gr_render_track3(void)
         gr_put(x, 1, x < SQ_MFXS ? (c->mfx == x ? GL_WHITE : GL_ORANGE) : !c->mfx ? GL_OFF : (int32_t)x - 10 == amt ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
         if (x < 8u) gr_put(x, 2, (c->mfx == SQ_MFX_OCTAVE && x >= SQ_OCT_PATTERNS) ? GL_OFF : c->mfx_time == x ? GL_WHITE : GL_BLUE);
         else gr_put(x, 2, GR_KEEP[x - 8u] <= c->mfx_fb ? (GR_KEEP[x - 8u] == c->mfx_fb ? GL_WHITE : GL_CYAN) : GL_FAINT);
-        if (x < SQ_ALGOS) gr_put(x, 3, al->algo == x ? GL_WHITE : GL_VIOLET);
+        if (x < SQ_ALGOS) gr_put(x, 3, run == x && x ? GL_WHITE : shown == x ? GL_ORANGE : GL_VIOLET);   /* 0.16: orange READY */
         else if (x == 5u) gr_put(x, 3, (c->flags & SQ_TF_FOLLOW) ? GL_CYAN : GL_FAINT);
         else if (x == 6u) gr_put(x, 3, (c->flags & SQ_TF_EUC) ? GL_CYAN : GL_FAINT);
         else if (x == 7u) gr_put(x, 3, SLOTC[algo_cur[t] < SQ_ALGO_SLOTS ? algo_cur[t] : 0u]);   /* 0.11: which slot (tap: the next) */
