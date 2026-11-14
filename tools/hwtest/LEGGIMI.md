@@ -54,8 +54,8 @@ loro comandi come se arrivassero dal Pi), e dopo ogni gesto l'FM-1 manda tutto i
    python3 tests/sagga_explore.py --hw-piano /mnt/c/Users/user/Downloads/sagga-esploratore
    ```
    (20 sessioni da 60 gesti, circa 20 minuti; `--sessioni 3` per una prova corta, `--seme N` per altre sessioni;
-   `--hw-tablet N`: N sessioni in più con il tablet e il grid, 0.18).
-2. FM-1 acceso con la 0.11 o più recente (un piano con il tablet e il grid vuole la 0.18: il programma lo controlla),
+   `--hw-tablet N`: N sessioni in più con il tablet e il grid, 0.18.1).
+2. FM-1 acceso con la 0.11 o più recente (un piano con il tablet e il grid vuole la 0.18.1: il programma lo controlla),
    **fermo**, collegato direttamente al PC; niente sulla presa MIDI IN; Ableton chiuso. In
    PowerShell, nella cartella:
    ```powershell
