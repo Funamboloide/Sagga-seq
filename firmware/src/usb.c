@@ -635,7 +635,9 @@ static void ep0_service(void)
         usb.config = s[2];
         if (usb.config == 1u) {
             usb.configs++;
-            usb.cfg_ms = fm1_ms;
+#ifndef FELUCCA_LOADER
+            usb.cfg_ms = fm1_ms;                        /* (the app's ms; the update loader has no such clock) */
+#endif
             ep1_config();
         }
         else
