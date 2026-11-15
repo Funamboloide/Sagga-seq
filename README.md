@@ -32,11 +32,11 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
-* [docs/SAGGA-SEQ-0.20.1-INSTALL.md](docs/SAGGA-SEQ-0.20.1-INSTALL.md): the Pi updates itself from its page from now on (Italian; only the Pi changes).
+* [docs/SAGGA-SEQ-0.20.2-INSTALL.md](docs/SAGGA-SEQ-0.20.2-INSTALL.md): the hub install no longer stops halfway (Italian; only the Pi changes); [0.20.1](docs/SAGGA-SEQ-0.20.1-INSTALL.md): the Pi updates itself from its page.
 * [docs/SAGGA-SEQ-0.20-INSTALL.md](docs/SAGGA-SEQ-0.20-INSTALL.md): install (Italian); [0.19](docs/SAGGA-SEQ-0.19-INSTALL.md), [0.18.1](docs/SAGGA-SEQ-0.18.1-INSTALL.md) (the explorer on the FM-1), [0.18](docs/SAGGA-SEQ-0.18-INSTALL.md), [0.17](docs/SAGGA-SEQ-0.17-INSTALL.md), [0.16](docs/SAGGA-SEQ-0.16-INSTALL.md), [0.15](docs/SAGGA-SEQ-0.15-INSTALL.md), [0.12](docs/SAGGA-SEQ-0.12-INSTALL.md).
 * [docs/SAGGA-SEQ-0.12-DISEGNO.md](docs/SAGGA-SEQ-0.12-DISEGNO.md): the design 0.12 started from, and how it went (Italian).
 * [docs/SAGGA-GRID-ZYNTHIAN.md](docs/SAGGA-GRID-ZYNTHIAN.md): the minimal stage set-up, the bridge on a Zynthian (Italian).
-* [RELEASE-NOTES-0.20.md](RELEASE-NOTES-0.20.md): what changed (Italian); [0.20.1](RELEASE-NOTES-0.20.1.md) (the Pi only), [0.19](RELEASE-NOTES-0.19.md), [0.18.1](RELEASE-NOTES-0.18.1.md), [0.18](RELEASE-NOTES-0.18.md), [0.17](RELEASE-NOTES-0.17.md), [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
+* [RELEASE-NOTES-0.20.md](RELEASE-NOTES-0.20.md): what changed (Italian); [0.20.2](RELEASE-NOTES-0.20.2.md), [0.20.1](RELEASE-NOTES-0.20.1.md) (the Pi only), [0.19](RELEASE-NOTES-0.19.md), [0.18.1](RELEASE-NOTES-0.18.1.md), [0.18](RELEASE-NOTES-0.18.md), [0.17](RELEASE-NOTES-0.17.md), [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
 * [tools/norns/figo/README.md](tools/norns/figo/README.md) and [tools/gills/LEGGIMI.md](tools/gills/LEGGIMI.md): the live
   effects of the set, FIGO on norns (the loop varied by itself, in time) and SCENA on the Ksoloti Gills (one knob from
   break-down to build-up) (Italian).

@@ -571,6 +571,17 @@ def t_update_delete():
         print('  (no make_release.sh / zip / cc here: the real zip is not checked)')
     sh = open(os.path.join(HUB, 'install_hub.sh')).read()
     check('/opt/sagga/hub/VERSION' in sh and 'sagga-hub-*' in sh, 'install_hub.sh writes the version the page shows')
+    # 0.20.2: RaspiMIDIHub's restart puts the root back read-only and may drop its WiFi: last, after everything
+    lines = sh.splitlines()
+    rmh = [i for i, ln in enumerate(lines) if 'systemctl restart raspimidihub' in ln and not ln.lstrip().startswith('#')]
+    last_write = max(i for i, ln in enumerate(lines) if 'remount,ro /' in ln or '/etc/systemd/system' in ln or 'systemctl enable' in ln)
+    check(len(rmh) == 1 and rmh[0] > last_write, 'install_hub.sh restarts RaspiMIDIHub once, after its last write (%s > %s)' % (rmh, last_write))
+    check('rwroot\ninstall -m 644 "$HERE/hub/sagga-virmidi.service"' in sh and 'rwroot\nsystemctl daemon-reload' in sh,
+          'install_hub.sh makes the root writable again before the services')
+    check('systemd-run --unit="$UNIT"' in sh and 'SAGGA_INSTALL_EXIT=' in sh and 'exit "${RC:-1}"' in sh,
+          'install_hub.sh runs in a unit of its own and gives back its exit code (a dropped SSH does not stop it)')
+    check('SAGGA_DETACHED=1 sh ./install_hub.sh' in open(os.path.join(HUB, 'sagga_fw.py')).read(),
+          'the page runs it already detached (no unit inside the unit)')
     FW.HERE = d
     open(os.path.join(d, 'VERSION'), 'w').write('0.20.1\n')
     check(state_json()['version'] == '0.20.1', 'the page shows the hub version')

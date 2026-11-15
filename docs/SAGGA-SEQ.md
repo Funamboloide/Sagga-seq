@@ -12,6 +12,14 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.2 (the Pi only)
+
+`install_hub.sh` restarted RaspiMIDIHub halfway; RaspiMIDIHub puts the root file system back read-only when it starts,
+so the rest of the install failed (`Read-only file system` on the service files), and its WiFi could drop with the SSH
+session. Now RaspiMIDIHub restarts last, the root is made writable again before the services, and the install runs in
+a systemd unit of its own (the terminal follows `/run/sagga-install.log`, last line `SAGGA_INSTALL_EXIT=N`): a dropped
+connection no longer stops it. The page's AGGIORNA IL PI runs it the same way.
+
 ## What is new in 0.20.1 (the Pi only)
 
 The firmware stays 0.20 (`FM-1_970`); only the hub changes (`sagga-hub-0.20.1.zip`).

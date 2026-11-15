@@ -6,14 +6,36 @@
 #     sudo sh install_hub.sh --no-pc    # a home Pi without the RP2040: no UART changes, no PC port service
 # Idempotent: run it again after an update. The root file system is made writable while it runs (rw / ro).
 # 0.20.1: from then on the hub page (port 8090, AGGIORNA IL PI) runs it by itself on an uploaded sagga-hub-X.zip.
+# 0.20.2: it runs in a systemd unit of its own and this terminal only follows its log: when RaspiMIDIHub restarts
+# (at the very end now) its WiFi can drop for a moment, and with it the SSH session; the install goes on.
 set -e
 [ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
 PC=1; [ "$1" = "--no-pc" ] && PC=0
 HERE=$(cd "$(dirname "$0")" && pwd)
+if [ -z "$SAGGA_DETACHED" ] && [ -d /run/systemd/system ] && command -v systemd-run >/dev/null 2>&1; then
+    LOG=/run/sagga-install.log
+    UNIT=sagga-install-$(date +%s)
+    : > "$LOG"
+    if systemd-run --unit="$UNIT" --collect --quiet --setenv=SAGGA_DETACHED=1 /bin/sh -c \
+        'sh "$0" "$@" >>/run/sagga-install.log 2>&1; echo "SAGGA_INSTALL_EXIT=$?" >>/run/sagga-install.log' \
+        "$HERE/install_hub.sh" "$@"; then
+        echo "installing in the background ($UNIT): if the WiFi drops, reconnect and read $LOG"
+        tail -n +1 -f "$LOG" &
+        TP=$!
+        while ! grep -q '^SAGGA_INSTALL_EXIT=' "$LOG"; do sleep 1; done
+        sleep 1
+        kill "$TP" 2>/dev/null || true
+        RC=$(sed -n 's/^SAGGA_INSTALL_EXIT=//p' "$LOG" | tail -n 1)
+        exit "${RC:-1}"
+    fi
+    echo "systemd-run failed: installing here (keep the WiFi up)"
+fi
 RW=0; ROOT_RO=0
 # RaspiMIDIHub's rw / ro are often shell aliases of the user, not commands sudo can see: then the root is remounted here
 if command -v rw >/dev/null 2>&1; then rw; RW=1
 elif grep -q " / [^ ]* ro[ ,]" /proc/mounts; then ROOT_RO=1; mount -o remount,rw /; fi
+# 0.20.2: and again before every write to it: something else (RaspiMIDIHub) may have put it back read-only
+rwroot() { if grep -q " / [^ ]* ro[ ,]" /proc/mounts; then mount -o remount,rw / && ROOT_RO=1; fi; }
 apt-get install -y --no-install-recommends python3-mido python3-rtmidi python3-serial python3-usb gcc libc6-dev >/dev/null || \
     echo "apt failed: is the Pi on the internet? (USB tethering from the phone does it)"
 install -d /opt/sagga/hub
@@ -38,11 +60,12 @@ fi
 PLUG=$(python3 -c "import raspimidihub, os; print(os.path.join(os.path.dirname(raspimidihub.__file__), 'plugins'))" 2>/dev/null || true)
 if [ -n "$PLUG" ] && [ -d "$PLUG" ] && [ -d "$HERE/raspimidihub" ]; then
     for d in "$HERE"/raspimidihub/sagga_*/; do rm -rf "$PLUG/$(basename "$d")"; cp -r "$d" "$PLUG/"; done
-    systemctl restart raspimidihub 2>/dev/null || true
+    RMH_RESTART=1                                   # 0.20.2: at the very end (it puts the root back read-only)
     echo "the SAGGA pages installed in $PLUG (add them in the hub's interface, OUT to the FM-1)"
 else
     echo "RaspiMIDIHub's plugins folder not found: copy the raspimidihub/sagga_* folders by hand (raspimidihub/README.md)"
 fi
+rwroot
 install -m 644 "$HERE/hub/sagga-virmidi.service" "$HERE/hub/sagga-pc-link.service" "$HERE/hub/sagga-fw.service" /etc/systemd/system/
 install -m 644 "$HERE/sagga-grid-bridge.service" "$HERE/sagga-m8-link.service" /etc/systemd/system/
 # the M8 link loads the cards through sagga-virmidi now (one modprobe with all four cards)
@@ -63,6 +86,7 @@ if [ $PC = 1 ]; then
     sed -i 's/console=serial0,115200 //; s/console=ttyAMA0,115200 //' "$CMD"
 fi
 sync; [ $BOOT_RO = 1 ] && mount -o remount,ro "$BOOT" || true
+rwroot
 systemctl daemon-reload
 if [ $PC = 1 ]; then
     systemctl disable --now hciuart 2>/dev/null || true
@@ -80,3 +104,8 @@ IP=$(hostname -I 2>/dev/null | cut -d' ' -f1); [ -n "$IP" ] || IP=192.168.4.1
 echo "SAGGA HUB installed. Firmware library and projects: http://$IP:8090"
 if [ $PC = 1 ]; then echo "Reboot once (the UART settings). The matrix shows SAGGAPC1/2 (the computer) and SAGGAM8A/B (the Bricks)."
 else echo "No PC port (--no-pc). The matrix shows SAGGAM8A/B (the Bricks); the bridge waits for the Launchpads."; fi
+if [ "$RMH_RESTART" = 1 ]; then
+    echo "RaspiMIDIHub restarts for the new SAGGA pages (its WiFi may drop for a few seconds)"
+    sleep 1
+    systemctl restart raspimidihub 2>/dev/null || true
+fi

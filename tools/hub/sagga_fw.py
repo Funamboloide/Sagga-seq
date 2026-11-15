@@ -361,7 +361,7 @@ class State:
                                                        'with the PC port' if pc else '--no-pc: no PC port on this Pi'))
             with open(self._upd('update.json'), 'w') as f:
                 json.dump(dict(version=ver, name=os.path.basename(filename or ''), started=time.time()), f)
-            script = '{ cd %s && sh ./install_hub.sh%s; echo "exit $?"; cd /; rm -rf %s; } >>%s 2>&1' % (
+            script = '{ cd %s && SAGGA_DETACHED=1 sh ./install_hub.sh%s; echo "exit $?"; cd /; rm -rf %s; } >>%s 2>&1' % (
                 shlex.quote(os.path.join(stage, top)), '' if pc else ' --no-pc', shlex.quote(stage), shlex.quote(log))
             started = False
             if SYSTEMD_RUN:

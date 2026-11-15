@@ -63,6 +63,9 @@ si aggiorna. Si riavvia anche RaspiMIDIHub: non farlo mentre suoni.
 Lo può fare chi è sulla rete del Pi, come può installare un firmware: la password del WiFi è la chiave. La prima
 volta (per avere questa pagina) si passa ancora da SSH.
 
+Dalla 0.20.2 `install_hub.sh` gira in un servizio a parte anche da SSH: se il WiFi del Pi cade (succede quando
+RaspiMIDIHub riparte, adesso alla fine) l'installazione finisce lo stesso. Il registro è in `/run/sagga-install.log`.
+
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
