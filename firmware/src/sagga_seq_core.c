@@ -1071,25 +1071,24 @@ uint32_t sq_env_ticks(uint8_t idx)
     return T[idx < SQ_ENV_TIMES ? idx : 0u];
 }
 
-static uint32_t env_ad(const sq_lfoe_t *e, uint64_t el)   /* ATTACK then DECAY to SUSTAIN, held there */
+/* (32 bits only: the FM-1's library has no 64-bit division. Times in ticks x 256, levels on 10 bits, then x 64) */
+static uint32_t env_ad(const sq_lfoe_t *e, uint32_t el)   /* ATTACK then DECAY to SUSTAIN, held there: 0..1023 */
 {
-    uint64_t a = (uint64_t)sq_env_ticks(e->a) << 16, d = (uint64_t)sq_env_ticks(e->d) << 16;
-    uint32_t s = (uint32_t)e->s * 65535u / 100u;
-    if (el < a) return (uint32_t)((el * 65535u) / a);
+    uint32_t a = sq_env_ticks(e->a) * 256u, d = sq_env_ticks(e->d) * 256u, s = (uint32_t)e->s * 1023u / 100u;
+    if (el < a) return el * 1023u / a;
     el -= a;
-    if (el < d) return (uint32_t)(65535u - ((65535u - s) * el) / d);
+    if (el < d) return 1023u - (1023u - s) * el / d;
     return s;
 }
 
-uint32_t sq_env_level(const sq_lfoe_t *e, uint64_t el, uint64_t gate)
+uint32_t sq_env_level(const sq_lfoe_t *e, uint32_t el, uint32_t gate)
 {
-    uint64_t r = (uint64_t)sq_env_ticks(e->r) << 16;
-    uint32_t at;
-    if (el < gate) return env_ad(e, el);
+    uint32_t r = sq_env_ticks(e->r) * 256u, at;
+    if (el < gate) return env_ad(e, el) * 64u;
     at = env_ad(e, gate);                              /* the level when the note ended, then the release */
     el -= gate;
     if (!r || el >= r) return 0u;
-    return (uint32_t)(((uint64_t)at * (r - el)) / r);
+    return at * (r - el) / r * 64u;
 }
 
 /* ---- 0.20 MOD MATRIX */

@@ -504,9 +504,9 @@ typedef struct __attribute__((packed)) {
     uint8_t r;                   /* 0..SQ_ENV_TIMES-1 */
 } sq_lfoe_t;                     /* 4 bytes */
 uint32_t sq_env_ticks(uint8_t idx);
-/* the level (0..65535) an envelope has `el` clock ticks (x 65536: fractions) after its note started, the note held for
- * `gate` ticks (x 65536) */
-uint32_t sq_env_level(const sq_lfoe_t *e, uint64_t el, uint64_t gate);
+/* the level (0..65535) an envelope has `el` clock ticks (x 256: fractions) after its note started, the note held for
+ * `gate` ticks (x 256) */
+uint32_t sq_env_level(const sq_lfoe_t *e, uint32_t el, uint32_t gate);
 
 /* 0.20 MOD MATRIX: eight slots, each a SOURCE moving a DESTINATION by an AMOUNT (-100..+100 %) */
 #define SQ_MODS 8u

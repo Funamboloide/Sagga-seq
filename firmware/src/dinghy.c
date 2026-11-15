@@ -1094,7 +1094,7 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
         case SQ_MFX_GATE: {                            /* times a factor, or a fixed length; K4 a little at random */
             uint32_t fixed = sq_gate_fixed_ticks(tm) * current_clock_interval();
             for (i = 0; i < n0; i++) {
-                uint32_t g = fixed ? fixed : (uint32_t)(((uint64_t)mfx_ev[i].gate * sq_gate_factor_x4(a)) / 4u);
+                uint32_t g = fixed ? fixed : mfx_ev[i].gate * sq_gate_factor_x4(a) / 4u;   /* (32 bits: no 64-bit division on the FM-1) */
                 if (fb) {                              /* (no signed 64-bit numbers: the JieLi library has no __divdi3) */
                     int32_t r = (int32_t)(sq_rng_next(&sq_rng_state) % (2u * fb + 1u)) - (int32_t)fb;
                     g = (uint32_t)clamp_i32((int32_t)g + (int32_t)(g / 100u) * r, 1, 0x7FFFFFFF);
@@ -1953,10 +1953,16 @@ static void lfo_track_add(const sq_lfo_t *l, int32_t o)   /* o: -63 .. +63, on t
     }
     lfo_mod[t][l->dest - 1u] = (int16_t)(lfo_mod[t][l->dest - 1u] + o);
 }
+static uint32_t ticks256(uint32_t us, uint32_t interval)   /* a time in clock ticks x 256 (at most 65535 ticks) */
+{
+    uint32_t q = us / interval;
+    if (q > 65535u) return 65535u * 256u;
+    return q * 256u + (us % interval) * 256u / interval;
+}
 /* 0.20 ENV: the envelope's level (0..65535) as the LFO's output: up from CENTER by DEPTH (INVERT: down) */
 static void env_out(uint32_t i, const sq_lfo_t *l, uint32_t lvl)
 {
-    int32_t sgn = (l->flags & SQ_LF_INVERT) ? -1 : 1, amt = (int32_t)(((uint64_t)lvl * l->depth) / 65535u);   /* 0..127 */
+    int32_t sgn = (l->flags & SQ_LF_INVERT) ? -1 : 1, amt = (int32_t)(lvl * l->depth / 65535u);   /* 0..127 */
     lfo_out[i] = (int16_t)(sgn * amt * 1000 / 127);
     if (l->dest == SQ_LD_CC) {
         if (vg_lfo_pct() < 100u) amt = amt * (int32_t)vg_lfo_pct() / 100;
@@ -2001,18 +2007,12 @@ static void lfo_service(uint32_t now)
         }
         if (l->shape == SQ_LFO_ENV) {                                         /* 0.20 ENV: the level of the envelope */
             const sq_lfoe_t *e = &project.ext.lfoe[i];
-            uint64_t el, g;
-            uint32_t lvl = 0u;
+            uint32_t lvl = 0u;                                                /* (ticks x 256: 32 bits, the FM-1 has no 64-bit division) */
             if (x->trig) {
-                if ((lfo_trig_seen & (1u << i)) && interval) {
-                    el = ((uint64_t)(uint32_t)(now - lfo_trig_us[i]) << 16) / interval;
-                    g = ((uint64_t)lfo_gate_us[i] << 16) / interval;
-                    lvl = sq_env_level(e, el, g);
-                }
+                if ((lfo_trig_seen & (1u << i)) && interval) lvl = sq_env_level(e, ticks256((uint32_t)(now - lfo_trig_us[i]), interval), ticks256(lfo_gate_us[i], interval));
             } else {                                                          /* the clock: once a cycle of its RATE, held half */
                 uint32_t cyc = sq_lfo_ticks(lb.rate);
-                el = ((uint64_t)(tick % cyc) << 16) + fr;
-                lvl = sq_env_level(e, el, (uint64_t)cyc << 15);
+                lvl = sq_env_level(e, (tick % cyc) * 256u + (fr >> 8), cyc * 128u);
             }
             env_out(i, l, lvl);
             continue;
