@@ -37,6 +37,9 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 * [docs/SAGGA-SEQ-0.12-DISEGNO.md](docs/SAGGA-SEQ-0.12-DISEGNO.md): the design 0.12 started from, and how it went (Italian).
 * [docs/SAGGA-GRID-ZYNTHIAN.md](docs/SAGGA-GRID-ZYNTHIAN.md): the minimal stage set-up, the bridge on a Zynthian (Italian).
 * [RELEASE-NOTES-0.20.md](RELEASE-NOTES-0.20.md): what changed (Italian); [0.20.1](RELEASE-NOTES-0.20.1.md) (the Pi only), [0.19](RELEASE-NOTES-0.19.md), [0.18.1](RELEASE-NOTES-0.18.1.md), [0.18](RELEASE-NOTES-0.18.md), [0.17](RELEASE-NOTES-0.17.md), [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
+* [tools/norns/figo/README.md](tools/norns/figo/README.md) and [tools/gills/LEGGIMI.md](tools/gills/LEGGIMI.md): the live
+  effects of the set, FIGO on norns (the loop varied by itself, in time) and SCENA on the Ksoloti Gills (one knob from
+  break-down to build-up) (Italian).
 * [tools/m8link/LEGGIMI.md](tools/m8link/LEGGIMI.md): two headless M8s on TrimUI Bricks as MIDI instruments for the
   Pi (Italian).
 

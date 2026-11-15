@@ -22,6 +22,12 @@ python3 tests/sagga_sgqmid_tests.py | tail -1
 python3 tests/sagga_roll_tests.py | tail -1
 python3 tests/sagga_slicer_tests.py | tail -1               # 0.13 a break into slices (the hub page)
 python3 tests/sagga_editor_tests.py | tail -1               # 0.14 the projects' web editor (converter, hub, bridge, page)
+# the live effects of the set: FIGO on norns (a fake norns, softcut modelled), SCENA on the Ksoloti Gills
+if command -v texlua >/dev/null 2>&1; then texlua tools/norns/test_figo.lua | tail -1; else echo "figo: skipped (no texlua)"; fi
+c++ -std=c++11 -O2 tools/gills/test_scena.cpp -o build/test_scena && build/test_scena | tail -1
+python3 tools/gills/make_scena.py build/scena.axp >/dev/null
+if cmp -s build/scena.axp tools/gills/scena.axp; then echo "scena.axp: made from the engine, up to date"; else echo "scena.axp: FAIL, run python3 tools/gills/make_scena.py"; exit 1; fi
+if [ -n "$KSOLOTI" ]; then sh tools/gills/armcheck/check_arm.sh; else echo "scena arm: skipped (KSOLOTI= a ksoloti checkout)"; fi
 if python3 -c "import numpy, scipy" 2>/dev/null && command -v ffmpeg >/dev/null; then python3 tests/strati_tests.py | tail -1; else echo "strati: skipped (needs numpy, scipy, ffmpeg)"; fi
 if [ -n "$SANITIZE" ]; then export SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g"; fi
 python3 tests/sagga_sim_tests.py | tail -1
