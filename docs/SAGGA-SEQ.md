@@ -12,6 +12,23 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.9
+
+The runs of 0.20.8 on the real banco found that **RaspiMIDIHub 6 loses the cells of a device that is away**: its
+autosave (every 15-30 s while something changes, and the SAGGA pages change all the time, they follow the FM-1) writes
+the cells of the devices that are there only; if the FM-1 is rebooting or off in that second, its cells are gone from
+RaspiMIDIHub's memory too, and it does not put them back when the FM-1 returns. The Pi now has **a keeper of the FM-1's
+cells** (`tools/hub/sagga_celle.py`, inside the hub's page): it remembers them (with their filters and mappings) while
+the FM-1 is there, and when the FM-1 (or the other end of a cell) goes and comes back - its USB device number changes
+each time - it waits 5 s for RaspiMIDIHub and puts back the ones that are missing. A cell taken away with the FM-1 on
+stays away. The first time it starts from the cells the SAGGA pages need. The page shows what it did (LE CELLE
+DELL'FM-1). The banco does the same after each of its reboots, has the host find the FM-1 again when it does not answer
+for 12 s (a USB port reset, as the `usbreset` tool), writes the kernel's USB lines and the FM-1's counters in its log
+(the test's new DIAG: the HELLOs it heard since its boot, the answers it could not send, when the host configured it,
+how long its main loop stood still), and when the FM-1 does not come back puts the project it had before the run in
+the hub's library. The comparison of a run with the simulator now looks at each probe's clock tick: a probe one
+tick apart on a step's edge is timing, even when the next ones are on the edge too.
+
 ## What is new in 0.20.8 (the FM-1 only)
 
 The FM-1 sent its values back to the hub's pages only after a page had sent a command since it started: turned on the
@@ -1243,8 +1260,8 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **69** | `G M i*2 n mood (semi shape dur push)*n` | (from the Pi) it: semi 0-11 the root above the key's, shape 6-36 a chord shape (5 + SQ_CH_*), dur 0-64 16ths, push 0-4; n 0: none |
 | **6A** | `G mood n (semi shape dur push)*n` | (to the Pi) keep this one (SEQ + SAVE on SEQ 4 / SEQ 8) |
 | **6B** | `G mood code i*2` | (from the Pi) kept as the i-th of its mood (0), could not write it (1), not a progression (2) |
-| **70** | `sub ...` | (from the PC, 0.11: the PC test, `firmware/src/sagga_test.c`) 0 HELLO; 1 OPEN (the screen asks, SEL on the FM-1 = yes); 2 BOOT (a reboot into the test: no project, no slot read or written, a hand on any key stops it); 3 GO; 4 EV `idx*2 n (t*4 kind a*2 b*2 gc*4)*n` (presses at t ms after GO: 1 press, 2 release, 3 knob `b` = detents + 8192, 4 MASTER, 5 keys `a \| b<<14`, 6 probe, 7 end); 5 CLOSE (a normal reboot); 6 AGAIN `idx*2`; 7 TAKEN `idx*2 n` |
-| **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT |
+| **70** | `sub ...` | (from the PC, 0.11: the PC test, `firmware/src/sagga_test.c`) 0 HELLO; 1 OPEN (the screen asks, SEL on the FM-1 = yes); 2 BOOT (a reboot into the test: no project, no slot read or written, a hand on any key stops it); 3 GO; 4 EV `idx*2 n (t*4 kind a*2 b*2 gc*4)*n` (presses at t ms after GO: 1 press, 2 release, 3 knob `b` = detents + 8192, 4 MASTER, 5 keys `a \| b<<14`, 6 probe, 7 end); 5 CLOSE (a normal reboot); 6 AGAIN `idx*2`; 7 TAKEN `idx*2 n`; 8 DIAG (0.20.9) |
+| **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT; 8 DIAG (0.20.9) 19 numbers of 4 bytes, since the boot: the HELLOs and the test's frames that came in, the answers the USB had no room for, the ms of the main loop's first pass, the longest it stood still (ms); the USB's bus resets, SET_CONFIGURATIONs, the ms of the last, suspends, starts tried again, OUT packets taken, held back, malformed events, SysEx packets lost to the other port's SysEx, SysEx frames lost because the one before still waited for the main loop, IN packets sent, the most polls (2 kHz) one waited for the host, MIDI events dropped with the ring full; the ms now |
 | **72** | `idx*2 k last text...` | (to the PC) the probe event idx asked for, in pieces of 150 characters: the explorer's `PROBE G`, `PROBE T1..16`, `PROBE H` lines |
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
 | **74** | `seq*2 n (ms*4 gc*4 st d1 d2 cable)*n` | (to the PC, 0.20.3, when GO's byte 1 bit 0 asked to hear the ports) every MIDI message that came in from the ports and was played: the ms, the clock tick before it, the status without bit 7, the cable (0 port 1, 1 port 2); seq = the number of the first in the session. DONE then also carries `heard*2 lost` |

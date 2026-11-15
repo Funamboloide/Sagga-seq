@@ -16,11 +16,17 @@
  * SysEx F0 7D 53 47 ... (numbers 7 bits a byte, low first):
  *   70 sub ...  PC -> FM-1: 0 HELLO; 1 OPEN; 2 BOOT; 3 GO; 4 EV idx*2 n (t*4 kind a*2 b*2 gc*4)*n; 5 CLOSE;
  *               6 AGAIN idx*2 (a probe whose pieces did not all arrive: the last two are kept); 7 TAKEN idx*2 n (where
- *               those events were taken, again: every one of the session is kept)
+ *               those events were taken, again: every one of the session is kept); 8 DIAG (0.20.9: the counters since
+ *               the boot, to tell where a HELLO with no answer was lost)
  *   71 sub ...  FM-1 -> PC: 0 state booted playing boots*2 fault_vec*5 fault_pc*5 ms*4 usb_ports profile "version"; 1 state (OPEN:
  *               1 asking, then 2 yes / 3 no / 4 no answer / 5 playing: stop first); 2 ok (BOOT); 3 ms*4 (GO: the
  *               test's zero); 4 ok next*2 free (EV); 5 ok (CLOSE); 6 applied*2 late*2 lag*2 lost (DONE: the END event);
- *               7 why (a hand stopped it)
+ *               7 why (a hand stopped it); 8 (DIAG) 19 numbers of 4 bytes, since the boot: the HELLOs and the test's
+ *               frames that came in, the answers the USB had no room for, the ms of the main loop's first pass, the
+ *               longest it stood still (ms); the USB's: bus resets, SET_CONFIGURATIONs, the ms of the last, suspends,
+ *               starts tried again, OUT packets taken, held back, malformed events, SysEx packets lost to the other
+ *               port's, SysEx frames lost because the one before still waited, IN packets sent, the most polls (2 kHz)
+ *               one waited for the host, MIDI events dropped with the ring full; the ms now
  *   72 idx*2 k last text  the probe event idx asked for, in pieces of 150 characters ("PROBE G ...\n PROBE T1 ...")
  *   73 n (idx*2 ms*4 gc*4)*n  where the events were taken: the FM-1's ms and global_clock
  *   74 seq*2 n (ms*4 gc*4 st d1 d2 cable)*n  0.20.3: the MIDI that came in from the ports, when GO asked to hear them
@@ -66,6 +72,8 @@ static struct { uint32_t ms, gc; uint8_t st, d1, d2, cab; } tst_hd[TST_HDN];
 static uint8_t tst_hd_n, tst_hd_lost;
 static uint16_t tst_hd_seq, tst_hd_all;              /* the number of the ring's first; every one heard this session */
 static uint32_t tst_hd_ms;
+static uint32_t tst_hellos, tst_frames, tst_unsent;   /* 0.20.9: since the boot (DIAG) */
+static uint32_t tst_first_ms, tst_gap_max, tst_gap_ms;   /* the main loop's first pass, the longest it stood still */
 
 static uint8_t *tst_frame(uint8_t cmd)
 {
@@ -73,7 +81,7 @@ static uint8_t *tst_frame(uint8_t cmd)
     *q++ = 0xF0u; *q++ = 0x7Du; *q++ = 0x53u; *q++ = 0x47u; *q++ = cmd;
     return q;
 }
-static void tst_send(uint8_t *q) { *q++ = 0xF7u; sysex_send(tst_out, (uint32_t)(q - tst_out)); }
+static void tst_send(uint8_t *q) { *q++ = 0xF7u; if (sysex_send(tst_out, (uint32_t)(q - tst_out)) != 0) tst_unsent++; }
 static void tst_answer(uint8_t sub, uint8_t v) { uint8_t *q = tst_frame(SX_TST_ANS); *q++ = sub; *q++ = (uint8_t)(v & 127u); tst_send(q); }
 static uint8_t tst_noinit_ok(void) { return tst_noinit.magic == TST_MAGIC && tst_noinit.check == ~TST_MAGIC; }
 
@@ -304,6 +312,9 @@ static void tst_service(void)
     uint32_t now = fm1_ms, guard = 0u;
     if (tst_pass_ms && now - tst_pass_ms > tst_lag) tst_lag = (uint16_t)(now - tst_pass_ms > 65535u ? 65535u : now - tst_pass_ms);
     tst_pass_ms = now;
+    if (!tst_first_ms) tst_first_ms = now ? now : 1u;   /* 0.20.9 (DIAG): since the boot, never zeroed by GO */
+    else if (now - tst_gap_ms > tst_gap_max) tst_gap_max = now - tst_gap_ms;
+    tst_gap_ms = now;
     if (tst_state == 1u) {
         if (fm1_in.notes) { tst_state = 3u; status_msg("PC TEST: NO"); tst_answer(TQ_OPEN, 3u); }
         else if (time_due(now, tst_until)) { tst_state = 4u; status_msg("PC TEST: NO ANSWER"); tst_answer(TQ_OPEN, 4u); }
@@ -352,8 +363,10 @@ static void tst_sysex_in(const uint8_t *p, uint32_t n)
 {
     uint8_t *q;
     if (n < 1u) return;
+    tst_frames++;
     switch (p[0]) {
     case TQ_HELLO:
+        tst_hellos++;
         q = tst_frame(SX_TST_ANS);
         *q++ = TQ_HELLO; *q++ = tst_state; *q++ = tst_booted; *q++ = playing ? 1u : 0u;
         sx_put7(&q, tst_noinit_ok() ? tst_noinit.boots : 0u, 2u);
@@ -429,6 +442,17 @@ static void tst_sysex_in(const uint8_t *p, uint32_t n)
             tst_send(q);
             idx += m; cnt -= m;
         }
+        break;
+    }
+    case 8: {                                           /* 0.20.9 DIAG: the counters since the boot */
+        uint32_t d[USB_DIAG_N], i;
+        usb_diag(d);
+        q = tst_frame(SX_TST_ANS); *q++ = 8u;
+        sx_put7(&q, tst_hellos, 4u); sx_put7(&q, tst_frames, 4u); sx_put7(&q, tst_unsent, 4u);
+        sx_put7(&q, tst_first_ms, 4u); sx_put7(&q, tst_gap_max, 4u);
+        for (i = 0u; i < USB_DIAG_N; i++) sx_put7(&q, d[i], 4u);
+        sx_put7(&q, fm1_ms, 4u);
+        tst_send(q);
         break;
     }
     case TQ_CLOSE:

@@ -28,12 +28,11 @@ import argparse
 import json
 import os
 import queue
+import re
 import subprocess
 import sys
 import threading
 import time
-import urllib.error
-import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)                                   # sagga_testport, sagga_hw_test, sagga_hw_explore (from tools/hwtest)
@@ -45,42 +44,18 @@ import sagga_testport as T          # noqa: E402
 import sagga_hw_test as HT          # noqa: E402
 import sagga_hw_explore as X        # noqa: E402
 import sagga_grid_bridge as B       # noqa: E402
+import sagga_celle as K             # noqa: E402  (0.20.9: the FM-1's cells, RaspiMIDIHub's API, the USB)
 
 PAGES = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
-PAGE_NAMES = {"sagga_remote": "SAGGA Remote", "sagga_mutes": "SAGGA Mutes", "sagga_motori": "SAGGA Motori",
-              "sagga_break": "SAGGA Break", "sagga_mod": "SAGGA Mod", "sagga_live": "SAGGA Live", "sagga_bsp": "SAGGA BeatStep"}
+PAGE_NAMES = K.PAGE_NAMES
+HubAPI = K.HubAPI
+is_fm1 = K.is_fm1
 GRID_ST = (0x9F, 0x8F, 0xBE)       # what the FM-1 sends the grid (the bridge's lights)
 SNAP_MS = 250                      # the grid's lights are read this long after a probe (the FM-1 sends them over a few ms)
 CELLS_FILE = "/boot/firmware/sagga/banco/celle-staccate.json"   # the cells taken away, until they are back (a power cut too)
 
 
-# ------------------------------------------------------------------------------------------------ RaspiMIDIHub's API
-class HubAPI:
-    """RaspiMIDIHub's own web API (the one its pages use), on this Pi"""
-    def __init__(self, base="http://127.0.0.1", timeout=4.0):
-        self.base, self.timeout = base.rstrip("/"), timeout
-
-    def _req(self, method, path, body=None):
-        data = None if body is None else json.dumps(body).encode()
-        req = urllib.request.Request(self.base + path, data=data, method=method,
-                                     headers={"Content-Type": "application/json"} if data else {})
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            raw = r.read()
-        return json.loads(raw.decode() or "null") if raw else None
-
-    def get(self, path):
-        return self._req("GET", path)
-
-    def patch(self, path, body):
-        return self._req("PATCH", path, body)
-
-    def post(self, path, body):
-        return self._req("POST", path, body)
-
-    def delete(self, path):
-        return self._req("DELETE", path)
-
-
+# ------------------------------------------------------------------------------------------------ RaspiMIDIHub's pages
 def page_bindings(data):
     """an instance's data (GET /api/plugins/instances/<id>) -> {cell: (channel, cc, kind, on, off)}: the schema's cells
     with the user's own bindings over them (as the hub's ControllerBase does)"""
@@ -117,11 +92,6 @@ def page_bindings(data):
 
 
 # ------------------------------------------------------------------------------------------------------ the matrix
-def is_fm1(name):
-    n = (name or "").lower()
-    return "felucca" in n or "fm-1" in n
-
-
 def audit(api, version_file=None, services=None):
     """the matrix, the pages, the services -> (findings [(level, text)], facts {})"""
     found, facts = [], {}
@@ -262,8 +232,7 @@ def fm1_cells(api):
     return out, fm[0]
 
 
-def cell_key(c):
-    return (c["fm1_src"], c["fm1_port"], c["other"] or c["other_name"], c["other_port"])
+cell_key = K.cell_key
 
 
 def detach(api, saved, say, path):
@@ -709,6 +678,112 @@ def fb_keys(feedback):
     return out
 
 
+def fm1_now(api):
+    """the matrix now -> (the online devices by client, the cells, the FM-1's device or None)"""
+    by = K.online_by_client(api.get("/api/devices"))
+    return by, api.get("/api/connections") or [], K.fm1_of(by)
+
+
+def keep_cells(api, keep, say, timeout=8.0, wait=time.sleep):
+    """0.20.9: after a reboot of the FM-1, the cells it had (the pages', and the synths' when they are not taken away)
+    are back: RaspiMIDIHub's own restore first; the ones it lost (its autosave while the FM-1 was away) put back by the
+    Pi, as they were -> {"mancavano": n, "rimesse": n, "non_tornano": [text]}"""
+    end = time.perf_counter() + 20.0                    # (RaspiMIDIHub sees the FM-1 again: up to 20 s)
+    by, conns, fm, missing = {}, [], None, list(keep)
+    while keep:
+        try:
+            by, conns, fm = fm1_now(api)
+        except Exception:
+            by, conns, fm = {}, [], None
+        if fm is not None:
+            end = min(end, time.perf_counter() + timeout)  # (then its own restore: `timeout` s)
+            have = {K.cell_key(c) for c in K.describe(conns, by, fm)}
+            missing = [c for c in keep if K.cell_key(c) not in have]
+            if not missing:
+                break
+        if time.perf_counter() >= end:
+            break
+        wait(0.5)
+    out = {"mancavano": len(missing) if keep else 0, "rimesse": 0, "non_tornano": []}
+    if not keep or not missing:
+        return out
+    if fm is None:
+        out["non_tornano"] = ["l'FM-1 non e' nella matrice"]
+        say("  (l'FM-1 non e' nella matrice di RaspiMIDIHub: le sue %d celle restano da rimettere)" % len(missing))
+        return out
+    done = []
+    for c in missing:
+        err = K.make(api, by, fm, c)
+        if err:
+            out["non_tornano"].append("%s: %s" % (K.arrow(c), err))
+        else:
+            done.append(c)
+    out["rimesse"] = len(done)
+    if done:
+        say("  (RaspiMIDIHub aveva perso %d celle dell'FM-1 nel riavvio: rimesse dal Pi)" % len(done))
+    for t in out["non_tornano"][:3]:
+        say("  (la cella %s)" % t)
+    return out
+
+
+def kernel_lines(system, since, limit=30):
+    """0.20.9: what the kernel said about the USB since `since` (time.time()): the FM-1 going and coming back, an
+    error - for the log (when the FM-1 takes long to answer after a reboot, this says whether the Pi saw it go)"""
+    try:
+        r = system(["journalctl", "-k", "--no-pager", "-o", "short-monotonic", "-S", "@%d" % max(0, int(since) - 1)])
+        text = r.stdout or ""
+    except Exception:
+        return []
+    return [ln.strip() for ln in text.splitlines() if re.search(r"usb|snd|felucca|fm-1|midi", ln, re.I)][-limit:]
+
+
+def ask_diag(hub, hello):
+    """0.20.9: the FM-1's counters since its boot (the HELLOs it heard, the host's enumeration) - None before 0.20.9"""
+    if hub is None or not hello or X.vkey(hello.get("version")) < (0, 20, 9):
+        return None
+    try:
+        hub.take()
+        hub.send(T.diag())
+        return hub.wait("diag", 1.5)
+    except Exception:
+        return None
+
+
+FIRST_WAIT, MORE_WAIT = 12.0, 30.0   # s: the FM-1 after a reboot; then again after the USB found again
+
+
+def reconnect(backend, say, system, since, sysfs=K.SYSFS_USB, wait=time.sleep):
+    """0.20.9: the FM-1 after a BOOT or a CLOSE -> (hub, hello, what happened). 12 s without an answer: the Pi has the
+    host find it again at the USB (as unplugged and plugged back: the 0.20.8 banco stopped at its 4th reboot, the FM-1
+    there and deaf for 40 s), then 30 s more. The kernel's USB lines and the FM-1's counters go in the log"""
+    t0 = time.perf_counter()
+    hub, hello = X.connect(backend, None, say, timeout=FIRST_WAIT, quiet=True)
+    info = {}
+    if hub is None:
+        path = K.fm1_usb_path(sysfs)
+        info["kernel_prima"] = kernel_lines(system, since)   # (what the kernel had seen before the Pi stepped in)
+        how = X.timed(lambda: K.usb_reenumerate(path, sysfs, wait=wait), 25.0, "finding the FM-1 again at the USB") if path else None
+        if how:
+            say("  (l'FM-1 non risponde da %.0f s dopo il riavvio: il Pi lo fa ritrovare all'USB, come staccato e riattaccato)" % FIRST_WAIT)
+            info["usb_di_nuovo"] = [path, how]
+            wait(2.0)
+        hub, hello = X.connect(backend, None, say, timeout=MORE_WAIT, quiet=True)
+    info["s"] = round(time.perf_counter() - t0, 1)
+    info["kernel"] = kernel_lines(system, since)
+    d = ask_diag(hub, hello)
+    if d:
+        info["diag"] = d
+    for ln in info["kernel"]:
+        X.note("kernel: " + ln)
+    if d:
+        X.note("DIAG: %s" % d)
+    if hub is not None and (info["s"] > 9 or "usb_di_nuovo" in info):
+        say("  (l'FM-1 ha risposto dopo %.0f s%s)" % (info["s"], "; dal suo avvio: %d HELLO sentiti, %d risposte non partite, il Pi "
+                                                     "l'ha configurato %d volte (l'ultima a %d ms), il suo giro fermo al piu' %d ms"
+                                                     % (d["hellos"], d["unsent"], d["configs"], d["cfg_ms"], d["gap_max"]) if d else ""))
+    return hub, hello, info
+
+
 def wait_for_hub(api, timeout=20.0, need_pages=True):
     """after the FM-1's reboot: RaspiMIDIHub sees it again and its cells are back (it restores them by itself)"""
     end = time.perf_counter() + timeout
@@ -747,11 +822,14 @@ def report_md(path, audit_f, facts, rows, out_json):
                   "`python3 tests/sagga_explore.py --banco %s`" % os.path.basename(out_json)]
     else:
         lines.append("Nessuna sessione fatta.")
+    if facts.get("celle_rimesse"):
+        lines += ["", "RaspiMIDIHub ha perso %d celle dell'FM-1 nei riavvii (il suo salvataggio automatico mentre l'FM-1 non "
+                  "c'era): il Pi le ha rimesse." % facts["celle_rimesse"]]
     with open(path, "w") as f:
         f.write("\n".join(lines) + "\n")
 
 
-def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
+def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=K.SYSFS_USB):
     ap = argparse.ArgumentParser(description="SAGGA HUB: l'esploratore del banco")
     ap.add_argument("--piano", default=os.path.join(HERE, "banco_piano.json"), help="il piano: banco_piano.json (il banco), "
                     "fm1_piano.json (l'FM-1 completo: ogni situazione, come l'esploratore dal PC)")
@@ -763,7 +841,10 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
                     "durante la prova, e quello che mandano all'FM-1 entra nella prova)")
     ap.add_argument("--rimetti", action="store_true", help="solo: rimette le celle staccate da una prova interrotta")
     ap.add_argument("--celle", default=CELLS_FILE, help=argparse.SUPPRESS)
+    ap.add_argument("--progetti", default=None, help="la libreria dei progetti del hub (il progetto di prima della prova ci "
+                    "va, se l'FM-1 non torna per riprenderlo; di solito la cartella sopra quella delle celle)")
     a = ap.parse_args(argv)
+    a.progetti = a.progetti or os.path.dirname(os.path.dirname(os.path.abspath(a.celle)))
     api = api or HubAPI(a.hub)
     system = system or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True, timeout=20))
     os.makedirs(a.out, exist_ok=True)
@@ -817,7 +898,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
     out = {"versione": 1, "firmware": plan.get("firmware"), "seme": plan.get("seme"), "audit": audit_f, "fatti": facts,
            "quando": ts, "sessioni": []}
     backup, rebooted, rows = None, False, []
-    cells = []
+    cells, keep = [], []
     clock_box = [time.perf_counter()]
     clock = lambda: (time.perf_counter() - clock_box[0]) * 1000.0
     try:
@@ -867,21 +948,31 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
             system(["systemctl", "stop", "sagga-grid-bridge"])
             bridge_stopped = True
             say("il bridge del grid e' fermo per la prova (riparte alla fine; l'FM-1 dira' GRID DETACHED, e' giusto)")
+        try:                                            # 0.20.9: the FM-1's cells now, to have them back after each reboot
+            by0, conns0, fm0 = fm1_now(api)
+            keep = K.describe(conns0, by0, fm0) if fm0 else []
+        except Exception:
+            keep = []
         if not a.non_staccare:
             cells = detach(api, cells, say, a.celle)
             say("Le celle fra l'FM-1 e i synth sono staccate per la prova (%d): tornano alla fine" % len(cells) if cells else
                 "Nessuna cella fra l'FM-1 e i synth da staccare")
+            away = {cell_key(c) for c in cells}
+            keep = [c for c in keep if cell_key(c) not in away]
         for k, sess in enumerate(sessions):
             rebooted = True
+            t_boot = time.time()
             hub.send_and_go(T.boot(), "BOOT")
             wait(2.0)
-            hub, hello = X.connect(backend, None, say, timeout=40.0, quiet=True)
+            hub, hello, reboot_info = reconnect(backend, say, system, t_boot, sysfs=sysfs, wait=wait)
             if hub is None or not hello["booted"]:
                 say("Dopo il riavvio l'FM-1 non torna nel test: fermo qui.")
+                for ln in reboot_info.get("kernel", [])[-8:]:
+                    say("  kernel: " + ln)
                 rc = 1
                 break
-            if not wait_for_hub(api):
-                say("  (RaspiMIDIHub non ha ancora rimesso le celle dell'FM-1: si va avanti)")
+            kept = keep_cells(api, keep, say, wait=wait)    # (RaspiMIDIHub's own restore, else the Pi's)
+            facts["celle_rimesse"] = facts.get("celle_rimesse", 0) + kept["rimesse"]
             if not a.non_staccare:                      # (RaspiMIDIHub may bring the FM-1's cells back with it)
                 cells = detach(api, cells, lambda x: None, a.celle)
             pages = Pages(api, clock, lambda m, h=hub: h.ctl.send(bytes(m)))
@@ -900,6 +991,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
                     cells = detach(api, cells, lambda x: None, a.celle)
                 rec["celle_tornate"] = back
             rec["hello_prima"] = hello
+            rec["riavvio"] = reboot_info                # (0.20.9: how long, the kernel's lines, the FM-1's counters)
+            rec["celle_fm1"] = kept
             wrong, checked = values_back(api, insts, fb_keys(rec["feedback"]))
             rec["valori"] = {"sbagliati": wrong, "controllati": checked}
             rec["pagine"] = sorted(insts)
@@ -917,6 +1010,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
             music = [m[:4] for m in rec["midi"] if not (len(m) > 4 and m[4] == 2) and not (m[1] in GRID_ST or m[1] == 0xBF or
                      ((m[1] & 0xEF) == 0x8B and 100 <= m[2] < 116))]
             probs, got, want, lag = X.quick(sess, dict(rec, midi=music))   # (not the grid's lights, nor the LFO switches)
+            if kept["non_tornano"]:
+                probs.append("CELLE: %d celle dell'FM-1 non tornate dopo il riavvio" % len(kept["non_tornano"]))
             if wrong:
                 probs.append("VALORI: %d celle delle pagine non seguono l'FM-1 (%s)" % (len(wrong), ", ".join("%s %s" % (w[0], w[1]) for w in wrong[:3])))
             if grid.wrong:
@@ -947,17 +1042,32 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
         rc = 2
     finally:
         if hub is not None and hello and hello.get("booted"):
+            t_boot = time.time()
             hub.send_and_go(T.close(), "CLOSE")
             wait(2.0)
-            hub, hello = X.connect(backend, None, say, timeout=40.0, quiet=True)
+            hub, hello, _ = reconnect(backend, say, system, t_boot, sysfs=sysfs, wait=wait)
+        home = False                                    # (the project back in the FM-1's memory)
         if hub is not None and hello and hello.get("booted"):
             say("L'FM-1 e' ancora nel test: spegnilo e riaccendilo (ricarica l'ultimo slot salvato).")
         elif hub is not None and rebooted and backup:
             with open(backup, "rb") as f:
                 st = HT.import_image(hub.ctl, f.read())
+            home = st == "OK"
             say("Il tuo progetto e' tornato in memoria (%s): sull'FM-1 IMPORTED: SAVE TO KEEP IT." % st)
+        if rebooted and backup and not home:            # 0.20.9: the FM-1 lost: the project before the prova kept where
+            name = "prima-del-banco-%s.sgq" % ts         # the page shows it (PROGETTI: the editor sends it to the FM-1)
+            try:
+                with open(backup, "rb") as f:
+                    keep_file(os.path.join(a.progetti, name), f.read())
+                say("Il progetto che l'FM-1 aveva in memoria prima della prova e' nella libreria del hub: %s (PROGETTI: "
+                    "editor, Manda all'FM-1). Spento e riacceso, l'FM-1 ha l'ultimo progetto salvato con SAVE." % name)
+            except Exception as e:
+                say("Il progetto di prima della prova resta in %s (%s)" % (backup, e))
         if hub is not None:
             hub.close()
+        if rebooted and keep:                           # 0.20.9: its cells whole again, after the last reboot too
+            kept = keep_cells(api, keep, say, timeout=10.0, wait=wait)
+            facts["celle_rimesse"] = facts.get("celle_rimesse", 0) + kept["rimesse"]
         if cells:
             if rebooted:
                 wait_for_hub(api, need_pages=False)

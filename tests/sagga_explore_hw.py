@@ -385,6 +385,20 @@ def compare(session, heard=None):
         return [(i, role, [x for x in pdiff(sp[i], hw_p[i]) if x[0] not in systematic and not msg_expiry(x)])
                 for i, role in common if i in sp]
 
+    def gc_of(p, i):
+        try:
+            return int(p[i]["H"]["gc"])
+        except (KeyError, TypeError, ValueError):
+            return None
+
+    def tick_off(i, n_):
+        """the probe read one clock tick apart by the two, and the ticks the same again at a later probe (not a tick
+        lost for good: that one stays)"""
+        a, b = gc_of(sim_p, i), gc_of(hw_p, i)
+        if a is None or b is None or abs(a - b) != 1:
+            return False
+        return any(gc_of(sim_p, j) is not None and gc_of(sim_p, j) == gc_of(hw_p, j) for j, _, _ in diffs[n_ + 1:])
+
     first = None
     timing = 0
     shifted = []                                       # (the gesture, ms): the FM-1 read its keys that much later
@@ -392,8 +406,12 @@ def compare(session, heard=None):
     n_ = 0
     while n_ < len(diffs):
         i, role, d = diffs[n_]
+        # 0.20.9: or the probe itself read on another clock tick by the two (its gc): the probes come every 700 ms, six
+        # steps at 120, and once one falls on a step's edge the next ones do too - a later difference of something
+        # else would make them look like the first one
         if d and (steps_only(d) or edge_fields(d)) and \
-                (role == "fermo" or any(not e for _, _, e in diffs[n_ + 1:n_ + 4])):   # (equal again within three probes)
+                (role == "fermo" or (steps_only(d) and tick_off(i, n_)) or
+                 any(not e for _, _, e in diffs[n_ + 1:n_ + 4])):   # (equal again within three probes)
             timing += 1                                # (the steps only, and equal again later: the probe fell on a step's
             n_ += 1                                    #  edge, or a loop / the STOP took the step on the other side of it)
             continue

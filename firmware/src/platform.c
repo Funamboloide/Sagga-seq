@@ -343,6 +343,14 @@ static void usb_stats(sq_usb_stats_t *s)
     s->rx_held = usb.rx_held; s->rx_bad = usb.rx_bad;
 }
 static void usb_set_ports(uint8_t n) { usb_ports_set(n); }   /* the next enumeration (usb.c) */
+/* 0.20.9: the USB's own counters since the boot, for the test's DIAG (sagga_test.c says what each is) */
+#define USB_DIAG_N 13u
+static void usb_diag(uint32_t d[USB_DIAG_N])
+{
+    d[0] = usb.resets; d[1] = usb.configs; d[2] = usb.cfg_ms; d[3] = usb.suspends; d[4] = usb.retries;
+    d[5] = usb.rx_pkts; d[6] = usb.rx_held; d[7] = usb.rx_bad; d[8] = usb.rx_xport; d[9] = usb.sx_missed;
+    d[10] = usb.tx_pkts; d[11] = usb.tx_wait_max; d[12] = usb.tx_drop;
+}
 static void usb_reconnect(void)                     /* off now, on again in 0.4 s (platform_poll) */
 {
     usb.detached = 1;                               /* (usb_retry leaves it alone meanwhile) */

@@ -747,8 +747,41 @@ def shutil_which(x):
     return shutil.which(x)
 
 
+def t_celle():
+    print("0.20.9: the keeper of the FM-1's cells on the hub's page: installed with it, its state on the page, waiting "
+          "while the banco runs")
+    sh = open(os.path.join(HUB, 'install_hub.sh')).read()
+    check('"$HERE/hub/sagga_celle.py" /opt/sagga/hub/' in sh, 'install_hub.sh installs sagga_celle.py')
+    mk = os.path.join(ROOT, 'tools', 'make_release.sh')
+    if os.path.isfile(mk):
+        check('tools/hub/sagga_celle.py' in open(mk).read(), 'make_release.sh puts it in the zip')
+    check(FW.sagga_celle is not None and 'id="kc"' in FW.PAGE, 'the page imports it and has its line')
+    d = tempfile.mkdtemp()
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'projects')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    st = FW.State(fw, pr, upd_dir=os.path.join(d, 'up'), banco_dir=os.path.join(d, 'banco'))
+    st.probe = lambda: None
+    check(st.snapshot()['celle'] is None, 'no keeper: nothing on the page')
+
+    class API:
+        def get(self, path):
+            return [] if path == '/api/connections' else [{'client_id': 24, 'name': 'Felucca', 'online': True, 'stable_id': 'fm'}]
+    k = FW.sagga_celle.Keeper(API(), path=os.path.join(pr, 'celle-fm1.json'))
+    k._event("RaspiMIDIHub aveva perso 2 celle dell'FM-1: rimesse")
+    st.keeper = k
+    c = st.snapshot()['celle']
+    check(c and c['events'][-1][1].startswith('RaspiMIDIHub aveva perso 2') and c['cells'] == 0 and c['waiting'] is False,
+          'its last events on the page (%s)' % c)
+    os.makedirs(os.path.join(d, 'banco'), exist_ok=True)
+    with open(os.path.join(d, 'banco', 'banco.json'), 'w') as f:
+        json.dump({'pid': os.getpid(), 'started': time.time(), 'rc': None}, f)
+    check(st.snapshot()['celle']['waiting'] is True, 'while the banco runs: waiting')
+    check(not [n for n in os.listdir(pr) if n.endswith('.sgq')] and st.projects() == [], 'its memory is no project of the library')
+
+
 def main():
-    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions, t_update_delete, t_banco):
+    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions, t_update_delete, t_banco, t_celle):
         try:
             t()
         except Exception as e:

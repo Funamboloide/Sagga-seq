@@ -1,9 +1,10 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""SAGGA MOD - a RaspiMIDIHub controller for SAGGA SEQ 0.12: the LFOs, the CC lanes of the selected track, the THROWS
+"""SAGGA MOD - a RaspiMIDIHub controller for SAGGA SEQ 0.12: the LFOs, the CC lanes of the tablet's track, the THROWS
 and VIAGGIO's knobs.
 
 One LFO at a time (channel 13, CC 92: which), its ON / OFF (97), SHAPE (93), RATE (94), DEPTH (95), DEST (96). The six
-lanes of the selected track: their base value (101-106), sent to the synth as you move them. The THROWS (108-111):
+lanes of the tablet's track (0.18: the track TRACK picks on SAGGA Live or Motori; before: the FM-1's selected one):
+their base value (101-106), sent to the synth as you move them. The THROWS (108-111):
 INTENSITY, GATE, SWING, FILTER thrown and springing back to 0 over a bar on their own. VIAGGIO: ENERGY (114), GENRE
 (115), KEY (116), the HARMONY's progression (117) and state (118). The sixteen LFO switches L1-L16 (rows 9-12): each
 is a note on channel 13 (100 + the LFO, note on = on, note off = off), all sixteen at hand at once; their CC 0 binding
@@ -76,7 +77,7 @@ LFO_SW_NOTE = 100                         # L1-L16: notes 100-115 on channel 13 
 
 
 class SaggaMod(ControllerBase):
-    """SAGGA SEQ's modulation: an LFO, the selected track's lanes, the THROWS, VIAGGIO's knobs."""
+    """SAGGA SEQ's modulation: an LFO, the tablet's track's lanes, the THROWS, VIAGGIO's knobs."""
 
     NAME = "SAGGA Mod"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, VIAGGIO's energy, genre, key, harmony"
@@ -84,8 +85,8 @@ class SaggaMod(ControllerBase):
     VERSION = "0.18"
     HELP = """\
 LFO picks one of the sixteen (the one the FM-1 shows under LFO); LFO ON, SHAPE, RATE, DEPTH, DEST set it.
-LANE 1-6: the base value of the selected track's CC lanes, sent to the synth as you move it (what the lane's steps
-add rides on it). THROW INT / GATE / SWING / FILTER: the four macros as throws (64 = 0): move one and let it go, it
+LANE 1-6: the base value of the CC lanes of the tablet's track (the one TRACK picks on SAGGA Live or Motori; the
+FM-1's screen says TAB T5), sent to the synth as you move it (what the lane's steps add rides on it). THROW INT / GATE / SWING / FILTER: the four macros as throws (64 = 0): move one and let it go, it
 glides back to 0 within a bar on its own. ENERGY, GENRE, KEY: VIAGGIO's (queued at the phrase boundary while it
 plays, at once when stopped); PROGRESSION and HARMONY (OFF, ON, LOCK): the harmony. L1-L16: the sixteen LFOs on / off,
 all at hand (a switch is a note on channel 13: 100 + the LFO).
@@ -137,9 +138,6 @@ switches. The FM-1: SAVE K2 = REMOTE 13 + 14; wire OUT to it (USB PORTS 2: port 
         super().on_note_off(channel, note)
 
     def panic(self):
-        """the hub's PANIC: the LFO switch is let go; the knobs stay (a reset would move the FM-1's settings)"""
-        if self.get_param("lfo_on"):
-            b = self._effective_binding("lfo_on")
-            if b is not None:
-                self.send_cc(b["channel"], b["cc"], b.get("off", 0))
-            self.set_param("lfo_on", False, persist=False)
+        """the hub's PANIC: nothing here (0.20.9: LFO ON is the FM-1's state, as SAGGA Live's switches: a reset would
+        switch the tablet's LFO off; the FM-1's own PANIC stops its notes)"""
+        return

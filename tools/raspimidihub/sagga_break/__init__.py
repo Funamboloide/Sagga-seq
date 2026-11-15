@@ -1,8 +1,9 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """SAGGA BREAK - a RaspiMIDIHub controller for SAGGA SEQ 0.12: a drum break cut into slices, played and re-ordered live.
 
-Sixteen pads (channel 13, CC 76-91: a press plays slice 1-16 of the selected BREAK track on its sampler; on any other
-track they are the track's notes from C1), and the break's moves on the selected track: ROLL (held: the slice that
+Sixteen pads (channel 13, CC 76-91: a press plays slice 1-16 of the tablet's track, a BREAK, on its sampler; on any other
+track they are the track's notes from C1), and the break's moves on that track (0.18: the track TRACK picks on SAGGA
+Live, Motori or Mod; the FM-1 keeps its selected one): ROLL (held: the slice that
 played again on every step) and ROLL/2 (twice a step), HALF, DOUBLE, BACKWARDS, DICE (the backbone kept: kick on the
 one and three, snare on the two and four, the rest re-ordered), RESET (slices 1..16 in a row), TAKE (what the pads
 played in the last loop goes into the pattern). The knobs: CHOP (the library of re-orders, written over the loop:
@@ -61,7 +62,8 @@ class SaggaBreak(ControllerBase):
     AUTHOR = "SAGGA SEQ"
     VERSION = "0.12"
     HELP = """\
-The selected track of the FM-1 in BREAK mode plays a drum break cut into slices on consecutive notes of your sampler
+The tablet's track (TRACK on SAGGA Live, Motori or Mod picks it; the FM-1's screen says TAB T5) in BREAK mode plays a
+drum break cut into slices on consecutive notes of your sampler
 (slice 1 = the track's PEN note). SLICE 1-16: a pad plays that slice now (with REC on the FM-1 it is written; TAKE writes
 what you played in the last loop). ROLL and ROLL/2: while held, the slice that played last comes again on every step
 (or twice a step). HALF, DOUBLE, BACKWARDS: the pattern's slices transformed; DICE: re-ordered, the kick and snare kept

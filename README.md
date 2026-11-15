@@ -32,6 +32,7 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
+* [RELEASE-NOTES-0.20.9.md](RELEASE-NOTES-0.20.9.md): the keeper of the FM-1's cells (RaspiMIDIHub loses them when the FM-1 is away during its autosave), the banco's reboots (Italian).
 * [RELEASE-NOTES-0.20.8.md](RELEASE-NOTES-0.20.8.md): the pages follow the FM-1 from the start, no page touched first (the FM-1 only).
 * [RELEASE-NOTES-0.20.7.md](RELEASE-NOTES-0.20.7.md): QUANTISE back on SAGGA Remote with REMOTE 14 too (the FM-1 only).
 * [docs/SAGGA-SEQ-0.20.6-INSTALL.md](docs/SAGGA-SEQ-0.20.6-INSTALL.md): QUANTISE and SWING back on the pages, the banco past its third session (Italian; the FM-1 and the Pi).

@@ -53,8 +53,7 @@ its next step (the others go on). CC 48-63, 64-79 and 90-105 on MIDI channel 14;
             self.set_param(name, False, persist=False)
 
     def panic(self):
-        """the hub's PANIC: what is held is let go (FILL, REPEAT, TEMP, KILL); the knobs stay where they are (a reset
-        would change the FM-1's settings: QUANTISE, MORPH ...)"""
+        """the hub's PANIC: the KILLs that are held are let go"""
         for cell in CELLS:
             name = cell.param.name
             if isinstance(cell.param, Button) and name not in self.TRIGGERS and self.get_param(name):

@@ -7,7 +7,6 @@ checked, the synths' cells away during the prova and back at the end (after an i
 through the hub (the user's own binding of a cell followed; a page missing: straight to the FM-1), the bridge with two
 Launchpads of ours (every pad and button translated, the lights drawn), what the FM-1 heard matched with what the Pi
 sent, the bridge's service stopped and started again, the project back in memory."""
-import json
 import os
 import sys
 import tempfile
@@ -47,6 +46,8 @@ class BancoFM1(HX.FakeFM1):
         self.deaf = deaf                     # the first `deaf` questions get no key (20 s pass: 4, no answer)
         self.bridge_up_at_yes = None
         self.sysm = None
+        self.reboots, self.hellos = 0, 0
+        self.deaf_after, self.deaf_now = None, False
 
     def out2(self, data):
         link = self.links.get(1)
@@ -79,10 +80,26 @@ class BancoFM1(HX.FakeFM1):
                     self.out2(bytes([0xBE, 27, 6]))
                     self.out(bytes([0x9F, 0x22, 100]))
             return
+        if self.deaf_now:
+            return                                   # (0.20.9: after a reboot, deaf: the 0.20.8 banco's 4th)
+        if m[:4] == T.HEAD and len(m) > 6 and m[4] == T.SX_TST and m[5] == T.HELLO:
+            self.hellos += 1
+        if m[:4] == T.HEAD and len(m) > 6 and m[4] == T.SX_TST and m[5] == T.DIAG and self.version >= "0.20.9":
+            v = dict.fromkeys(T.DIAG_FIELDS, 0)
+            v.update(hellos=self.hellos, frames=self.hellos + 1, first_ms=40, resets=1, configs=1, cfg_ms=350, ms=self.ms())
+            self.ans(T.DIAG, sum((T.put7(v[k], 4) for k in T.DIAG_FIELDS), []))
+            return
         if m[:4] == T.HEAD and len(m) > 6 and m[4] == T.SX_TST and m[5] == T.GO:
             self.listen = len(m) > 7 and bool(m[6] & 1)
             self.seq = 0
         super().rx(data)
+
+    def reboot(self, test):
+        self.reboots += 1
+        self.hellos = 0
+        if self.deaf_after is not None and self.reboots == self.deaf_after:
+            self.deaf_now = True
+        super().reboot(test)
 
 
 FM1, SYNTH, LP = 24, 28, 32
@@ -181,16 +198,32 @@ class FakeAPI:
 
 
 class FakeSystem:
-    def __init__(self, bridge="active"):
-        self.calls, self.bridge = [], bridge
+    def __init__(self, bridge="active", kernel=""):
+        self.calls, self.bridge, self.kernel = [], bridge, kernel
 
     def __call__(self, cmd):
         self.calls.append(cmd)
+        out = self.kernel if cmd[0] == "journalctl" else (self.bridge if "sagga-grid-bridge" in cmd else "active") + "\n"
 
         class R_:
-            stdout = (self.bridge if "sagga-grid-bridge" in cmd else "active") + "\n"
+            stdout = out
             returncode = 0
         return R_()
+
+
+class LosingAPI(FakeAPI):
+    """0.20.9: RaspiMIDIHub as 6.0.0 is: its autosave in the second the FM-1 is away, and the FM-1's cells are gone"""
+    def __init__(self, dev, **kw):
+        super().__init__(dev, **kw)
+        self.lost = 0
+        orig = dev.reboot
+
+        def reboot(test):
+            orig(test)
+            gone = {c for c in self.conns if FM1 in (c[0], c[2])}
+            self.lost += len(gone)
+            self.conns -= gone
+        dev.reboot = reboot
 
 
 def mini_plan(n=2):
@@ -212,13 +245,16 @@ def mini_plan(n=2):
     return {"versione": 1, "firmware": "0.20.3", "seme": 1, "banco": True, "sessioni": ses}
 
 
-def run_main(dev, api, system, args=(), plan=None):
+def run_main(dev, api, system, args=(), plan=None, sysfs=None, library=None):
     with tempfile.TemporaryDirectory() as d:
         pp = os.path.join(d, "piano.json")
         T.save(pp, plan or mini_plan())
         cells = os.path.join(d, "sd", "banco", "celle-staccate.json")
         rc = R.main([*args, "--piano", pp, "--out", d, "--celle", cells], backend=HX.FakeBackend(dev), api=api, system=system,
-                    wait=lambda s: time.sleep(min(s, 1.2)))
+                    wait=lambda s: time.sleep(min(s, 1.2)), sysfs=sysfs or os.path.join(d, "no-sysfs"))
+        if library is not None:
+            lib = os.path.join(d, "sd")
+            library.extend((n, open(os.path.join(lib, n), "rb").read()) for n in os.listdir(lib) if n.endswith(".sgq"))
         rac = [f for f in os.listdir(d) if f.startswith("raccolta-banco-")]
         data = T.load(os.path.join(d, rac[0])) if rac else None
         rep = [f for f in os.listdir(d) if f.startswith("RAPPORTO-BANCO-")]
@@ -397,8 +433,80 @@ def t_no_yes():
           "three questions, rc 1, the bridge and the matrix left alone (%s %s %s)" % (rc, dev.opens, sysm.calls))
 
 
+def t_lost_cells():
+    group("0.20.9: RaspiMIDIHub loses the FM-1's cells at each reboot (its autosave): the Pi puts them back, the pages work")
+    dev = BancoFM1()
+    api = LosingAPI(dev)
+    before = set(api.conns)
+    rc, data, report, log, status, left = run_main(dev, api, FakeSystem())
+    check(rc == 0 and data and len(data["sessioni"]) == 2 and api.lost >= 20, "two sessions, the cells lost at each reboot (%s %s)" % (rc, api.lost))
+    check(api.conns == before and not left, "at the end the matrix as it was (%s)" % sorted(api.conns ^ before))
+    for s_ in (data or {}).get("sessioni", []):
+        hw = s_["fm1"]
+        check(hw["celle_fm1"]["rimesse"] == 10 and not hw["celle_fm1"]["non_tornano"],
+              "%s: the 10 cells of the pages put back before the session (%s)" % (s_["nome"], hw["celle_fm1"]))
+        via = [r for r in hw["reali_fatti"] if r[1] == "pagina"]
+        check(len(via) == 3 and not hw["valori"]["sbagliati"], "%s: the pages through the hub, their values back (%s)" % (s_["nome"], hw["valori"]))
+    check("RaspiMIDIHub aveva perso 10 celle dell'FM-1 nel riavvio" in log and "VALORI" not in log and "il Pi le ha rimesse" in report,
+          "said in the log and the report (%s)" % report[-300:])
+    check(data and data["fatti"].get("celle_rimesse") == 30, "the count in the raccolta: 2 sessions and the CLOSE (%s)" % (data or {}).get("fatti"))
+
+
+def t_deaf_reboot():
+    group("0.20.9: the FM-1 deaf after a reboot (the 0.20.8 banco's 4th): the USB found again, the run goes on; DIAG and the kernel in the log")
+    dev = BancoFM1()
+    dev.version = "0.20.9"
+    dev.deaf_after = 2                               # (the second BOOT)
+    api = FakeAPI(dev)
+    asked = []
+    orig = R.K.usb_reenumerate
+
+    def reenum(path, sysfs, wait=None):
+        asked.append(path)
+        dev.deaf_now = False                         # (found again: it hears)
+        return orig(path, sysfs, wait=lambda s: None, devfs=os.path.join(sysfs, "no-dev"))
+    R.K.usb_reenumerate, R.FIRST_WAIT, R.MORE_WAIT = reenum, 3.0, 8.0
+    kern = ("[ 812.1] usb 1-1.2: USB disconnect, device number 7\n[ 812.9] usb 1-1.2: new full-speed USB device number 8 using xhci_hcd\n"
+            "[ 813.0] systemd[1]: something else\n")
+    try:
+        with tempfile.TemporaryDirectory() as sy:
+            os.makedirs(os.path.join(sy, "1-1.2"))
+            for n, v in (("product", "Felucca\n"), ("authorized", "1\n")):
+                with open(os.path.join(sy, "1-1.2", n), "w") as f:
+                    f.write(v)
+            rc, data, report, log, status, left = run_main(dev, api, FakeSystem(kernel=kern), sysfs=sy)
+    finally:
+        R.K.usb_reenumerate, R.FIRST_WAIT, R.MORE_WAIT = orig, 12.0, 30.0
+    check(rc == 0 and data and len(data["sessioni"]) == 2 and asked == ["1-1.2"], "the USB found again once, two sessions (%s %s)\n%s" % (rc, asked, log[-800:]))
+    check("il Pi lo fa ritrovare all'USB" in log and "l'FM-1 ha risposto dopo" in log, "said in the log")
+    r2 = data and data["sessioni"][1]["fm1"]["riavvio"]
+    check(r2 and r2.get("usb_di_nuovo") == ["1-1.2", "authorized"] and r2.get("diag", {}).get("hellos") == 1 and
+          r2.get("diag", {}).get("cfg_ms") == 350 and r2.get("kernel_prima"),
+          "the second session's reboot: the USB found again, the FM-1's counters (%s)" % (r2,))
+    check("kernel: [ 812.1] usb 1-1.2: USB disconnect" in log and "something else" not in log, "the kernel's USB lines in the log, only those")
+
+
+def t_lost_fm1():
+    group("0.20.9: the FM-1 does not come back: the project of before the prova into the hub's library, what to do said")
+    dev = BancoFM1()
+    dev.deaf_after = 2
+    api = FakeAPI(dev)
+    R.FIRST_WAIT, R.MORE_WAIT = 2.0, 2.0
+    lib = []
+    try:
+        rc, data, report, log, status, left = run_main(dev, api, FakeSystem(kernel="[ 9.0] usb 1-1.2: device descriptor read/64, error -71\n"), library=lib)
+    finally:
+        R.FIRST_WAIT, R.MORE_WAIT = 12.0, 30.0
+    check(rc == 1 and "non torna nel test" in log and "kernel: [ 9.0] usb 1-1.2: device descriptor" in log,
+          "stopped, the kernel's lines said (%s)" % rc)
+    check(len(lib) == 1 and lib[0][0].startswith("prima-del-banco-") and lib[0][1] == dev.project,
+          "the project of before the prova in the library (%s)" % [n for n, _ in lib])
+    check("nella libreria del hub: prima-del-banco-" in log and "Manda all'FM-1" in log and not dev.imported, "said how to put it back")
+    check(api.conns >= {(PAGE_CLIENT["sagga_remote"], 0, FM1, 1)} and not left, "the synths' cells back all the same (%s)" % left)
+
+
 def main():
-    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes):
+    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes, t_lost_cells, t_deaf_reboot, t_lost_fm1):
         try:
             t()
         except Exception as e:

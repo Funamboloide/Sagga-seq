@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.20.8"
+#define SQ_VERSION "0.20.9"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"

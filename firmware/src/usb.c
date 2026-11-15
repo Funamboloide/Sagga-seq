@@ -141,6 +141,9 @@ static struct {
     volatile uint8_t ota_req;    /* F0 22 24 35 7F F7: M-UPGRADE upgrade command (FELUCCA_OTA) */
     uint8_t rx_pend;             /* EP1 OUT packet seen, not yet taken (the MIDI ring was too full) */
     uint32_t rx_held, rx_bad;    /* packets held back (NAK) for room, malformed events ignored */
+    uint32_t configs, cfg_ms;    /* SAGGA SEQ 0.20.9: the host's SET_CONFIGURATION 1s, and the ms of the last (the test's DIAG) */
+    uint32_t rx_xport;           /* SysEx packets of a port dropped while the other port's SysEx was coming in */
+    uint32_t sx_missed;          /* SysEx frames not taken: the one before was still waiting for the main loop */
     uint32_t tx_drop;            /* MIDI events dropped: the output ring was full (the host did not read) */
     uint32_t tx_wait, tx_wait_max;   /* polls (2 kHz) the EP1 IN packet has waited for the host, now / the most */
 } usb;
@@ -630,8 +633,11 @@ static void ep0_service(void)
         if (s[2] > 1u)
             goto stall;
         usb.config = s[2];
-        if (usb.config == 1u)
+        if (usb.config == 1u) {
+            usb.configs++;
+            usb.cfg_ms = fm1_ms;
             ep1_config();
+        }
         else
             sie_wr(S_INTRRX1E, 0);
 #if FELUCCA_UAC
@@ -769,6 +775,8 @@ static void sysex_byte(uint8_t b)
         usb.sx_len = 0;
 #if FELUCCA_OTA
         sx_collect = !sx_ready;
+        if (sx_ready)
+            usb.sx_missed++;
         sx_pos = 0;
 #endif
     }
@@ -820,8 +828,10 @@ static void midi_in_event(uint32_t pkt)
         uint32_t k, nb = cin == 4u || cin == 7u ? 3u : cin == 6u ? 2u : 1u;
         if (!usb.sx_on)
             usb.sx_cable = (uint8_t)cable;
-        else if (cable != usb.sx_cable)
+        else if (cable != usb.sx_cable) {
+            usb.rx_xport++;
             return;                                    /* (0.8: one SysEx at a time; the other port's is lost) */
+        }
         for (k = 0; k < nb; k++)
             sysex_byte((uint8_t)(pkt >> (8u * (k + 1u))));
         return;

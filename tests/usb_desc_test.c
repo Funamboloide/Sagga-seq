@@ -10,6 +10,7 @@
 #define FELUCCA_OTA 1
 static uint32_t ota_now_ms(void) { return 0; }
 static void ota_idle(void) {}
+static volatile uint32_t fm1_ms;                     /* (0.20.9: usb.c notes the ms of the host's SET_CONFIGURATION) */
 #include "usb.c"
 
 static int fails, checks;

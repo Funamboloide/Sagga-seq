@@ -45,7 +45,7 @@ install -m 755 "$HERE/sagga_grid_bridge.py" "$HERE/fm1_install.py" /opt/sagga/
 [ -f "$HERE/patches.json" ] && install -m 644 "$HERE/patches.json" /opt/sagga/ || true
 install -m 755 "$HERE/sagga_m8_host.py" /opt/sagga/
 install -m 755 "$HERE/hub/sagga_pc_host.py" "$HERE/hub/sagga_fw.py" "$HERE/hub/usbmidi_pkt.py" /opt/sagga/hub/
-install -m 644 "$HERE/hub/roll.html" "$HERE/hub/sagga_patterns.py" "$HERE/hub/sagga_progs.py" "$HERE/hub/sagga_slicer.py" "$HERE/hub/sagga_editor.py" "$HERE/hub/editor.html" /opt/sagga/hub/
+install -m 644 "$HERE/hub/roll.html" "$HERE/hub/sagga_patterns.py" "$HERE/hub/sagga_progs.py" "$HERE/hub/sagga_slicer.py" "$HERE/hub/sagga_editor.py" "$HERE/hub/editor.html" "$HERE/hub/sagga_celle.py" /opt/sagga/hub/
 for f in sagga_banco.py sagga_testport.py sagga_hw_test.py sagga_hw_explore.py banco_piano.json fm1_piano.json; do   # 0.20.3: the banco's explorer
     [ -f "$HERE/hub/$f" ] && install -m 644 "$HERE/hub/$f" /opt/sagga/hub/ || true
 done

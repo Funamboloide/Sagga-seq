@@ -3,8 +3,9 @@
 
 A row a track: MUTE (channel 14, CC 48 + t), PATTERN 1-8 (channel 13, CC 33 + t: at the QUANTISE moment), LENGTH 1-64
 (channel 13, CC 49 + t: at the bar line while it plays), RETRIG (channel 14, CC 90 + t: from its first step), KILL
-(channel 14, CC 64 + t: silent while on). Under the rows: the selected track (channel 13, CC 112) and its MODE (CC 113:
-FREE, IN KEY, DRUM, TAPE, BREAK), the dice of its pattern (CC 69), UNDO (channel 14, CC 36).
+(channel 14, CC 64 + t: silent while on). Under the rows: the tablet's track (channel 13, CC 112; 0.18: a track of the
+pages' own, the FM-1 keeps its selected one) and its MODE (CC 113: FREE, IN KEY, DRUM, TAPE, BREAK), the dice of its
+pattern (CC 69), UNDO (channel 14, CC 36).
 
 Wire this plugin's OUT to the FM-1 (with USB PORTS 2: to its port 2) and set SAVE K2 on the FM-1 to REMOTE 13 + 14.
 """
@@ -52,17 +53,18 @@ CELLS += [
 
 
 class SaggaMotori(ControllerBase):
-    """SAGGA SEQ's sixteen tracks: mute, pattern, length, retrig, kill; the selected track and its mode."""
+    """SAGGA SEQ's sixteen tracks: mute, pattern, length, retrig, kill; the tablet's track and its mode."""
 
     NAME = "SAGGA Motori"
-    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the 16 tracks - mute, pattern, length, retrig, kill - and the selected track's mode"
+    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the 16 tracks - mute, pattern, length, retrig, kill - and the tablet's track and its mode"
     AUTHOR = "SAGGA SEQ"
     VERSION = "0.12"
     HELP = """\
 A row a track. MUTE (at the QUANTISE moment when MUTE QUEUE is on), PATTERN 1-8 (it changes at the QUANTISE moment:
 AUTO = the end of the track's loop), LENGTH 1-64 (while it plays: at the bar line), RETRIG (the track from its first
-step on its next step), KILL (silent while on). TRACK picks the selected track on the FM-1, MODE its mode (FREE, IN
-KEY, DRUM, TAPE, BREAK); DICE rolls its pattern (KEEP DICE keeps it, UNDO puts it back).
+step on its next step), KILL (silent while on). TRACK picks the tablet's track (the one SAGGA Live, Mod and Break work
+on; the FM-1 keeps its own and its screen says TAB T5), MODE its mode (FREE, IN KEY, DRUM, TAPE, BREAK); DICE rolls its
+pattern (KEEP DICE keeps it, UNDO puts it back).
 Channel 13: CC 33-48 patterns, 49-64 lengths, 69 dice, 112 track, 113 mode. Channel 14: CC 48-63 mutes, 64-79 kills,
 90-105 retrig, 36 UNDO, 85 KEEP. The FM-1 needs SAVE K2 = REMOTE 13 + 14; wire OUT to the FM-1 (USB PORTS 2: port 2)."""
 

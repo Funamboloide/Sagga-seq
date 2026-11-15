@@ -387,6 +387,22 @@ def rules_of_the_comparison():
     # a step one on from the middle to the end: not timing
     e = touched(step_on, [i for i in idx if i >= k and i != idx[-1]])
     check(e and e[0][0] == "SIMULATORE", "the steps one on from the middle to the end: SIMULATORE (%s)" % e[:1])
+    # 0.20.9: the steps one on with the probe read a tick later (its gc), at three probes, then another difference: that
+    # one is the first, not the steps (the FM-1 completo's s006); the steps and the tick one on to the end: an error
+    def tick_on(t):
+        return re.sub(r"(PROBE H [^\n]*?gc=)(\d+)", lambda m: m.group(1) + str(int(m.group(2)) + 1), step_on(t))
+    pos = idx.index(k)
+    roles = dict(H.probe_events(s0))
+    s3 = copy.deepcopy(s0)
+    for i in idx[pos:pos + 3]:
+        s3["fm1"]["sonde"][str(i)] = tick_on(s3["fm1"]["sonde"][str(i)])
+    for i in idx[pos + 3:]:
+        s3["fm1"]["sonde"][str(i)] = re.sub(r"(PROBE T2 [^\n]*?steps#=)([0-9A-F]{8})", lambda m: m.group(1) + "DEADBEEF", s3["fm1"]["sonde"][str(i)])
+    e = errs(H.compare(s3)[0])
+    check(e and "'%s'" % roles[idx[pos + 3]] in e[0][2] and "steps#" in e[0][2],
+          "the steps and the tick one on at three probes, then a pattern: the pattern's probe is the first (%s)" % e[:1])
+    e = touched(tick_on, idx[pos:])
+    check(e and e[0][0] == "SIMULATORE" and "'%s'" % roles[k] in e[0][2], "the steps and the tick one on to the end: SIMULATORE (%s)" % e[:1])
     # the message still on one side: no error; two different messages: an error
     km = [i for i in idx if re.search(r"msg=[^\n]", s0["fm1"]["sonde"][str(i)])]
     km = km[len(km) // 2] if km else k

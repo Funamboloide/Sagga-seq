@@ -254,8 +254,9 @@ def connect(backend, want, say, timeout=0.0, quiet=False):
         note("try %d: ports %s" % (tries, [p.label for p in ports]))
         if ports:
             hub = Hub(ports)
+            other = 0                                 # (0.20.9: what came in that was no answer, for the log)
             for p in ports:
-                hub.take()
+                other += len(hub.take())
                 try:
                     p.send(T.hello())
                 except Exception as e:
@@ -269,11 +270,14 @@ def connect(backend, want, say, timeout=0.0, quiet=False):
                             a = T.parse(d) if d[:1] == b"\xF0" else None
                             if a and a[0] == "hello":
                                 got = (q, a[1])
+                            else:
+                                other += 1
                     time.sleep(0.005)
                 if got:
                     hub.ctl = got[0]
                     note("HELLO sent on %s, answered on %s: %s" % (p.label, got[0].label, got[1]))
                     return hub, got[1]
+            note("try %d: no answer to HELLO on %d ports (%d other messages came in)" % (tries, len(ports), other))
             hub.close()
         if time.perf_counter() >= end:
             return None, None

@@ -190,7 +190,7 @@ def structural():
             p.on_param_change(c.param.name, True)
             check(p.ccs == [(c.channel, c.cc, 127), (c.channel, c.cc, 0)] and p.get_param(c.param.name) is False, "%s: a trigger presses and lets go (%s)" % (name, p.ccs))
         held = [c for c in cells if c.param.__class__.__name__ == "Button" and not c.param.trigger]
-        if held and name == "sagga_live":                  # 0.18: its switches are the FM-1's states: PANIC leaves them
+        if held and name in ("sagga_live", "sagga_mod"):   # 0.18 (Mod: 0.20.9): its switches are the FM-1's states: PANIC leaves them
             c = held[0]
             p.ccs = []
             p.on_param_change(c.param.name, True)
@@ -343,6 +343,8 @@ def main():
     if not RMH or not os.path.isdir(os.path.join(RMH, "src", "raspimidihub")):
         print("sagga plugins: %d checks, %d failures (the hub's own host: skipped, RMH= a RaspiMIDIHub checkout)" % (N[0], len(FAILS)))
         return 1 if FAILS else 0
+    for k in [k for k in sys.modules if k == "raspimidihub" or k.startswith("raspimidihub.")]:
+        del sys.modules[k]                             # (the stand-in of the tests above: the hub's own from here on)
     sys.path.insert(0, os.path.join(RMH, "src"))
     sys.path.insert(0, os.path.join(RMH, "tests"))
     from raspimidihub.plugin_host.host import PluginHost
@@ -429,6 +431,11 @@ def main():
     check(p.get_param("lfo_sw4") is True and p.get_param("rate") == 10 and not h.ccs, "SAGGA Mod: the FM-1's LFO 5 on and its RATE come back (%s)" % h.ccs)
     p.on_note_off(12, 104)
     check(p.get_param("lfo_sw4") is False and not h.ccs, "SAGGA Mod: LFO 5 off comes back")
+    # 0.20.6: the four echoes (channel 12 CC 33-36) in the hub's own host too
+    for name, cell, echo, v in (("sagga_live", "swing", 33, 61), ("sagga_remote", "quant", 34, 4), ("sagga_motori", "p5", 35, 3), ("sagga_mod", "lane0", 36, 77)):
+        p, h = helpers.make_plugin(host._plugin_types[name])
+        p.on_cc(11, echo, v)
+        check(p.get_param(cell) == v and not h.ccs, "%s in the hub's host: channel 12 CC %d from the FM-1 is the cell %s (%s)" % (name, echo, cell, p.get_param(cell)))
     print("sagga plugins: %d checks, %d failures" % (N[0], len(FAILS)))
     return 1 if FAILS else 0
 

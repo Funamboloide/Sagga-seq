@@ -40,6 +40,10 @@ import sagga_patterns                                                           
 import sagga_progs                                                               # noqa: E402  (0.11: the Pi's progressions)
 import sagga_slicer                                                              # noqa: E402  (0.13: a break into slices)
 import sagga_editor                                                              # noqa: E402  (0.14: the projects' web editor)
+try:
+    import sagga_celle                                                           # noqa: E402  (0.20.9: the FM-1's cells kept)
+except ImportError:                                                              # (never the page down for it)
+    sagga_celle = None
 EDITOR = os.path.join(HERE, 'editor.html')                                       # 0.14: its page
 UPDATE_DIR = os.environ.get('SAGGA_UPDATE_DIR', '/run/sagga-update')              # 0.20.1: the Pi's update (tmpfs: gone at reboot)
 SYSTEMD_RUN = shutil.which('systemd-run')                                        # 0.20.1: the installer outside this service
@@ -221,6 +225,7 @@ class State:
         self.upd_dir = upd_dir or UPDATE_DIR                # 0.20.1: the Pi's update (its log survives this page's restart)
         self.banco_dir = banco_dir or BANCO_DIR             # 0.20.3: the banco's explorer
         self.writer = writer or BootWriter(fw_dir)
+        self.keeper = None                                  # 0.20.9: the keeper of the FM-1's cells (main starts it)
         pat_dir = os.path.join(proj_dir, 'patterns')                     # 0.11: the patterns the grid bridge serves
         self.patterns = sagga_patterns.Patterns(pat_dir, writer=(pat_writer or BootWriter(pat_dir)).write)
         prog_dir = os.path.join(proj_dir, 'progressions')                # 0.11: the progressions the grid bridge serves
@@ -531,10 +536,17 @@ class State:
                                  stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
         return ver
 
+    def keeper_status(self):
+        """0.20.9: what the keeper of the FM-1's cells did lately, how many it remembers (None: not running)"""
+        k = self.keeper
+        if k is None:
+            return None
+        return dict(events=[list(e) for e in k.events[-6:]], cells=len(k.mem), waiting=self.banco_running())
+
     def snapshot(self):
         return dict(packages=self.packages(), projects=self.projects(), busy=self.busy(), job=self.job,
                     result=self.result, log=self.log[-60:], device=self.probe(), version=hub_version(),
-                    update=self.update_status(), banco=self.banco_status())
+                    update=self.update_status(), banco=self.banco_status(), celle=self.keeper_status())
 
 
 PAGE = r'''<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -563,6 +575,8 @@ input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small
 <div class="dev" id="bsel" style="display:none"><b>Sull'FM-1: premi SEL per dire s&igrave;</b> <small>(20 secondi; un altro tasto = no)</small></div>
 <pre id="blog" style="display:none"></pre><div id="bf"></div>
 <small><b>Il banco</b> (20 minuti circa): l'FM-1 (SAGGA SEQ 0.20.3), il Pi e il grid insieme, per le strade vere: le sei pagine SAGGA premute dentro RaspiMIDIHub, il bridge del grid con due Launchpad finti, il pannello dell'FM-1 con il suo test. Prima controlla la matrice; durante la prova le celle fra l'FM-1 e i synth sono staccate (i synth tacciono) e tornano alla fine; l'FM-1 si riavvia a ogni sessione, non toccarlo. Alla fine il tuo progetto torna in memoria (sull'FM-1: IMPORTED, SAVE per tenerlo). <b>L'FM-1 completo</b> (mezz'ora circa): l'esploratore dal PC, fatto dal Pi: ogni situazione, 60 gesti a sessione sul pannello, il tablet e il grid come eventi del test. Mandami la <b>raccolta-banco</b>: la confronto con il simulatore.</small>
+<h2>LE CELLE DELL'FM-1</h2><div id="kc"></div>
+<small>RaspiMIDIHub perde le celle dell'FM-1 se fa il suo salvataggio automatico mentre l'FM-1 &egrave; spento o si riavvia. Il Pi le ricorda e, quando l'FM-1 torna, rimette quelle che mancano (con i loro filtri). Una cella che togli con l'FM-1 acceso resta tolta; con l'FM-1 spento torna.</small>
 <h2>PROGETTI</h2><div id="pr"></div>
 <div class="row" style="flex-wrap:wrap"><input id="np" placeholder="nome del progetto" size="18"><button onclick="newp()">Nuovo</button><button class="sec" onclick="recv()">Ricevi dall'FM-1</button><small id="npm"></small></div>
 <small>Nuovo: un progetto vuoto nella libreria, che si apre nell'editor. Ricevi: il progetto che l'FM-1 ha adesso (fermo), con quel nome. Dall'editor: <b>Manda all'FM-1</b>.</small>
@@ -589,6 +603,7 @@ const b=s.banco||{},bon=!!b.running;['bm','bp'].forEach(i=>document.getElementBy
 document.getElementById('ub').disabled=upd_on||s.busy;document.getElementById('br').style.display=b.celle?'':'none';
 document.getElementById('bst').innerHTML=bon?`<b>${b.modo=='matrice'?'controllo della matrice':b.modo=='rimetti'?'rimetto le celle':b.piano=='fm1'?'FM-1 completo':'prova del banco'} in corso</b> <small>(non toccare l'FM-1)</small>`:b.rc===0?`<b>finito</b> <small>${h(b.quando||'')}</small>`:b.rc!=null?`<b>finito con qualcosa da guardare</b> <small>(exit ${b.rc}: il log qui sotto)</small>`:b.celle?'<b>celle staccate da una prova interrotta</b> <small>(Rimetti le celle)</small>':'<small>mai fatto da quando il Pi &egrave; acceso</small>';
 document.getElementById('bsel').style.display=b.ask?'':'none';
+const kc=s.celle;document.getElementById('kc').innerHTML=!kc?'<small>il custode non gira</small>':(kc.waiting?'<small>aspetta: la prova del banco tiene l\'FM-1</small><br>':'')+(kc.events.length?kc.events.map(e=>`<div class="row"><span>${h(e[1])}</span><small>${h(e[0])}</small></div>`).join(''):`<small>${kc.cells} celle ricordate, nessuna persa da quando il Pi &egrave; acceso</small>`);
 const bl=document.getElementById('blog');bl.style.display=b.log&&b.log.length?'':'none';const atEnd=bl.scrollTop+bl.clientHeight>=bl.scrollHeight-20;bl.textContent=(b.log||[]).join('\n');if(atEnd)bl.scrollTop=bl.scrollHeight;
 document.getElementById('bf').innerHTML=(b.files||[]).map(f=>`<div class="row"><a class="mono" href="/banco/${encodeURIComponent(f.name)}">${h(f.name)}</a><small>${(f.size/1024).toFixed(0)} KB${f.where=='sd'?' (sulla SD)':''}</small></div>`).join('');
 document.getElementById('dev').innerHTML=s.device?`<b>${h(s.device[0])}</b> <small>[${h(s.device[1])}] ${h(s.device[2])}</small>`:'<small>nessun FM-1 risponde (cavo? un altro programma lo usa?)</small>';
@@ -951,8 +966,14 @@ def main(argv=None):
     ap.add_argument('--projects', default='/boot/firmware/sagga')
     ap.add_argument('--port', type=int, default=8090)
     ap.add_argument('--bind', default='0.0.0.0')
+    ap.add_argument('--hub', default='http://127.0.0.1', help="RaspiMIDIHub's API (the keeper of the FM-1's cells)")
+    ap.add_argument('--senza-custode', action='store_true', help="the FM-1's cells are not kept")
     a = ap.parse_args(argv)
     state = State(a.dir, a.projects)
+    if not a.senza_custode and sagga_celle is not None:    # 0.20.9: the FM-1's cells RaspiMIDIHub loses, put back
+        state.keeper = sagga_celle.Keeper(sagga_celle.HubAPI(a.hub), path=os.path.join(a.projects, 'celle-fm1.json'),
+                                          write=state.writer.write, say=lambda t: print('celle:', t, file=sys.stderr, flush=True))
+        threading.Thread(target=sagga_celle.run_forever, args=(state.keeper, state.banco_running), daemon=True).start()
     try:
         with state.writer.writable():
             pass                                            # (the folder exists from now on)

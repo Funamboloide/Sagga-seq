@@ -37,3 +37,4 @@ python3 tests/sagga_explore.py --hw-prova | head -8         # 0.11 the explorer 
 python3 tests/sagga_hw_explore_tests.py | tail -1           # 0.11 the Windows runner, against a fake FM-1
 python3 tests/sagga_explore.py --banco-prova | head -12     # 0.20.3 the banco (FM-1, Pi, grid), with the simulator as the FM-1
 python3 tests/sagga_banco_tests.py | tail -1                # 0.20.3 the banco's runner on the Pi, a fake FM-1 and RaspiMIDIHub
+python3 tests/sagga_celle_tests.py | tail -1                # 0.20.9 the keeper of the FM-1's cells (RaspiMIDIHub loses them)

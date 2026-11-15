@@ -96,6 +96,22 @@ gira l'FM-1 non si installa, il Pi non si aggiorna e l'editor non parla con l'FM
 `sudo python3 /opt/sagga/hub/sagga_banco.py [--piano /opt/sagga/hub/fm1_piano.json] [--solo-matrice] [--sessioni 4]
 [--non-staccare] [--rimetti]`.
 
+## LE CELLE DELL'FM-1 (0.20.9)
+
+RaspiMIDIHub 6 perde le celle di un dispositivo che non c'è: il suo salvataggio automatico (ogni 15-30 secondi quando
+qualcosa cambia, e le pagine SAGGA cambiano sempre) scrive solo le celle dei dispositivi presenti, e se in quel secondo
+l'FM-1 si riavvia o è spento le sue celle spariscono. La pagina del Pi ha un **custode** (`sagga_celle.py`): finché
+l'FM-1 c'è ricorda le sue celle (le pagine, i synth, i filtri e le mappature) in `/boot/firmware/sagga/celle-fm1.json`;
+quando l'FM-1 (o l'altro capo di una cella) se ne va e torna - il suo numero USB cambia ogni volta - aspetta 5 secondi
+che RaspiMIDIHub faccia il suo e rimette quelle che mancano. Una cella tolta con l'FM-1 acceso resta tolta; con l'FM-1
+spento torna. La prima volta parte dalle celle che servono alle pagine (ognuna verso la porta 2, la porta 2 verso
+ognuna). Sulla pagina, **LE CELLE DELL'FM-1** dice cosa ha rimesso; durante la prova del banco aspetta. Per spegnerlo:
+`--senza-custode` in `sagga-fw.service`.
+
+Il banco, dalla 0.20.9, fa lo stesso a ogni riavvio dell'FM-1; se l'FM-1 non risponde per 12 secondi lo fa ritrovare
+all'USB; scrive nel log le righe del kernel e i contatori dell'FM-1; e se l'FM-1 non torna mette il progetto di prima
+della prova nella libreria (`prima-del-banco-<data>.sgq`: PROGETTI, editor, Manda all'FM-1).
+
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
@@ -161,4 +177,5 @@ dell'FM-1 verso il computer no. La porta PC porta MIDI, non audio.
 `python3 tests/sagga_hub_tests.py` nel repository: pacchetti USB-MIDI e SLIP (anche contro il C del RP2040), il link
 della porta PC su una pseudo-seriale, la pagina dei firmware con un installatore finto, l'aggiornamento del Pi, la
 sezione del banco. `python3 tests/sagga_banco_tests.py`: il programma del banco contro un FM-1, un RaspiMIDIHub e un
-systemctl finti.
+systemctl finti. `python3 tests/sagga_celle_tests.py`: il custode delle celle contro un RaspiMIDIHub finto che le perde
+come il vero.

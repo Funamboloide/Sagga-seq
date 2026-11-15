@@ -338,6 +338,8 @@ REGOLE.update({
     "SENTITI": "l'FM-1 dice tutto quello che ha sentito (senza, il simulatore non rifa' la sessione intera); quello che "
                "non viene dalle pagine ne' dal bridge e' di un altro dispositivo collegato all'FM-1",
     "VALORI": "i valori che l'FM-1 rimanda arrivano alle celle delle pagine",
+    "CELLE": "dopo ogni riavvio dell'FM-1 le sue celle sono di nuovo nella matrice (0.20.9: quelle che RaspiMIDIHub perde, il "
+             "suo salvataggio automatico mentre l'FM-1 non c'e', le rimette il Pi)",
     "PONTE": "il bridge traduce ogni pad e ogni bottone nel messaggio giusto per l'FM-1",
     "LUCI": "le luci che il bridge accende sono quelle che l'FM-1 chiede",
 })
@@ -387,9 +389,15 @@ def compare(session):
                     continue
             keep.append(w)
         v = dict(v, sbagliati=keep)
+    kc = hw.get("celle_fm1") or {}                     # 0.20.9: the FM-1's cells after its reboot
+    if kc.get("rimesse"):
+        found.append(("CELLE", "VISTO", "RaspiMIDIHub aveva perso %d celle dell'FM-1 nel riavvio: il Pi le ha rimesse" % kc["rimesse"]))
+    if kc.get("non_tornano"):
+        found.append(("CELLE", "ERRORE", "%d celle dell'FM-1 non tornate dopo il riavvio: %s" % (len(kc["non_tornano"]), "; ".join(kc["non_tornano"][:3]))))
     if v.get("sbagliati"):
-        found.append(("VALORI", "ERRORE", "%d celle su %d non seguono l'FM-1: %s" % (len(v["sbagliati"]), v.get("controllati", 0),
-                     "; ".join("%s %s FM-1 %s, pagina %s" % tuple(x) for x in v["sbagliati"][:5]))))
+        found.append(("VALORI", "DA GUARDARE" if kc.get("non_tornano") else "ERRORE", "%d celle su %d non seguono l'FM-1: %s%s" % (
+            len(v["sbagliati"]), v.get("controllati", 0), "; ".join("%s %s FM-1 %s, pagina %s" % tuple(x) for x in v["sbagliati"][:5]),
+            " (le celle dell'FM-1 non erano tornate)" if kc.get("non_tornano") else "")))
     for w in (hw.get("ponte") or [])[:5]:
         found.append(("PONTE", "ERRORE", "pad %s -> Launchpad %s -> il bridge ha mandato %s" % (w["piano"], w["launchpad"], w["bridge"])))
     for w in (hw.get("proprie") or [])[:5]:

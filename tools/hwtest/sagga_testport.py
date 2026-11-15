@@ -48,6 +48,12 @@ def go(listen=False): return frame(GO, [1] if listen else [])   # 0.20.3 listen:
 def close(): return frame(CLOSE)
 def again(idx): return frame(6, put7(idx, 2))                     # a probe again (the FM-1 keeps the last two)
 def taken(idx, n): return frame(7, put7(idx, 2) + [min(n, 127)])  # where events idx.. were taken, again
+def diag(): return frame(DIAG)                                     # 0.20.9: the FM-1's counters since its boot
+
+
+DIAG = 8
+DIAG_FIELDS = ("hellos", "frames", "unsent", "first_ms", "gap_max", "resets", "configs", "cfg_ms", "suspends", "retries",
+               "rx_pkts", "held", "bad", "xport", "sx_missed", "tx_pkts", "tx_wait_max", "tx_drop", "ms")   # 4 bytes each
 
 
 def ev_frame(idx, events):
@@ -91,6 +97,8 @@ def parse(msg):
             return "done", d
         if sub == ABORT:
             return "abort", q[0] if q else 0
+        if sub == DIAG and len(q) >= 4 * len(DIAG_FIELDS):
+            return "diag", {name: get7(q[4 * k:4 * k + 4]) for k, name in enumerate(DIAG_FIELDS)}
         return "?", p
     if cmd == SX_TST_PROBE and len(p) >= 4:
         return "probe", (get7(p[0:2]), p[2], p[3], bytes(p[4:]).decode("ascii", "replace"))

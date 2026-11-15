@@ -121,7 +121,7 @@ SNAP 1-8: a snapshot comes back (at the QUANTISE moment); STORE 1-8 keeps what p
 your synths send go into the snapshot playing (again: off). SEND SOUND: its CC values out again. PATCHES: the Pi keeps
 the synths' patches for it (patches.json on the Pi). HARMONY on / off, ECHO (every track), WRITE LIVE (what the live
 EUCLID and algorithms play goes into the patterns). TAKE (0.12, channel 13): what was played on the keys or the pads
-in the last loop of the selected track goes into its pattern.
+in the last loop of the tablet's track (TRACK on SAGGA Live, Motori or Mod) goes into its pattern.
 
 The tracks' mutes, kills and RETRIG are in the SAGGA Mutes plugin; 0.12 adds SAGGA Motori (the tracks as engines),
 SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, VIAGGIO)."""

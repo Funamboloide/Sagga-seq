@@ -18,11 +18,11 @@ changes them.
   heat; tempo -1 / +1, TAP, REVERT; the snapshots; HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
 * **SAGGA Mutes** (channel 14): MUTE 1-16, KILL 1-16 (silent while on), RETRIG 1-16 (the track from its first step).
 * **SAGGA Motori** (0.12): a row a track: MUTE, PATTERN 1-8 (at the QUANTISE moment), LENGTH 1-64 (at the bar), RETRIG,
-  KILL; under them the selected TRACK and its MODE (FREE, IN KEY, DRUM, TAPE, BREAK), DICE, UNDO, KEEP DICE.
+  KILL; under them the tablet's TRACK and its MODE (FREE, IN KEY, DRUM, TAPE, BREAK), DICE, UNDO, KEEP DICE.
 * **SAGGA Break** (0.12): sixteen slice pads (slice 1 bottom left), ROLL and ROLL/2 (held), HALF, DOUBLE, BACKWARDS,
   DICE, RESET, TAKE; the knobs CHOP (the library of sixteen re-orders, the FM-1's white keys), ROLLS, SWAP, SLICES (8 / 16
-  / 32). The selected track must be a BREAK (HOME 4 K1 on the FM-1, or Motori's MODE): its PEN note is slice 1 on the sampler.
-* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the six CC lanes of the selected
+  / 32). The tablet's track must be a BREAK (HOME 4 K1 on the FM-1, or Motori's MODE): its PEN note is slice 1 on the sampler.
+* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the six CC lanes of the tablet's
   track (their base, sent as you move it), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
@@ -73,4 +73,5 @@ Transpose 74, Scale Remapper 74) and a bound CC does not pass.
 They are written against RaspiMIDIHub 6.0's ControllerBase (the base of its Controller Mixer / FX / Performance
 pages). tests/sagga_plugin_tests.py checks them with a stand-in of the hub's API (every cell a command the FM-1
 answers, the grids, the presses), and with the hub's own plugin host and test harness when RMH= points at a checkout
-of RaspiMIDIHub; not yet on a Pi.
+of RaspiMIDIHub. On the real Pi the banco's explorer (the hub's page, 0.20.3) presses every cell of the six pages
+through the hub's own API and checks what the FM-1 heard and what came back.

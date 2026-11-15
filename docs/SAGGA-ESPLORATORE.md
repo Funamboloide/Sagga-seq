@@ -163,6 +163,15 @@ con quei messaggi negli stessi punti, come gli eventi del test. In più del rapp
 | LUCI | le luci del bridge diverse da quelle che l'FM-1 aveva mandato; da guardare: le luci ferme dell'FM-1 diverse da quelle del simulatore |
 | VALORI | un valore che l'FM-1 rimanda e che la cella della pagina non segue |
 | SENTITI | l'FM-1 che non ascolta (firmware vecchio), pezzi di quello che ha sentito persi per strada, messaggi da un altro dispositivo |
+| CELLE | 0.20.9: le celle dell'FM-1 che RaspiMIDIHub ha perso in un riavvio (il suo salvataggio automatico mentre l'FM-1 non c'era) e che il Pi ha rimesso (visto), o che non sono tornate (errore: allora VALORI è da guardare) |
+
+Dalla 0.20.9, a ogni riavvio dell'FM-1, il programma del Pi: controlla che le celle dell'FM-1 siano tornate e rimette
+quelle che RaspiMIDIHub ha perso; se l'FM-1 non risponde per 12 secondi lo fa ritrovare all'USB (un reset della sua
+porta, come staccato e riattaccato) e aspetta altri 30 secondi; scrive nel log le righe del kernel sull'USB e i contatori
+dell'FM-1 (il test risponde alla DIAG: i HELLO che ha sentito dal suo avvio, le risposte non partite, quando il Pi l'ha
+configurato, quanto è rimasto fermo il suo giro principale), per capire da che parte stava un FM-1 che non rispondeva; e se l'FM-1 non torna, mette il progetto che aveva in memoria nella libreria del Pi
+(`prima-del-banco-<data>.sgq`). Nel confronto una sonda letta un tick di clock prima o dopo, sul confine di uno step, è
+TEMPO anche quando quelle dopo cadono sul confine come lei (le sonde vengono ogni 700 ms, sei step).
 
 Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`, 24 sessioni più 4
 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso

@@ -216,6 +216,12 @@ static void usb_stats(sq_usb_stats_t *s)
 }
 static void usb_reconnect(void) { host_usb_reconnects++; printf("%6u ms  USB reconnect\n", fm1_ms); }
 static void usb_set_ports(uint8_t n) { host_usb_ports = n; printf("%6u ms  USB ports %u\n", fm1_ms, n); }
+#define USB_DIAG_N 13u
+static void usb_diag(uint32_t d[USB_DIAG_N])         /* (0.20.9: the simulator's USB: enumerated once, at its start) */
+{
+    memset(d, 0, USB_DIAG_N * sizeof d[0]);
+    d[0] = 1u; d[1] = 1u;
+}
 
 static void app_audio(int32_t *out, uint32_t n);
 static void app_main(void);
