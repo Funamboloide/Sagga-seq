@@ -5,16 +5,20 @@
 It keeps the FM-1 packages (.fwsc) in a folder, shows which firmware the connected FM-1 runs, installs the one you
 pick (fm1_install.py over USB-MIDI, through the hub), takes new packages by upload, and lists the projects the grid
 bridge exported (.sgq) for download. 0.13: BREAK, a drum loop (WAV) cut into slices for a sampler (sagga_slicer.py),
-back as a zip. Standard library only.
+back as a zip. 0.20.1: a package away (Elimina), and the Pi updates itself from a sagga-hub-X.zip uploaded here
+(checked, unpacked in /run, install_hub.sh run in a unit of its own: it restarts this page). Standard library only.
 
     sudo python3 sagga_fw.py [--dir /boot/firmware/sagga/firmware] [--projects /boot/firmware/sagga] [--port 8090]
 """
 import argparse
 import email.parser
 import email.policy
+import io
 import json
 import os
 import re
+import shlex
+import shutil
 import subprocess
 import sys
 import contextlib
@@ -22,6 +26,7 @@ import tempfile
 import threading
 import time
 import urllib.parse
+import zipfile
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -34,6 +39,84 @@ import sagga_progs                                                              
 import sagga_slicer                                                              # noqa: E402  (0.13: a break into slices)
 import sagga_editor                                                              # noqa: E402  (0.14: the projects' web editor)
 EDITOR = os.path.join(HERE, 'editor.html')                                       # 0.14: its page
+UPDATE_DIR = os.environ.get('SAGGA_UPDATE_DIR', '/run/sagga-update')              # 0.20.1: the Pi's update (tmpfs: gone at reboot)
+SYSTEMD_RUN = shutil.which('systemd-run')                                        # 0.20.1: the installer outside this service
+HUB_TOP_RE = re.compile(r'^sagga-hub-([0-9][0-9A-Za-z.\-]*)$')
+HUB_NEEDS = ('install_hub.sh', 'hub/sagga_fw.py', 'hub/sagga-fw.service', 'fm1_install.py', 'sagga_grid_bridge.py')
+GUARD = 'X-Sagga-Hub'          # 0.20.1: the page's own requests carry it (a form of another site cannot: no CSRF)
+
+
+def hub_version():
+    """0.20.1: the version install_hub.sh wrote next to this file ('' before 0.20.1)"""
+    try:
+        with open(os.path.join(HERE, 'VERSION')) as f:
+            return f.read().strip()[:32]
+    except OSError:
+        return ''
+
+
+def pc_enabled():
+    """0.20.1: is the PC port's service on here (install_hub.sh without --no-pc)? An update keeps what is there"""
+    try:
+        return subprocess.run(['systemctl', 'is-enabled', '--quiet', 'sagga-pc-link'], timeout=5).returncode == 0
+    except Exception:
+        return False
+
+
+class UpdateError(Exception):
+    def __init__(self, msg, code=400):
+        Exception.__init__(self, msg)
+        self.code = code
+
+
+def check_hub_zip(data, limit=64 * 1024 * 1024):
+    """0.20.1: a sagga-hub zip as make_release.sh makes it -> (ZipFile, top folder, version), or UpdateError saying
+    what is wrong: one folder sagga-hub-X, no path out of it, no links, the files install_hub.sh needs, a page that
+    is Python (a broken one would take this page, and with it the next update, away) and still has the update (an
+    older hub would leave the Pi updatable by SSH only)"""
+    try:
+        z = zipfile.ZipFile(io.BytesIO(data))
+        infos = z.infolist()
+    except (zipfile.BadZipFile, ValueError, OSError):
+        raise UpdateError('non è uno zip')
+    if not infos or len(infos) > 4000:
+        raise UpdateError('uno zip vuoto o con troppi file')
+    tops, names, total = set(), set(), 0
+    for i in infos:
+        n = i.filename
+        if n.startswith('/') or '\\' in n or ':' in n or any(part == '..' for part in n.split('/')):
+            raise UpdateError('un percorso fuori dalla cartella: %s' % n)
+        if (i.external_attr >> 16) & 0o170000 == 0o120000:
+            raise UpdateError('un collegamento (symlink): %s' % n)
+        if i.flag_bits & 0x1:
+            raise UpdateError('uno zip con la password')
+        tops.add(n.split('/')[0])
+        names.add(n)
+        total += i.file_size
+    if len(tops) != 1:
+        raise UpdateError('lo zip deve avere una cartella sola, sagga-hub-X (ne ha %d)' % len(tops))
+    top = tops.pop()
+    m = HUB_TOP_RE.match(top)
+    if not m:
+        raise UpdateError('la cartella si chiama %s: serve sagga-hub-X (lo zip del Pi, non il sorgente)' % top)
+    if total > limit:
+        raise UpdateError('troppo grande, aperto: %d MB' % (total >> 20))
+    for need in HUB_NEEDS:
+        if top + '/' + need not in names:
+            raise UpdateError('manca %s' % need)
+    try:
+        if not z.read(top + '/install_hub.sh').startswith(b'#!/bin/sh'):
+            raise UpdateError('install_hub.sh non è lo script del hub')
+        page = z.read(top + '/hub/sagga_fw.py')
+        compile(page, 'sagga_fw.py', 'exec')
+        if b"'/api/update'" not in page:
+            raise UpdateError('la pagina di questo zip non sa aggiornarsi (prima della 0.20.1): dopo, il Pi si '
+                              'aggiornerebbe solo da SSH. Se lo vuoi davvero, installalo da SSH')
+    except SyntaxError as e:
+        raise UpdateError('hub/sagga_fw.py non è Python valido (riga %s)' % e.lineno)
+    except (zipfile.BadZipFile, RuntimeError, OSError, ValueError) as e:
+        raise UpdateError('lo zip è rovinato: %s' % e)
+    return z, top, m.group(1)
 
 
 def sgqmid(cmd, src, dst, extra=None):
@@ -128,8 +211,9 @@ class BootWriter:
 
 class State:
     """what the page shows: the folders, the FM-1 seen last, the install running (one at a time)"""
-    def __init__(self, fw_dir, proj_dir, writer=None, pat_writer=None):
+    def __init__(self, fw_dir, proj_dir, writer=None, pat_writer=None, upd_dir=None):
         self.fw_dir, self.proj_dir = fw_dir, proj_dir
+        self.upd_dir = upd_dir or UPDATE_DIR                # 0.20.1: the Pi's update (its log survives this page's restart)
         self.writer = writer or BootWriter(fw_dir)
         pat_dir = os.path.join(proj_dir, 'patterns')                     # 0.11: the patterns the grid bridge serves
         self.patterns = sagga_patterns.Patterns(pat_dir, writer=(pat_writer or BootWriter(pat_dir)).write)
@@ -190,6 +274,8 @@ class State:
         with self.lock:
             if self.busy():
                 return 'an install is running'
+            if (self.update_status() or {}).get('running'):
+                return 'the Pi is updating'                  # 0.20.1: the update restarts this page, and the install with it
             self.log = ['install %s' % name]
             self.job, self.result = name, None
             self.proc = subprocess.Popen([sys.executable, '-u', INSTALLER, '--yes', path], stdout=subprocess.PIPE,
@@ -209,25 +295,115 @@ class State:
         self.log.append('done: %s' % self.result)
         self.device_at = 0
 
+    def delete_package(self, name):
+        """0.20.1: a package of the library away -> None, or (message, HTTP code)"""
+        name = os.path.basename(name or '')
+        path = os.path.join(self.fw_dir, name)
+        if not name.lower().endswith('.fwsc') or not os.path.isfile(path):
+            return 'no such package', 404
+        with self.lock:
+            if self.busy() and self.job == name:
+                return 'si sta installando: aspetta che finisca', 409
+            try:
+                self.writer.remove(path)
+            except OSError as e:
+                return 'non riesco a cancellarlo: %s' % e, 500
+        return None
+
+    def _upd(self, name):
+        return os.path.join(self.upd_dir, name)
+
+    def update_status(self):
+        """0.20.1: the last update of the Pi (from its files: this process may be the one the update started), or None"""
+        try:
+            with open(self._upd('update.log'), encoding='utf-8', errors='replace') as f:
+                lines = f.read().splitlines()
+        except OSError:
+            return None
+        try:
+            with open(self._upd('update.json')) as f:
+                meta = json.load(f)
+        except (OSError, ValueError):
+            meta = {}
+        rc = None
+        for ln in reversed(lines[-6:]):
+            m = re.match(r'^exit (\d+)$', ln.strip())
+            if m:
+                rc = int(m.group(1))
+                break
+        started = meta.get('started', 0)
+        return dict(version=meta.get('version', ''), name=meta.get('name', ''), started=started, rc=rc,
+                    running=rc is None and time.time() - started < 900, log=[ln[-200:] for ln in lines[-80:]])
+
+    def start_update(self, filename, data, pc=None):
+        """0.20.1: a sagga-hub zip -> checked, unpacked, install_hub.sh started in a unit of its own (it restarts this
+        service, which would kill a child of ours); returns the version, or raises UpdateError"""
+        with self.lock:
+            if self.busy():
+                raise UpdateError("l'FM-1 si sta installando: aggiorna il Pi quando ha finito", 409)
+            if (self.update_status() or {}).get('running'):
+                raise UpdateError('un aggiornamento è già in corso', 409)
+            z, top, ver = check_hub_zip(data)
+            os.makedirs(self.upd_dir, exist_ok=True)
+            for n in os.listdir(self.upd_dir):                # the stages of the updates before
+                if n.startswith('stage-'):
+                    shutil.rmtree(self._upd(n), ignore_errors=True)
+            stage = tempfile.mkdtemp(prefix='stage-', dir=self.upd_dir)
+            try:
+                z.extractall(stage)
+            except (zipfile.BadZipFile, OSError, RuntimeError) as e:
+                shutil.rmtree(stage, ignore_errors=True)
+                raise UpdateError('non riesco ad aprirlo: %s' % e, 500)
+            pc = pc_enabled() if pc is None else pc
+            log = self._upd('update.log')
+            with open(log, 'w') as f:
+                f.write('update %s from %s (%s)\n' % (ver, os.path.basename(filename or '?'),
+                                                       'with the PC port' if pc else '--no-pc: no PC port on this Pi'))
+            with open(self._upd('update.json'), 'w') as f:
+                json.dump(dict(version=ver, name=os.path.basename(filename or ''), started=time.time()), f)
+            script = '{ cd %s && sh ./install_hub.sh%s; echo "exit $?"; cd /; rm -rf %s; } >>%s 2>&1' % (
+                shlex.quote(os.path.join(stage, top)), '' if pc else ' --no-pc', shlex.quote(stage), shlex.quote(log))
+            started = False
+            if SYSTEMD_RUN:
+                try:
+                    r = subprocess.run([SYSTEMD_RUN, '--unit', 'sagga-update-%d' % int(time.time()), '--collect', '--quiet',
+                                        '/bin/sh', '-c', script], capture_output=True, text=True, timeout=20)
+                    started = r.returncode == 0
+                    if not started:
+                        with open(log, 'a') as f:
+                            f.write('systemd-run: %s\n' % (r.stderr or r.stdout).strip()[-300:])
+                except Exception as e:
+                    with open(log, 'a') as f:
+                        f.write('systemd-run: %s\n' % e)
+            if not started:                                     # no systemd here: a session of its own
+                subprocess.Popen(['/bin/sh', '-c', script], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+        return ver
+
     def snapshot(self):
         return dict(packages=self.packages(), projects=self.projects(), busy=self.busy(), job=self.job,
-                    result=self.result, log=self.log[-60:], device=self.probe())
+                    result=self.result, log=self.log[-60:], device=self.probe(), version=hub_version(),
+                    update=self.update_status())
 
 
 PAGE = r'''<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
 <title>SAGGA HUB</title><style>
 body{font:16px/1.4 system-ui,sans-serif;margin:0;background:#111;color:#eee}header{background:#222;padding:12px 16px;font-weight:700;letter-spacing:.08em}
 main{padding:12px 16px;max-width:720px;margin:auto}h2{font-size:14px;letter-spacing:.1em;color:#9cf;margin:20px 0 8px}
-.row{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #333}
+.row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #333}
 button{background:#2a6;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:15px}button[disabled]{background:#444}
 .dev{background:#1a2a3a;border-radius:8px;padding:10px 12px}.mono{font-family:ui-monospace,monospace;font-size:13px}
 pre{background:#000;color:#9f9;padding:10px;border-radius:8px;max-height:260px;overflow:auto;font-size:12px}small{color:#999}
-input[type=file]{color:#ccc}a{color:#9cf}</style></head><body>
-<header>SAGGA HUB</header><main>
+input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small{color:#9cf;font-weight:400;margin-left:6px}</style></head><body>
+<header>SAGGA HUB<small id="ver"></small></header><main>
 <h2>FM-1</h2><div class="dev" id="dev">...</div>
 <h2>FIRMWARE</h2><div id="pk"></div>
 <form id="up" method="post" action="/api/upload" enctype="multipart/form-data" class="row"><input type="file" name="f" accept=".fwsc" required><button>Carica</button></form>
 <h2>INSTALLAZIONE</h2><pre id="log"></pre>
+<h2>AGGIORNA IL PI</h2><div id="ust"></div>
+<div class="row" style="flex-wrap:wrap"><input type="file" id="hz" accept=".zip"><button id="ub" onclick="upd()">Aggiorna il Pi</button><small id="um"></small></div>
+<small>Uno zip <b>sagga-hub-X.zip</b>, di quelli che prepara Claude: il Pi lo controlla, lo installa da solo (install_hub.sh, come da SSH) e riavvia le sue pagine; questa sparisce per qualche secondo e torna con la versione nuova in alto. Lo pu&ograve; fare chi &egrave; sulla rete del Pi: la password del WiFi &egrave; la chiave.</small>
+<pre id="ulog" style="display:none"></pre>
 <h2>PROGETTI</h2><div id="pr"></div>
 <div class="row" style="flex-wrap:wrap"><input id="np" placeholder="nome del progetto" size="18"><button onclick="newp()">Nuovo</button><button class="sec" onclick="recv()">Ricevi dall'FM-1</button><small id="npm"></small></div>
 <small>Nuovo: un progetto vuoto nella libreria, che si apre nell'editor. Ricevi: il progetto che l'FM-1 ha adesso (fermo), con quel nome. Dall'editor: <b>Manda all'FM-1</b>.</small>
@@ -245,15 +421,24 @@ input[type=file]{color:#ccc}a{color:#9cf}</style></head><body>
 <small>Accordi sopra la tonica: I bII II bIII III IV #IV V bVI VI bVII VII, minuscolo = minore; poi la forma (7 maj7 9 sus2 o ...), :N la durata in sedicesimi, ^N quanti sedicesimi in anticipo. Sull'FM-1: SEQ 4 K2 oltre le progressioni del genere arriva a queste (le pi&ugrave; simili prima, del MOOD scelto); SEQ + SAVE su SEQ 4 / SEQ 8 ci aggiunge la progressione.</small>
 </main><script>
 const h=s=>s.replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
-async function tick(){const s=await (await fetch('/api/state')).json();
+async function tick(){let s;try{s=await (await fetch('/api/state')).json();}catch(e){document.getElementById('dev').innerHTML='<small>il Pi non risponde (le sue pagine si stanno riavviando?)</small>';return;}
+document.getElementById('ver').textContent=s.version||'';
+const u=s.update,upd_on=!!(u&&u.running);document.getElementById('ub').disabled=upd_on||s.busy;
+document.getElementById('ust').innerHTML=!u?'<small>nessun aggiornamento da quando il Pi &egrave; acceso</small>':u.running?`<b>aggiornamento ${h(u.version)} in corso</b> <small>(la pagina sparisce qualche secondo e torna)</small>`:u.rc===0?`<b>aggiornato a ${h(u.version)}</b>`:u.rc===null?`<b>aggiornamento ${h(u.version)} interrotto</b> <small>(il Pi si &egrave; spento? rifallo)</small>`:`<b>aggiornamento ${h(u.version)} non riuscito</b> <small>(exit ${u.rc}: il log qui sotto)</small>`;
+const ul=document.getElementById('ulog');ul.style.display=u?'':'none';ul.textContent=u?u.log.join('\n'):'';
 document.getElementById('dev').innerHTML=s.device?`<b>${h(s.device[0])}</b> <small>[${h(s.device[1])}] ${h(s.device[2])}</small>`:'<small>nessun FM-1 risponde (cavo? un altro programma lo usa?)</small>';
-document.getElementById('pk').innerHTML=s.packages.map(p=>`<div class="row"><span class="mono">${h(p.name)} <small>${(p.size/1024).toFixed(0)} KB</small></span><button ${s.busy?'disabled':''} onclick="inst('${h(p.name)}')">Installa</button></div>`).join('')||'<small>nessun pacchetto: carica un .fwsc</small>';
+document.getElementById('pk').innerHTML=s.packages.map(p=>`<div class="row"><span class="mono">${h(p.name)} <small>${(p.size/1024).toFixed(0)} KB</small></span><span><button ${s.busy||upd_on?'disabled':''} data-n="${h(p.name)}" onclick="inst(this.dataset.n)">Installa</button> <button class="del" ${s.busy&&s.job==p.name?'disabled':''} data-n="${h(p.name)}" onclick="pkdel(this.dataset.n)">Elimina</button></span></div>`).join('')||'<small>nessun pacchetto: carica un .fwsc</small>';
 document.getElementById('log').textContent=(s.job?`[${s.job}] `:'')+s.log.join('\n');
 function npost(u){const n=document.getElementById('np').value.trim(),m=document.getElementById('npm');if(!n){m.textContent='scrivi un nome';return null;}m.textContent='...';return fetch(u+'?file='+encodeURIComponent(n),{method:'POST'}).then(async r=>{if(!r.ok){m.textContent=await r.text();return null;}const d=await r.json();location.href='/edit/'+encodeURIComponent(d.name);});}
 function newp(){npost('/api/project/new');}
 function recv(){npost('/api/fm1/receive');}
 document.getElementById('pr').innerHTML=s.projects.map(p=>`<div class="row"><a class="mono" href="/projects/${encodeURIComponent(p.name)}">${h(p.name)}</a><span><a href="/projects/${encodeURIComponent(p.name.replace(/\.sgq$/i,''))}.mid"><small>.mid</small></a> <a href="/edit/${encodeURIComponent(p.name)}"><small><b>editor</b></small></a> <a href="/roll/${encodeURIComponent(p.name)}"><small>piano roll</small></a> <small>${new Date(p.mtime*1000).toLocaleString()}</small></span></div>`).join('')||'<small>nessun progetto esportato</small>';}
-async function inst(n){if(!confirm('Installare '+n+' sull\'FM-1? Non spegnere durante la scrittura.'))return;await fetch('/api/install?file='+encodeURIComponent(n),{method:'POST'});tick();}
+async function inst(n){if(!confirm('Installare '+n+' sull\'FM-1? Non spegnere durante la scrittura.'))return;const r=await fetch('/api/install?file='+encodeURIComponent(n),{method:'POST'});if(!r.ok){const d=await r.json().catch(()=>({}));alert(d.error||'non parte');}tick();}
+async function pkdel(n){if(!confirm('Cancellare '+n+' dalla libreria del Pi? (Il firmware che l\'FM-1 ha adesso non cambia.)'))return;const r=await fetch('/api/package/delete?file='+encodeURIComponent(n),{method:'POST',headers:{'X-Sagga-Hub':'1'}});if(!r.ok)alert(await r.text());tick();}
+async function upd(){const f=document.getElementById('hz').files[0],m=document.getElementById('um');if(!f){m.textContent='scegli lo zip sagga-hub-...';return;}
+if(!confirm('Aggiornare il Pi con '+f.name+'? Le sue pagine si riavviano: qualche secondo.'))return;
+m.textContent='carico...';const fd=new FormData();fd.append('f',f,f.name);
+try{const r=await fetch('/api/update',{method:'POST',body:fd,headers:{'X-Sagga-Hub':'1'}});m.textContent=r.ok?'':await r.text();if(r.ok)document.getElementById('hz').value='';}catch(e){m.textContent='non arriva al Pi: '+e;}tick();}
 async function pats(){const sel=document.getElementById('pg');const g=sel.value||'TECHNO';const s=await (await fetch('/api/patterns?genre='+g)).json();
 if(!sel.options.length){sel.innerHTML=s.genres.map(x=>`<option${x==g?' selected':''}>${x}</option>`).join('');}
 document.getElementById('pn').textContent=s.parts.reduce((a,p)=>a+p.list.length,0)+' pattern';
@@ -408,6 +593,28 @@ def make_handler(state):
 
         def do_POST(self):
             u = urllib.parse.urlparse(self.path)
+            if u.path in ('/api/update', '/api/package/delete') and self.headers.get(GUARD) != '1':
+                return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
+            if u.path == '/api/package/delete':                   # 0.20.1: a package of the library away
+                q = urllib.parse.parse_qs(u.query)
+                err = state.delete_package(q.get('file', [''])[0])
+                if err:
+                    return self.send(err[1], err[0], 'text/plain; charset=utf-8')
+                return self.send(200, json.dumps(dict(ok=True)), 'application/json')
+            if u.path == '/api/update':                           # 0.20.1: the Pi updates itself from a sagga-hub zip
+                n = int(self.headers.get('Content-Length', '0') or 0)
+                if n <= 0 or n > 32 * 1024 * 1024:
+                    return self.send(400, 'upload vuoto o troppo grande', 'text/plain; charset=utf-8')
+                name, data = multipart_file(self.headers.get('Content-Type', ''), self.rfile.read(n))
+                if not name or not data:
+                    return self.send(400, 'serve lo zip sagga-hub-X.zip', 'text/plain; charset=utf-8')
+                try:
+                    ver = state.start_update(name, data)
+                except UpdateError as e:
+                    return self.send(e.code, str(e), 'text/plain; charset=utf-8')
+                except OSError as e:
+                    return self.send(500, 'non riesco: %s' % e, 'text/plain; charset=utf-8')
+                return self.send(200, json.dumps(dict(ok=True, version=ver)), 'application/json')
             if u.path == '/api/install':
                 q = urllib.parse.parse_qs(u.query)
                 err = state.install(q.get('file', [''])[0])

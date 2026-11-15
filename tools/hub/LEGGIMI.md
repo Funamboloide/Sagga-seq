@@ -1,4 +1,4 @@
-# SAGGA HUB 0.1.1 (0.13: il BREAK IN SLICE; 0.14: l'editor dei progetti; 0.15: nome, Tape, segui e ascolta): la libreria firmware e i progetti su RaspiMIDIHub; l'expander dell'FM-1 (moduli pronti + software)
+# SAGGA HUB 0.1.1 (0.13: il BREAK IN SLICE; 0.14: l'editor dei progetti; 0.15: nome, Tape, segui e ascolta; 0.20.1: si aggiorna dalla sua pagina): la libreria firmware e i progetti su RaspiMIDIHub; l'expander dell'FM-1 (moduli pronti + software)
 
 È un'aggiunta a RaspiMIDIHub, su qualunque Pi: la pagina web con i firmware dell'FM-1 (li carichi, li installi) e i
 progetti esportati dal grid, il bridge dei Launchpad, l'M8 link e, volendo, una porta USB-MIDI verso il computer.
@@ -42,11 +42,26 @@ Si usa in due modi:
    come "SAGGA HUB 1".
 4. La **libreria firmware**: `http://<ip del pi>:8090` (sull'expander `192.168.4.1`, dal telefono sul suo WiFi).
    Carichi i `.fwsc`, vedi quale firmware ha l'FM-1 collegato, premi *Installa*. Non spegnere durante la
-   scrittura; se salta, ricollega e installa di nuovo: finisce il lavoro. I progetti esportati dal grid sono nella
+   scrittura; se salta, ricollega e installa di nuovo: finisce il lavoro. *Elimina* (0.20.1) toglie un `.fwsc` dalla
+   libreria del Pi (il firmware dell'FM-1 non cambia). I progetti esportati dal grid sono nella
    stessa pagina, da scaricare, **anche come `.mid`** (0.11: ogni progetto ha il suo link .mid). Dalla stessa pagina
    carichi un `.sgq` (torna nella libreria) o un **file MIDI**: diventa un progetto di tracce TAPE (un canale = una
    traccia, fino a 16 battute e 1536 note), da caricare sull'FM-1 dal grid (LIB) come gli altri. Tutto sta in
    `/boot/firmware/sagga/` (la partizione FAT: la SD letta da un computer li mostra come file normali).
+
+## AGGIORNA IL PI (0.20.1)
+
+Dalla 0.20.1 il Pi si aggiorna dalla stessa pagina (porta 8090), senza SSH: nella sezione **AGGIORNA IL PI** scegli
+uno zip `sagga-hub-X.zip` e premi *Aggiorna il Pi*. La pagina lo controlla (una cartella sola `sagga-hub-X`, nessun
+percorso che ne esce, nessun collegamento, dentro `install_hub.sh` e la pagina, e la pagina nuova deve essere Python
+valido e sapersi aggiornare: uno zip più vecchio della 0.20.1 si installa solo da SSH), lo apre in `/run/sagga-update` e lancia `install_hub.sh` per conto suo, con `systemd-run` (lo script riavvia
+la pagina stessa). Con `--no-pc`, a meno che la porta PC sia accesa su quel Pi. La pagina sparisce per qualche secondo
+e torna con la versione nuova in alto (`SAGGA HUB 0.20.1`) e il log dell'installazione sotto il bottone; se qualcosa
+non va il log dice dove (`exit N`). Non parte mentre l'FM-1 si sta installando, e l'FM-1 non si installa mentre il Pi
+si aggiorna. Si riavvia anche RaspiMIDIHub: non farlo mentre suoni.
+
+Lo può fare chi è sulla rete del Pi, come può installare un firmware: la password del WiFi è la chiave. La prima
+volta (per avere questa pagina) si passa ancora da SSH.
 
 ## L'EDITOR DEI PROGETTI (0.14)
 

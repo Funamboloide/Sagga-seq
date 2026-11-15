@@ -12,6 +12,25 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.1 (the Pi only)
+
+The firmware stays 0.20 (`FM-1_970`); only the hub changes (`sagga-hub-0.20.1.zip`).
+
+* **Elimina** next to every package of the firmware library (port 8090): the file goes away from the Pi's library (the
+  read-only boot partition is opened for that moment, as for an upload). The firmware on the FM-1 does not change, and
+  the package being installed cannot be deleted.
+* **AGGIORNA IL PI**: upload a `sagga-hub-X.zip` and the Pi installs it by itself. The page checks the zip first (one
+  folder `sagga-hub-X`, no path out of it, no links, `install_hub.sh` and the page inside, the new page compiles and
+  can still update: a hub older than 0.20.1 is refused, it would leave the Pi updatable by SSH only),
+  unpacks it in `/run/sagga-update` and runs `install_hub.sh` in a systemd unit of its own (`systemd-run`): the script
+  restarts this page, and a child of the page would die with it. `--no-pc` unless the PC port's service is enabled
+  here. The page goes away for a few seconds and comes back with the new version at the top (`SAGGA HUB 0.20.1`) and
+  the installer's log under the button. Not while the FM-1 installs (the restart would cut the write), and no FM-1
+  install while the Pi updates.
+* Anyone on the Pi's network can do this, as anyone there can install a firmware: the WiFi password is the key. The
+  two new buttons send a header of the page's own, so a form on another site cannot press them.
+* The first time, to get this page, is still the SSH way (`docs/SAGGA-SEQ-0.20.1-INSTALL.md`).
+
 ## What is new in 0.20
 
 **Five more MIDI FX, and the order is yours.** HOME 6 K1 now goes through nine effects: OFF, HARM, OCTAVE, ECHO, VEL

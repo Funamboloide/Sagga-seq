@@ -13,6 +13,8 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.error
+import urllib.parse
 import urllib.request
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -403,8 +405,196 @@ def t_progressions():
     srv.shutdown()
 
 
+def hub_zip(top='sagga-hub-9.9', script=None, page=None, drop=(), extra=None, link=None):
+    """0.20.1: a sagga-hub zip as make_release.sh makes it (only the files the update looks at)"""
+    import io, zipfile
+    files = {'install_hub.sh': script or '#!/bin/sh\necho "fake install $*"\necho "sagga_sgqmid built"\n',
+             'hub/sagga_fw.py': page or 'ROUTES = (\'/api/update\',)\n', 'hub/sagga-fw.service': '[Unit]\n',
+             'fm1_install.py': '', 'sagga_grid_bridge.py': ''}
+    b = io.BytesIO()
+    with zipfile.ZipFile(b, 'w') as z:
+        for k, v in files.items():
+            if k not in drop:
+                z.writestr(top + '/' + k, v)
+        for k, v in (extra or {}).items():
+            z.writestr(k, v)
+        if link:
+            zi = zipfile.ZipInfo(top + '/' + link)
+            zi.external_attr = 0o120777 << 16
+            z.writestr(zi, '/etc/passwd')
+    return b.getvalue()
+
+
+def t_update_delete():
+    print('0.20.1: a package away; the Pi updates itself from a sagga-hub zip (checked, a unit of its own, the log after)')
+    d = tempfile.mkdtemp()
+    fw, pr, up = os.path.join(d, 'fw'), os.path.join(d, 'projects'), os.path.join(d, 'run', 'sagga-update')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    open(os.path.join(fw, 'sagga-0.19.fwsc'), 'wb').write(b'x' * 100)
+    open(os.path.join(fw, 'sagga-0.20.fwsc'), 'wb').write(b'y' * 100)
+    open(os.path.join(fw, 'notes.txt'), 'w').write('no')
+    fake = os.path.join(d, 'fake_install.py')
+    open(fake, 'w').write('import sys, time\nif "--info" in sys.argv:\n    print("FM-1_970  [running]  port: Felucca MIDI 1"); sys.exit(0)\n'
+                          'time.sleep(0.8)\nprint("done")\n')
+    FW.INSTALLER = fake
+    FW.SYSTEMD_RUN = None
+    FW.pc_enabled = lambda: False
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]), upd_dir=up)
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = 'http://127.0.0.1:%d' % srv.server_address[1]
+
+    def post(path, data=None, guard=True, ctype=None):
+        h = {FW.GUARD: '1'} if guard else {}
+        if ctype:
+            h['Content-Type'] = ctype
+        req = urllib.request.Request(base + path, data=data, method='POST', headers=h)
+        try:
+            r = urllib.request.urlopen(req, timeout=10)
+            return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def upload(zb, name='sagga-hub-9.9.zip', guard=True):
+        body = (b'--B\r\nContent-Disposition: form-data; name="f"; filename="' + name.encode() + b'"\r\n'
+                b'Content-Type: application/zip\r\n\r\n' + zb + b'\r\n--B--\r\n')
+        return post('/api/update', body, guard, 'multipart/form-data; boundary=B')
+
+    def wait_done(t=8.0):
+        end = time.time() + t
+        while time.time() < end:
+            st = state.update_status()
+            if st and not st['running']:
+                return st
+            time.sleep(0.05)
+        return state.update_status()
+
+    def state_json():
+        return json.loads(urllib.request.urlopen(base + '/api/state', timeout=5).read())
+
+    page = urllib.request.urlopen(base + '/', timeout=5).read()
+    check(b'AGGIORNA IL PI' in page and b'pkdel(' in page and b"'X-Sagga-Hub':'1'" in page and b'data-n=' in page,
+          'the page: the update section, Elimina, the guard header, names in data- (a quote in a name breaks nothing)')
+    check(state_json()['update'] is None, 'no update yet: nothing to show')
+    # the delete
+    code, _ = post('/api/package/delete?file=sagga-0.19.fwsc', guard=False)
+    check(code == 403 and os.path.isfile(os.path.join(fw, 'sagga-0.19.fwsc')), 'a delete without the page header is refused (%d)' % code)
+    code, _ = post('/api/package/delete?file=sagga-0.19.fwsc')
+    check(code == 200 and not os.path.exists(os.path.join(fw, 'sagga-0.19.fwsc')), 'Elimina: the package is gone (%d)' % code)
+    check([p['name'] for p in state_json()['packages']] == ['sagga-0.20.fwsc'], 'the list has one package left')
+    for bad in ('sagga-0.19.fwsc', 'notes.txt', '../fw/sagga-0.20.fwsc/../../projects', '../../etc/passwd'):
+        code, _ = post('/api/package/delete?file=' + urllib.parse.quote(bad))
+        check(code == 404, 'a delete of %s: 404 (%d)' % (bad, code))
+    check(os.path.isfile(os.path.join(fw, 'notes.txt')) and os.path.isfile(os.path.join(fw, 'sagga-0.20.fwsc')), 'nothing else went away')
+    req = urllib.request.Request(base + '/api/install?file=sagga-0.20.fwsc', method='POST')
+    urllib.request.urlopen(req, timeout=5)
+    code, body = post('/api/package/delete?file=sagga-0.20.fwsc')
+    check(code == 409 and os.path.isfile(os.path.join(fw, 'sagga-0.20.fwsc')), 'the package being installed is not deleted (%d %s)' % (code, body))
+    code, body = upload(hub_zip())
+    check(code == 409 and b'FM-1' in body, 'no update while the FM-1 installs: the restart would kill the install (%d %s)' % (code, body))
+    time.sleep(1.2)
+    # the zips that are refused, and why
+    import zipfile
+    for zb, why, what in ((b'PK not a zip at all', 'non è uno zip', 'not a zip'),
+                          (hub_zip(top='sagga-seq-0.20'), 'sagga-hub-X', 'the source zip, not the hub'),
+                          (hub_zip(extra={'other/x': 'y'}), 'una cartella sola', 'two folders'),
+                          (hub_zip(extra={'sagga-hub-9.9/../../evil': 'y'}), 'fuori dalla cartella', 'a path out of the folder'),
+                          (hub_zip(extra={'/etc/cron.d/x': 'y'}), 'fuori dalla cartella', 'an absolute path'),
+                          (hub_zip(link='hub/patterns'), 'symlink', 'a link'),
+                          (hub_zip(drop=('install_hub.sh',)), 'manca install_hub.sh', 'no installer'),
+                          (hub_zip(drop=('hub/sagga_fw.py',)), 'manca hub/sagga_fw.py', 'no page'),
+                          (hub_zip(script='echo hi\n'), "non è lo script", 'an installer that is not ours'),
+                          (hub_zip(page='def broken(:\n'), 'non è Python valido', 'a page that does not compile'),
+                          (hub_zip(page='print(1)\n'), 'non sa aggiornarsi', 'an older hub (0.20): its page has no update')):
+        code, body = upload(zb)
+        check(code == 400 and why.encode() in body, 'refused, %s: %d %s' % (what, code, body.decode('utf-8', 'replace')))
+    rel = os.path.join(ROOT, 'build', 'release020', 'sagga-hub-0.20.zip')
+    if os.path.isfile(rel):
+        code, body = upload(open(rel, 'rb').read(), name='sagga-hub-0.20.zip')
+        check(code == 400 and 'non sa aggiornarsi' in body.decode('utf-8', 'replace'), 'the real 0.20 hub zip is refused: no going back to a page without the update')
+    check(not os.path.exists(os.path.join(up, 'update.log')), 'a refused zip starts nothing')
+    code, _ = upload(hub_zip(), guard=False)
+    check(code == 403, 'an update without the page header is refused (%d)' % code)
+    # the update
+    code, body = upload(hub_zip(script='#!/bin/sh\necho "fake install $*"\necho "pwd $(pwd)"\nsleep 0.4\necho "sagga_sgqmid built"\n'))
+    check(code == 200 and json.loads(body)['version'] == '9.9', 'the update starts (%d %s)' % (code, body))
+    st = state_json()['update']
+    check(st and st['running'] and st['version'] == '9.9' and st['log'][0].startswith('update 9.9 from sagga-hub-9.9.zip'),
+          'the page sees it running (%s)' % st)
+    code, body = upload(hub_zip())
+    check(code == 409, 'a second update while one runs: 409 (%d)' % code)
+    req = urllib.request.Request(base + '/api/install?file=sagga-0.20.fwsc', method='POST')
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        check(False, 'no FM-1 install while the Pi updates')
+    except urllib.error.HTTPError as e:
+        check(e.code == 400 and json.loads(e.read())['error'] == 'the Pi is updating', 'no FM-1 install while the Pi updates')
+    st = wait_done()
+    check(st and st['rc'] == 0 and 'fake install --no-pc' in st['log'] and 'sagga_sgqmid built' in st['log'] and st['log'][-1] == 'exit 0',
+          'the installer ran with --no-pc, its lines in the log, exit 0 (%s)' % (st and st['log']))
+    check(any(ln.startswith('pwd ') and ln.endswith('/sagga-hub-9.9') for ln in st['log']), 'from the zip\'s folder, as install_hub.sh wants')
+    check(not [n for n in os.listdir(up) if n.startswith('stage-')], 'the unpacked zip is cleaned up after')
+    # a new page process (what install_hub.sh's restart makes) reads the same files
+    st2 = FW.State(fw, pr, writer=state.writer, upd_dir=up).update_status()
+    check(st2['rc'] == 0 and st2['version'] == '9.9', 'after the restart the page still knows how the update went')
+    code, body = upload(hub_zip(top='sagga-hub-9.10', script='#!/bin/sh\necho "no gcc"\nexit 3\n'), name='sagga-hub-9.10.zip')
+    st = wait_done()
+    check(code == 200 and st['rc'] == 3 and st['version'] == '9.10' and 'no gcc' in st['log'], 'a failing installer: exit 3, on the page (%s)' % st)
+    # with systemd: systemd-run, a unit of its own (sagga-fw's restart does not kill it), the PC port kept if it is on
+    rec = os.path.join(d, 'sdrun.txt')
+    sd = os.path.join(d, 'systemd-run')
+    open(sd, 'w').write('#!/bin/sh\necho "$@" > %s\nwhile [ "$1" != "--quiet" ]; do shift; done; shift\n"$@" &\n' % rec)
+    os.chmod(sd, 0o755)
+    FW.SYSTEMD_RUN = sd
+    FW.pc_enabled = lambda: True
+    code, body = upload(hub_zip())
+    st = wait_done()
+    args = open(rec).read().split() if os.path.isfile(rec) else []
+    check(code == 200 and args[:2] == ['--unit', args[1]] and args[1].startswith('sagga-update-') and '--collect' in args,
+          'systemd-run starts it as a transient unit (%s)' % args[:4])
+    check(st['rc'] == 0 and 'fake install' in ' '.join(st['log']) and '--no-pc' not in [w for ln in st['log'][1:] for w in ln.split()],
+          'with the PC port on, the installer runs without --no-pc (%s)' % st['log'])
+    FW.SYSTEMD_RUN = None
+    # the real hub zip passes the check (make_release.sh, the files it really ships)
+    mk = os.path.join(ROOT, 'tools', 'make_release.sh')
+    if os.path.isfile(mk) and shutil_which('zip') and shutil_which('cc'):
+        out = os.path.join(d, 'rel')
+        r = subprocess.run(['sh', mk, '0.0.1', out], capture_output=True, text=True, cwd=ROOT)
+        zp = os.path.join(out, 'sagga-hub-0.0.1.zip')
+        if r.returncode == 0 and os.path.isfile(zp):
+            z, top, ver = FW.check_hub_zip(open(zp, 'rb').read())
+            check(top == 'sagga-hub-0.0.1' and ver == '0.0.1', 'the zip make_release.sh makes is one the page takes (%s %s)' % (top, ver))
+        else:
+            check(False, 'make_release.sh runs (%s)' % r.stderr[-300:])
+    else:
+        print('  (no make_release.sh / zip / cc here: the real zip is not checked)')
+    sh = open(os.path.join(HUB, 'install_hub.sh')).read()
+    check('/opt/sagga/hub/VERSION' in sh and 'sagga-hub-*' in sh, 'install_hub.sh writes the version the page shows')
+    FW.HERE = d
+    open(os.path.join(d, 'VERSION'), 'w').write('0.20.1\n')
+    check(state_json()['version'] == '0.20.1', 'the page shows the hub version')
+    # the delete on the read-only boot partition: remount rw, unlink, remount ro
+    calls = []
+    boot = os.path.join(d, 'boot')
+    os.makedirs(os.path.join(boot, 'sagga', 'firmware'))
+    open(os.path.join(boot, 'sagga', 'firmware', 'old.fwsc'), 'wb').write(b'o')
+    bw = FW.BootWriter(os.path.join(boot, 'sagga', 'firmware'), run=lambda cmd: calls.append(cmd),
+                       mounts=lambda: [('/', ['rw']), (boot, ['ro'])], lock=None)
+    st3 = FW.State(os.path.join(boot, 'sagga', 'firmware'), pr, writer=bw, upd_dir=up)
+    check(st3.delete_package('old.fwsc') is None and not os.path.exists(os.path.join(boot, 'sagga', 'firmware', 'old.fwsc'))
+          and calls[0] == ['mount', '-o', 'remount,rw', boot] and calls[-1] == ['mount', '-o', 'remount,ro', boot],
+          'Elimina on the read-only boot partition: opened, the file away, closed (%s)' % calls)
+    srv.shutdown()
+
+
+def shutil_which(x):
+    import shutil
+    return shutil.which(x)
+
+
 def main():
-    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions):
+    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions, t_update_delete):
         try:
             t()
         except Exception as e:

@@ -5,6 +5,7 @@
 #     sudo sh install_hub.sh            # the expander: everything, and the UART for the RP2040 (Bluetooth off)
 #     sudo sh install_hub.sh --no-pc    # a home Pi without the RP2040: no UART changes, no PC port service
 # Idempotent: run it again after an update. The root file system is made writable while it runs (rw / ro).
+# 0.20.1: from then on the hub page (port 8090, AGGIORNA IL PI) runs it by itself on an uploaded sagga-hub-X.zip.
 set -e
 [ "$(id -u)" = 0 ] || { echo "run with sudo"; exit 1; }
 PC=1; [ "$1" = "--no-pc" ] && PC=0
@@ -16,6 +17,8 @@ elif grep -q " / [^ ]* ro[ ,]" /proc/mounts; then ROOT_RO=1; mount -o remount,rw
 apt-get install -y --no-install-recommends python3-mido python3-rtmidi python3-serial python3-usb gcc libc6-dev >/dev/null || \
     echo "apt failed: is the Pi on the internet? (USB tethering from the phone does it)"
 install -d /opt/sagga/hub
+# 0.20.1: the hub's version (the zip's folder, sagga-hub-X): the page shows it at the top
+case "$(basename "$HERE")" in sagga-hub-*) basename "$HERE" | sed 's/^sagga-hub-//' > /opt/sagga/hub/VERSION ;; esac
 install -m 755 "$HERE/sagga_grid_bridge.py" "$HERE/fm1_install.py" /opt/sagga/
 [ -f "$HERE/patches.json" ] && install -m 644 "$HERE/patches.json" /opt/sagga/ || true
 install -m 755 "$HERE/sagga_m8_host.py" /opt/sagga/
