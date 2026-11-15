@@ -48,6 +48,11 @@ class BancoFM1(HX.FakeFM1):
         self.bridge_up_at_yes = None
         self.sysm = None
 
+    def out2(self, data):
+        link = self.links.get(1)
+        if link and link.on_message and self.connected():
+            link.on_message(bytes(data), time.perf_counter())
+
     def _yes(self):
         if self.sysm is not None:
             self.bridge_up_at_yes = not any(c[:2] == ["systemctl", "stop"] for c in self.sysm.calls)
@@ -67,11 +72,12 @@ class BancoFM1(HX.FakeFM1):
                 self.out(T.HEAD + [T.SX_TST_HEARD] + T.put7(self.seq, 2) + [1] + T.put7(now, 4) + T.put7(now // 20, 4) +
                          [m[0] & 127, m[1], m[2], 1, 0xF7])
                 self.seq += 1
-                if m[:3] == [0xBF, 118, 127]:
-                    for x in range(4):
-                        self.out(bytes([0x9F, 16 * x + x, 3 + x]))
-                    self.out(bytes([0xBE, 7, 5]))
-                    self.out(bytes([0xBE, 27, 6]))
+                if m[:3] == [0xBF, 118, 127]:            # (the lights on port 2, as the FM-1 with two ports; on
+                    for x in range(4):                   #  port 1 a track 16 note, which is no light)
+                        self.out2(bytes([0x9F, 16 * x + x, 3 + x]))
+                    self.out2(bytes([0xBE, 7, 5]))
+                    self.out2(bytes([0xBE, 27, 6]))
+                    self.out(bytes([0x9F, 0x22, 100]))
             return
         if m[:4] == T.HEAD and len(m) > 6 and m[4] == T.SX_TST and m[5] == T.GO:
             self.listen = len(m) > 7 and bool(m[6] & 1)

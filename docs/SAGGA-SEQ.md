@@ -12,6 +12,15 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.5 (the Pi only)
+
+The banco's runner takes the grid's lights and the values for the pages from the FM-1's remote port only (port 2 with
+two): it took them from both, and the STOP's sustain-off for the synths (CC 64 = 0 on every channel, port 1) looked
+like a value of SAGGA Motori (l15, channel 13 CC 64). A crash of the runner is now written in its own log. The first
+runs on the real banco: the FM-1 equals the simulator; the pages, the matrix and the bridge carry every command; the
+values the FM-1 sends back on CC 6 (QUANTISE, the LIVE page's SWING) do not reach the pages (CC 6 is MIDI's Data Entry
+of RPN / NRPN), every other value does: to be moved to other CCs with a firmware.
+
 ## What is new in 0.20.4 (the Pi only)
 
 The banco's explorer stopped the grid bridge before asking the FM-1 for its yes: the FM-1 then let the grid go and its

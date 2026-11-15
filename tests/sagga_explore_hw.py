@@ -36,6 +36,7 @@ import sagga_testport as T  # noqa: E402
 OFF = 400                         # the plan's first event, after GO (the PC has sent its first frames by then)
 GO_SIM = 3000                     # the stand-in's GO: as an FM-1 a few seconds after its reboot
 SX_RE = re.compile(r"^\s*(\d+) ms  SYSEX out ([0-9A-F ]+?)( port 2)?$")
+MIDI_PORT_RE = re.compile(r"^\s*(\d+) ms  MIDI out ([0-9A-F]{2}) (\d+) (\d+)( port 2)?$")   # 0.20.4: the port too
 
 
 def to_events(lines):
@@ -230,9 +231,9 @@ def collect(out):
             elif a[0] == "heard":
                 heard.add(*a[1])
             continue
-        m = E.MIDI_RE.match(line)
+        m = MIDI_PORT_RE.match(line)
         if m:
-            rec["midi"].append([int(m.group(1)), int(m.group(2), 16), int(m.group(3)), int(m.group(4))])
+            rec["midi"].append([int(m.group(1)), int(m.group(2), 16), int(m.group(3)), int(m.group(4)), 2 if m.group(5) else 1])
     rec["sonde"] = {str(k): v for k, v in pr.done.items()}
     if heard.by_seq:
         rec["sentiti"] = heard.rows()
@@ -414,6 +415,21 @@ def compare(session, heard=None):
                 if i in sp2 and not [x for x in pdiff(sp2[i], hw_p[i]) if x[0] not in systematic and not msg_expiry(x)]:
                     hit = (ms, rp, sim2, sp2)
                     break
+        if not hit and len(shifted) < 8:
+            # 0.20.4: an earlier gesture a ms off can show only now (the dice draws from the same random numbers the
+            # music draws from at its own ms): every event up to this probe a ms or two later or earlier, or at its ms
+            # without its clock tick
+            upto = [j for j in replay if j <= i]
+            for ms in (1, -1, 2, -2, 3, -3, None):
+                rp = dict(replay)
+                for j in upto:
+                    rp[j] = (rp[j][0], T.NOGC) if ms is None else (rp[j][0] + ms,) + tuple(rp[j][1:])
+                sim2, _ = replay_sim(rp)
+                sp2 = {int(k): T.probe_dict(v) for k, v in sim2["sonde"].items()}
+                if i in sp2 and not [x for x in pdiff(sp2[i], hw_p[i]) if x[0] not in systematic and not msg_expiry(x)]:
+                    hit = (ms if ms is not None else 0, rp, sim2, sp2)
+                    role = "%s (tutto fin qui%s)" % (role, " senza i tick" if ms is None else "")
+                    break
         if hit:
             ms, replay, sim, sim_p = hit
             shifted.append((role, ms))
@@ -442,7 +458,8 @@ def compare(session, heard=None):
     pf = hw_p.get(roles.get("fermo"))
     if hw.get("done") and pf and pf.get("G", {}).get("play") == "0":      # (the last PLAY may have started it again)
         seen = lambda k: any(p.get("G", {}).get(k) == "1" for p in hw_p.values())   # (0.18: the grid's lights, the tablet's LFO switches)
-        hung = E.hung_notes([tuple(m) for m in hw["midi"]], grid=seen("grid"), tablet=seen("tabseen"))
+        hung = E.hung_notes([tuple(m[:4]) for m in hw["midi"] if not (len(m) > 4 and m[4] == 2)], grid=seen("grid"),
+                            tablet=seen("tabseen"))
         if hung:
             found.append(("NOTE APPESE", "ERRORE", ", ".join(hung[:6])))
     seen = lambda k: any(p.get("G", {}).get(k) == "1" for p in hw_p.values())

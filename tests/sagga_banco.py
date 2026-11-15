@@ -34,6 +34,8 @@ sys.path.insert(0, os.path.join(E.ROOT, "tools"))
 import sagga_grid_bridge as B    # noqa: E402
 
 PAGES = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
+R_NAMES = {"sagga_remote": "SAGGA Remote", "sagga_mutes": "SAGGA Mutes", "sagga_motori": "SAGGA Motori",
+           "sagga_break": "SAGGA Break", "sagga_mod": "SAGGA Mod", "sagga_live": "SAGGA Live"}
 SNAP = 250                        # the grid's lights read after a probe (sagga_banco.SNAP_MS)
 HB = 1000                         # the bridge's keep-alive (B.HEARTBEAT_S)
 SKIP_CELLS = set()                # (none: the test keeps the slots and the settings shut, RELOAD and the rest are safe)
@@ -273,9 +275,11 @@ def lights(session, sim):
     what the FM-1 had sent it, [(probe, what)] the FM-1's lights are not the simulator's where both stand still)"""
     hw = session["fm1"]
     go = hw["go_ms"]
-    fm = [[go + m[0]] + list(m[1:4]) for m in hw.get("midi") or [] if m[1] in GRID_ST]
+    two = (hw.get("hello_prima") or {}).get("usb_ports", 1) >= 2
+    remote = lambda m: len(m) < 5 or not two or m[4] == 2       # (0.20.4: the lights come on port 2; old raccolte: all)
+    fm = [[go + m[0]] + list(m[1:4]) for m in hw.get("midi") or [] if m[1] in GRID_ST and remote(m)]
     ch_hw = light_changes(fm)
-    ch_sim = light_changes(sorted(sim.get("midi") or [], key=lambda m: m[0])) if sim is not None else None
+    ch_sim = light_changes(sorted((m for m in sim.get("midi") or [] if remote(m)), key=lambda m: m[0])) if sim is not None else None
     end = fm[-1][0] if fm else go
     bridge, versus = [], []
     for k, snap in sorted((hw.get("luci") or {}).items(), key=lambda kv: int(kv[0])):
@@ -370,6 +374,19 @@ def compare(session):
             found.append(("SENTITI", "VISTO", "%d messaggi da un altro dispositivo (rifatti anche nel simulatore): %s" % (
                 len(other), "; ".join("%s porta %d" % (msg_txt(h[2:5]), h[5] + 1) for h in other[:4]))))
     v = hw.get("valori") or {}
+    if v.get("sbagliati") and hw.get("midi") and len(hw["midi"][0]) < 5:
+        # a raccolta of 0.20.3: the Pi took the values from both ports; on port 1 the STOP sends CC 64 = 0 (sustain off)
+        # with CC 123 at the same ms on every channel - not a value for a page (SAGGA Motori l15, SAGGA Mutes k0)
+        panic = {(m[1] & 15, m[0]) for m in hw["midi"] if (m[1] & 0xF0) == 0xB0 and m[2] == 123}
+        keep = []
+        for w in v["sbagliati"]:
+            cell = [c for c in pages().get(next((p for p, n in R_NAMES.items() if n == w[0]), ""), (None, []))[1] if c.param.name == w[1]]
+            if cell and cell[0].cc == 64:
+                last = [m for m in hw["midi"] if m[1] == 0xB0 | cell[0].channel and m[2] == 64]
+                if last and (cell[0].channel, last[-1][0]) in panic:
+                    continue
+            keep.append(w)
+        v = dict(v, sbagliati=keep)
     if v.get("sbagliati"):
         found.append(("VALORI", "ERRORE", "%d celle su %d non seguono l'FM-1: %s" % (len(v["sbagliati"]), v.get("controllati", 0),
                      "; ".join("%s %s FM-1 %s, pagina %s" % tuple(x) for x in v["sbagliati"][:5]))))
@@ -480,7 +497,7 @@ def run_like_banco(sess, rnd, settings=(2, 0), drop_pages=False, lose_heard=Fals
         del rec["sentiti"][8:20]                  # (a frame of twelve)
     go = rec["go_ms"]
     rec["midi"] = [[m[0] - go] + list(m[1:]) for m in sorted(rec["midi"], key=lambda m: m[0])]   # (the Pi's: ms after GO)
-    grid = [m for m in rec["midi"] if m[1] in GRID_ST]
+    grid = [m for m in rec["midi"] if m[1] in GRID_ST and (port == 1 or m[4] == 2)]   # (the bridge hears port 2)
     rec["luci"] = {}
     for i, e in enumerate(sess["eventi"]):
         if e[1] == T.PROBE:

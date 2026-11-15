@@ -48,7 +48,7 @@ HUB_NEEDS = ('install_hub.sh', 'hub/sagga_fw.py', 'hub/sagga-fw.service', 'fm1_i
 GUARD = 'X-Sagga-Hub'          # 0.20.1: the page's own requests carry it (a form of another site cannot: no CSRF)
 BANCO = os.path.join(HERE, 'sagga_banco.py')                                    # 0.20.3: the banco's explorer
 BANCO_DIR = os.environ.get('SAGGA_BANCO_DIR', '/run/sagga-banco')               # ... its log and files (tmpfs)
-BANCO_FILE_RE = re.compile(r'^(raccolta-banco-[0-9-]+\.json|RAPPORTO-BANCO-[0-9-]+\.md|banco-[0-9-]+\.log)$')
+BANCO_FILE_RE = re.compile(r'^(raccolta-banco-[0-9-]+\.json|RAPPORTO-BANCO-[0-9-]+\.md|banco-[0-9-]+\.log|banco\.out)$')
 
 
 def hub_version():

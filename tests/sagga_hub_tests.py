@@ -696,14 +696,14 @@ json.dump(st, open(os.path.join(out, "banco.json"), "w"))
     b = wait(lambda b: not b['running'])
     check(b['rc'] == 0 and not b['ask'] and b['log'][-1] == 'Raccolta', 'finished: rc 0, the log (%s)' % b)
     names = sorted(f['name'] for f in b['files'])
-    check(names == ['RAPPORTO-BANCO-20260101-000000.md', 'banco-20260101-000000.log', 'raccolta-banco-20260101-000000.json'],
-          'its files listed (%s)' % names)
+    check(names == ['RAPPORTO-BANCO-20260101-000000.md', 'banco-20260101-000000.log', 'banco.out', 'raccolta-banco-20260101-000000.json'],
+          'its files listed, and what the program printed (a crash) (%s)' % names)
     code, body, hd = get('/banco/raccolta-banco-20260101-000000.json')
     check(code == 200 and body == b'{}' and 'attachment' in hd.get('Content-Disposition', ''), 'the raccolta downloads (%d)' % code)
     for bad in ('../banco.json', 'banco.json', 'argv.txt', '..%2F..%2Fetc%2Fpasswd'):
         check(get('/banco/' + bad)[0] == 404, 'only its own files: %s 404' % bad)
     keep = os.path.join(pr, 'banco')
-    check(sorted(os.listdir(keep)) == names, 'the files also on the SD (%s)' % (os.listdir(keep) if os.path.isdir(keep) else None))
+    check(sorted(os.listdir(keep)) == [n for n in names if n != 'banco.out'], 'the files also on the SD (%s)' % (os.listdir(keep) if os.path.isdir(keep) else None))
     shutil_rm = __import__('shutil').rmtree
     shutil_rm(bd)
     b = banco()

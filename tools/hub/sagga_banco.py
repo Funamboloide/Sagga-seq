@@ -548,12 +548,24 @@ def values_back(api, insts, feedback):
     return wrong, checked
 
 
+def take_tagged(hub):
+    """what came in from every port of the FM-1, in order: (t, data, from the remote's port?) - the remote's port is the
+    one the test answers on (port 2 with two, else the only one)"""
+    out = []
+    for p in hub.ports:
+        for t, d in p.take():
+            out.append((t, d, p is hub.ctl))
+    out.sort(key=lambda x: x[0])
+    return out
+
+
 def run_session(hub, sess, pages, grid, say, clock_box):
     """one session: the panel and the probes through the FM-1's test, the pages through the hub, the grid through the
     bridge -> its record (the Windows runner's, plus reali, luci, ponte)"""
     events = [tuple(e) for e in sess["eventi"]]
     reali = sorted((list(r) for r in sess.get("reali", [])), key=lambda r: r[1])
     probes_at = [i for i, e in enumerate(events) if e[1] == T.PROBE]
+    two = len(hub.ports) > 1                             # (the FM-1 with USB PORTS 2: hub.ctl is its port 2)
     rec = {"go_ms": None, "presi": {}, "sonde": {}, "midi": [], "done": None, "abort": None, "errore": None,
            "rimandati": 0, "di_nuovo": 0, "luci": {}, "feedback": {}}
     hub.take()
@@ -594,7 +606,7 @@ def run_session(hub, sess, pages, grid, say, clock_box):
         while snaps and snaps[0][0] <= rel:
             t_s, i = snaps.pop(0)
             rec["luci"][str(i)] = {"t": round(rel, 1), "n": grid.fed, "ruoli": grid.roles()}
-        for t, d in hub.take():
+        for t, d, remote in take_tagged(hub):
             last_rx = t
             if d[0] == 0xF0:
                 a = T.parse(d)
@@ -616,14 +628,16 @@ def run_session(hub, sess, pages, grid, say, clock_box):
                 elif k == "heard":
                     heard.add(*v)
                 continue
-            if len(d) == 3 and d[0] in GRID_ST:
+            # (0.20.4: the grid's lights and the values for the pages only from the remote's port - port 2 with two: on
+            #  port 1 channel 16 is a track and CC 64 the STOP's sustain off for the synths)
+            if remote and len(d) == 3 and d[0] in GRID_ST:
                 grid.from_fm1(d)
-            if len(d) == 3 and (d[0] & 0xF0) == 0xB0 and (d[0] & 15) in (11, 12, 13):
+            if remote and len(d) == 3 and (d[0] & 0xF0) == 0xB0 and (d[0] & 15) in (11, 12, 13):
                 feedback["cc %d %d" % (d[0] & 15, d[1])] = d[2]
-            elif len(d) == 3 and (d[0] & 0xF0) in (0x80, 0x90) and (d[0] & 15) == 12 and 100 <= d[1] < 116:
+            elif remote and len(d) == 3 and (d[0] & 0xF0) in (0x80, 0x90) and (d[0] & 15) == 12 and 100 <= d[1] < 116:
                 feedback["note %d %d" % (12, d[1])] = d[2] if (d[0] & 0xF0) == 0x90 else 0
             if (d[0] & 0xF0) in X.MIDI_KEEP or d[0] in (0xF8, 0xFA, 0xFB, 0xFC):
-                rec["midi"].append([round((t - t_go) * 1000.0, 1)] + list(d[:3]) + [0] * (3 - len(d[:3])))
+                rec["midi"].append([round((t - t_go) * 1000.0, 1)] + list(d[:3]) + [0] * (3 - len(d[:3])) + [2 if remote and two else 1])
         if rec["abort"] is not None:
             break
         try:
@@ -892,7 +906,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
             s2["fm1"] = rec
             out["sessioni"].append(s2)
             T.save(out_json, out)
-            music = [m for m in rec["midi"] if not (m[1] in GRID_ST or m[1] == 0xBF or ((m[1] & 0xEF) == 0x8B and 100 <= m[2] < 116))]
+            music = [m[:4] for m in rec["midi"] if not (len(m) > 4 and m[4] == 2) and not (m[1] in GRID_ST or m[1] == 0xBF or
+                     ((m[1] & 0xEF) == 0x8B and 100 <= m[2] < 116))]
             probs, got, want, lag = X.quick(sess, dict(rec, midi=music))   # (not the grid's lights, nor the LFO switches)
             if wrong:
                 probs.append("VALORI: %d celle delle pagine non seguono l'FM-1 (%s)" % (len(wrong), ", ".join("%s %s" % (w[0], w[1]) for w in wrong[:3])))
@@ -916,6 +931,12 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
                 break
     except KeyboardInterrupt:
         say("Interrotto.")
+    except Exception:                                   # (0.20.4: said in the log the page shows, not lost on stderr)
+        import traceback
+        say("ERRORE del programma, la prova si ferma qui:")
+        for line in traceback.format_exc().rstrip().splitlines():
+            say("  " + line)
+        rc = 2
     finally:
         if hub is not None and hello and hello.get("booted"):
             hub.send_and_go(T.close(), "CLOSE")
