@@ -599,13 +599,144 @@ def t_update_delete():
     srv.shutdown()
 
 
+def t_banco():
+    print("0.20.3: the ESPLORATORE DEL BANCO on the hub's page: started in a unit of its own, its log and the SEL prompt, "
+          "the FM-1 left alone meanwhile, its files to download and kept on the SD, the cells of an interrupted prova")
+    d = tempfile.mkdtemp()
+    fw, pr, bd = os.path.join(d, 'fw'), os.path.join(d, 'projects'), os.path.join(d, 'run', 'sagga-banco')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    open(os.path.join(fw, 'sagga-0.20.3.fwsc'), 'wb').write(b'x' * 100)
+    fake = os.path.join(d, 'fake_banco.py')
+    open(fake, 'w').write(r'''import json, os, sys, time
+a = sys.argv[1:]
+out = a[a.index("--out") + 1]
+open(os.path.join(out, "argv.txt"), "w").write(" ".join(a))
+q = "20260101-000000"
+modo = "matrice" if "--solo-matrice" in a else "rimetti" if "--rimetti" in a else "prova"
+st = {"pid": os.getpid(), "started": time.time(), "rc": None, "quando": q, "modo": modo}
+json.dump(st, open(os.path.join(out, "banco.json"), "w"))
+log = open(os.path.join(out, "banco-%s.log" % q), "w")
+log.write("LA MATRICE\n  tutto a posto\n"); log.flush()
+if modo == "prova":
+    log.write(">>> Sull'FM-1: premi SEL per dire si' (20 secondi). Un altro tasto = no.\n"); log.flush()
+    time.sleep(1.0)
+    log.write("Si'. Si comincia\n"); log.flush()
+    open(os.path.join(out, "raccolta-banco-%s.json" % q), "w").write("{}")
+open(os.path.join(out, "RAPPORTO-BANCO-%s.md" % q), "w").write("# rapporto\n")
+log.write("Raccolta\n"); log.close()
+st["rc"] = 0
+json.dump(st, open(os.path.join(out, "banco.json"), "w"))
+''')
+    FW.BANCO = fake
+    FW.SYSTEMD_RUN = None
+    FW.INSTALLER = os.path.join(d, 'none.py')
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]), upd_dir=os.path.join(d, 'upd'), banco_dir=bd)
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    base = 'http://127.0.0.1:%d' % srv.server_address[1]
+
+    def post(path, guard=True):
+        req = urllib.request.Request(base + path, data=b'', method='POST', headers={FW.GUARD: '1'} if guard else {})
+        try:
+            r = urllib.request.urlopen(req, timeout=10)
+            return r.status, r.read()
+        except urllib.error.HTTPError as e:
+            return e.code, e.read()
+
+    def get(path):
+        try:
+            r = urllib.request.urlopen(base + path, timeout=5)
+            return r.status, r.read(), r.headers
+        except urllib.error.HTTPError as e:
+            return e.code, e.read(), e.headers
+
+    def banco():
+        return json.loads(urllib.request.urlopen(base + '/api/state', timeout=5).read())['banco']
+
+    def wait(cond, t=6.0):
+        end = time.time() + t
+        while time.time() < end:
+            b = banco()
+            if cond(b):
+                return b
+            time.sleep(0.05)
+        return banco()
+    page = get('/')[1]
+    check(b'ESPLORATORE DEL BANCO' in page and b"banco('matrice')" in page and b"banco('prova')" in page and b"banco('rimetti')" in page,
+          'the page: the banco section, its three buttons')
+    b = banco()
+    check(not b['running'] and b['rc'] is None and not b['celle'] and not b['files'], 'nothing run yet (%s)' % b)
+    code, _ = post('/api/banco?modo=prova', guard=False)
+    check(code == 403 and not os.path.exists(os.path.join(bd, 'banco.json')), 'without the page header: refused (%d)' % code)
+    code, _ = post('/api/banco?modo=niente')
+    check(code == 400, 'an unknown mode: 400 (%d)' % code)
+    code, _ = post('/api/banco?modo=prova&stacca=0&sessioni=4')
+    b = wait(lambda b: b['ask'])
+    check(code == 200 and b['running'] and b['modo'] == 'prova' and b['ask'], 'the prova runs, the page asks for SEL (%d %s)' % (code, b))
+    argv = open(os.path.join(bd, 'argv.txt')).read().split()
+    check('--non-staccare' in argv and argv[argv.index('--sessioni') + 1] == '4' and argv[argv.index('--celle') + 1] == os.path.join(pr, 'banco', 'celle-staccate.json'),
+          'the runner gets the options: synths kept, 4 sessions, the cells file on the SD (%s)' % argv)
+    st = json.loads(urllib.request.urlopen(base + '/api/state', timeout=5).read())
+    check(st['busy'], 'the FM-1 is busy meanwhile')
+    code, body = post('/api/banco?modo=matrice')
+    check(code == 409, 'a second run: 409 (%d)' % code)
+    req = urllib.request.Request(base + '/api/install?file=sagga-0.20.3.fwsc', method='POST')
+    try:
+        urllib.request.urlopen(req, timeout=5)
+        check(False, 'no install while the banco runs')
+    except urllib.error.HTTPError as e:
+        check(e.code == 400 and 'banco' in json.loads(e.read())['error'], 'no install while the banco runs')
+    code, body = post('/api/fm1/send?file=x.sgq', guard=False)
+    check(code == 409 and 'banco' in body.decode(), 'the editor does not reach the FM-1 meanwhile (%d)' % code)
+    b = wait(lambda b: not b['running'])
+    check(b['rc'] == 0 and not b['ask'] and b['log'][-1] == 'Raccolta', 'finished: rc 0, the log (%s)' % b)
+    names = sorted(f['name'] for f in b['files'])
+    check(names == ['RAPPORTO-BANCO-20260101-000000.md', 'banco-20260101-000000.log', 'raccolta-banco-20260101-000000.json'],
+          'its files listed (%s)' % names)
+    code, body, hd = get('/banco/raccolta-banco-20260101-000000.json')
+    check(code == 200 and body == b'{}' and 'attachment' in hd.get('Content-Disposition', ''), 'the raccolta downloads (%d)' % code)
+    for bad in ('../banco.json', 'banco.json', 'argv.txt', '..%2F..%2Fetc%2Fpasswd'):
+        check(get('/banco/' + bad)[0] == 404, 'only its own files: %s 404' % bad)
+    keep = os.path.join(pr, 'banco')
+    check(sorted(os.listdir(keep)) == names, 'the files also on the SD (%s)' % (os.listdir(keep) if os.path.isdir(keep) else None))
+    shutil_rm = __import__('shutil').rmtree
+    shutil_rm(bd)
+    b = banco()
+    check([f['where'] for f in b['files']] == ['sd'] * 3 and get('/banco/RAPPORTO-BANCO-20260101-000000.md')[0] == 200,
+          'after a reboot (/run empty) they are still there, from the SD (%s)' % b['files'])
+    open(os.path.join(keep, 'celle-staccate.json'), 'w').write('{"celle": [1]}')
+    check(banco()['celle'], 'the cells of an interrupted prova: the page offers to put them back')
+    code, _ = post('/api/banco?modo=rimetti')
+    b = wait(lambda b: not b['running'] and b['rc'] is not None)
+    check(code == 200 and '--rimetti' in open(os.path.join(bd, 'argv.txt')).read(), 'Rimetti le celle runs it with --rimetti (%d)' % code)
+    code, _ = post('/api/banco?modo=matrice')
+    wait(lambda b: not b['running'] and b['rc'] is not None)
+    check(code == 200 and '--solo-matrice' in open(os.path.join(bd, 'argv.txt')).read(), 'Controlla la matrice: --solo-matrice')
+    rec = os.path.join(d, 'sdrun.txt')
+    sd = os.path.join(d, 'systemd-run')
+    open(sd, 'w').write('#!/bin/sh\necho "$@" > %s\nwhile [ "$1" != "--quiet" ]; do shift; done; shift\n"$@" &\n' % rec)
+    os.chmod(sd, 0o755)
+    FW.SYSTEMD_RUN = sd
+    code, _ = post('/api/banco?modo=matrice')
+    wait(lambda b: not b['running'] and b['rc'] is not None)
+    args = open(rec).read().split() if os.path.isfile(rec) else []
+    check(code == 200 and args[:2] == ['--unit', args[1]] and args[1].startswith('sagga-banco-') and '--collect' in args,
+          'with systemd: a unit of its own (the page may restart, the prova goes on) (%s)' % args[:4])
+    FW.SYSTEMD_RUN = None
+    FW.BANCO = os.path.join(d, 'missing.py')
+    code, body = post('/api/banco?modo=prova')
+    check(code == 404, 'not installed: said (%d)' % code)
+    srv.shutdown()
+
+
 def shutil_which(x):
     import shutil
     return shutil.which(x)
 
 
 def main():
-    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions, t_update_delete):
+    for t in (t_packets, t_c_header, t_pc_link, t_fw_page, t_patterns, t_progressions, t_update_delete, t_banco):
         try:
             t()
         except Exception as e:

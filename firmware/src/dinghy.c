@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.20"
+#define SQ_VERSION "0.20.3"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -41,7 +41,8 @@ _Static_assert(BRK_GENRES == SQ_GENRES, "a BREAK chop list for every genre of th
  * reads the panel through in_held() / in_notes(); tst_booted: this boot is the test's (no project, no slots) */
 static uint32_t tst_buttons, tst_notes, tst_edges;
 static int32_t tst_enc[8];
-static uint8_t tst_on, tst_booted;
+static uint8_t tst_on, tst_booted, tst_listen;      /* 0.20.3 tst_listen: the PC asked the test to hear the ports too */
+static void tst_heard(uint8_t st, uint8_t d1, uint8_t d2, uint8_t cab);   /* ... and to say where each message came */
 static uint32_t in_held(void) { return fm1_in.buttons | tst_buttons; }
 static uint32_t in_notes(void) { return fm1_in.notes | tst_notes; }
 static uint32_t tst_hands(uint32_t edges);           /* the hands' edges while the PC asks or tests: 1 = taken */
@@ -3183,7 +3184,10 @@ static void handle_midi_in(uint32_t now)
     uint8_t st, d1, d2;
     while (midi_get(&st, &d1, &d2)) {
         sq_midi_in_n++;
-        if (tst_booted) continue;                   /* 0.11: the PC test hears only its own SysEx (the same run each time) */
+        if (tst_booted) {                           /* 0.11: the PC test hears only its own SysEx (the same run each time); */
+            if (!tst_listen) continue;              /* 0.20.3: unless the PC asked to hear the ports too (the Pi's banco: */
+            tst_heard(st, d1, d2, midi_cable());    /* the hub's pages, the bridge): played, and where it came said to the */
+        }                                           /* PC, which replays it there in the simulator */
         midi_in_one(now, st, d1, d2, midi_cable());
     }
 }

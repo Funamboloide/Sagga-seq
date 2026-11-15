@@ -66,6 +66,31 @@ volta (per avere questa pagina) si passa ancora da SSH.
 Dalla 0.20.2 `install_hub.sh` gira in un servizio a parte anche da SSH: se il WiFi del Pi cade (succede quando
 RaspiMIDIHub riparte, adesso alla fine) l'installazione finisce lo stesso. Il registro è in `/run/sagga-install.log`.
 
+## ESPLORATORE DEL BANCO (0.20.3)
+
+L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORATORE.md`, "Il banco"). Sulla pagina
+(porta 8090):
+
+* **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
+  non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
+  Non cambia niente.
+* **Avvia la prova** (tutte le sessioni, una ventina di minuti, o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+  pagina chiede di premere SEL sull'FM-1; poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
+  preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
+  installato, con due Launchpad finti: il servizio del bridge è fermo durante la prova e riparte alla fine) e il
+  pannello dell'FM-1 con il test. Con **stacca i synth** (di solito sì) le celle fra l'FM-1 e tutto quello che non è
+  una pagina SAGGA sono tolte dalla matrice per la prova: i synth tacciono e niente di estraneo entra nell'FM-1.
+  Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
+  la prova si interrompe la pagina offre **Rimetti le celle** (la prova dopo le rimette anche da sola). Alla fine il
+  progetto che l'FM-1 aveva in memoria torna dov'era (`IMPORTED`: SAVE per tenerlo).
+* Il log sotto i bottoni; alla fine **raccolta-banco-...json**, **RAPPORTO-BANCO-...md** e il log si scaricano dalla
+  pagina. Stanno in `/run/sagga-banco` e anche sulla SD (`/boot/firmware/sagga/banco`, le ultime tre prove). La
+  raccolta si confronta con il simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json`.
+
+La prova gira in un servizio a parte (`systemd-run`, come l'aggiornamento): se la pagina si riavvia va avanti. Mentre
+gira l'FM-1 non si installa, il Pi non si aggiorna e l'editor non parla con l'FM-1. Da SSH:
+`sudo python3 /opt/sagga/hub/sagga_banco.py [--solo-matrice] [--sessioni 4] [--non-staccare] [--rimetti]`.
+
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
@@ -129,4 +154,6 @@ dell'FM-1 verso il computer no. La porta PC porta MIDI, non audio.
 ## Test
 
 `python3 tests/sagga_hub_tests.py` nel repository: pacchetti USB-MIDI e SLIP (anche contro il C del RP2040), il link
-della porta PC su una pseudo-seriale, la pagina dei firmware con un installatore finto. 35 controlli.
+della porta PC su una pseudo-seriale, la pagina dei firmware con un installatore finto, l'aggiornamento del Pi, la
+sezione del banco. `python3 tests/sagga_banco_tests.py`: il programma del banco contro un FM-1, un RaspiMIDIHub e un
+systemctl finti.

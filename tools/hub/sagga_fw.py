@@ -6,7 +6,9 @@ It keeps the FM-1 packages (.fwsc) in a folder, shows which firmware the connect
 pick (fm1_install.py over USB-MIDI, through the hub), takes new packages by upload, and lists the projects the grid
 bridge exported (.sgq) for download. 0.13: BREAK, a drum loop (WAV) cut into slices for a sampler (sagga_slicer.py),
 back as a zip. 0.20.1: a package away (Elimina), and the Pi updates itself from a sagga-hub-X.zip uploaded here
-(checked, unpacked in /run, install_hub.sh run in a unit of its own: it restarts this page). Standard library only.
+(checked, unpacked in /run, install_hub.sh run in a unit of its own: it restarts this page). 0.20.3: the ESPLORATORE
+DEL BANCO (sagga_banco.py, in a unit of its own too): the matrix checked, the FM-1, the pages and the grid tested
+together; its log here, its files to download. Standard library only.
 
     sudo python3 sagga_fw.py [--dir /boot/firmware/sagga/firmware] [--projects /boot/firmware/sagga] [--port 8090]
 """
@@ -44,6 +46,9 @@ SYSTEMD_RUN = shutil.which('systemd-run')                                       
 HUB_TOP_RE = re.compile(r'^sagga-hub-([0-9][0-9A-Za-z.\-]*)$')
 HUB_NEEDS = ('install_hub.sh', 'hub/sagga_fw.py', 'hub/sagga-fw.service', 'fm1_install.py', 'sagga_grid_bridge.py')
 GUARD = 'X-Sagga-Hub'          # 0.20.1: the page's own requests carry it (a form of another site cannot: no CSRF)
+BANCO = os.path.join(HERE, 'sagga_banco.py')                                    # 0.20.3: the banco's explorer
+BANCO_DIR = os.environ.get('SAGGA_BANCO_DIR', '/run/sagga-banco')               # ... its log and files (tmpfs)
+BANCO_FILE_RE = re.compile(r'^(raccolta-banco-[0-9-]+\.json|RAPPORTO-BANCO-[0-9-]+\.md|banco-[0-9-]+\.log)$')
 
 
 def hub_version():
@@ -211,9 +216,10 @@ class BootWriter:
 
 class State:
     """what the page shows: the folders, the FM-1 seen last, the install running (one at a time)"""
-    def __init__(self, fw_dir, proj_dir, writer=None, pat_writer=None, upd_dir=None):
+    def __init__(self, fw_dir, proj_dir, writer=None, pat_writer=None, upd_dir=None, banco_dir=None):
         self.fw_dir, self.proj_dir = fw_dir, proj_dir
         self.upd_dir = upd_dir or UPDATE_DIR                # 0.20.1: the Pi's update (its log survives this page's restart)
+        self.banco_dir = banco_dir or BANCO_DIR             # 0.20.3: the banco's explorer
         self.writer = writer or BootWriter(fw_dir)
         pat_dir = os.path.join(proj_dir, 'patterns')                     # 0.11: the patterns the grid bridge serves
         self.patterns = sagga_patterns.Patterns(pat_dir, writer=(pat_writer or BootWriter(pat_dir)).write)
@@ -251,7 +257,143 @@ class State:
         return out
 
     def busy(self):
-        return self.proc is not None and self.proc.poll() is None
+        """an install running, or the banco's explorer (0.20.3: it holds the FM-1 the whole time)"""
+        return (self.proc is not None and self.proc.poll() is None) or self.banco_running()
+
+    # ---- 0.20.3 the ESPLORATORE DEL BANCO: sagga_banco.py in a unit of its own (it survives this page's restarts);
+    # its state from its files: banco.json (pid, rc), banco-<ts>.log
+    def _bfile(self, name):
+        return os.path.join(self.banco_dir, name)
+
+    def banco_cells(self):
+        return os.path.join(self.proj_dir, 'banco', 'celle-staccate.json')
+
+    def _banco_meta(self):
+        try:
+            with open(self._bfile('banco.json')) as f:
+                return json.load(f)
+        except (OSError, ValueError):
+            return None
+
+    def banco_running(self):
+        m = self._banco_meta()
+        if not m or m.get('rc') is not None:
+            return False
+        pid = m.get('pid')
+        if not pid:
+            return time.time() - m.get('started', 0) < 20         # (started, not yet written its own pid)
+        try:
+            os.kill(int(pid), 0)
+            return True
+        except (OSError, ValueError):
+            return False
+
+    def banco_files(self):
+        out = []
+        for folder, where in ((self.banco_dir, 'run'), (os.path.join(self.proj_dir, 'banco'), 'sd')):
+            try:
+                for n in sorted(os.listdir(folder), reverse=True):
+                    if BANCO_FILE_RE.match(n) and not any(x['name'] == n for x in out):
+                        out.append(dict(name=n, size=os.path.getsize(os.path.join(folder, n)), where=where))
+            except OSError:
+                pass
+        return out[:12]
+
+    def banco_file(self, name):
+        """the path of a file of the banco's (the newest copy), or None"""
+        name = os.path.basename(name or '')
+        if not BANCO_FILE_RE.match(name):
+            return None
+        for folder in (self.banco_dir, os.path.join(self.proj_dir, 'banco')):
+            p = os.path.join(folder, name)
+            if os.path.isfile(p):
+                return p
+        return None
+
+    def banco_status(self):
+        m = self._banco_meta()
+        running = self.banco_running()
+        log = []
+        if m:
+            p = self._bfile('banco-%s.log' % m.get('quando', '')) if m.get('quando') else None
+            if not p or not os.path.isfile(p):
+                p = self._bfile('banco.out')
+            try:
+                with open(p, encoding='utf-8', errors='replace') as f:
+                    log = [ln[-220:] for ln in f.read().splitlines()[-80:]]
+            except OSError:
+                pass
+            if not running and m.get('rc') is not None and not m.get('copiati'):
+                self._banco_keep(m)
+        return dict(running=running, modo=(m or {}).get('modo'), rc=None if running or not m else m.get('rc'),
+                    quando=(m or {}).get('quando'), log=log, files=self.banco_files(),
+                    celle=os.path.isfile(self.banco_cells()) and not running,
+                    ask=running and bool(log) and log[-1].startswith('>>>'))
+
+    def _banco_keep(self, m):
+        """the run's files also on the SD card (/run goes at a reboot): the newest three runs kept"""
+        try:
+            m['copiati'] = True
+            with open(self._bfile('banco.json'), 'w') as f:
+                json.dump(m, f)
+            q = m.get('quando', '')
+            keep = os.path.join(self.proj_dir, 'banco')
+            for n in ('raccolta-banco-%s.json' % q, 'RAPPORTO-BANCO-%s.md' % q, 'banco-%s.log' % q):
+                src = self._bfile(n)
+                if os.path.isfile(src):
+                    with open(src, 'rb') as f:
+                        self.writer.write(os.path.join(keep, n), f.read())
+            runs = sorted({re.sub(r'^.*?([0-9]{8}-[0-9]{6}).*$', r'\1', n) for n in os.listdir(keep) if BANCO_FILE_RE.match(n)})
+            for old in runs[:-3]:
+                for n in os.listdir(keep):
+                    if old in n and BANCO_FILE_RE.match(n):
+                        self.writer.remove(os.path.join(keep, n))
+        except Exception:
+            pass
+
+    def start_banco(self, modo, stacca=True, sessioni=0):
+        """0.20.3: the banco's explorer: 'matrice' (only the matrix), 'prova' (everything), 'rimetti' (the cells a prova
+        took away, back) -> None, or (message, HTTP code)"""
+        if modo not in ('matrice', 'prova', 'rimetti'):
+            return 'modo sconosciuto', 400
+        if not os.path.isfile(BANCO):
+            return "l'esploratore del banco non e' installato (aggiorna il Pi)", 404
+        with self.lock:
+            if self.banco_running():
+                return "l'esploratore del banco sta gia' andando", 409
+            if self.proc is not None and self.proc.poll() is None:
+                return "l'FM-1 si sta installando: aspetta che finisca", 409
+            if (self.update_status() or {}).get('running'):
+                return 'il Pi si sta aggiornando', 409
+            os.makedirs(self.banco_dir, exist_ok=True)
+            cmd = [sys.executable, '-u', BANCO, '--out', self.banco_dir, '--celle', self.banco_cells()]
+            if modo == 'matrice':
+                cmd.append('--solo-matrice')
+            elif modo == 'rimetti':
+                cmd.append('--rimetti')
+            else:
+                if not stacca:
+                    cmd.append('--non-staccare')
+                if sessioni:
+                    cmd += ['--sessioni', str(int(sessioni))]
+            with open(self._bfile('banco.json'), 'w') as f:
+                json.dump(dict(pid=None, started=time.time(), rc=None, modo=modo), f)
+            out = self._bfile('banco.out')
+            script = '%s >>%s 2>&1' % (' '.join(shlex.quote(x) for x in cmd), shlex.quote(out))
+            with open(out, 'w') as f:
+                f.write('%s\n' % ' '.join(cmd))
+            started = False
+            if SYSTEMD_RUN:
+                try:
+                    r = subprocess.run([SYSTEMD_RUN, '--unit', 'sagga-banco-%d' % int(time.time()), '--collect', '--quiet',
+                                        '/bin/sh', '-c', script], capture_output=True, text=True, timeout=20)
+                    started = r.returncode == 0
+                except Exception:
+                    started = False
+            if not started:
+                subprocess.Popen(['/bin/sh', '-c', script], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL,
+                                 stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
+        return None
 
     def probe(self):
         """fm1_install.py --info: the FM-1's identity (cached 5 s; never while an install runs)"""
@@ -272,6 +414,8 @@ class State:
         if not os.path.isfile(path) or not name.lower().endswith('.fwsc'):
             return 'no such package'
         with self.lock:
+            if self.banco_running():
+                return "l'esploratore del banco sta usando l'FM-1"
             if self.busy():
                 return 'an install is running'
             if (self.update_status() or {}).get('running'):
@@ -339,6 +483,8 @@ class State:
         """0.20.1: a sagga-hub zip -> checked, unpacked, install_hub.sh started in a unit of its own (it restarts this
         service, which would kill a child of ours); returns the version, or raises UpdateError"""
         with self.lock:
+            if self.banco_running():
+                raise UpdateError("l'esploratore del banco sta andando: aggiorna il Pi quando ha finito", 409)
             if self.busy():
                 raise UpdateError("l'FM-1 si sta installando: aggiorna il Pi quando ha finito", 409)
             if (self.update_status() or {}).get('running'):
@@ -383,7 +529,7 @@ class State:
     def snapshot(self):
         return dict(packages=self.packages(), projects=self.projects(), busy=self.busy(), job=self.job,
                     result=self.result, log=self.log[-60:], device=self.probe(), version=hub_version(),
-                    update=self.update_status())
+                    update=self.update_status(), banco=self.banco_status())
 
 
 PAGE = r'''<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -404,6 +550,13 @@ input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small
 <div class="row" style="flex-wrap:wrap"><input type="file" id="hz" accept=".zip"><button id="ub" onclick="upd()">Aggiorna il Pi</button><small id="um"></small></div>
 <small>Uno zip <b>sagga-hub-X.zip</b>, di quelli che prepara Claude: il Pi lo controlla, lo installa da solo (install_hub.sh, come da SSH) e riavvia le sue pagine; questa sparisce per qualche secondo e torna con la versione nuova in alto. Lo pu&ograve; fare chi &egrave; sulla rete del Pi: la password del WiFi &egrave; la chiave.</small>
 <pre id="ulog" style="display:none"></pre>
+<h2>ESPLORATORE DEL BANCO</h2><div id="bst"></div>
+<div class="row"><button id="bm" onclick="banco('matrice')">Controlla la matrice</button><button id="bp" onclick="banco('prova')">Avvia la prova</button>
+<select id="bn"><option value="0">tutte le sessioni (20 minuti circa)</option><option value="4">4 sessioni (5 minuti)</option></select>
+<label><input type="checkbox" id="bs" checked> <small>stacca i synth</small></label><button id="br" class="del" style="display:none" onclick="banco('rimetti')">Rimetti le celle</button></div>
+<div class="dev" id="bsel" style="display:none"><b>Sull'FM-1: premi SEL per dire s&igrave;</b> <small>(20 secondi; un altro tasto = no)</small></div>
+<pre id="blog" style="display:none"></pre><div id="bf"></div>
+<small>L'FM-1 (SAGGA SEQ 0.20.3), il Pi e il grid insieme, per le strade vere: le sei pagine SAGGA premute dentro RaspiMIDIHub, il bridge del grid con due Launchpad finti, il pannello dell'FM-1 con il suo test. Prima controlla la matrice; durante la prova le celle fra l'FM-1 e i synth sono staccate (i synth tacciono) e tornano alla fine; l'FM-1 si riavvia a ogni sessione, non toccarlo. Alla fine il tuo progetto torna in memoria (sull'FM-1: IMPORTED, SAVE per tenerlo). Mandami la <b>raccolta-banco</b>: la confronto con il simulatore.</small>
 <h2>PROGETTI</h2><div id="pr"></div>
 <div class="row" style="flex-wrap:wrap"><input id="np" placeholder="nome del progetto" size="18"><button onclick="newp()">Nuovo</button><button class="sec" onclick="recv()">Ricevi dall'FM-1</button><small id="npm"></small></div>
 <small>Nuovo: un progetto vuoto nella libreria, che si apre nell'editor. Ricevi: il progetto che l'FM-1 ha adesso (fermo), con quel nome. Dall'editor: <b>Manda all'FM-1</b>.</small>
@@ -426,6 +579,12 @@ document.getElementById('ver').textContent=s.version||'';
 const u=s.update,upd_on=!!(u&&u.running);document.getElementById('ub').disabled=upd_on||s.busy;
 document.getElementById('ust').innerHTML=!u?'<small>nessun aggiornamento da quando il Pi &egrave; acceso</small>':u.running?`<b>aggiornamento ${h(u.version)} in corso</b> <small>(la pagina sparisce qualche secondo e torna)</small>`:u.rc===0?`<b>aggiornato a ${h(u.version)}</b>`:u.rc===null?`<b>aggiornamento ${h(u.version)} interrotto</b> <small>(il Pi si &egrave; spento? rifallo)</small>`:`<b>aggiornamento ${h(u.version)} non riuscito</b> <small>(exit ${u.rc}: il log qui sotto)</small>`;
 const ul=document.getElementById('ulog');ul.style.display=u?'':'none';ul.textContent=u?u.log.join('\n'):'';
+const b=s.banco||{},bon=!!b.running;['bm','bp'].forEach(i=>document.getElementById(i).disabled=bon||s.busy||upd_on);
+document.getElementById('ub').disabled=upd_on||s.busy;document.getElementById('br').style.display=b.celle?'':'none';
+document.getElementById('bst').innerHTML=bon?`<b>${b.modo=='matrice'?'controllo della matrice':b.modo=='rimetti'?'rimetto le celle':'prova'} in corso</b> <small>(non toccare l'FM-1)</small>`:b.rc===0?`<b>finito</b> <small>${h(b.quando||'')}</small>`:b.rc!=null?`<b>finito con qualcosa da guardare</b> <small>(exit ${b.rc}: il log qui sotto)</small>`:b.celle?'<b>celle staccate da una prova interrotta</b> <small>(Rimetti le celle)</small>':'<small>mai fatto da quando il Pi &egrave; acceso</small>';
+document.getElementById('bsel').style.display=b.ask?'':'none';
+const bl=document.getElementById('blog');bl.style.display=b.log&&b.log.length?'':'none';const atEnd=bl.scrollTop+bl.clientHeight>=bl.scrollHeight-20;bl.textContent=(b.log||[]).join('\n');if(atEnd)bl.scrollTop=bl.scrollHeight;
+document.getElementById('bf').innerHTML=(b.files||[]).map(f=>`<div class="row"><a class="mono" href="/banco/${encodeURIComponent(f.name)}">${h(f.name)}</a><small>${(f.size/1024).toFixed(0)} KB${f.where=='sd'?' (sulla SD)':''}</small></div>`).join('');
 document.getElementById('dev').innerHTML=s.device?`<b>${h(s.device[0])}</b> <small>[${h(s.device[1])}] ${h(s.device[2])}</small>`:'<small>nessun FM-1 risponde (cavo? un altro programma lo usa?)</small>';
 document.getElementById('pk').innerHTML=s.packages.map(p=>`<div class="row"><span class="mono">${h(p.name)} <small>${(p.size/1024).toFixed(0)} KB</small></span><span><button ${s.busy||upd_on?'disabled':''} data-n="${h(p.name)}" onclick="inst(this.dataset.n)">Installa</button> <button class="del" ${s.busy&&s.job==p.name?'disabled':''} data-n="${h(p.name)}" onclick="pkdel(this.dataset.n)">Elimina</button></span></div>`).join('')||'<small>nessun pacchetto: carica un .fwsc</small>';
 document.getElementById('log').textContent=(s.job?`[${s.job}] `:'')+s.log.join('\n');
@@ -439,6 +598,10 @@ async function upd(){const f=document.getElementById('hz').files[0],m=document.g
 if(!confirm('Aggiornare il Pi con '+f.name+'? Le sue pagine si riavviano: qualche secondo.'))return;
 m.textContent='carico...';const fd=new FormData();fd.append('f',f,f.name);
 try{const r=await fetch('/api/update',{method:'POST',body:fd,headers:{'X-Sagga-Hub':'1'}});m.textContent=r.ok?'':await r.text();if(r.ok)document.getElementById('hz').value='';}catch(e){m.textContent='non arriva al Pi: '+e;}tick();}
+async function banco(m){const st=document.getElementById('bs').checked,n=document.getElementById('bn').value;
+const q=m=='prova'?'Avviare la prova? Dura '+(n=='4'?'5':'20')+' minuti circa: l\'FM-1 si riavvia a ogni sessione, non toccarlo. Il tuo progetto torna in memoria alla fine.'+(st?' I synth tacciono (le loro celle tornano alla fine).':' I synth restano collegati: suoneranno.'):m=='rimetti'?'Rimettere nella matrice le celle staccate?':null;
+if(q&&!confirm(q))return;
+const r=await fetch('/api/banco?modo='+m+'&stacca='+(st?1:0)+'&sessioni='+n,{method:'POST',headers:{'X-Sagga-Hub':'1'}});if(!r.ok)alert(await r.text());tick();}
 async function pats(){const sel=document.getElementById('pg');const g=sel.value||'TECHNO';const s=await (await fetch('/api/patterns?genre='+g)).json();
 if(!sel.options.length){sel.innerHTML=s.genres.map(x=>`<option${x==g?' selected':''}>${x}</option>`).join('');}
 document.getElementById('pn').textContent=s.parts.reduce((a,p)=>a+p.list.length,0)+' pattern';
@@ -554,6 +717,13 @@ def make_handler(state):
                 return self.send(404, 'editor non installato', 'text/plain; charset=utf-8')
             if u.path == '/api/pos':                              # 0.15: where the FM-1 is (the editor follows it)
                 return self.send(200, json.dumps(state.editor.pos()), 'application/json')
+            if u.path.startswith('/banco/'):                     # 0.20.3: a file of the banco's explorer
+                p = state.banco_file(urllib.parse.unquote(u.path[len('/banco/'):]))
+                if p:
+                    with open(p, 'rb') as f:
+                        ctype = 'application/json' if p.endswith('.json') else 'text/plain; charset=utf-8'
+                        return self.send(200, f.read(), ctype, {'Content-Disposition': 'attachment; filename="%s"' % os.path.basename(p)})
+                return self.send(404, 'no such file', 'text/plain')
             if u.path in ('/api/project', '/api/project/versions'):    # 0.14: a project as the editor reads it; its versions
                 q = urllib.parse.parse_qs(u.query)
                 try:
@@ -593,8 +763,20 @@ def make_handler(state):
 
         def do_POST(self):
             u = urllib.parse.urlparse(self.path)
-            if u.path in ('/api/update', '/api/package/delete') and self.headers.get(GUARD) != '1':
+            if u.path in ('/api/update', '/api/package/delete', '/api/banco') and self.headers.get(GUARD) != '1':
                 return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
+            if u.path == '/api/banco':                            # 0.20.3: the banco's explorer starts
+                q = urllib.parse.parse_qs(u.query)
+                try:
+                    n = max(0, min(200, int(q.get('sessioni', ['0'])[0] or 0)))
+                except ValueError:
+                    n = 0
+                err = state.start_banco(q.get('modo', [''])[0], stacca=q.get('stacca', ['1'])[0] != '0', sessioni=n)
+                if err:
+                    return self.send(err[1], err[0], 'text/plain; charset=utf-8')
+                return self.send(200, json.dumps(dict(ok=True)), 'application/json')
+            if u.path.startswith('/api/fm1/') and state.banco_running():   # (it holds the FM-1)
+                return self.send(409, "l'esploratore del banco sta usando l'FM-1: aspetta che finisca", 'text/plain; charset=utf-8')
             if u.path == '/api/package/delete':                   # 0.20.1: a package of the library away
                 q = urllib.parse.parse_qs(u.query)
                 err = state.delete_package(q.get('file', [''])[0])

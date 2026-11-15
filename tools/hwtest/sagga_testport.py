@@ -6,7 +6,7 @@ Only the standard library: the runner brings its own MIDI (mido)."""
 import json
 
 HEAD = [0xF0, 0x7D, 0x53, 0x47]
-SX_TST, SX_TST_ANS, SX_TST_PROBE, SX_TST_LOG = 0x70, 0x71, 0x72, 0x73
+SX_TST, SX_TST_ANS, SX_TST_PROBE, SX_TST_LOG, SX_TST_HEARD = 0x70, 0x71, 0x72, 0x73, 0x74
 HELLO, OPEN, BOOT, GO, EV, CLOSE, DONE, ABORT = range(8)
 PRESS, RELEASE, ENC, KNOB, KEYS, PROBE, END, MIDI = range(1, 9)   # (0.18 MIDI: a message that comes in, the tablet, the grid)
 NOGC = 0x0FFFFFFF
@@ -44,7 +44,7 @@ def frame(sub, payload=()):
 def hello(): return frame(HELLO)
 def open_(): return frame(OPEN)
 def boot(): return frame(BOOT)
-def go(): return frame(GO)
+def go(listen=False): return frame(GO, [1] if listen else [])   # 0.20.3 listen: the FM-1 hears its ports too (the banco)
 def close(): return frame(CLOSE)
 def again(idx): return frame(6, put7(idx, 2))                     # a probe again (the FM-1 keeps the last two)
 def taken(idx, n): return frame(7, put7(idx, 2) + [min(n, 127)])  # where events idx.. were taken, again
@@ -85,7 +85,10 @@ def parse(msg):
         if sub == CLOSE and q:
             return "close", q[0]
         if sub == DONE and len(q) >= 7:
-            return "done", {"applied": get7(q[0:2]), "late": get7(q[2:4]), "lag": get7(q[4:6]), "lost": q[6]}
+            d = {"applied": get7(q[0:2]), "late": get7(q[2:4]), "lag": get7(q[4:6]), "lost": q[6]}
+            if len(q) >= 10:                           # (0.20.3, listening: how many heard, how many lost)
+                d["heard"], d["heard_lost"] = get7(q[7:9]), q[9]
+            return "done", d
         if sub == ABORT:
             return "abort", q[0] if q else 0
         return "?", p
@@ -98,7 +101,35 @@ def parse(msg):
             if len(s) == 10:
                 out.append((get7(s[0:2]), get7(s[2:6]), get7(s[6:10])))
         return "log", out
+    if cmd == SX_TST_HEARD and len(p) >= 3:            # 0.20.3: (seq, [(ms, gc, st, d1, d2, cable)])
+        seq, n, out = get7(p[0:2]), p[2], []
+        for i in range(n):
+            s = p[3 + 12 * i: 15 + 12 * i]
+            if len(s) == 12:
+                out.append((get7(s[0:4]), get7(s[4:8]), 0x80 | s[8], s[9], s[10], s[11]))
+        return "heard", (seq, out)
     return None
+
+
+class Heard:
+    """0.20.3: the messages the FM-1 heard from its ports, by their number in the session (a frame lost on the way =
+    a gap: said, and the replay is then not the FM-1's)"""
+    def __init__(self):
+        self.by_seq = {}
+
+    def add(self, seq, entries):
+        for k, e in enumerate(entries):
+            self.by_seq[(seq + k) & 0x3FFF] = list(e)
+
+    def rows(self):
+        """[[ms, gc, st, d1, d2, cable]] in the order the FM-1 heard them"""
+        return [self.by_seq[k] for k in sorted(self.by_seq)]
+
+    def gaps(self, total=None):
+        n = len(self.by_seq)
+        if total is None:
+            total = (max(self.by_seq) + 1) if self.by_seq else 0
+        return max(0, min(total, 0x4000) - n)
 
 
 class Probes:

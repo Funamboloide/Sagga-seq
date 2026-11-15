@@ -1234,7 +1234,41 @@ def main(argv):
                     "tablet e il grid (0.18: le pagine del hub e i pad come MIDI dalla porta del remoto)")
     ap.add_argument("--hw-prova", action="store_true", help="il piano e il confronto con il simulatore al posto dell'FM-1")
     ap.add_argument("--sessione", help="con --hw: solo questa sessione (con --vedi: sonda per sonda)")
+    ap.add_argument("--banco-piano", metavar="FILE", help="il banco (0.20.3: FM-1, Pi e grid): scrive il piano per il Pi "
+                    "(--sessioni, --lunghe, --seme; make_release lo mette nello zip del hub)")
+    ap.add_argument("--banco", metavar="RACCOLTA", help="il banco: confronta la raccolta del Pi con il simulatore -> RAPPORTO-BANCO.md")
+    ap.add_argument("--banco-prova", action="store_true", help="il banco con il simulatore al posto dell'FM-1 (deve dire tutto "
+                    "uguale) e poi con i messaggi delle pagine persi per strada (deve trovarlo)")
     a = ap.parse_args(argv)
+    if a.banco_piano or a.banco or a.banco_prova:
+        import sagga_banco as BC
+        if a.banco_piano:
+            plan = BC.piano(a.sessioni if a.sessioni is not None else 20, a.lunghe if a.lunghe != 60 else 40, a.seme)
+            os.makedirs(os.path.dirname(os.path.abspath(a.banco_piano)), exist_ok=True)
+            BC.T.save(a.banco_piano, plan)
+            dur = sum(s["eventi"][-1][0] for s in plan["sessioni"]) / 1000.0
+            print("piano del banco: %d sessioni, %d gesti sulle pagine, circa %d minuti (con i riavvii) -> %s" % (
+                len(plan["sessioni"]), sum(1 for s in plan["sessioni"] for g in s["gesti"] if g.startswith("pagina")),
+                (dur + 12 * len(plan["sessioni"])) / 60 + 1, a.banco_piano))
+            return 0
+        if not a.no_build:
+            build()
+        os.makedirs(a.uscita, exist_ok=True)
+        try:
+            if a.banco_prova:
+                n, ln = (a.sessioni if a.sessioni is not None else 4), (a.lunghe if a.lunghe != 60 else 24)
+                rc = BC.prova(n, ln, a.seme, os.path.join(a.uscita, "RAPPORTO-BANCO-PROVA.md"))
+                rc2 = BC.prova(1, ln, a.seme, os.path.join(a.uscita, "RAPPORTO-BANCO-PERSI.md"), drop=True)
+                print("sagga banco, le pagine perse: %s" % ("trovate" if rc2 else "NON TROVATE"))
+                rc3 = BC.prova(1, ln, a.seme + 1, os.path.join(a.uscita, "RAPPORTO-BANCO-SORDO.md"), lose=True)
+                print("sagga banco, quello che l'FM-1 ha sentito perso per strada: %s" % ("trovato" if rc3 else "NON TROVATO"))
+                return rc or (0 if rc2 and rc3 else 1)
+            return BC.confronta(a.banco, os.path.join(a.uscita, "RAPPORTO-BANCO.md"))
+        finally:
+            try:
+                os.unlink(BIN)
+            except OSError:
+                pass
     if a.hw_piano or a.hw or a.hw_prova:
         import sagga_explore_hw as H
         if a.hw_piano:

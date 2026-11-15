@@ -23,13 +23,17 @@
  *               7 why (a hand stopped it)
  *   72 idx*2 k last text  the probe event idx asked for, in pieces of 150 characters ("PROBE G ...\n PROBE T1 ...")
  *   73 n (idx*2 ms*4 gc*4)*n  where the events were taken: the FM-1's ms and global_clock
+ *   74 seq*2 n (ms*4 gc*4 st d1 d2 cable)*n  0.20.3: the MIDI that came in from the ports, when GO asked to hear them
+ *               (GO's byte 1: bit 0): every message the FM-1 played, where (ms, global_clock before it) and from which
+ *               port; seq = the number of the first in the session (a gap = some lost on the way). st without bit 7.
+ *               DONE then also says how many were heard (*2) and how many did not fit the ring (lost)
  * Event kinds: 1 press (a = button), 2 release, 3 knob (a = encoder, b = detents + 8192), 4 MASTER (a = 0..1023),
  * 5 keys (a | b << 14: the 27 note keys held), 6 probe, 7 end, 8 (0.18) a MIDI message that comes in: a = the status's low 7
  * bits | the port << 7 (0 port 1, 1 port 2, 2 the remote's: port 2 with two, else the only one), b = d1 | d2 << 7 (the
  * tablet's pages, the grid's pads). t: ms after GO. gc: 0x0FFFFFFF = none, else (the
  * simulator replaying the FM-1) the event waits for that clock tick, so it lands between the same two ticks. */
 
-enum { SX_TST = 0x70, SX_TST_ANS = 0x71, SX_TST_PROBE = 0x72, SX_TST_LOG = 0x73 };
+enum { SX_TST = 0x70, SX_TST_ANS = 0x71, SX_TST_PROBE = 0x72, SX_TST_LOG = 0x73, SX_TST_HEARD = 0x74 };
 enum { TQ_HELLO, TQ_OPEN, TQ_BOOT, TQ_GO, TQ_EV, TQ_CLOSE, TQ_DONE, TQ_ABORT };
 enum { TK_PRESS = 1, TK_RELEASE, TK_ENC, TK_KNOB, TK_KEYS, TK_PROBE, TK_END, TK_MIDI };
 #define TST_Q 64u
@@ -39,6 +43,7 @@ enum { TK_PRESS = 1, TK_RELEASE, TK_ENC, TK_KNOB, TK_KEYS, TK_PROBE, TK_END, TK_
 #define TST_LOGN 48u
 #define TST_ALL 1024u                                 /* the events of a session whose place is kept for TAKEN */
 #define TST_CHUNK_MS 3u                               /* a piece of a probe every 3 ms: the PC's MIDI driver keeps up */
+#define TST_HDN 64u                                   /* 0.20.3: messages heard, not yet said to the PC */
 
 typedef struct { uint32_t t, gc; uint16_t a, b; uint8_t kind; } tst_ev_t;
 static tst_ev_t tst_q[TST_Q];
@@ -57,6 +62,10 @@ static char tst_pb[2][TST_PB];
 static uint16_t tst_pb_len[2], tst_pb_pos[2], tst_pb_idx[2];
 static uint8_t tst_pb_k[2], tst_pb_full[2], tst_pb_turn;
 static uint8_t tst_out[200];
+static struct { uint32_t ms, gc; uint8_t st, d1, d2, cab; } tst_hd[TST_HDN];
+static uint8_t tst_hd_n, tst_hd_lost;
+static uint16_t tst_hd_seq, tst_hd_all;              /* the number of the ring's first; every one heard this session */
+static uint32_t tst_hd_ms;
 
 static uint8_t *tst_frame(uint8_t cmd)
 {
@@ -177,13 +186,49 @@ static void tst_log_flush(uint8_t force)
     tst_log_ms = fm1_ms;
 }
 
+/* 0.20.3: a message from the ports, heard while the PC listens (dinghy.c handle_midi_in, before it is played) */
+static void tst_heard(uint8_t st, uint8_t d1, uint8_t d2, uint8_t cab)
+{
+    if (!tst_on || !tst_go) return;
+    tst_hd_all++;
+    if (tst_hd_n >= TST_HDN) { if (tst_hd_lost < 127u) tst_hd_lost++; return; }
+    if (!tst_hd_n) tst_hd_ms = fm1_ms;
+    tst_hd[tst_hd_n].ms = fm1_ms; tst_hd[tst_hd_n].gc = global_clock;
+    tst_hd[tst_hd_n].st = st; tst_hd[tst_hd_n].d1 = d1; tst_hd[tst_hd_n].d2 = d2; tst_hd[tst_hd_n].cab = cab;
+    tst_hd_n++;
+}
+
+static void tst_heard_flush(uint8_t force)
+{
+    uint8_t *q;
+    uint32_t i, n;
+    if (!tst_hd_n || (!force && tst_hd_n < 8u && !time_due(fm1_ms, tst_hd_ms + 20u))) return;
+    n = tst_hd_n < 12u ? tst_hd_n : 12u;
+    q = tst_frame(SX_TST_HEARD);
+    sx_put7(&q, tst_hd_seq, 2u);
+    *q++ = (uint8_t)n;
+    for (i = 0; i < n; i++) {
+        sx_put7(&q, tst_hd[i].ms, 4u); sx_put7(&q, tst_hd[i].gc, 4u);
+        *q++ = (uint8_t)(tst_hd[i].st & 127u); *q++ = (uint8_t)(tst_hd[i].d1 & 127u); *q++ = (uint8_t)(tst_hd[i].d2 & 127u);
+        *q++ = (uint8_t)(tst_hd[i].cab & 127u);
+    }
+    *q++ = 0xF7u;
+    if ((force || tst_hd_n >= TST_HDN - 12u ? sysex_send(tst_out, (uint32_t)(q - tst_out)) : sysex_try_send(tst_out, (uint32_t)(q - tst_out))) != 0) return;
+    for (i = n; i < tst_hd_n; i++) tst_hd[i - n] = tst_hd[i];
+    tst_hd_n = (uint8_t)(tst_hd_n - n);
+    tst_hd_seq = (uint16_t)(tst_hd_seq + n);
+    tst_hd_ms = fm1_ms;
+}
+
 static void tst_done(void)
 {
     uint8_t *q;
     while (tst_log_n) { uint8_t was = tst_log_n; tst_log_flush(1u); if (tst_log_n == was) break; }
+    while (tst_hd_n) { uint8_t was = tst_hd_n; tst_heard_flush(1u); if (tst_hd_n == was) break; }
     q = tst_frame(SX_TST_ANS);
     *q++ = TQ_DONE;
     sx_put7(&q, tst_applied, 2u); sx_put7(&q, tst_late, 2u); sx_put7(&q, tst_lag, 2u); *q++ = (uint8_t)(tst_lost & 127u);
+    if (tst_listen) { sx_put7(&q, tst_hd_all, 2u); *q++ = tst_hd_lost; }   /* (0.20.3) */
     tst_send(q);
 }
 
@@ -281,6 +326,7 @@ static void tst_service(void)
         tst_qr = (uint8_t)((tst_qr + 1u) % TST_Q); tst_qn--; tst_head++;
     }
     tst_log_flush(0u);
+    tst_heard_flush(0u);
     {   /* a piece of the probe that waits, when the ring has room for it (the sequencer never waits for the PC) */
         uint32_t i = tst_pb_turn;
         if (tst_pb_full[i] && time_due(now, tst_chunk_ms + TST_CHUNK_MS)) {
@@ -340,6 +386,8 @@ static void tst_sysex_in(const uint8_t *p, uint32_t n)
         tst_t0 = fm1_ms; tst_go = 1u; tst_qn = 0u; tst_qr = 0u; tst_next = tst_head = 0u;
         tst_noinit.fault_vec = tst_noinit.fault_pc = 0u;   /* (a crash from here on is this session's) */
         tst_applied = tst_late = tst_lag = 0u; tst_lost = 0u; tst_log_n = 0u;
+        tst_listen = n >= 2u && (p[1] & 1u);            /* 0.20.3: hear the ports too (the banco) */
+        tst_hd_n = 0u; tst_hd_lost = 0u; tst_hd_seq = tst_hd_all = 0u;
         q = tst_frame(SX_TST_ANS); *q++ = TQ_GO; sx_put7(&q, tst_t0, 4u); tst_send(q);
         break;
     case TQ_EV: {

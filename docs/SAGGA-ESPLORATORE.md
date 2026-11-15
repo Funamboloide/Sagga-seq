@@ -135,6 +135,39 @@ La prima volta sull'FM-1 vero (9 novembre 2026, 0.12): 20 sessioni, 0 errori; 19
 `--hw-prova` fa tutto con il simulatore al posto dell'FM-1, con il costo dello schermo acceso (gli eventi arrivano in
 ritardo come sul vero): deve dire che è tutto uguale, ed è nella suite dei test.
 
+## Il banco: l'FM-1, il Pi e il grid insieme (0.20.3)
+
+Dal PC il tablet e il grid sono finti: il PC manda i loro messaggi come eventi del test. Il **banco** gira sul Pi e
+passa per le strade vere: le sei pagine SAGGA premute dentro RaspiMIDIHub con la sua API (il comando esce dalla pagina e
+arriva all'FM-1 dalla matrice), il bridge del grid vero con due Launchpad finti, il pannello e le sonde con il test
+dell'FM-1. Si lancia dalla pagina del Pi (**ESPLORATORE DEL BANCO**, `tools/hub/LEGGIMI.md`).
+
+```sh
+python3 tests/sagga_explore.py --banco-piano tools/hub/banco_piano.json    # il piano (make_release lo mette nello zip)
+#   ... sul Pi: la pagina del hub, Avvia la prova ...
+python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> build/explore/RAPPORTO-BANCO.md
+```
+
+Il piano: 20 sessioni da 40 gesti nelle situazioni con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato, poi
+ognuna delle situazioni dell'FM-1); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
+dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
+con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
+
+| regola | cosa |
+| --- | --- |
+| MATRICE | le celle che servono (ogni pagina verso la porta 2, la porta 2 verso le pagine) e quelle che non devono esserci |
+| PAGINE | un comando che il Pi ha dato a una pagina e che l'FM-1 non ha mai sentito (la cella nella matrice?); una pagina che non risponde all'API; una cella con il CC cambiato da te (visto) |
+| GRID | un messaggio del bridge che l'FM-1 non ha mai sentito |
+| PONTE | un pad o un bottone che il bridge ha tradotto male |
+| LUCI | le luci del bridge diverse da quelle che l'FM-1 aveva mandato; da guardare: le luci ferme dell'FM-1 diverse da quelle del simulatore |
+| VALORI | un valore che l'FM-1 rimanda e che la cella della pagina non segue |
+| SENTITI | l'FM-1 che non ascolta (firmware vecchio), pezzi di quello che ha sentito persi per strada, messaggi da un altro dispositivo |
+
+`--banco-prova` fa tutto con il simulatore al posto dell'FM-1 (il bridge vero, i ritardi del Pi a caso) e deve dire
+che è tutto uguale; poi perde i comandi delle pagine, e un pezzo di quello che l'FM-1 ha sentito, e deve trovarli. È
+nella suite dei test, con `tests/sagga_banco_tests.py` (il programma del Pi contro un FM-1 e un RaspiMIDIHub finti).
+
 ## Cosa non vede
 * Il suono e lo schermo: guarda lo stato e il MIDI, non come è disegnata una pagina.
 * Le cose che succedono più in là di due battute (una mossa di VIAGGIO in coda per la fine della frase).

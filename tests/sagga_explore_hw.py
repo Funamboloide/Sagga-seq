@@ -140,9 +140,23 @@ def _sx(t, b):
     return "%d sx %s" % (t, " ".join("%02X" % x for x in b[1:-1]))
 
 
-def sim_script(events, go_ms, lcdcost=False, replay=None):
+def merge_lines(text, extra):
+    """a host script with more lines in it, every line in its time's place (the simulator keeps its events in the
+    file's order); at the same ms the script's own first"""
+    rows = []
+    for k, line in enumerate(text.splitlines()):
+        if line.strip():
+            rows.append((int(line.split()[0]), 0, k, line))
+    for k, line in enumerate(extra or []):
+        rows.append((int(line.split()[0]), 1, k, line))
+    rows.sort()
+    return "\n".join(r[3] for r in rows) + "\n"
+
+
+def sim_script(events, go_ms, lcdcost=False, replay=None, extra=None, listen=False):
     """the host script that does what the runner does: GO, then the frames paced as it paces them. replay: {idx: (ms, gc)}
-    = every event where the FM-1 took it (its t from that ms, its tick as gc)"""
+    = every event where the FM-1 took it (its t from that ms, its tick as gc). 0.20.3, the banco's stand-in: listen =
+    GO asks the FM-1 to hear its ports, extra = [(ms, "midi ...")] what comes in on them (the pages, the bridge)"""
     evs = []
     for i, e in enumerate(events):
         e = list(e)
@@ -155,7 +169,7 @@ def sim_script(events, go_ms, lcdcost=False, replay=None):
     lines = []
     if lcdcost:
         lines.append("0 lcdcost")
-    lines += [_sx(go_ms - 30, T.hello()), _sx(go_ms, T.go())]
+    lines += [_sx(go_ms - 30, T.hello()), _sx(go_ms, T.go(listen))]
     pacer = T.Pacer(evs)
     last = evs[-1][0] if evs else 0
     now = 5
@@ -168,7 +182,10 @@ def sim_script(events, go_ms, lcdcost=False, replay=None):
         else:
             now += 50
     lines.append("%d end" % (go_ms + last + 1500))
-    return "\n".join(lines) + "\n", len(evs)
+    text = "\n".join(lines) + "\n"
+    if extra:
+        text = merge_lines(text, ["%d %s" % (int(round(x[0])), x[1]) for x in extra if x[0] < go_ms + last + 1500])
+    return text, len(evs)
 
 
 def run_sim(text, testboot=True, settings=None):
@@ -190,6 +207,7 @@ def collect(out):
     """the simulator's output -> a session record as the runner keeps one (go, presi, sonde, midi, done)"""
     rec = {"go_ms": None, "presi": {}, "sonde": {}, "midi": [], "done": None, "abort": None, "answers": []}
     pr = T.Probes()
+    heard = T.Heard()
     for line in out.splitlines():
         m = SX_RE.match(line)
         if m:
@@ -209,11 +227,15 @@ def collect(out):
                 rec["done"] = a[1]
             elif a[0] == "abort":
                 rec["abort"] = a[1]
+            elif a[0] == "heard":
+                heard.add(*a[1])
             continue
         m = E.MIDI_RE.match(line)
         if m:
             rec["midi"].append([int(m.group(1)), int(m.group(2), 16), int(m.group(3)), int(m.group(4))])
     rec["sonde"] = {str(k): v for k, v in pr.done.items()}
+    if heard.by_seq:
+        rec["sentiti"] = heard.rows()
     return rec
 
 
@@ -285,8 +307,37 @@ def probe_events(session):
     return list(zip(idx, session.get("sonde") or ["?"] * len(idx)))
 
 
-def compare(session):
-    """-> (findings [(rule, level, what)], the replay's record)"""
+def with_heard(events, replay, heard, go_ms):
+    """0.20.3: the replay's events with what the FM-1 heard from its ports (the banco: the hub's pages, the bridge) as
+    MIDI events where it heard each (its ms, its clock tick) -> (events, the plan's index of each or None). In one pass
+    of the FM-1's loop the ports come before the test's events; only what came before the session's last event"""
+    rows = []
+    for i, e in enumerate(events):
+        if i not in replay:
+            break                                      # (the FM-1 did not get that far)
+        ms, gc = replay[i][:2]
+        rows.append((ms, 1, i, [ms - go_ms] + list(e[1:4]) + [gc], i))
+    last = rows[-1][0] if rows else go_ms
+    for k, h in enumerate(heard or []):
+        ms, gc, st, d1, d2, cab = h[:6]
+        if ms > last:
+            continue
+        a, b = T.midi_ev(st, d1, d2, T.PORT2 if cab else T.PORT1)
+        rows.append((ms, 0, k, [ms - go_ms, T.MIDI, a, b, gc], None))
+    rows.sort(key=lambda r: r[:3])
+    return [r[3] for r in rows], [r[4] for r in rows]
+
+
+def remap(rec, orig):
+    """a replay's record, its events numbered as the plan's (the heard ones left out)"""
+    for key in ("sonde", "presi"):
+        rec[key] = {str(orig[int(k)]): v for k, v in rec[key].items() if int(k) < len(orig) and orig[int(k)] is not None}
+    return rec
+
+
+def compare(session, heard=None):
+    """-> (findings [(rule, level, what)], the replay's record). 0.20.3 heard: [[ms, gc, st, d1, d2, cable]], what the FM-1
+    heard from its ports (the banco), replayed where it heard it"""
     hw = session["fm1"]
     found = []
     if hw.get("errore"):
@@ -304,6 +355,10 @@ def compare(session):
     settings = (hp.get("usb_ports", 1), hp.get("profile", 0)) if "usb_ports" in hp else None
 
     def replay_sim(rp):
+        if heard:
+            evs, orig = with_heard(session["eventi"], rp, heard, hw["go_ms"])
+            text, _ = sim_script(evs, hw["go_ms"])
+            return remap(collect(run_sim(text, settings=settings)), orig), sum(1 for o in orig if o is not None)
         text, n = sim_script(session["eventi"], hw["go_ms"], replay=rp)
         return collect(run_sim(text, settings=settings)), n
 

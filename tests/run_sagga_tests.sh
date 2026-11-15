@@ -35,3 +35,5 @@ python3 tests/sagga_fuzz.py "${FUZZ:-24}" | tail -3
 python3 tests/sagga_explore.py --veloce | head -12          # 0.11 the explorer: every gesture, the rules (tutto: senza --veloce)
 python3 tests/sagga_explore.py --hw-prova | head -8         # 0.11 the explorer on the FM-1, with the simulator in its place
 python3 tests/sagga_hw_explore_tests.py | tail -1           # 0.11 the Windows runner, against a fake FM-1
+python3 tests/sagga_explore.py --banco-prova | head -12     # 0.20.3 the banco (FM-1, Pi, grid), with the simulator as the FM-1
+python3 tests/sagga_banco_tests.py | tail -1                # 0.20.3 the banco's runner on the Pi, a fake FM-1 and RaspiMIDIHub

@@ -12,6 +12,18 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.3
+
+The banco's explorer (docs/SAGGA-ESPLORATORE.md, "Il banco"): on the hub's page, ESPLORATORE DEL BANCO checks the
+matrix and tests the FM-1, the Pi and the grid together along the real roads (the six SAGGA pages pressed inside
+RaspiMIDIHub through its API, the real grid bridge with two Launchpads of its own, the panel and the probes through the
+PC test), with the cells between the FM-1 and the synths taken away for the run and put back after it.
+
+The firmware (0.20.3) changes in its PC test only: GO with byte 1 bit 0 set asks the FM-1 to hear its ports during the
+session. It then plays what comes in (before, the test ignored all the ports' MIDI) and says each message back (SysEx
+74, below) with its ms, the clock tick before it and the port, so the session can be replayed in the simulator with
+those messages where they came. Outside the test nothing changes; the PC's explorer works as before.
+
 ## What is new in 0.20.2 (the Pi only)
 
 `install_hub.sh` restarted RaspiMIDIHub halfway; RaspiMIDIHub puts the root file system back read-only when it starts,
@@ -1126,7 +1138,8 @@ it kept; when the snapshot comes back the Pi sends them again and says so.
 
 ## USB: one port or two
 
-The USB page (hold HOME + SEL) shows the link; K1 chooses **USB PORTS 1 or 2**, OCT+ twice reconnects with that.
+The USB page (0.12: SAVE 3 SYSTEM; before, HOME + SEL) shows the link; K1 chooses **USB PORTS 1 or 2**, SEL + K1
+twice reconnects with that.
 Saved in the FM-1's settings (not the project), so the computer sees the same device from power-on.
 
 * **1 port** (the default): everything on one port; channels 15 and 16 carry the grid, the tracks use 1-14 (14 is the
@@ -1195,6 +1208,7 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT |
 | **72** | `idx*2 k last text...` | (to the PC) the probe event idx asked for, in pieces of 150 characters: the explorer's `PROBE G`, `PROBE T1..16`, `PROBE H` lines |
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
+| **74** | `seq*2 n (ms*4 gc*4 st d1 d2 cable)*n` | (to the PC, 0.20.3, when GO's byte 1 bit 0 asked to hear the ports) every MIDI message that came in from the ports and was played: the ms, the clock tick before it, the status without bit 7, the cable (0 port 1, 1 port 2); seq = the number of the first in the session. DONE then also carries `heard*2 lost` |
 | **30** | `on` | (from the Pi, 0.15) 1: send the positions for the next 6 s (the bridge asks again every 2 s while an editor page follows); 0: stop |
 | **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song; clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
 | **32** | `t vel gate flags n note*n` | (from the Pi) play these notes on track t as the track plays a step (its channel, key, CHORD, voicing) for gate x 10 ms; flags bit 0: a TAPE note (the key only). A new one ends the one before; PANIC and STOP end it |

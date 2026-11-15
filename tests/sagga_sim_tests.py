@@ -6267,7 +6267,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20", "HELLO: nothing asked yet, a normal boot, 0.20 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.3", "HELLO: nothing asked yet, a normal boot, 0.20.3 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -6331,6 +6331,83 @@ def t011_pc_test():
     sx(s, 1000, TP.close())
     log = run(s, 1500, testboot=True)
     check(ans(log, "close") == [(1000, 1)] and "TEST REBOOT" in log.text, "CLOSE: a reboot, not into the test (%s)" % ans(log, "close"))
+
+
+def t0203_test_listens():
+    group("0.20.3: the PC test hears the FM-1's ports when GO asks (the Pi's banco): it plays what comes in, says where (ms, clock tick, port), and the replay with those as the test's MIDI events is the same machine")
+    sys.path.insert(0, os.path.join(ROOT, "tools", "hwtest"))
+    import sagga_testport as TP
+
+    def sx(s, t, b): s.at(t, "sx", " ".join("%02X" % x for x in b[1:-1]))
+
+    def answers(log):
+        return [(t, TP.parse(bytes(b))) for t, b in log.sysex if TP.parse(bytes(b))]
+
+    def session(listen, extra, evs):
+        s = Script()
+        sx(s, 1000, TP.hello()); sx(s, 1010, TP.go(listen)); sx(s, 1020, TP.ev_frame(0, evs))
+        for line in extra:
+            t, rest = line.split(" ", 1)
+            s.raw(int(t), rest)
+        return run(s, 1000 + evs[-1][0] + 600, testboot=True)
+
+    evs = [(100, TP.PROBE, 0, 0), (200, TP.PRESS, PLAY, 0), (230, TP.RELEASE, PLAY, 0), (1500, TP.PROBE, 0, 0), (2600, TP.PROBE, 0, 0),
+           (2700, TP.END, 0, 0)]
+    extra = ["1600 midi 0xBF 118 127", "1700 midi 0xBE 4 127", "1740 midi 0xBE 4 0"]       # the grid: attached, the STEP view
+    extra += ["%d midi 0x9F %d %d" % (1800 + 10 * k, 16 + k, 100 if k % 2 == 0 else 0) for k in range(40)]   # 40 in 400 ms
+    extra += ["%d midi 0xBF 118 64" % t for t in (2400, 4000)]                            # (the keep-alive; 4000: after END)
+    deaf = session(False, extra, evs)
+    a = answers(deaf)
+    probes = lambda a: {i: TP.probe_dict(t) for i, t in _probes(a).items()}
+
+    def _probes(a):
+        pr = TP.Probes()
+        for _, x in a:
+            if x[0] == "probe":
+                pr.add(*x[1])
+        return pr.done
+    pd = probes(a)
+    check(pd.get(4, {}).get("G", {}).get("grid") == "0" and not [x for _, x in a if x[0] == "heard"],
+          "GO as before: the ports are not heard (the grid stays away), nothing said (%s)" % pd.get(4, {}).get("G", {}).get("grid"))
+    done = [x[1] for _, x in a if x[0] == "done"]
+    check(done and "heard" not in done[0], "... and DONE as before (%s)" % done)
+    ear = session(True, extra, evs)
+    a = answers(ear)
+    pe = probes(a)
+    heard = TP.Heard()
+    for _, x in a:
+        if x[0] == "heard":
+            heard.add(*x[1])
+    rows = heard.rows()
+    go = [x[1] for _, x in a if x[0] == "go"][0]
+    check(pe.get(4, {}).get("G", {}).get("grid") == "1", "GO with listen: the grid's attach is played (%s)" % pe.get(4, {}).get("G", {}).get("grid"))
+    check(len(rows) == 45 and [r[2:5] for r in rows[:3]] == [[0xBF, 118, 127], [0xBE, 4, 127], [0xBE, 4, 0]] and all(r[5] == 0 for r in rows),
+          "every message heard said, in order, from port 1 (the only one), after END too (%d %s)" % (len(rows), rows[:3]))
+    check(all(r[0] - 1000 in (int(l.split()[0]) - 1000, int(l.split()[0]) - 999) for r, l in zip(rows, extra)),
+          "... each at the ms it came in (%s)" % [(r[0], l.split()[0]) for r, l in list(zip(rows, extra))[:4]])
+    check(sorted(heard.by_seq) == list(range(len(rows))) and heard.gaps() == 0, "the numbers have no gap (%s)" % sorted(heard.by_seq)[:5])
+    done = [x[1] for _, x in a if x[0] == "done"]
+    check(done and done[0].get("heard") == 44 and done[0].get("heard_lost") == 0, "DONE: 44 heard up to END, none lost (%s)" % done)
+    gcs = [r[1] for r in rows]
+    check(gcs == sorted(gcs) and gcs[-1] > gcs[0] > 0, "the clock ticks go on under them (%s .. %s)" % (gcs[0], gcs[-1]))
+    # the replay: the heard ones as the test's MIDI events where the FM-1 heard them, in a run that does not listen
+    logs = {}
+    for _, x in a:
+        if x[0] == "log":
+            for idx, ms, gc in x[1]:
+                logs[idx] = (ms, gc)
+    rp = sorted([(logs[i][0], 1, list(e[1:4]) + [logs[i][1]]) for i, e in enumerate(evs)] +
+                [(r[0], 0, [TP.MIDI] + list(TP.midi_ev(r[2], r[3], r[4], TP.PORT1)) + [r[1]]) for r in rows if r[0] <= logs[len(evs) - 1][0]],
+                key=lambda x: x[:2])
+    order = [x[2][0] for x in rp]
+    replay = session(False, [], [(ms - go,) + tuple(e) for ms, _, e in rp])
+    pr = probes(answers(replay))
+    idx = [k for k, kind in enumerate(order) if kind == TP.PROBE]
+    machine = lambda d: {w: v for w, v in (d or {}).items() if w != "H"}      # (H: the FM-1's own numbers, the test's queue)
+    same = [machine(pe.get(i)) == machine(pr.get(k)) for i, k in zip((0, 3, 4), idx)]
+    check(all(same) and pr.get(idx[-1], {}).get("G", {}).get("grid") == "1", "the replay probes the same machine, probe by probe (%s)" % same)
+    lights = lambda log: sorted((t, st, d1, d2) for t, st, d1, d2 in log.msgs if st in (0x9F, 0xBE) and t < 1000 + 2700)
+    check(lights(ear) and lights(ear) == lights(replay), "... and sends the grid the same lights at the same ms (%d)" % len(lights(ear)))
 
 
 def t011_explorer_sessions():
@@ -8022,7 +8099,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t08_bugs, t08_knobs_zero, t08_snapshots, t08_harmony, t08_dice_memory, t08_grid_views, t08_usb_two_ports,
          t09_viaggio_phrase, t09_viaggio_moves, t09_viaggio_loop_genre_remote, t09_profiles_persist, t09_grid_viaggio, t09_review_fixes, t010_expo, t010_rec_length, t010_delay, t010_bend_at, t010_undo_levels, t010_chain, t011_tape, t010_expo_plain, t010_expo_grace,
          t010_time, t010_notes, t010_lanes, t010_tools, t010_keys, t010_viaggio2,
-         t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
+         t011_lengths, t011_harmony_genre, t011_algo_slots, t011_band_cook, t011_note_lengths, t011_pi_patterns, t011_progressions, t011_pi_progressions, t011_in_time_after, t011_explorer_sessions, t011_pc_test, t0203_test_listens, t012_pick, t012_blocks, t012_studio_viaggio, t012_break, t012_remote13, t012_review, t012_window, t012_grid_pick,
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
