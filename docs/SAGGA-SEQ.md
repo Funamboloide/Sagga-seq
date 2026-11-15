@@ -12,6 +12,12 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.7 (the FM-1 only)
+
+0.20.6 sent QUANTISE back on channel 12 CC 34 only with REMOTE 13 + 14; with REMOTE 14 (the FM-1's default, SAGGA Remote
+alone) it never went back. It goes back with either now (port 2 goes to the hub's pages only); the other three echoes
+(SWING, track 6's pattern, lane 1) belong to the pages on channels 12 and 13 and stay with REMOTE 13 + 14.
+
 ## What is new in 0.20.6
 
 The first banco on the real Pi found two things. **The values the FM-1 sends back to the hub on CC 6** (QUANTISE, the LIVE
@@ -1365,7 +1371,8 @@ LENGTH past the pattern, an OCTAVE on a drum track) comes back corrected after t
 CC 6), 35 the pattern of track 6 (channel 13 CC 38), 36 lane 1 (channel 13 CC 101). In MIDI 2.0, CC 6 and 38 are the Data
 Entry of an RPN / NRPN and CC 98-101 choose one; RaspiMIDIHub 6 runs its pages as MIDI 2.0 clients where the Pi's kernel
 speaks MIDI 2.0, and the kernel then turns the FM-1's CC 6 / 38 / 101 into RPN parts that never reach the page. The
-SAGGA pages take channel 12 CC 33-36 as those four cells (so a binding of yours on them still works). Coming in nothing
+SAGGA pages take channel 12 CC 33-36 as those four cells (so a binding of yours on them still works). QUANTISE goes back
+with REMOTE 14 too (0.20.7), the other three with REMOTE 13 + 14. Coming in nothing
 changed: the pages, the BeatStep plugin and any controller still send CC 6, 38 and 101.
 
 In RaspiMIDIHub's matrix: the FM-1's port 2 ("Felucca MIDI 2") to the IN of each SAGGA page, beside their OUT to the

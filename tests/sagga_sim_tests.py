@@ -6267,7 +6267,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.6", "HELLO: nothing asked yet, a normal boot, 0.20.6 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.7", "HELLO: nothing asked yet, a normal boot, 0.20.7 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7817,6 +7817,20 @@ def t0206_echo_ccs():
     early = [x for x in out if (x[1] & 15, x[2]) in sent and sent[(x[1] & 15, x[2])] <= x[0] < sent[(x[1] & 15, x[2])] + 350]
     check(not early, "what the tablet just sent on the old numbers does not come straight back while its hand is on it (%s)" % early[:3])
     check(log.dumps and log.dumps[0]["pat"] == 4, "the old CC 38 still sets track 6's pattern: 4 (%s)" % [x["pat"] for x in log.dumps])
+    # 0.20.7: REMOTE 14 (the FM-1's default: SAGGA Remote only): QUANTISE changed on the panel comes back to the page too
+    for remote13 in (False, True):
+        s = Script()
+        t = remote13_on(s, 100) if remote13 else 100
+        t = usb2(s, t)
+        s.raw(t, "midi 0xBD 9 70 2"); t += 600                          # the Remote page says something (its SWING macro)
+        t3 = t
+        t = perf(s, t, [(K4, 2)])                                       # QUANTISE on the panel: PERF, K4
+        log = run(s, t + 800)
+        out = [(m[0], m[1], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[0] > t3]
+        q = [x for x in out if x[1] == 0xBB and x[2] == 34]
+        check(q and q[-1][3] == 2, "%s: QUANTISE turned on the panel goes back on channel 12 CC 34 (%s)" % ("REMOTE 13 + 14" if remote13 else "REMOTE 14", q[-2:]))
+        check(not [x for x in out if x[1] == 0xBB and x[2] != 34] or remote13,
+              "REMOTE 14: nothing else on channel 12 (the LIVE page's channel is not the remote's) (%s)" % [x for x in out if x[1] == 0xBB][:3])
 
 
 def t018_live_sweep():

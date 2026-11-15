@@ -250,7 +250,9 @@ static uint8_t fb_value(uint32_t k)
     const sq_track_cfg_t *c = &project.track[tt];
     const sq_lfo_t *l = &project.lfo[ls];
     fb_item(k, &ch, &num, &note, &fl);
-    if (ch != 13u && project.live.remote_mode != SQ_RM_13_14) return 255u;   /* (channels 12 and 13: REMOTE 13 + 14) */
+    if (ch != 13u && project.live.remote_mode != SQ_RM_13_14 && !(ch == TB_CH && num == FB_E_QUANT))
+        return 255u;                                    /* (channels 12 and 13: REMOTE 13 + 14; 0.20.7: QUANTISE, SAGGA
+                                                         *  Remote's, also with REMOTE 14 - port 2 goes to the pages only) */
     if (k < FB_LEN) return tr[k].pending_pattern < SQ_PATTERNS ? tr[k].pending_pattern : tr[k].pattern;
     if (k < FB_MUTE) return len_shown((uint8_t)(k - FB_LEN));
     if (k < FB_LSW) return ((tab_mutes() >> (k - FB_MUTE)) & 1u) ? 127u : 0u;
