@@ -120,7 +120,25 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             { uint8_t ch = track_ch((uint8_t)t), pc = project.scene[scene_cursor].pc[ch]; PK(PK_COUNT, 0, 127, 1, pc > 127u ? -1 : (int32_t)pc); }
         } else if (pg == 5u) {
             const sq_track_cfg_t *mv = mfx_view(t);                            /* 0.16: the READY one, if there is one */
+            int32_t lo, hi;
             if (k == 0u) PK(PK_LIST, 0, SQ_MFXS - 1, 1, mfx_shown(t));
+            if (mv->mfx >= SQ_MFXS_019) {                                      /* 0.20: the new five, each knob its kind */
+                uint8_t fx = mv->mfx;
+                sq_mfx_range(fx, (uint8_t)(k - 1u), track_in_key(t), &lo, &hi);
+                if (k == 1u) {
+                    if (fx == SQ_MFX_CHANCE || fx == SQ_MFX_GLITCH) PK(PK_PCT, 0, 100, 5, mv->mfx_amt);
+                    if (fx == SQ_MFX_FILTER) PK(PK_NOTE, 0, 127, 1, mv->mfx_amt);
+                    PK(PK_LIST, lo, hi, 1, mv->mfx_amt);
+                }
+                if (k == 2u) {
+                    if (fx == SQ_MFX_FILTER) PK(PK_NOTE, 0, 127, 1, mv->mfx_time);
+                    if (fx == SQ_MFX_RANDOM) PK(PK_NONE, 0, 64, 1, mv->mfx_time);
+                    PK(PK_LIST, lo, hi, 1, mv->mfx_time);
+                }
+                if (fx == SQ_MFX_CHANCE) PK(PK_NONE, 0, 0, 1, mv->mfx_fb);
+                if (hi - lo >= 50) PK(PK_PCT, lo, hi, 5, mv->mfx_fb);
+                PK(PK_LIST, lo, hi, 1, mv->mfx_fb);
+            }
             if (k == 1u) PK(PK_SEMI, -12, 12, 1, mv->mfx_amt);
             if (k == 2u) PK(PK_LIST, 0, mv->mfx == SQ_MFX_OCTAVE ? SQ_OCT_PATTERNS - 1 : SQ_ECHO_TIMES - 1, 1, mv->mfx_time);
             PK(PK_PCT, 10, 100, 5, mv->mfx_fb);
@@ -254,7 +272,7 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             if (k == 1u) PK(PK_LIST, 0, SQ_LFO_RATES - 1, 1, l->rate);
             PK(PK_NONE, 0, 127, 1, k == 2u ? l->depth : l->center);
         } else if (pg == 1u) {
-            if (k == 0u) PK(PK_LIST, 0, SQ_LD_KINDS - 1, 1, l->dest);
+            if (k == 0u) PK(PK_LIST, 0, SQ_LD_ALL - 1, 1, l->dest);
             if (k == 1u) PK(PK_COUNT, 0, l->dest == SQ_LD_CC ? (int32_t)ch_limit() - 1 : (int32_t)SQ_TRACKS - 1, 1, l->target);
             if (k == 2u) PK(PK_CC, 0, SQ_CC_MAX, 1, l->param);
             PK(PK_NONE, 0, 127, 1, l->phase);
@@ -263,6 +281,16 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             if (k == 1u) PK(PK_LIST, 0, 1, 1, (l->flags & SQ_LF_RETRIG) ? 1 : 0);
             if (k == 2u) PK(PK_LIST, 0, 1, 1, (l->flags & SQ_LF_INVERT) ? 1 : 0);
             PK(PK_COUNT, 1, SQ_TRACKS, 1, project.ext.lfo[lfo_sel].trig ? project.ext.lfo[lfo_sel].trig : 0);   /* 0.13 TRIG: white N = track N (the clock: the knob down) */
+        } else if (pg == LFO_PAGE_ENV) {                                  /* 0.20 ENV */
+            const sq_lfoe_t *e = &project.ext.lfoe[lfo_sel];
+            if (k == 2u) PK(PK_PCT, 0, 100, 5, e->s);
+            PK(PK_LIST, 0, SQ_ENV_TIMES - 1, 1, k == 0u ? e->a : k == 1u ? e->d : e->r);
+        } else if (pg == LFO_PAGE_MOD) {                                  /* 0.20 MOD MATRIX */
+            const sq_mod_t *m = &project.ext.mod[mod_slot];
+            if (k == 0u) PK(PK_COUNT, 0, SQ_MODS - 1, 1, mod_slot);
+            if (k == 1u) PK(PK_LIST, 0, SQ_MSS - 1, 1, m->src);
+            if (k == 2u) PK(PK_LIST, 0, SQ_MDS - 1, 1, m->dst);
+            PK(PK_NONE, -100, 100, 5, m->amt);
         } else {                                                          /* 0.13 RATE SEQ */
             const sq_lfox_t *x = &project.ext.lfo[lfo_sel];
             if (k == 0u) PK(PK_COUNT, 1, SQ_RSEQ_MAX, 1, x->seq_n < 2u ? 1 : x->seq_n);   /* (white 1: OFF, white N: N rates) */

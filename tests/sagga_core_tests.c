@@ -20,7 +20,7 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 16u * 96u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole) */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1004u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1508u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 28u && sizeof(sq_phrase_t) == 26u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
@@ -2553,7 +2553,7 @@ static void test_v019_mfx_chain(void)
     sq_project_init(&a);
     for (t = 0; t < SQ_TRACKS; t++) {                  /* a new project: nothing plays, each effect its defaults */
         CHECK(a.ext.mfxc[t].on == 0u && a.track[t].mfx == SQ_MFX_OFF);
-        for (k = 1u; k < SQ_MFXS; k++) {
+        for (k = 1u; k < SQ_MFXS_019; k++) {
             sq_mfx_defaults((uint8_t)k, &am, &tm, &fb);
             CHECK(a.ext.mfxc[t].amt[k - 1u] == am && a.ext.mfxc[t].time[k - 1u] == tm && a.ext.mfxc[t].fb[k - 1u] == fb);
         }

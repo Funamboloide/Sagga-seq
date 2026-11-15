@@ -368,21 +368,37 @@ static void ui_build(void)
             p = b; p = put_s(p, "HOME 5/8 LOOPS  PC CH"); p = put_u(p, (uint32_t)ch + 1u); finish(p);
             ui_line(2, b, C_WARN);
         } else {
-            static const char *const MF[SQ_MFXS] = {"OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"};
             static const char *const ET[SQ_ECHO_TIMES] = {"1/32", "1/16", "1/8T", "1/16.", "1/8", "1/4T", "1/8.", "1/4"};
             static const char *const OP[SQ_OCT_PATTERNS] = {"ALT", "RANDOM", "3RD", "4TH"};
+            static const char *const GF[SQ_GATE_FACTORS] = {"X1/4", "X1/2", "X3/4", "X1", "X3/2", "X2", "X4"};
+            static const char *const GX[SQ_GATE_FIXED] = {"OFF", "1/32", "1/16", "1/8", "1/4", "1/2", "1 BAR", "2 BARS"};
+            static const char *const GL[SQ_GLITCHES] = {"MIX", "STUTTER", "RISE", "JUMP", "CUT"};
             const sq_track_cfg_t *mv = mfx_view(t);                       /* 0.19: the effect K1 shows, playing or READY */
             uint8_t fx = mv->mfx < SQ_MFXS ? mv->mfx : 0u, plays = mfx_on(t, fx);
             uint16_t on = fx ? C_WHITE : SQ_C_DIM;
-#define cfg mv
-            ui_cell(0, !fx ? "MIDI FX" : plays ? "MIDI FX ON" : "MIDI FX READY", MF[fx], !fx ? SQ_C_DIM : plays ? C_ACCENT : C_WHITE);
-            ui_cell(1, fx == SQ_MFX_HARM ? (track_in_key(t) ? "INTERVAL STEPS" : "INTERVAL SEMI") : fx == SQ_MFX_ECHO ? "REPEATS" :
-                       fx == SQ_MFX_OCTAVE ? "OCTAVES" : "AMOUNT", f_i(cfg->mfx_amt), on);
-            ui_cell(2, fx == SQ_MFX_OCTAVE ? "WHICH STEPS" : "ECHO TIME", fx == SQ_MFX_OCTAVE ? OP[cfg->mfx_time & 3u] : ET[cfg->mfx_time < SQ_ECHO_TIMES ? cfg->mfx_time : 6u],
-                    (fx == SQ_MFX_ECHO || fx == SQ_MFX_OCTAVE) ? C_WHITE : SQ_C_DIM);
-            ui_cell(3, fx == SQ_MFX_HARM ? "VOICE VEL" : "ECHO KEEPS", f_pct(cfg->mfx_fb), (fx == SQ_MFX_ECHO || fx == SQ_MFX_HARM) ? C_WHITE : SQ_C_DIM);
-#undef cfg
-            if (!project.ext.mfxc[t].on) ui_line(2, echo_global ? "HOME 6/8 MIDI FX  ECHO ALL ON" : "HOME 6/8 MIDI FX", C_WARN);
+            const char *l2 = "-", *l3 = "-", *l4 = "-", *v2 = "-", *v3 = "-", *v4 = "-";
+            ui_cell(0, !fx ? "MIDI FX" : plays ? "MIDI FX ON" : "MIDI FX READY", MFX_NAME[fx], !fx ? SQ_C_DIM : plays ? C_ACCENT : C_WHITE);
+            switch (fx) {                                                  /* 0.20: each effect its three knobs */
+            case SQ_MFX_HARM:     l2 = track_in_key(t) ? "INTERVAL STEPS" : "INTERVAL SEMI"; v2 = f_i(mv->mfx_amt); l4 = "VOICE VEL"; v4 = f_pct(mv->mfx_fb); break;
+            case SQ_MFX_OCTAVE:   l2 = "OCTAVES"; v2 = f_i(mv->mfx_amt); l3 = "WHICH STEPS"; v3 = OP[mv->mfx_time & 3u]; break;
+            case SQ_MFX_ECHO:     l2 = "REPEATS"; v2 = f_i(mv->mfx_amt); l3 = "ECHO TIME"; v3 = ET[mv->mfx_time < SQ_ECHO_TIMES ? mv->mfx_time : 6u];
+                                  l4 = "ECHO KEEPS"; v4 = f_pct(mv->mfx_fb); break;
+            case SQ_MFX_VELOCITY: l2 = "AMOUNT"; v2 = f_i(mv->mfx_amt); break;
+            case SQ_MFX_CHANCE:   l2 = "CHANCE"; v2 = f_pct((uint32_t)mv->mfx_amt); l3 = "EACH"; v3 = mv->mfx_time ? "STEP" : "NOTE"; break;
+            case SQ_MFX_RANDOM:   l2 = track_in_key(t) ? "NOTE STEPS" : "NOTE SEMI"; v2 = f_pre("+-", (uint32_t)mv->mfx_amt);
+                                  l3 = "VELOCITY"; v3 = f_pre("+-", mv->mfx_time); l4 = "HOW OFTEN"; v4 = f_pct(mv->mfx_fb); break;
+            case SQ_MFX_FILTER:   l2 = "LOWEST"; v2 = f_note((uint8_t)mv->mfx_amt); l3 = "HIGHEST"; v3 = f_note(mv->mfx_time);
+                                  l4 = "ONE IN"; v4 = mv->mfx_fb > 1u ? f_u(mv->mfx_fb) : "ALL"; break;
+            case SQ_MFX_GATE:     l2 = "LENGTH"; v2 = GF[clamp_i32(mv->mfx_amt, -3, 3) + 3]; l3 = "FIXED"; v3 = GX[mv->mfx_time < SQ_GATE_FIXED ? mv->mfx_time : 0u];
+                                  l4 = "HUMAN"; v4 = f_pre("+-", mv->mfx_fb); break;
+            case SQ_MFX_GLITCH:   l2 = "HOW OFTEN"; v2 = f_pct((uint32_t)mv->mfx_amt); l3 = "KIND"; v3 = GL[mv->mfx_time < SQ_GLITCHES ? mv->mfx_time : 0u];
+                                  l4 = "PIECES"; v4 = f_u(mv->mfx_fb); break;
+            default: break;
+            }
+            ui_cell(1, l2, v2, l2[0] != '-' ? on : SQ_C_DIM);
+            ui_cell(2, l3, v3, l3[0] != '-' ? on : SQ_C_DIM);
+            ui_cell(3, l4, v4, l4[0] != '-' ? on : SQ_C_DIM);
+            if (!mfx_count(t)) ui_line(2, echo_global ? "HOME 6/8 MIDI FX  ECHO ALL ON" : "HOME 6/8 MIDI FX", C_WARN);
             else {                                                         /* 0.19: the chain, in the order it plays */
                 p = b; p = put_s(p, "HOME 6/8 FX "); p = mfx_chain_put(p, t);
                 if (echo_global && !mfx_on(t, SQ_MFX_ECHO)) p = put_s(p, " +ECHO ALL");
@@ -447,6 +463,34 @@ static void ui_build(void)
             ui_cell(1, "RESTART", f_onoff(l->flags & SQ_LF_RETRIG), (l->flags & SQ_LF_RETRIG) ? C_ON : SQ_C_DIM);
             ui_cell(2, "INVERT", f_onoff(l->flags & SQ_LF_INVERT), (l->flags & SQ_LF_INVERT) ? C_ON : SQ_C_DIM);
             ui_cell(3, "TRIG", x->trig ? f_pre("T", x->trig) : "CLOCK", x->trig ? C_ON : SQ_C_DIM);   /* 0.13 */
+        } else if (lfo_page == LFO_PAGE_ENV) {                       /* 0.20 ENV */
+            static const char *const ETN[SQ_ENV_TIMES] = {"0", "1/96", "1/48", "1/32", "1/24", "1/16", "1/16.", "1/8", "1/8.", "1/4", "1/4.",
+                                                          "1/2", "1/2.", "1 BAR", "2 BARS", "4 BARS"};
+            const sq_lfoe_t *e = &project.ext.lfoe[lfo_sel];
+            uint16_t ec = l->shape == SQ_LFO_ENV ? lc : SQ_C_DIM;
+            ui_cell(0, "ATTACK", ETN[e->a < SQ_ENV_TIMES ? e->a : 0u], ec);
+            ui_cell(1, "DECAY", ETN[e->d < SQ_ENV_TIMES ? e->d : 0u], ec);
+            ui_cell(2, "SUSTAIN", f_pct(e->s), ec);
+            ui_cell(3, "RELEASE", ETN[e->r < SQ_ENV_TIMES ? e->r : 0u], ec);
+        } else if (lfo_page == LFO_PAGE_MOD) {                       /* 0.20 MOD MATRIX */
+            static const char *const SN[SQ_MSS] = {"OFF", "LFO ", "MACRO ", "ENERGY", "RANDOM", "VEL T", "CC IN "};
+            static const char *const DN[SQ_MDS] = {"OFF", "DEPTH L", "CENTER L", "VEL T", "GATE T", "CHANCE T", "TIMING T", "SWING T", "FX T"};
+            static const char *const MAC[4] = {"INTENS", "GATE", "SWING", "FILTER"};
+            const sq_mod_t *m = &project.ext.mod[mod_slot];
+            uint16_t mc = (m->src && m->dst) ? C_WHITE : SQ_C_DIM;
+            char *q;
+            ui_cell(0, "SLOT", f_pre("MOD ", (uint32_t)mod_slot + 1u), C_ACCENT);
+            q = fbuf();
+            { char *z = q; z = put_s(z, SN[m->src < SQ_MSS ? m->src : 0u]);
+              if (m->src == SQ_MS_MACRO) z = put_s(z, MAC[m->src_i & 3u]);
+              else if (m->src == SQ_MS_LFO || m->src == SQ_MS_VEL) z = put_u(z, (uint32_t)m->src_i + 1u);
+              else if (m->src == SQ_MS_CCIN) z = put_u(z, m->src_i);
+              finish(z); }
+            ui_cell(1, "SOURCE", q, mc);
+            q = fbuf();
+            { char *z = q; z = put_s(z, DN[m->dst < SQ_MDS ? m->dst : 0u]); if (m->dst) z = put_u(z, (uint32_t)m->dst_i + 1u); finish(z); }
+            ui_cell(2, "DESTINATION", q, mc);
+            ui_cell(3, "AMOUNT", f_spct(m->amt), mc);
         } else {                                                     /* 0.13 RATE SEQ */
             static const char *const EV[SQ_RES] = {"BEAT", "2 BEATS", "BAR", "2 BARS"};
             const sq_lfox_t *x = &project.ext.lfo[lfo_sel];
@@ -457,8 +501,10 @@ static void ui_build(void)
             ui_cell(3, r < SQ_LFO_RATES ? "RATE" : "(RATE)", lfo_rate_name(r < SQ_LFO_RATES ? r : l->rate), on ? lc : SQ_C_DIM);
         }
         p = b; p = put_s(p, "LFO "); p = put_u(p, (uint32_t)lfo_sel + 1u); p = put_s(p, "/16 "); p = put_s(p, f_onoff(l->enabled));
-        p = put_s(p, "  PAGE "); p = put_u(p, (uint32_t)lfo_page + 1u); p = put_s(p, "/4");
+        p = put_s(p, "  PAGE "); p = put_u(p, (uint32_t)lfo_page + 1u); p = put_s(p, "/6");
         if (lfo_page == 3u) p = put_s(p, " RATE SEQ");
+        if (lfo_page == LFO_PAGE_ENV) p = put_s(p, " ENV");
+        if (lfo_page == LFO_PAGE_MOD) p = put_s(p, " MOD");
         finish(p);
         ui_line(2, b, C_WARN);
         break;

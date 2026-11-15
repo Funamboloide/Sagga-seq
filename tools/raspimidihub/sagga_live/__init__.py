@@ -1,11 +1,11 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""SAGGA LIVE - a RaspiMIDIHub controller for SAGGA SEQ 0.18: the tablet's own track, while the FM-1 works on another.
+"""SAGGA LIVE - a RaspiMIDIHub controller for SAGGA SEQ 0.18 - 0.20: the tablet's own track, while the FM-1 works on another.
 
 The tablet has a track of its own on the FM-1 (TRACK, channel 13 CC 112, the same as SAGGA Motori's and Mod's): what
 this page sends acts there, and the FM-1's screen says so ("TAB T5: ..."); the FM-1's track, page and cursor stay as
 they are. Channel 12 (firmware/src/sagga_tablet.c): MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE and its
-amount, FOLLOW; the ARP (mode, octaves, rate, run) and the CHORD; the MIDI FX (one of the four, its amount, GO: 0.19,
-it joins the track's chain or leaves it); an ALGORITHM
+amount, FOLLOW; the ARP (mode, octaves, rate, run) and the CHORD; the MIDI FX (one of the four - 0.20: of the nine -, its
+amount, GO: 0.19, it joins the track's chain or leaves it); an ALGORITHM
 (READY, A B C, GO); EUCLID (pulses, rotation, on / off); COOK, BEAT, a PROPOSAL and QUEUE (it enters at the
 QUANTISE), DICE, KEEP / BACK, UNDO; the sixteen MUTES.
 
@@ -32,7 +32,7 @@ RUN_LABELS = ["OFF", "RETRIG", "HOLD", "HOLD+RT"]
 CHORD_LABELS = ["OFF", "OCTAVE", "POWER", "5-8", "MAJOR", "MINOR", "DIM", "AUG", "SUS2", "SUS4",
                 "MAJ6", "MIN6", "DOM7", "MIN7", "MAJ7", "MINMAJ7", "DIM7", "M7B5", "7SUS4", "ADD9", "MINADD9", "DOM9", "MIN9", "MAJ9",
                 "9SUS4", "6/9", "MIN6/9", "MIN11", "DOM13", "SHELL7", "MINSHELL", "1-3-5-8"]
-MFX_LABELS = ["OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE"]
+MFX_LABELS = ["OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH"]   # 0.20: nine
 MFX_AMT_LABELS = ["%+d" % (i - 12) if i != 12 else "0" for i in range(25)]
 ALGO_LABELS = ["OFF", "TURING", "CELL", "ACCENT", "DENSITY"]
 
@@ -71,7 +71,7 @@ CELLS = [
     knob("arp_run", "RUN", 23, 4, 4, 0, 3, 0, RUN_LABELS),
 
     knob("chord", "CHORD", 24, 1, 5, 0, 31, 0, CHORD_LABELS),
-    knob("mfx", "MIDI FX", 9, 2, 5, 0, 4, 0, MFX_LABELS),
+    knob("mfx", "MIDI FX", 9, 2, 5, 0, 9, 0, MFX_LABELS),
     knob("mfx_amt", "FX AMOUNT", 10, 3, 5, 0, 24, 12, MFX_AMT_LABELS),
     tap("mfx_go", "FX GO", 11, 4, 5, "yellow"),
 
@@ -105,13 +105,14 @@ class SaggaLive(ControllerBase):
     NAME = "SAGGA Live"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat - and the 16 mutes"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.18"
+    VERSION = "0.20"
     HELP = """\
 TRACK picks the tablet's own track on the FM-1 (the FM-1 keeps its own: one hand there, one here); MODE is its mode.
 MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW (the
 harmony); ARP, OCTAVES, RATE (1/4 and 1/2: a note every 4 / 2 steps), RUN; CHORD (one note becomes a chord); MIDI FX
-(one of the four), FX AMOUNT, FX GO (the effect shown joins the track's chain - with FM-1 0.19 the four can play
-together - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
+(one of the nine with FM-1 0.20: HARM, OCTAVE, ECHO, VEL CURVE, CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH), FX AMOUNT (the
+four of 0.19: -12..+12; the new five: their whole range, the FM-1's screen says the value), FX GO (the effect shown
+joins the track's chain - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
 on / off. COOK, BEAT, DICE (KEEP / BACK), UNDO on this track only; PROPOSAL writes a variation on a free pattern, QUEUE
 sends it in. MUTE 1-16: every track.
 The FM-1 sends its values back: wire OUT to the FM-1's port 2 and the FM-1's port 2 to IN (USB PORTS 2); SAVE K2 on

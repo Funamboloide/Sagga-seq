@@ -119,8 +119,27 @@ def stub_hub():
             else:
                 self.send_cc(b["channel"], b["cc"], max(0, min(127, int(value))))
 
+    @dataclass
+    class Display(Param):
+        display_name: str = ""
+
+        def to_dict(self):
+            return {"type": "display", "name": self.name, "display_name": self.display_name}
+
+    class PluginBase:                                  # 0.20: a plain plugin (SAGGA BeatStep)
+        params = []
+
+        def __init__(self):
+            self.ccs, self.displays = [], {}
+            self._param_values = {p.name: p.default for p in self.params if hasattr(p, "default")}
+
+        def get_param(self, name): return self._param_values.get(name)
+        def set_param(self, name, value, persist=True): self._param_values[name] = value
+        def set_display(self, name, value): self.displays[name] = value
+        def send_cc(self, ch, cc, v): self.ccs.append((ch, cc, v))
+
     api = types.ModuleType("raspimidihub.plugin_api")
-    for k in ("Button", "Knob", "Fader", "Radio", "LayoutCell", "LayoutGrid", "Param"):
+    for k in ("Button", "Knob", "Fader", "Radio", "LayoutCell", "LayoutGrid", "Param", "Display", "PluginBase"):
         setattr(api, k, locals()[k])
     base = types.ModuleType("raspimidihub.controller_base")
     base.ControllerBase = ControllerBase
@@ -154,7 +173,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -235,8 +254,55 @@ def structural():
         del sys.modules[k]
 
 
+def bsp_learn(p):
+    """LEARN: the 16 encoders (CC 10-25 on channel 1, each sent twice: the second is not a new one), then the 16 pads
+    (notes 36-51 on channel 10)"""
+    p.on_param_change("learn", True)
+    for i in range(16):
+        p.on_cc(0, 10 + i, 60); p.on_cc(0, 10 + i, 61)
+    for i in range(16):
+        p.on_note_on(9, 36 + i, 100); p.on_note_off(9, 36 + i)
+
+
+def bsp_tests():
+    """0.20 SAGGA BeatStep: its encoders are SAGGA Live's knobs, its actions commands the FM-1 answers; LEARN, then the
+    encoders (ABSOLUTE, RELATIVE) and the pads (MUTE 1-16, ACTIONS)"""
+    stub_hub()
+    m, cls = load_plugin("sagga_bsp")
+    ml, lcls = load_plugin("sagga_live")
+    knobs = {c.param.label: (c.channel, c.cc, c.param.min, c.param.max) for p2 in lcls.params if p2.__class__.__name__ == "LayoutGrid"
+             for c in p2.cells if c.param.__class__.__name__ == "Knob"}
+    check(len(m.ENCODERS) == 16 and all(knobs.get(lab) == (ch, cc, lo, hi) for lab, ch, cc, lo, hi in m.ENCODERS),
+          "SAGGA BeatStep: the 16 encoders are SAGGA Live's knobs (%s)" % [e for e in m.ENCODERS if knobs.get(e[0]) != e[1:]])
+    bad = [a for a in m.ACTIONS if not ((a[1] == 11 and a[2] in CH12_CCS) or (a[1] == 13 and a[2] in CH14_CCS) or (a[1] == 12 and a[2] in CH13_CCS))]
+    check(len(m.ACTIONS) == 16 and not bad, "SAGGA BeatStep: every action a command the FM-1 answers (%s)" % bad)
+    check(cls.VERSION == "0.20" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
+    p = cls()
+    p.on_start()
+    bsp_learn(p)
+    mp = p.get_param("bsp_map")
+    check(mp["enc"][0] == [0, 10] and mp["enc"][15] == [0, 25] and mp["pad"][0] == ["n", 9, 36] and mp["pad"][15] == ["n", 9, 51] and p.displays.get("learned") == 32,
+          "SAGGA BeatStep: LEARN finds the 16 encoders, then the 16 pads (%s %s)" % (mp, p.displays))
+    p.ccs = []
+    p.on_cc(0, 10, 127); p.on_cc(0, 11, 0); p.on_cc(0, 11, 1); p.on_cc(0, 18, 64)
+    p.on_note_on(9, 40, 100); p.on_note_off(9, 40)
+    check(p.ccs == [(12, 112, 15), (11, 3, 0), (11, 9, 5), (13, 52, 127), (13, 52, 0)],
+          "SAGGA BeatStep: TRACK 16, PATTERN 1 (once), MIDI FX halfway, pad 5 = MUTE 5 (%s)" % p.ccs)
+    p.set_param("pads", "ACTIONS"); p.set_param("encoders", "RELATIVE")
+    p.ccs = []
+    p.on_note_on(9, 37, 100); p.on_note_off(9, 37)                     # FILL held
+    p.on_note_on(9, 49, 100); p.on_note_on(9, 49, 100)                 # MUTE (the tablet's track) on, off
+    p.on_note_on(9, 38, 100)                                           # FX GO
+    p.on_cc(0, 12, 66); p.on_cc(0, 12, 63)                             # LENGTH: from 32, +2, -1
+    check(p.ccs == [(13, 23, 127), (13, 23, 0), (11, 1, 127), (11, 1, 0), (11, 11, 127), (11, 11, 0), (11, 4, 34), (11, 4, 33)],
+          "SAGGA BeatStep: ACTIONS FILL held, MUTE twice, FX GO; RELATIVE LENGTH +2 -1 (%s)" % p.ccs)
+    for k in [k for k in list(sys.modules) if k.startswith("raspimidihub")]:
+        del sys.modules[k]
+
+
 def main():
     structural()
+    bsp_tests()
     if not RMH or not os.path.isdir(os.path.join(RMH, "src", "raspimidihub")):
         print("sagga plugins: %d checks, %d failures (the hub's own host: skipped, RMH= a RaspiMIDIHub checkout)" % (N[0], len(FAILS)))
         return 1 if FAILS else 0
@@ -246,12 +312,20 @@ def main():
     import helpers
 
     d = tempfile.mkdtemp()
-    for name in PLUGINS:
+    for name in PLUGINS + ("sagga_bsp",):
         shutil.copytree(os.path.join(ROOT, "tools", "raspimidihub", name), os.path.join(d, name))
     host = PluginHost(plugins_dir=d)
     types = host.discover_plugins()
-    check(set(types) == set(PLUGINS) and all(types[n]["kind"] == "controller" for n in PLUGINS),
-          "the hub's plugin host finds the six, as controllers (%s)" % types)
+    check(set(types) == set(PLUGINS) | {"sagga_bsp"} and all(types[n]["kind"] == "controller" for n in PLUGINS) and types["sagga_bsp"]["kind"] != "controller",
+          "the hub's plugin host finds the six controllers and SAGGA BeatStep (%s)" % types)
+    p, h = helpers.make_plugin(host._plugin_types["sagga_bsp"])     # 0.20: LEARN and the pads in the hub's own host
+    p.on_start()
+    bsp_learn(p)
+    h.clear()
+    p.on_cc(0, 13, 127)
+    p.on_note_on(9, 36, 100)
+    check(h.ccs == [(11, 5, 6), (13, 48, 127), (13, 48, 0)] and "bsp_map" in p._param_values and "bsp_map" not in p.tidy_param_values(),
+          "SAGGA BeatStep in the hub: OCTAVE +3, pad 1 = MUTE 1; the hub keeps what LEARN found (%s)" % h.ccs)
     remote_cls, mutes_cls = host._plugin_types["sagga_remote"], host._plugin_types["sagga_mutes"]
 
     p, h = helpers.make_plugin(remote_cls)

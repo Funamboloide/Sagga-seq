@@ -62,6 +62,18 @@ static const uint8_t GR_EVOAMT[7] = {5, 10, 20, 30, 45, 60, 80};                
 static const uint8_t GR_BARS[16]  = {1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20, 24, 32, 48, 64};       /* SONG view: bars of an entry */
 /* 0.8 TRACK 3 */
 static const uint8_t GR_KEEP[8]   = {20, 30, 40, 50, 60, 70, 85, 100};                              /* ECHO keeps / HARM velocity % */
+/* 0.20: the new MIDI FX's values on a row of pads: pad k of n onto lo..hi (a small range: a value a pad; -9999: none) */
+static int32_t gr_spread(int32_t lo, int32_t hi, uint32_t k, uint32_t n)
+{
+    if (hi - lo < (int32_t)n) return lo + (int32_t)k <= hi ? lo + (int32_t)k : -9999;
+    return lo + ((int32_t)k * (hi - lo) + (int32_t)(n - 1u) / 2) / (int32_t)(n - 1u);
+}
+static int32_t gr_spread_pad(int32_t lo, int32_t hi, int32_t v, uint32_t n)   /* the pad that shows v */
+{
+    if (hi <= lo) return 0;
+    if (hi - lo < (int32_t)n) return v - lo;
+    return ((v - lo) * (int32_t)(n - 1u) + (hi - lo) / 2) / (hi - lo);
+}
 static const uint8_t GR_MUT[16]   = {0, 2, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 100};  /* TURING mutation */
 static const uint8_t GR_RULE[16]  = {30, 45, 54, 60, 73, 90, 105, 110, 122, 126, 150, 18, 22, 57, 62, 184};   /* CELL rules */
 static const uint8_t GR_CELLS[16] = {4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 60, 64};
@@ -651,17 +663,30 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         else if (x >= 5u) { c->strum = (int8_t)(((int32_t)x - 10) * 10); { char *p = msg_buf; p = put_s(p, "STRUM "); p = put_i(p, c->strum); p = put_s(p, "%"); finish(p); status_msg(msg_buf); } }
         break;
     case 1:
-        if (x < SQ_MFXS) mfx_pad(t, x);                 /* 0.16: a tap READY (orange), again: it starts; 0.19: on one that plays: it stops */
+        if (x < 5u) mfx_pad(t, (uint8_t)(gr_shift() && x ? SQ_MFXS_019 + x - 1u : x));   /* 0.16: a tap READY (orange), again: it starts; 0.19: on one that plays: it stops; 0.20: SHIFT + 2-6 the new five */
+        else if (x == 5u && gr_shift()) mfx_pad(t, SQ_MFX_GLITCH);
         else if (x >= 5u) {
             sq_track_cfg_t *v = mfx_view(t);
-            mfx_amount(v, ((int32_t)x - 10) - v->mfx_amt);
+            if (v->mfx >= SQ_MFXS_019) {                /* 0.20: the new ones over their whole range */
+                int32_t lo, hi, a;
+                sq_mfx_range(v->mfx, 0u, track_in_key(t), &lo, &hi);
+                a = gr_spread(lo, hi, x - 5u, 11u);
+                if (a != -9999) v->mfx_amt = (int8_t)a;
+            } else mfx_amount(v, ((int32_t)x - 10) - v->mfx_amt);
             if (v == &mfx_tmp) mfx_keep(t, v);
             { char *p = msg_buf; p = put_s(p, "FX AMOUNT "); p = put_i(p, v->mfx_amt); finish(p); status_msg(msg_buf); }
         }
         break;
     case 2: {
         sq_track_cfg_t *v = mfx_view(t);
-        if (x < 8u) {
+        if (v->mfx >= SQ_MFXS_019) {                    /* 0.20: K3 on pads 1-8, K4 on 9-16, each over its range */
+            int32_t lo, hi, a;
+            sq_mfx_range(v->mfx, x < 8u ? 1u : 2u, track_in_key(t), &lo, &hi);
+            a = gr_spread(lo, hi, x & 7u, 8u);
+            if (a != -9999) { if (x < 8u) v->mfx_time = (uint8_t)a; else v->mfx_fb = (uint8_t)a; }
+            if (v->mfx == SQ_MFX_FILTER && v->mfx_time < (uint8_t)v->mfx_amt) v->mfx_time = (uint8_t)v->mfx_amt;
+            status_num(x < 8u ? "FX K3 " : "FX K4 ", x < 8u ? v->mfx_time : v->mfx_fb);
+        } else if (x < 8u) {
             if (v->mfx == SQ_MFX_OCTAVE) { if (x < SQ_OCT_PATTERNS) v->mfx_time = x; }
             else v->mfx_time = x;
             status_num("FX TIME ", (uint32_t)x + 1u);
@@ -1592,12 +1617,21 @@ static void gr_render_track3(void)
     uint8_t run = algo_slot(t)->algo, shown = algo_shown(t);
     const sq_step_t *cs = &gr_row()[cursor_step];
     const sq_track_cfg_t *mv = mfx_view(t);             /* 0.16: the READY MIDI FX's values, if there is one */
-    int32_t strum = (c->strum + (c->strum < 0 ? -5 : 5)) / 10, amt = mv->mfx_amt;
+    int32_t strum = (c->strum + (c->strum < 0 ? -5 : 5)) / 10, amt = mv->mfx_amt, lo2 = 0, hi2 = 0, lo3 = 0, hi3 = 0, lo4 = 0, hi4 = 0;
+    uint8_t nu = mv->mfx >= SQ_MFXS_019, sh = gr_shift();
+    if (nu) {                                           /* 0.20: a new effect's values, spread on the pads */
+        sq_mfx_range(mv->mfx, 0u, track_in_key(t), &lo2, &hi2); sq_mfx_range(mv->mfx, 1u, track_in_key(t), &lo3, &hi3);
+        sq_mfx_range(mv->mfx, 2u, track_in_key(t), &lo4, &hi4);
+        amt = 5 + gr_spread_pad(lo2, hi2, mv->mfx_amt, 11u) - 10;
+    }
     for (x = 0; x < 16u; x++) {
+        uint8_t fxp = (uint8_t)(x < 5u ? (sh && x ? SQ_MFXS_019 + x - 1u : x) : (sh && x == 5u ? SQ_MFX_GLITCH : 255u));   /* 0.20: SHIFT: the new five */
         gr_put(x, 0, x < SQ_VOICES ? (c->voicing == x ? GL_WHITE : GL_VIOLET) : (int32_t)x - 10 == strum ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
-        gr_put(x, 1, x < SQ_MFXS ? (mfx_on(t, x) ? GL_WHITE : mfx_shown(t) == x ? GL_ORANGE : GL_VIOLET)   /* 0.16: orange READY; 0.19: white, every one that plays */
+        gr_put(x, 1, fxp < SQ_MFXS ? (mfx_on(t, fxp) ? GL_WHITE : mfx_shown(t) == fxp ? GL_ORANGE : GL_VIOLET)   /* 0.16: orange READY; 0.19: white, every one that plays */
                      : !mv->mfx ? GL_OFF : (int32_t)x - 10 == amt ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
-        if (x < 8u) gr_put(x, 2, (mv->mfx == SQ_MFX_OCTAVE && x >= SQ_OCT_PATTERNS) ? GL_OFF : mv->mfx_time == x ? GL_WHITE : GL_BLUE);
+        if (nu) gr_put(x, 2, x < 8u ? (gr_spread(lo3, hi3, x, 8u) == -9999 ? GL_OFF : gr_spread_pad(lo3, hi3, mv->mfx_time, 8u) == (int32_t)x ? GL_WHITE : GL_BLUE)
+                                    : (gr_spread(lo4, hi4, x - 8u, 8u) == -9999 ? GL_OFF : gr_spread_pad(lo4, hi4, mv->mfx_fb, 8u) == (int32_t)x - 8 ? GL_WHITE : GL_CYAN));
+        else if (x < 8u) gr_put(x, 2, (mv->mfx == SQ_MFX_OCTAVE && x >= SQ_OCT_PATTERNS) ? GL_OFF : mv->mfx_time == x ? GL_WHITE : GL_BLUE);
         else gr_put(x, 2, GR_KEEP[x - 8u] <= mv->mfx_fb ? (GR_KEEP[x - 8u] == mv->mfx_fb ? GL_WHITE : GL_CYAN) : GL_FAINT);
         if (x < SQ_ALGOS) gr_put(x, 3, run == x && x ? GL_WHITE : shown == x ? GL_ORANGE : GL_VIOLET);   /* 0.16: orange READY */
         else if (x == 5u) gr_put(x, 3, (c->flags & SQ_TF_FOLLOW) ? GL_CYAN : GL_FAINT);

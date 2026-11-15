@@ -165,6 +165,11 @@ class Log:
                           fb=[int(x) for x in m.group(14, 15, 16, 17)])          # 0.19: the MIDI FX chain (effect x at [x - 1])
                      for m in re.finditer(r"^\s*(\d+) ms  mfxc T(\d+) on (\d+) sel (\d+) pend (\d+) amt (-?\d+) (-?\d+) (-?\d+) (-?\d+) "
                                           r"time (\d+) (\d+) (\d+) (\d+) fb (\d+) (\d+) (\d+) (\d+)$", text, re.M)]
+        self.mfxd = [dict(t=int(m.group(1)), track=int(m.group(2)), on=int(m.group(3)), order=[int(x) for x in m.group(4).split()],
+                          amt=[int(x) for x in m.group(5).split()], time=[int(x) for x in m.group(6).split()],
+                          fb=[int(x) for x in m.group(7).split()], modfx=int(m.group(8)))   # 0.20: the new five [effect - 5], the order
+                     for m in re.finditer(r"^\s*(\d+) ms  mfxd T(\d+) on (\d+) order((?: \d+)+) amt((?: -?\d+)+) time((?: \d+)+) fb((?: \d+)+) modfx (-?\d+)$",
+                                          text, re.M)]
         self.viaggio = [dict(t=int(m.group(1)), on=int(m.group(2)), bar=int(m.group(3)), bars=int(m.group(4)), energy=int(m.group(5)),
                              target=int(m.group(6)), genre=int(m.group(7)), mute=int(m.group(8), 16), speed=int(m.group(9)), rec=int(m.group(10)),
                              states=m.group(11), queue=m.group(12).split(), trail=int(m.group(13)), patterns=m.group(14), song=int(m.group(15)))
@@ -270,7 +275,7 @@ def group(name):
 
 
 # ------------------------------------------------------------------------------------------------ helpers of the new tests
-PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 4, GLO: 3, LFO: 4, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
+PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 4, GLO: 3, LFO: 6, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
 
 
 def pg(s, t, btn, page, encs=(), keys=(), sel=False):
@@ -6262,7 +6267,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.19", "HELLO: nothing asked yet, a normal boot, 0.19 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20", "HELLO: nothing asked yet, a normal boot, 0.20 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7828,6 +7833,185 @@ def t019_mfx_chain():
     check(got == [2 | 8, 2], "the grid: ECHO, HARM with it, ECHO out with one tap (%s)" % got)
 
 
+# ------------------------------------------------------------------------------------------------ 0.20
+FX_CHANCE, FX_RANDOM, FX_FILTER, FX_GATE, FX_GLITCH = 5, 6, 7, 8, 9
+
+
+def mfx_steps(log, p, ch=0):
+    return sorted((round((tm - p) / STEP_MS * 4) / 4, d1, v) for tm, d1, v in log.notes(ch=ch, after=p))
+
+
+def t020_new_fx():
+    group("0.20 the new MIDI FX: CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH in the chain; SEL + K1 the ORDER; a save keeps "
+          "them; the tablet's FX AMOUNT on their range; the grid with SHIFT")
+    # NOTE FILTER one in 2: of four steps, the 1st and the 3rd
+    s = Script()
+    t = s.steps(100, (0, 1, 2, 3))
+    t = home_page(s, t, 5, [(K1, FX_FILTER), (K4, 1)])                # NOTE FILTER READY, one in 2
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(4 * STEP_MS) - 20)
+    n = [x[0] for x in mfx_steps(log, p)]
+    check(states(log)[-1]["msg"] == "T1 MIDI FX NOTE FILTER STARTS" and log.mfxd and log.mfxd[-1]["on"] == 1 << (FX_FILTER - 5),
+          "NOTE FILTER in the chain (%r %s)" % (states(log)[-1]["msg"], log.mfxd[-1:]))
+    check(n == [0, 2], "one in 2: steps 1 and 3 play (%s)" % n)
+    # CHANCE 0 %: nothing plays; the MOD MATRIX's FX depth -100 % (from CC IN 1 at 127) brings it back to every note
+    s = Script()
+    t = s.steps(100, (0, 1, 2, 3))
+    t = home_page(s, t, 5, [(K1, FX_CHANCE), (K2, -14)])              # CHANCE READY, 70 % - 70
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(4 * STEP_MS) - 20)
+    check(log.mfxd[-1]["amt"][0] == 0 and not mfx_steps(log, p), "CHANCE 0 %%: no note (%s %s)" % (log.mfxd[-1]["amt"], mfx_steps(log, p)))
+    s = Script()
+    t = s.steps(100, (0, 1, 2, 3))
+    t = home_page(s, t, 5, [(K1, FX_CHANCE), (K2, -14)])
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    t = pg(s, t, LFO, 5, [(K2, 6), (K3, 8), (K4, 10)])                 # MOD 1: CC IN, FX T1, +100 %
+    t = pg(s, t, LFO, 5, [(K2, 1)], sel=True)                          # SEL + K2: CC 1
+    t = pg(s, t, LFO, 5, [(K4, -40)])                                  # -100 %
+    s.raw(t, "midi 0xB0 1 127"); t += 40; s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(4 * STEP_MS) - 20)
+    check(len(mfx_steps(log, p)) == 4 and log.mfxd[-1]["modfx"] == -100,
+          "MOD MATRIX: CC IN 1 at 127, -100 %% on T1's FX: CHANCE lets every note through (%s, modfx %s)" % (mfx_steps(log, p), log.mfxd[-1]["modfx"]))
+    # RANDOM every note (K4 100 %), +-2 semitones on a FREE track: C4 moves, never further than 2
+    s = Script()
+    t = s.steps(100, tuple(range(8)))
+    t = home_page(s, t, 5, [(K1, FX_RANDOM), (K3, -16), (K4, 10)])     # RANDOM READY, +-2, velocity as it is, always
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(8 * STEP_MS) - 20)
+    n = [x[1] for x in mfx_steps(log, p)]
+    check(len(n) == 8 and all(58 <= x <= 62 for x in n) and any(x != 60 for x in n) and all(x[2] == 100 for x in mfx_steps(log, p)),
+          "RANDOM: the notes within +-2 of C4, some moved, the velocity untouched (%s)" % n)
+    # GATE fixed 1/32: half a step long, whatever the step's gate
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, FX_GATE), (K3, 1)])                  # GATE READY, FIXED 1/32
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(2 * STEP_MS))
+    on = [tm for tm, st, d1, d2 in log.msgs if st == 0x90 and d2 and tm >= p]
+    off = [tm for tm, st, d1, d2 in log.msgs if (st == 0x80 or (st == 0x90 and not d2)) and tm >= p]
+    check(on and off and near(off[0] - on[0], STEP_MS / 2, 3.0), "GATE FIXED 1/32: the note lasts half a step (%s ms)" % ([o - on[0] for o in off[:1]] if on else on))
+    # GLITCH STUTTER 100 %, 4 pieces: the step in four
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, FX_GLITCH), (K2, 15), (K3, 1)])      # GLITCH READY, 100 %, STUTTER
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(STEP_MS) - 5)
+    n = [x[0] for x in mfx_steps(log, p)]
+    check(n == [0, 0.25, 0.5, 0.75], "GLITCH STUTTER: four notes in the step (%s)" % n)
+    # the ORDER: NOTE FILTER under E4, OCTAVE +1 every other step. FILTER first (the default): both steps play (C4,
+    # then C5); OCTAVE moved before it (SEL + K1, 4 places left): step 2's C5 is filtered out
+    def octfilt(move):
+        s = Script()
+        t = s.steps(100, (0, 1))
+        t = home_page(s, t, 5, [(K1, FX_FILTER), (K3, -63)])          # NOTE FILTER, highest 64
+        t = seq_page(s, t, 0, keys=[wk(5)])
+        t = mfx_add(s, t, -5)                                          # OCTAVE (+1, ALT)
+        if move:
+            t = pg(s, t, HOME, 5, [(K1, -4)], sel=True)                # SEL + K1: OCTAVE plays first
+        s.at(t, "dump", 0)
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        return run(s, p + int(2 * STEP_MS) - 20), p
+    log, p = octfilt(False)
+    a = [(x[0], x[1]) for x in mfx_steps(log, p)]
+    log2, p2 = octfilt(True)
+    b = [(x[0], x[1]) for x in mfx_steps(log2, p2)]
+    check(a == [(0, 60), (1, 72)], "FILTER before OCTAVE: C4, then C5 (%s)" % a)
+    check(b == [(0, 60)] and log2.mfxd[-1]["order"][0] == 2 and states(log2)[-1]["msg"].startswith("T1 ORDER OCT>FILT"),
+          "OCTAVE moved first: C5 is filtered out (%s, order %s, %r)" % (b, log2.mfxd[-1]["order"], states(log2)[-1]["msg"]))
+    # a power cycle keeps the new effects, their values and the order
+    d = tempfile.mkdtemp(); flash = os.path.join(d, "flash.bin")
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, FX_RANDOM), (K2, 2), (K4, 2)])       # RANDOM, +-4, 60 %
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    t = pg(s, t, HOME, 5, [(K1, 2)], sel=True)                         # two places later
+    s.tap_btn(t, SAVE); s.tap_btn(t + 400, SAVE); t += 1200
+    run(s, t, flash=flash)
+    s = Script()
+    s.at(300, "dump", 0)
+    log = run(s, 400, flash=flash)
+    m = log.mfxd[-1] if log.mfxd else {}
+    check(m.get("on") == 1 << (FX_RANDOM - 5) and m.get("amt", [0] * 5)[1] == 4 and m.get("fb", [0] * 5)[1] == 60 and
+          m.get("order", [])[:6] == [7, 5, 4, 2, 1, 6] and log.mfxc[-1]["sel"] == FX_RANDOM,
+          "after a power cycle: RANDOM +-4 at 60 %%, two places later; K1 shows it (%s)" % m)
+    # the tablet: MIDI FX CHANCE, FX AMOUNT 12 of 24 = 50 %%, FX GO
+    s = Script()
+    t = remote13_on(s, 100)
+    s.raw(t, "midi 0xBB 9 %d" % FX_CHANCE); t += 40
+    s.raw(t, "midi 0xBB 10 12"); t += 40
+    s.raw(t, "midi 0xBB 11 127"); s.raw(t + 20, "midi 0xBB 11 0"); t += 60; s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    m = log.mfxd[-1]
+    check(m["on"] == 1 and m["amt"][0] == 50, "the tablet: CHANCE at 50 %% in the chain (%s)" % m)
+    # the grid: SHIFT + pad 6 of row 2 = GLITCH, READY; again: it plays
+    s = Script()
+    t = s.steps(100, [0])
+    s.raw(t, "attach")
+    view(s, t + 100, GC_VTRACK); view(s, t + 200, GC_VTRACK); view(s, t + 300, GC_VTRACK)   # TRACK, 2, 3
+    s.at(t + 400, "ctl", GC_SHIFT, 127)
+    s.pad(t + 420, 5, 1); s.pad(t + 500, 5, 1)
+    s.at(t + 580, "ctl", GC_SHIFT, 0); s.at(t + 640, "dump", 0)
+    log = run(s, t + 800)
+    check(log.mfxd[-1]["on"] == 1 << (FX_GLITCH - 5), "the grid: SHIFT + pad 6 twice: GLITCH plays (%s)" % log.mfxd[-1])
+
+
+def t020_env_mod():
+    group("0.20 ENV: an LFO shaped as an envelope on its TRIG track's notes; the MOD MATRIX: CC IN on a track's velocity, LEARN")
+    # LFO 1: ENV, CC 74 from 0 up to 127, ATTACK 0, DECAY 1/8, SUSTAIN 0, RELEASE 1/16, TRIG T1: up at each hit, down after
+    s = Script()
+    t = s.steps(100, [0, 8])
+    s.press(t, LFO); s.tap_key(t + 30, wk(0)); s.release(t + 100, LFO); t += 160
+    t = pg(s, t, LFO, 0, [(K1, 8), (K3, 63), (K4, -64)])               # ENV, depth 127, center 0
+    t = pg(s, t, LFO, 2, [(K4, 1)])                                    # TRIG T1
+    t = pg(s, t, LFO, 4, [(K1, -1)])                                   # ATTACK 0
+    s.press(t, LFO); s.at(t + 60, "ui"); s.release(t + 120, LFO); t += 180
+    s.at(t, "dump", 0)
+    s.tap_btn(t + 100, PLAY); t0 = t + 100
+    log = run(s, t0 + int(BAR_MS) + 50)
+    cc = lfo_cc(log, after=t0)
+    hits = [x for x, _, _ in log.notes(ch=0, after=t0)]
+    top = [b for (t2, b) in cc if any(0 <= t2 - h <= 15 for h in hits)]
+    late = [min([b for (t2, b) in cc if h < t2 < h + 7 * STEP_MS] or [999]) for h in hits[:2]]
+    sc = log.screens()
+    check(sc and sc[0]["cells"][0][1] == "0" and sc[0]["cells"][1][1] == "1/8", "LFO page 5 ENV: ATTACK 0, DECAY 1/8 (%s)" % (sc[0]["cells"] if sc else sc))
+    check(len(hits) >= 2 and top and max(top) >= 115, "ENV: at the top at each hit (%s, hits %s)" % (top[:4], [h - t0 for h in hits]))
+    check(late and max(late) <= 8, "ENV: back to 0 before the next hit (%s)" % late[:6])
+    # MOD MATRIX: CC IN 1 on T1's velocity, +100 %%: the CC at 127 makes the notes 127, at 0 they are 100
+    def velrun(v):
+        s = Script()
+        t = s.steps(100, [0, 1])
+        t = pg(s, t, LFO, 5, [(K2, 6), (K3, 3), (K4, 10)])             # MOD 1: CC IN, VEL T1, +100 %
+        t = pg(s, t, LFO, 5, [(K2, 1)], sel=True)                      # SEL + K2: CC 1
+        s.raw(t, "midi 0xB0 1 %d" % v); t += 40
+        s.tap_btn(t + 100, PLAY)
+        log = run(s, t + 100 + int(2 * STEP_MS) - 10)
+        return [x[2] for x in log.notes(ch=0, after=t + 100)]
+    a, b = velrun(127), velrun(0)
+    check(a == [127, 127] and b == [100, 100], "MOD MATRIX CC IN -> VEL T1: 127 with the CC up, 100 down (%s %s)" % (a, b))
+    # LEARN: LFO + REC on page 6: the next CC from MIDI IN becomes the slot's source
+    s = Script()
+    t = pg(s, 100, LFO, 5, [])
+    s.press(t, LFO); s.tap_btn(t + 30, REC); s.release(t + 100, LFO); t += 160
+    s.raw(t, "midi 0xB0 21 64"); t += 60
+    s.press(t, LFO); s.at(t + 30, "ui"); s.release(t + 100, LFO); t += 160
+    log = run(s, t + 100)
+    sc = log.screens()
+    check(sc and sc[-1]["cells"][1][1] == "CC IN 21", "LEARN: MOD 1's source is CC IN 21 (%s)" % (sc[-1]["cells"] if sc else sc))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -7843,7 +8027,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t018_live_sweep,
-         t019_mfx_chain]
+         t019_mfx_chain, t020_new_fx, t020_env_mod]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

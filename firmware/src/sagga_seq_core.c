@@ -584,7 +584,7 @@ void sq_track_sanitize(sq_track_cfg_t *c)
     for (n = 0; n < SQ_PLANES; n++) if (c->plen[n] > SQ_STEPS) c->plen[n] = 0u;
     if (c->voicing >= SQ_VOICES) c->voicing = SQ_VOICE_CLOSE;
     c->strum = (int8_t)clampi(c->strum, -50, 50);
-    if (c->mfx >= SQ_MFXS) c->mfx = SQ_MFX_OFF;
+    if (c->mfx >= SQ_MFXS_019) c->mfx = SQ_MFX_OFF;   /* (the track's own effect is one of the four: 0.18 reads it) */
     switch (c->mfx) {                                  /* each effect its own range */
     case SQ_MFX_HARM:     c->mfx_amt = (int8_t)clampi(c->mfx_amt, -12, 12); break;
     case SQ_MFX_OCTAVE:   c->mfx_amt = (int8_t)clampi(c->mfx_amt, -2, 2); break;
@@ -610,7 +610,7 @@ static void sanitize_lfo(sq_lfo_t *l)
     if (l->depth > 127u) l->depth = 127u;
     if (l->center > 127u) l->center = 127u;
     if (l->phase > 127u) l->phase = 127u;
-    if (l->dest >= SQ_LD_KINDS) l->dest = SQ_LD_CC;
+    if (l->dest >= SQ_LD_ALL) l->dest = SQ_LD_CC;
     if (l->target >= (l->dest == SQ_LD_CC ? SQ_CHANNELS : SQ_TRACKS)) l->target = 0u;
     if (l->param > SQ_CC_MAX) l->param = SQ_CC_MAX;
     l->flags &= (uint8_t)(SQ_LF_RETRIG | SQ_LF_INVERT);
@@ -925,21 +925,198 @@ void sq_mfx_defaults(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
     case SQ_MFX_OCTAVE:   *amt = 1; *time = SQ_OCT_ALT; break;
     case SQ_MFX_ECHO:     *amt = 2; break;              /* twice, a dotted eighth */
     case SQ_MFX_VELOCITY: *amt = 3; break;
+    case SQ_MFX_CHANCE:   *amt = 70; *time = 0u; *fb = 0u; break;     /* 70 %, note by note */
+    case SQ_MFX_RANDOM:   *amt = 2; *time = 16u; *fb = 50u; break;    /* two steps either way, velocity +-16, half the notes */
+    case SQ_MFX_FILTER:   *amt = 0; *time = 127u; *fb = 1u; break;    /* every note, every time */
+    case SQ_MFX_GATE:     *amt = -2; *time = 0u; *fb = 0u; break;     /* half as long */
+    case SQ_MFX_GLITCH:   *amt = 25; *time = SQ_GL_MIX; *fb = 4u; break;   /* a step in four, any kind, four pieces */
+    default: break;
+    }
+}
+
+/* the range of each knob of each effect (knob 0 K2, 1 K3, 2 K4) */
+void sq_mfx_range(uint8_t fx, uint8_t knob, uint8_t in_key, int32_t *lo, int32_t *hi)
+{
+    *lo = 0; *hi = 0;
+    switch (fx) {
+    case SQ_MFX_HARM:     if (knob == 0u) { *lo = in_key ? -7 : -12; *hi = in_key ? 7 : 12; } else if (knob == 2u) { *lo = 10; *hi = 100; } break;
+    case SQ_MFX_OCTAVE:   if (knob == 0u) { *lo = -2; *hi = 2; } else if (knob == 1u) *hi = SQ_OCT_PATTERNS - 1; break;
+    case SQ_MFX_ECHO:     if (knob == 0u) *hi = 4; else if (knob == 1u) *hi = SQ_ECHO_TIMES - 1; else { *lo = 10; *hi = 100; } break;
+    case SQ_MFX_VELOCITY: if (knob == 0u) { *lo = -8; *hi = 8; } break;
+    case SQ_MFX_CHANCE:   if (knob == 0u) *hi = 100; else if (knob == 1u) *hi = 1; break;   /* the chance; NOTE / STEP */
+    case SQ_MFX_RANDOM:   if (knob == 0u) *hi = in_key ? 7 : 12; else if (knob == 1u) *hi = 64; else *hi = 100; break;
+    case SQ_MFX_FILTER:   if (knob == 0u || knob == 1u) *hi = 127; else { *lo = 1; *hi = 8; } break;
+    case SQ_MFX_GATE:     if (knob == 0u) { *lo = -3; *hi = 3; } else if (knob == 1u) *hi = SQ_GATE_FIXED - 1; else *hi = 50; break;
+    case SQ_MFX_GLITCH:   if (knob == 0u) *hi = 100; else if (knob == 1u) *hi = SQ_GLITCHES - 1; else { *lo = 1; *hi = 8; } break;
     default: break;
     }
 }
 
 static void mfx_clamp(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
 {
-    switch (fx) {                                      /* each effect its own range (as sq_track_sanitize) */
-    case SQ_MFX_HARM:     *amt = (int8_t)clampi(*amt, -12, 12); break;
-    case SQ_MFX_OCTAVE:   *amt = (int8_t)clampi(*amt, -2, 2); if (*time >= SQ_OCT_PATTERNS) *time = SQ_OCT_ALT; break;
-    case SQ_MFX_ECHO:     *amt = (int8_t)clampi(*amt, 0, 4); break;
-    case SQ_MFX_VELOCITY: *amt = (int8_t)clampi(*amt, -8, 8); break;
-    default:              *amt = 0; break;
+    int32_t lo, hi;
+    if (fx < SQ_MFXS_019) {                            /* the four of 0.19, exactly as they were */
+        switch (fx) {                                  /* each effect its own range (as sq_track_sanitize) */
+        case SQ_MFX_HARM:     *amt = (int8_t)clampi(*amt, -12, 12); break;
+        case SQ_MFX_OCTAVE:   *amt = (int8_t)clampi(*amt, -2, 2); if (*time >= SQ_OCT_PATTERNS) *time = SQ_OCT_ALT; break;
+        case SQ_MFX_ECHO:     *amt = (int8_t)clampi(*amt, 0, 4); break;
+        case SQ_MFX_VELOCITY: *amt = (int8_t)clampi(*amt, -8, 8); break;
+        default:              *amt = 0; break;
+        }
+        if (*time >= SQ_ECHO_TIMES) *time = 6u;
+        *fb = (uint8_t)clampi(*fb, 10, 100);
+        return;
     }
-    if (*time >= SQ_ECHO_TIMES) *time = 6u;
-    *fb = (uint8_t)clampi(*fb, 10, 100);
+    sq_mfx_range(fx, 0u, 0u, &lo, &hi); *amt = (int8_t)clampi(*amt, lo, hi);
+    sq_mfx_range(fx, 1u, 0u, &lo, &hi); *time = (uint8_t)clampi(*time, lo, hi);
+    sq_mfx_range(fx, 2u, 0u, &lo, &hi); *fb = (uint8_t)clampi(*fb, lo, hi);
+    if (fx == SQ_MFX_FILTER && *time < (uint8_t)*amt) *time = (uint8_t)*amt;   /* (the highest note is never under the lowest) */
+}
+
+/* ---- 0.20: the five new effects and the order */
+const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN] = {SQ_MFX_FILTER, SQ_MFX_CHANCE, SQ_MFX_VELOCITY, SQ_MFX_RANDOM, SQ_MFX_OCTAVE,
+                                              SQ_MFX_HARM, SQ_MFX_GATE, SQ_MFX_GLITCH, SQ_MFX_ECHO};
+
+void sq_mfxd_default(sq_mfxd_t *d)
+{
+    uint32_t k;
+    d->on = 0u;
+    for (k = 0; k < SQ_MFX_ALLN; k++) d->order[k] = SQ_MFX_ORDER_DEF[k];
+    for (k = 0; k < SQ_MFX_NEW; k++) sq_mfx_defaults((uint8_t)(SQ_MFXS_019 + k), &d->amt[k], &d->time[k], &d->fb[k]);
+}
+
+void sq_mfxd_sanitize(sq_mfxd_t *d)
+{
+    uint32_t k, seen = 0u, ok = 1u;
+    d->on &= (uint8_t)((1u << SQ_MFX_NEW) - 1u);
+    for (k = 0; k < SQ_MFX_ALLN; k++) {                /* the order: each of the nine once, or the default */
+        uint8_t fx = d->order[k];
+        if (!fx || fx >= SQ_MFXS || (seen & (1u << fx))) { ok = 0u; break; }
+        seen |= 1u << fx;
+    }
+    if (!ok) for (k = 0; k < SQ_MFX_ALLN; k++) d->order[k] = SQ_MFX_ORDER_DEF[k];
+    for (k = 0; k < SQ_MFX_NEW; k++) mfx_clamp((uint8_t)(SQ_MFXS_019 + k), &d->amt[k], &d->time[k], &d->fb[k]);
+}
+
+uint8_t sq_mfx_is_on(const sq_ext_t *x, uint32_t t, uint8_t fx)
+{
+    if (t >= SQ_TRACKS || !fx || fx >= SQ_MFXS) return 0u;
+    if (fx < SQ_MFXS_019) return SQ_MFX_ON(&x->mfxc[t], fx);
+    return (uint8_t)((x->mfxd[t].on >> (fx - SQ_MFXS_019)) & 1u);
+}
+
+void sq_mfx_set_on(sq_ext_t *x, uint32_t t, uint8_t fx, uint8_t on)
+{
+    if (t >= SQ_TRACKS || !fx || fx >= SQ_MFXS) return;
+    if (fx < SQ_MFXS_019) x->mfxc[t].on = (uint8_t)(on ? (x->mfxc[t].on | (1u << fx)) : (x->mfxc[t].on & ~(1u << fx)));
+    else { uint8_t b = (uint8_t)(1u << (fx - SQ_MFXS_019)); x->mfxd[t].on = (uint8_t)(on ? (x->mfxd[t].on | b) : (x->mfxd[t].on & ~b)); }
+}
+
+void sq_mfx_get(const sq_ext_t *x, uint32_t t, uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
+{
+    if (t >= SQ_TRACKS || !fx || fx >= SQ_MFXS) { *amt = 0; *time = 6u; *fb = 60u; return; }
+    if (fx < SQ_MFXS_019) { *amt = x->mfxc[t].amt[fx - 1u]; *time = x->mfxc[t].time[fx - 1u]; *fb = x->mfxc[t].fb[fx - 1u]; }
+    else { uint32_t k = fx - SQ_MFXS_019; *amt = x->mfxd[t].amt[k]; *time = x->mfxd[t].time[k]; *fb = x->mfxd[t].fb[k]; }
+}
+
+void sq_mfx_put(sq_ext_t *x, uint32_t t, uint8_t fx, int8_t amt, uint8_t time, uint8_t fb)
+{
+    if (t >= SQ_TRACKS || !fx || fx >= SQ_MFXS) return;
+    mfx_clamp(fx, &amt, &time, &fb);
+    if (fx < SQ_MFXS_019) { x->mfxc[t].amt[fx - 1u] = amt; x->mfxc[t].time[fx - 1u] = time; x->mfxc[t].fb[fx - 1u] = fb; }
+    else { uint32_t k = fx - SQ_MFXS_019; x->mfxd[t].amt[k] = amt; x->mfxd[t].time[k] = time; x->mfxd[t].fb[k] = fb; }
+}
+
+uint8_t sq_mfx_count(const sq_ext_t *x, uint32_t t)
+{
+    uint8_t fx, n = 0u;
+    for (fx = 1u; fx < SQ_MFXS; fx++) n = (uint8_t)(n + sq_mfx_is_on(x, t, fx));
+    return n;
+}
+
+int sq_mfx_order_pos(const sq_ext_t *x, uint32_t t, uint8_t fx)
+{
+    uint32_t k;
+    if (t >= SQ_TRACKS) return -1;
+    for (k = 0; k < SQ_MFX_ALLN; k++) if (x->mfxd[t].order[k] == fx) return (int)k;
+    return -1;
+}
+
+void sq_mfx_order_move(sq_ext_t *x, uint32_t t, uint8_t fx, int32_t d)
+{
+    int p = sq_mfx_order_pos(x, t, fx);
+    uint8_t *o;
+    if (p < 0 || !d) return;
+    o = x->mfxd[t].order;
+    while (d < 0 && p > 0) { uint8_t a = o[p - 1]; o[p - 1] = o[p]; o[p] = a; p--; d++; }
+    while (d > 0 && p + 1 < (int)SQ_MFX_ALLN) { uint8_t a = o[p + 1]; o[p + 1] = o[p]; o[p] = a; p++; d--; }
+}
+
+uint32_t sq_gate_fixed_ticks(uint8_t idx)
+{
+    static const uint8_t T[SQ_GATE_FIXED] = {0u, 3u, 6u, 12u, 24u, 48u, 96u, 192u};
+    return T[idx < SQ_GATE_FIXED ? idx : 0u];
+}
+
+uint32_t sq_gate_factor_x4(int8_t idx)
+{
+    static const uint8_t F[SQ_GATE_FACTORS] = {1u, 2u, 3u, 4u, 6u, 8u, 16u};
+    return F[clampi(idx, -3, 3) + 3];
+}
+
+/* ---- 0.20 ENVELOPES */
+uint32_t sq_env_ticks(uint8_t idx)
+{
+    static const uint16_t T[SQ_ENV_TIMES] = {0u, 1u, 2u, 3u, 4u, 6u, 9u, 12u, 18u, 24u, 36u, 48u, 72u, 96u, 192u, 384u};
+    return T[idx < SQ_ENV_TIMES ? idx : 0u];
+}
+
+static uint32_t env_ad(const sq_lfoe_t *e, uint64_t el)   /* ATTACK then DECAY to SUSTAIN, held there */
+{
+    uint64_t a = (uint64_t)sq_env_ticks(e->a) << 16, d = (uint64_t)sq_env_ticks(e->d) << 16;
+    uint32_t s = (uint32_t)e->s * 65535u / 100u;
+    if (el < a) return (uint32_t)((el * 65535u) / a);
+    el -= a;
+    if (el < d) return (uint32_t)(65535u - ((65535u - s) * el) / d);
+    return s;
+}
+
+uint32_t sq_env_level(const sq_lfoe_t *e, uint64_t el, uint64_t gate)
+{
+    uint64_t r = (uint64_t)sq_env_ticks(e->r) << 16;
+    uint32_t at;
+    if (el < gate) return env_ad(e, el);
+    at = env_ad(e, gate);                              /* the level when the note ended, then the release */
+    el -= gate;
+    if (!r || el >= r) return 0u;
+    return (uint32_t)(((uint64_t)at * (r - el)) / r);
+}
+
+/* ---- 0.20 MOD MATRIX */
+uint8_t sq_mod_src_count(uint8_t src)
+{
+    switch (src) {
+    case SQ_MS_LFO: return SQ_LFOS;
+    case SQ_MS_MACRO: return 4u;
+    case SQ_MS_VEL: return SQ_TRACKS;
+    case SQ_MS_CCIN: return 128u;
+    default: return 1u;
+    }
+}
+
+uint8_t sq_mod_dst_count(uint8_t dst)
+{
+    if (dst == SQ_MD_OFF || dst >= SQ_MDS) return 1u;
+    return dst == SQ_MD_DEPTH || dst == SQ_MD_CENTER ? (uint8_t)SQ_LFOS : (uint8_t)SQ_TRACKS;
+}
+
+void sq_mod_sanitize(sq_mod_t *m)
+{
+    if (m->src >= SQ_MSS) m->src = SQ_MS_OFF;
+    if (m->dst >= SQ_MDS) m->dst = SQ_MD_OFF;
+    if (m->src_i >= sq_mod_src_count(m->src)) m->src_i = 0u;
+    if (m->dst_i >= sq_mod_dst_count(m->dst)) m->dst_i = 0u;
+    m->amt = (int8_t)clampi(m->amt, -100, 100);
 }
 
 void sq_mfx_sanitize(sq_mfxc_t *m)
@@ -952,8 +1129,8 @@ void sq_mfx_sanitize(sq_mfxc_t *m)
 void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c)
 {
     uint8_t fx;
-    for (fx = 1u; fx < SQ_MFXS; fx++) if (SQ_MFX_ON(m, fx)) break;
-    if (fx < SQ_MFXS) { c->mfx = fx; c->mfx_amt = m->amt[fx - 1u]; c->mfx_time = m->time[fx - 1u]; c->mfx_fb = m->fb[fx - 1u]; }
+    for (fx = 1u; fx < SQ_MFXS_019; fx++) if (SQ_MFX_ON(m, fx)) break;
+    if (fx < SQ_MFXS_019) { c->mfx = fx; c->mfx_amt = m->amt[fx - 1u]; c->mfx_time = m->time[fx - 1u]; c->mfx_fb = m->fb[fx - 1u]; }
     else { c->mfx = SQ_MFX_OFF; c->mfx_amt = 0; c->mfx_time = 6u; c->mfx_fb = 60u; }
 }
 
@@ -962,7 +1139,7 @@ void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m)
     uint32_t k;
     m->on = 0u;
     for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &m->amt[k], &m->time[k], &m->fb[k]);
-    if (c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS) {
+    if (c->mfx != SQ_MFX_OFF && c->mfx < SQ_MFXS_019) {
         k = c->mfx - 1u;
         m->on = (uint8_t)(1u << c->mfx);
         m->amt[k] = c->mfx_amt; m->time[k] = c->mfx_time; m->fb[k] = c->mfx_fb;
@@ -1390,7 +1567,8 @@ int16_t sq_lfo_wave(const sq_lfo_t *l, uint8_t index, uint32_t tick, uint16_t fr
         v = x + ((y - x) * s) / 256;
         break;
     }
-    case SQ_LFO_DECAY: {
+    case SQ_LFO_DECAY:
+    case SQ_LFO_ENV: {                                      /* (0.20 ENV: the firmware draws it from its notes; here a decay) */
         int32_t u = 255 - (int32_t)(p >> 8);
         v = ((u * u) >> 8) - 128;
         break;
@@ -1424,6 +1602,9 @@ void sq_ext_default(sq_ext_t *x)
     for (i = 0; i < 4u; i++) for (k = 0; k < SQ_MOTION_CELLS; k++) x->motion[i][k] = (int8_t)SQ_MOTION_NONE;
     for (i = 0; i < SQ_TRACKS; i++)                    /* 0.19: no MIDI FX plays; each one's values when first chosen */
         for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &x->mfxc[i].amt[k], &x->mfxc[i].time[k], &x->mfxc[i].fb[k]);
+    for (i = 0; i < SQ_TRACKS; i++) sq_mfxd_default(&x->mfxd[i]);   /* 0.20 */
+    for (i = 0; i < SQ_LFOS; i++) { x->lfoe[i].a = 1u; x->lfoe[i].d = 7u; x->lfoe[i].s = 0u; x->lfoe[i].r = 5u; }   /* a short pluck */
+    for (i = 0; i < SQ_MODS; i++) x->mod[i].amt = 50;
 }
 
 void sq_ext_sanitize(sq_ext_t *x)
@@ -1459,6 +1640,15 @@ void sq_ext_sanitize(sq_ext_t *x)
     for (i = 0; i < sizeof x->reserved; i++) x->reserved[i] = 0u;
     sq_name_sanitize(x->name, SQ_NAME_LEN);
     for (i = 0; i < SQ_TRACKS; i++) sq_mfx_sanitize(&x->mfxc[i]);   /* 0.19 */
+    for (i = 0; i < SQ_TRACKS; i++) sq_mfxd_sanitize(&x->mfxd[i]);  /* 0.20 */
+    for (i = 0; i < SQ_LFOS; i++) {
+        sq_lfoe_t *e = &x->lfoe[i];
+        if (e->a >= SQ_ENV_TIMES) e->a = 1u;
+        if (e->d >= SQ_ENV_TIMES) e->d = 7u;
+        if (e->r >= SQ_ENV_TIMES) e->r = 5u;
+        if (e->s > 100u) e->s = 100u;
+    }
+    for (i = 0; i < SQ_MODS; i++) sq_mod_sanitize(&x->mod[i]);
 }
 
 void sq_name_sanitize(char *n, uint32_t len)
@@ -2311,9 +2501,9 @@ static void rd_get(rd_t *r, void *dst, uint32_t n)
 typedef char sq_step_is_18_bytes[(sizeof(sq_step_t) == 18u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 96u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 1004u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
-                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018) ? 1 : -1];
-typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u) ? 1 : -1];
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1508u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
+                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018 && __builtin_offsetof(sq_ext_t, mfxd) == SQ_EXT_019) ? 1 : -1];
+typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
 
@@ -2553,7 +2743,7 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
-    if (p && ext_n < (uint32_t)sizeof p->ext)          /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
+    if (p && ext_n < SQ_EXT_019)                       /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
     if (p) sq_project_sanitize(p);
     return 0;

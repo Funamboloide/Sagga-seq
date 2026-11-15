@@ -190,7 +190,7 @@ static void reload_step(void)
 }
 
 /* ---- MIDI LEARN */
-static uint8_t learn_kind;                     /* 0 off, 1 a lane of track learn_t, 2 the LFO learn_l */
+static uint8_t learn_kind;                     /* 0 off, 1 a lane of track learn_t, 2 the LFO learn_l, 3 (0.20) MOD slot learn_l */
 static uint8_t learn_t, learn_l;
 static uint32_t learn_until;
 #define SQ_LEARN_MS 10000u
@@ -201,8 +201,8 @@ static void learn_arm(uint8_t kind, uint8_t t, uint8_t l)
     if (learn_kind == kind && learn_t == t && learn_l == l) { learn_kind = 0u; status_msg("LEARN OFF"); return; }
     learn_kind = kind; learn_t = t; learn_l = l;
     learn_until = fm1_ms + SQ_LEARN_MS;
-    p = put_s(p, kind == 1u ? "LEARN LANE " : "LEARN LFO "); p = put_u(p, (uint32_t)l + 1u);
-    p = put_s(p, ": MOVE A KNOB OF THE SYNTH"); finish(p);
+    p = put_s(p, kind == 1u ? "LEARN LANE " : kind == 3u ? "LEARN MOD " : "LEARN LFO "); p = put_u(p, (uint32_t)l + 1u);
+    p = put_s(p, kind == 3u ? ": MOVE A KNOB ON MIDI IN" : ": MOVE A KNOB OF THE SYNTH"); finish(p);
     status_msg(msg_buf);
     msg_until = learn_until;
     ui_dirty = grid_dirty = 1u;
@@ -226,6 +226,11 @@ static uint8_t learn_take_v(uint8_t ch, uint8_t cc, uint8_t v)
         p = put_s(p, "T"); p = put_u(p, (uint32_t)learn_t + 1u); p = put_s(p, " LANE "); p = put_u(p, (uint32_t)learn_l + 1u);
         nm = sq_cc_name(project.device[track_ch(learn_t)], cc);
         if (nm[0]) { p = put_s(p, " "); p = put_s(p, nm); }
+    } else if (learn_kind == 3u) {               /* 0.20: the MOD slot's source is that CC from MIDI IN */
+        sq_mod_t *m = &project.ext.mod[learn_l & (SQ_MODS - 1u)];
+        m->src = SQ_MS_CCIN; m->src_i = cc;
+        if (v <= 127u) cc_in_val[cc] = v;
+        p = put_s(p, "MOD "); p = put_u(p, (uint32_t)learn_l + 1u); p = put_s(p, " SOURCE");
     } else {
         sq_lfo_t *l = &project.lfo[learn_l];
         l->dest = SQ_LD_CC;

@@ -51,20 +51,47 @@ label.tg{display:inline-flex;gap:4px;align-items:center;font-size:13px;color:#cc
 const DIV = ['1/1','1/2','1/4.','1/4','1/8.','1/4T','1/8','1/16.','1/8T','1/16','1/16T','1/32','1/32T'];
 const DIR = ['FWD','REV','PING','RND'];
 const ARPM = ['BLOCK','UP','DOWN','UP-DN','DN-UP','UP&DN','CONV','DIV','RND','WALK','PLAYED','THUMB','PINKY'];
-const SHAPES = ['SINE','TRI','RAMP+','RAMP-','SQUARE','S&H','SMOOTH','DECAY'];
+const SHAPES = ['SINE','TRI','RAMP+','RAMP-','SQUARE','S&H','SMOOTH','DECAY','ENV'];
 const RATES = ['16 BAR','8 BAR','4 BAR','3 BAR','2 BAR','1.5 BAR','1 BAR','3/4 BAR','1/2 BAR','3/8 BAR','1/4 BAR','3/16','1/8 BAR','3/32','1/16','1/32','1/4T','1/8T','1/16T','1/32T'];
-const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING'];
+const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING','MOD ONLY'];
 const QUANT = ['AUTO','NOW','BEAT','BAR','2 BARS','4 BARS','8 BARS'];
 const EVERY = ['BEAT','2 BEATS','BAR','2 BARS'];
-const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE'];
+const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE','CHANCE','RANDOM','NOTE FILTER','GATE','GLITCH'];
 const ECHO_T = ['1/32','1/16','1/8T','1/16.','1/8','1/4T','1/8.','1/4'], OCT_W = ['ALT','RANDOM','3RD','4TH'];
-// 0.19: the MIDI FX chain of track t, in the order it plays (a box: that effect plays; mfxc on, a bit per effect)
-function mfxChain(t) {
-  return L('VEL CURVE', bit('mfxc', t, 'on', '-', 16) + ' curva ' + num('mfxc', t, 'amt', 3, -8, 8, 'w2')) +
-    L('OCTAVE', bit('mfxc', t, 'on', '-', 4) + ' ottave ' + num('mfxc', t, 'amt', 1, -2, 2, 'w2') + ' ' + sel('mfxc', t, 'time', 1, OCT_W)) +
-    L('HARM', bit('mfxc', t, 'on', '-', 2) + ' intervallo ' + num('mfxc', t, 'amt', 0, -12, 12, 'w2') + ' voce % ' + num('mfxc', t, 'fb', 0, 10, 100, 'w2')) +
-    L('ECHO', bit('mfxc', t, 'on', '-', 8) + ' ripetizioni ' + num('mfxc', t, 'amt', 2, 0, 4, 'w2') + ' ' + sel('mfxc', t, 'time', 2, ECHO_T) + ' resta % ' + num('mfxc', t, 'fb', 2, 10, 100, 'w2'));
+const GATE_F = ['X1/4','X1/2','X3/4','X1','X3/2','X2','X4'], GATE_X = ['OFF','1/32','1/16','1/8','1/4','1/2','1 BAR','2 BARS'];
+const GLITCH_K = ['MIX','STUTTER','RISE','JUMP','CUT'];
+const ENV_T = ['0','1/96','1/48','1/32','1/24','1/16','1/16.','1/8','1/8.','1/4','1/4.','1/2','1/2.','1 BAR','2 BARS','4 BARS'];
+const MOD_S = ['OFF','LFO','MACRO','ENERGY','RANDOM','VEL','CC IN'], MOD_D = ['OFF','DEPTH','CENTER','VEL','GATE','CHANCE','TIMING','SWING','FX'];
+// 0.19: the MIDI FX chain of track t (a box: that effect plays; mfxc on, a bit per effect; 0.20: mfxd on, a bit per new
+// one). 0.20: the rows in the order they play (mfxd order), the arrows move one earlier or later
+function mfxRow(t, fx) {
+  const o = fx < 5 ? bit('mfxc', t, 'on', '-', 1 << fx) : bit('mfxd', t, 'on', '-', 1 << (fx - 5));
+  const mv = ' <button class="sec" data-mv="' + t + ',' + fx + ',-1">&uarr;</button><button class="sec" data-mv="' + t + ',' + fx + ',1">&darr;</button>';
+  let p = '';
+  switch (fx) {
+  case 4: p = ' curva ' + num('mfxc', t, 'amt', 3, -8, 8, 'w2'); break;
+  case 2: p = ' ottave ' + num('mfxc', t, 'amt', 1, -2, 2, 'w2') + ' ' + sel('mfxc', t, 'time', 1, OCT_W); break;
+  case 1: p = ' intervallo ' + num('mfxc', t, 'amt', 0, -12, 12, 'w2') + ' voce % ' + num('mfxc', t, 'fb', 0, 10, 100, 'w2'); break;
+  case 3: p = ' ripetizioni ' + num('mfxc', t, 'amt', 2, 0, 4, 'w2') + ' ' + sel('mfxc', t, 'time', 2, ECHO_T) + ' resta % ' + num('mfxc', t, 'fb', 2, 10, 100, 'w2'); break;
+  case 5: p = ' passa % ' + num('mfxd', t, 'amt', 0, 0, 100, 'w2') + ' ' + sel('mfxd', t, 'time', 0, ['OGNI NOTA','OGNI STEP']); break;
+  case 6: p = ' note &plusmn; ' + num('mfxd', t, 'amt', 1, 0, 12, 'w2') + ' velocity &plusmn; ' + num('mfxd', t, 'time', 1, 0, 64, 'w2') + ' quante % ' + num('mfxd', t, 'fb', 1, 0, 100, 'w2'); break;
+  case 7: p = ' dalla ' + notesel('mfxd', t, 'amt', 2) + ' alla ' + notesel('mfxd', t, 'time', 2) + ' una ogni ' + num('mfxd', t, 'fb', 2, 1, 8, 'w2'); break;
+  case 8: p = ' durata ' + sel('mfxd', t, 'amt', 3, GATE_F, -3) + ' fissa ' + sel('mfxd', t, 'time', 3, GATE_X) + ' a caso &plusmn; % ' + num('mfxd', t, 'fb', 3, 0, 50, 'w2'); break;
+  case 9: p = ' quante % ' + num('mfxd', t, 'amt', 4, 0, 100, 'w2') + ' ' + sel('mfxd', t, 'time', 4, GLITCH_K) + ' pezzi ' + num('mfxd', t, 'fb', 4, 1, 8, 'w2'); break;
+  default: break;
+  }
+  return L(MFX[fx] || '?', o + p + mv);
 }
+function mfxChain(t) { let s = ''; for (let k = 0; k < 9; k++) s += mfxRow(t, get('mfxd', String(t), 'order', String(k))); return s; }
+document.addEventListener('click', ev => {                  // 0.20: an arrow of the chain: that effect one place earlier / later
+  const b = ev.target.closest ? ev.target.closest('[data-mv]') : null;
+  if (!b) return;
+  const [t, fx, d] = b.dataset.mv.split(',').map(Number), o = range(0, 8, k => get('mfxd', String(t), 'order', String(k)));
+  const i = o.indexOf(fx), j = i + d;
+  if (i < 0 || j < 0 || j > 8) return;
+  set('mfxd', String(t), 'order', String(i), o[j]); set('mfxd', String(t), 'order', String(j), o[i]);
+  commit(); render();
+});
 const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
 const FOLLOW = ['HOLD','RETRIG','LEGATO'];
 const MASTERF = ['TEMPO','MORPH','FILTER'];
@@ -353,7 +380,7 @@ function rTraccia() {
     L('voicing', sel(g, t, 'voicing', '-', VOICE)) + L('strum %', num(g, t, 'strum', '-', -50, 50)) +
     L('arpeggio', vsel(g, t, 'arpm', '-', ARPM, c.chord_mode & 15)) + L('ottave', vsel(g, t, 'arpo', '-', ['1', '2', '3', '4'], ((c.chord_mode >> 4) & 3) + 1, 1)) +
     L('rate', sel(g, t, 'arp_rate', '-', ARPRATE)) +
-    '</div><h3>MIDI FX (IN CATENA: VEL, OCTAVE, HARM, ECHO), EUCLID, LUNGHEZZE</h3><div class="grid">' +
+    '</div><h3>MIDI FX (IN CATENA, NELL\'ORDINE IN CUI SUONANO), EUCLID, LUNGHEZZE</h3><div class="grid">' +
     mfxChain(t) +
     L('EUCLID LIVE', bit(g, t, 'flags', '-', F_EUC)) + L('colpi', num(g, t, 'euc_pulses', '-', 1, 64)) + L('rotazione', num(g, t, 'euc_rot', '-', 0, 63)) + L('famiglia', sel(g, t, 'euc_fam', '-', N.euc_fam || [])) +
     L('loop note', num(g, t, 'plen', 0, 0, 64)) + L('loop velocity', num(g, t, 'plen', 1, 0, 64)) + L('loop gate', num(g, t, 'plen', 2, 0, 64)) +
@@ -453,9 +480,18 @@ function rLfo() {
       L('TRIG', sel('lfox', i, 'trig', '-', range(1, 16, n => 'T' + n), 1, [[0, 'CLOCK']])) +
       L('RATE SEQ', sel('lfox', i, 'seq_n', '-', range(2, 8), 2, [[0, 'OFF']])) + (x.seq_n >= 2 ? L('ogni', sel('lfox', i, 'seq_every', '-', EVERY)) : '') + '</div>';
     if (x.seq_n >= 2) { o += '<div class="row"><small>le rate:</small>'; for (let k = 0; k < x.seq_n; k++) o += sel('lfox', i, 'seq_rate', k, RATES, 0, [[NONE, '(la sua)']]); o += '</div>'; }
+    if (l.shape === 8) o += '<div class="grid">' + L('attacco', sel('lfoe', i, 'a', '-', ENV_T)) + L('decay', sel('lfoe', i, 'd', '-', ENV_T)) +   // 0.20 ENV
+      L('sustain %', num('lfoe', i, 's', '-', 0, 100)) + L('release', sel('lfoe', i, 'r', '-', ENV_T)) + '</div>';
     o += '</div>';
   }
-  return o;
+  o += '<h3>MOD MATRIX (0.20)</h3><div class="card">';            // 0.20: eight slots, a source moves a destination
+  for (let i = 0; i < 8; i++) {
+    const m = P.mod[i], sn = m.src === 2 ? MACROS : m.src === 1 ? range(1, 16, n => 'LFO ' + n) : m.src === 5 ? range(1, 16, n => 'T' + n) : m.src === 6 ? range(0, 127, n => 'CC ' + n) : null;
+    const dn = m.dst === 1 || m.dst === 2 ? range(1, 16, n => 'LFO ' + n) : m.dst ? range(1, 16, n => 'T' + n) : null;
+    o += '<div class="row"><b>MOD ' + (i + 1) + '</b>' + L('sorgente', sel('mod', i, 'src', '-', MOD_S) + (sn ? ' ' + sel('mod', i, 'src_i', '-', sn) : '')) +
+      L('destinazione', sel('mod', i, 'dst', '-', MOD_D) + (dn ? ' ' + sel('mod', i, 'dst_i', '-', dn) : '')) + L('quanto %', num('mod', i, 'amt', '-', -100, 100)) + '</div>';
+  }
+  return o + '</div>';
 }
 
 function rProgetto() {

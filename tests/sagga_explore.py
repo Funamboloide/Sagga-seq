@@ -49,7 +49,7 @@ BAR_MS = 4 * 24 * S.TICK_US / 1000.0          # a bar at 128 BPM, 1875 ms
 BTN_NAME = {S.OCT_DOWN: "OCT-", S.OCT_UP: "OCT+", S.FX: "FX", S.SEL: "SEL", S.ENV: "ENV", S.LFO: "LFO", S.EDIT: "EDIT",
             S.GLO: "GLO", S.HOME: "HOME", S.SAVE: "SAVE", S.ARP: "ARP", S.SEQ: "SEQ", S.PLAY: "PLAY", S.REC: "REC"}
 ENC_NAME = {S.E_SEL: "SELECT", S.E_ALG: "ALG", S.K1: "K1", S.K2: "K2", S.K3: "K3", S.K4: "K4", S.E_PRE: "PRESETS"}
-PAGES = {S.HOME: 8, S.SEQ: 7, S.ENV: 6, S.LFO: 4, S.ARP: 6, S.SAVE: 4, S.GLO: 3}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN
+PAGES = {S.HOME: 8, S.SEQ: 7, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 3}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD
 MODS = [S.HOME, S.SEQ, S.ENV, S.LFO, S.ARP, S.SAVE, S.FX, S.SEL, S.EDIT, S.GLO]
 SEL_MODS = (S.HOME, S.SEQ, S.EDIT, S.FX, S.GLO, S.SAVE)    # the groups with SEL + knob variants (0.12: EDIT notes, FX throws, GLO tempo, SAVE 3 reconnect)
 
@@ -520,6 +520,25 @@ def sit_013_lfo(s):
     return _play(s, t + 100)
 
 
+def sit_020_fx(s):
+    """0.20: a band; track 1 with NOTE FILTER, CHANCE, RANDOM, GLITCH and ECHO in the chain, GLITCH moved first; LFO 1 an
+    ENV on track 1; MOD 1: RANDOM on track 2's FX, MOD 2: LFO 1 on track 3's velocity; in play"""
+    t = _band(s, 200)
+    for fx, enc in ((7, [(S.K4, 2)]), (5, [(S.K2, -4)]), (6, []), (9, [(S.K2, 5)]), (3, [])):
+        t = S.home_page(s, t, 5, [(S.K1, -9), (S.K1, fx)] + enc)
+        t = S.seq_page(s, t, 0, keys=[S.wk(5)])
+    t = S.pg(s, t, S.HOME, 5, [(S.K1, -9), (S.K1, 9)])
+    t = S.pg(s, t, S.HOME, 5, [(S.K1, -8)], sel=True)
+    s.press(t, S.LFO); s.tap_key(t + 30, S.wk(0)); s.release(t + 100, S.LFO); t += 160
+    t = S.pg(s, t, S.LFO, 0, [(S.K1, 8)])
+    t = S.pg(s, t, S.LFO, 2, [(S.K4, 1)])
+    t = S.pg(s, t, S.LFO, 5, [(S.K2, 4), (S.K3, 8)])
+    t = S.pg(s, t, S.LFO, 5, [(S.K3, 1)], sel=True)
+    t = S.pg(s, t, S.LFO, 5, [(S.K1, 1), (S.K2, 1), (S.K3, 3)])
+    t = S.pg(s, t, S.LFO, 5, [(S.K3, 2)], sel=True)
+    return _play(s, t + 100)
+
+
 def sit_grid(s):
     s.raw(150, "attach")
     t = _band(s, 300)
@@ -555,6 +574,7 @@ SITUAZIONI = [
     Situazione("note lunghe e loop fra due step, in play", sit_note_loop),
     Situazione("0.13 CHAIN LIST, MOTION, KEYBOARD, SLIDE, in play", sit_013_live),
     Situazione("0.13 LFO RATE SEQ e TRIG, band in play", sit_013_lfo),
+    Situazione("0.20 MIDI FX nuovi in catena, ENV, MOD MATRIX, band in play", sit_020_fx),
     Situazione("grid attaccato, band in play", sit_grid, grid=True),
     Situazione("0.18 tablet e grid, band in play", sit_tablet, grid=True, tablet=True),
     Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),

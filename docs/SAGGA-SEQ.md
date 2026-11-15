@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.19
+# SAGGA SEQ 0.20
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,9 +8,68 @@ steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF'
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.19` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how you know the update took.
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
+
+## What is new in 0.20
+
+**Five more MIDI FX, and the order is yours.** HOME 6 K1 now goes through nine effects: OFF, HARM, OCTAVE, ECHO, VEL
+CURVE and **CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH**. They join the chain as the four of 0.19 do (K1 shows one,
+SEQ + white 6 adds it or takes it out, K1 on OFF + SEQ + white 6 stops them all).
+
+| effect | K2 | K3 | K4 |
+|---|---|---|---|
+| CHANCE | the chance a note passes, 0-100 % (5 a click) | EACH NOTE (each its own throw) / EACH STEP (one throw for the chord) | - |
+| RANDOM | the notes' spread: 0 .. +-7 steps of the key (FREE: +-12 semitones) | the velocity's spread +-0 .. 64 | HOW OFTEN, 0-100 % of the notes |
+| NOTE FILTER | the LOWEST note that passes | the HIGHEST | ONE IN 1-8 (1: every note) |
+| GATE | the LENGTH x1/4 x1/2 x3/4 x1 x3/2 x2 x4 | FIXED: OFF, 1/32 1/16 1/8 1/4 1/2 1 BAR 2 BARS (it wins over the factor) | HUMAN: +-0 .. 50 % at random |
+| GLITCH | HOW OFTEN a step glitches, 0-100 % | KIND: MIX (any), STUTTER (the step in pieces), RISE (pieces that climb the key), JUMP (an octave up or down), CUT (a click of a note) | PIECES 1-8 (STUTTER, RISE; JUMP over 4: two octaves; CUT: shorter) |
+
+* **SEL + K1 in HOME 6: the ORDER.** The effect shown plays earlier (left) or later (right) in the chain; the screen
+  says the order of those that play, the moved one with them (`T1 ORDER OCT>FILT>HARM`). The default: NOTE FILTER,
+  CHANCE, VEL CURVE, RANDOM, OCTAVE, HARM, GATE, GLITCH, ECHO (0.19's four keep their order). An effect works on what
+  the ones before it made: ECHO after HARM repeats the voice too, HARM after ECHO gives each repeat a voice, a FILTER
+  after OCTAVE sees the moved note.
+* Each effect keeps its values in the project, and the order; a 0.19 project opens with the defaults for the new ones.
+  A 0.19 firmware opens a 0.20 project with the four it knows.
+* **The tablet** (SAGGA Live: MIDI FX 0-9, FX AMOUNT: the new five over their whole range), **the grid** (TRACK 3, row 2:
+  SHIFT + pads 2-6 are CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH; their K2 on pads 7-16, K3 and K4 on row 3), **the Pi's
+  editor** (the chain in its order, arrows to move an effect).
+
+**ENVELOPES: an LFO shaped ENV.** LFO page 1 K1 has a ninth shape, **ENV**: the LFO rises from CENTER by DEPTH (INVERT:
+falls) with each note of its **TRIG** track (page 3 K4), holds while the note is held, and falls back. **LFO page 5
+ENV**: K1 ATTACK, K2 DECAY, K3 SUSTAIN 0-100 %, K4 RELEASE, each 0, 1/96 .. 4 BARS. With TRIG on the clock it starts once
+a cycle of its RATE and holds half of it. A filter that opens with every bass note: LFO 1 ENV, CC 74 of the bass's
+channel, TRIG the bass track, DEPTH 80, CENTER 30, DECAY 1/8.
+
+**The MOD MATRIX: LFO page 6 MOD.** Eight slots: K1 the SLOT, K2 the SOURCE, K3 the DESTINATION, K4 the AMOUNT -100 ..
++100 %; **SEL + K2 / SEL + K3**: which one (which LFO, macro, track, CC).
+
+* Sources: **LFO 1-16** (its output; an LFO whose DESTINATION is **MOD ONLY**, page 2 K1's new last choice, sends
+  nothing and only modulates), **MACRO** INTENSITY / GATE / SWING / FILTER, **ENERGY** (the MOSSE's), **RANDOM** (a new
+  value each 16th), **VEL T1-T16** (that track's last velocity), **CC IN** (a CC from MIDI IN, the KEYBOARD's channel:
+  **LFO + REC** on page 6 learns it).
+* Destinations: **DEPTH** and **CENTER of LFO 1-16**; **VEL, GATE, CHANCE, TIMING, SWING of T1-T16** (as an LFO aimed
+  there); **FX T1-T16**: the depth of the track's MIDI FX chain (-100 %: none of it .. +100 %: twice): CHANCE's drop,
+  RANDOM's and GLITCH's how often, HARM's voice, ECHO's keep, VEL CURVE's curve.
+* The matrix is in the project, not in the snapshots. An LFO modulating another LFO answers a moment later (a pass of
+  the LFOs); a source that does not move (CC IN, a macro) is there from the first step.
+
+**The BeatStep Pro (an Arturia BeatStep Pro beside the FM-1).** Two things, through the Pi:
+
+* **CV and gates**: the BeatStep Pro turns MIDI into CV. In the hub's matrix, `Felucca MIDI 1` to the BeatStep Pro,
+  filtered to channels 1, 2 and 10: the notes of channel 1 come out of its sequencer 1 jacks (pitch 1V/octave, gate,
+  velocity), channel 2 of its sequencer 2 jacks, notes 36-43 (C1 .. G1) of channel 10 out of its 8 drum gates. Put a
+  SAGGA track on channel 1 or 2 (HOME 1 K1), a DRUM track's PEN on 36-43 and channel 10. (Try it with your BeatStep Pro,
+  its sequencers stopped: which of its modes keeps converting is the BeatStep's matter.)
+* **Knobs and pads**: the new RaspiMIDIHub plugin **SAGGA BeatStep** (tools/raspimidihub/sagga_bsp). The BeatStep Pro in
+  CONTROL mode to its IN, its OUT to the FM-1's port 2. **LEARN**: turn the 16 encoders one after the other (the top row
+  left to right, then the bottom one), then tap the 16 pads. The encoders are SAGGA Live's knobs on the tablet's track:
+  TRACK, PATTERN, LENGTH, OCTAVE, SWING, GROOVE, ARP, CHORD / MIDI FX, FX AMOUNT, ALGO, A, B, C, PULSES, ROTATION
+  (ABSOLUTE, or RELATIVE: 64 + n steps); the pads the 16 MUTES, or (PADS = ACTIONS) PLAY, FILL, FX GO, ALGO GO, COOK,
+  BEAT, DICE, UNDO, PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE, EUCLID, ECHO ALL. Its lights do not show the FM-1's state:
+  the BeatStep Pro has no documented way to set them from outside.
 
 ## What is new in 0.19
 
@@ -677,7 +736,7 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | HOME | **track 1-16** | as with nothing held; in PERF: the song (1-8 add a scene, 9 loop, 10 take the last away, 11 clear) | see HOME pages (8) |
 | EDIT | the cursor to that step (not switched) | **1 STEP LOCK**, 2 COPY, 3 PASTE, 4 CLEAR the step, **5 PLAIN** (no EXPO from this step), **6 TIE** (legato into the next step), **7 SLIDE** (0.13: TIE, and the next note glides: CC 65) | gate (1 % .. 100 %, 1.5 .. 64 STEP), condition (16), nudge, ramp; **SEL + K1-K4 (0.12): the step's four notes** (a knob below the first: the note taken away) |
 | ENV | the cursor to that step | | **one lane a page (OCT- / OCT+: lanes 1-6)**: K1 the lock on the step, K2 the CC number (SEL + K2: the NRPN MSB), K3 the base, K4 the mode NORMAL / SLIDE / TRIGLESS / NRPN |
-| LFO | that LFO on / off | | page 1 shape, rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination, target, CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T16, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate |
+| LFO | that LFO on / off | | page 1 shape (**0.20: + ENV**), rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination (**0.20: + MOD ONLY**), target, CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T16, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate; **0.20: page 5 ENV** attack, decay, sustain, release; **page 6 MOD** slot, source (SEL: which), destination (SEL: which), amount |
 | SEQ | the 16 tools (WHEN / EVERY: when they happen; **0.12: UNDO held 0.6 s = REDO, COOK held = the random COOK**; **0.17: BEAT held = a PROPOSAL** in a free pattern; the tap acts when the key is let go) | dice SEQ CC LFO GROOVE ALL (**0.12: black 1 held = DICE PROG**), SCOPE, KIT (**held: BAND**), DRIFT, EVOLVE, FREEZE, REVERT | see SEQ pages (7) |
 | FX | the 16 effects while held | 1-8 LOOP (tap) / REPEAT (hold) 1/32 .. 4 bars, 9 RESTART, 10 STOP at the bar, 11 EXIT (a DJ loop, or the step loop of the selected track; SEL also held: the selected track only) | INTENSITY, GATE, SWING, FILTER (the macros, saved); **SEL + K1-K4 (0.12): the THROWS** (the same four, gliding back to 0 over a bar); FX + OCT-: to 0; FX + OCT+: ECHO ALL; **FX + ARP twice: BAKE**; **FX + HOME: PANIC** |
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
@@ -697,7 +756,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
-| 6 MIDI FX | effect shown: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track; 0.19: the four in a chain, VEL > OCTAVE > HARM > ECHO: SEQ + white 6 adds the one shown, or takes it out if it plays; OFF: all stop**) | amount (of the one shown) | time (ECHO) / which steps (OCTAVE) | how much each keeps (ECHO) / its velocity (HARM) |
+| 6 MIDI FX | effect shown: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track; 0.19: the four in a chain, VEL > OCTAVE > HARM > ECHO: SEQ + white 6 adds the one shown, or takes it out if it plays; OFF: all stop**; **0.20: + CHANCE RANDOM NOTE FILTER GATE GLITCH; SEL + K1: the one shown earlier / later in the ORDER**) | amount (of the one shown) | time (ECHO) / which steps (OCTAVE) / the new ones' K3 | how much each keeps (ECHO) / its velocity (HARM) / the new ones' K4 |
 | 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
@@ -709,7 +768,7 @@ ALT (every other step), RANDOM, 3RD, 4TH; ECHO 0-4 repeats, every 1/32, 1/16, 1/
 effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones waiting. **0.19, the chain**: VEL CURVE
 first (the velocity every other effect starts from), then OCTAVE (the note), HARM (its voice on the moved note, at its
 velocity %), ECHO (the note and the voice, each repeat keeping its %). 128 ornaments wait at most: past that the
-softest are dropped.
+softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "What is new in 0.20" has their knobs.
 
 ### SEQ pages
 

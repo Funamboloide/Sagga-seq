@@ -138,7 +138,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_ku("chord", c->chord); pr_k("oct"); pr_d(c->octave); pr_k("trans"); pr_d(c->transpose);
         pr_ku("follow", (c->flags & SQ_TF_FOLLOW) != 0u); pr_ku("fm", c->follow_mode); pr_k("flags"); pr_x(c->flags, 2u);
         pr_ku("euc", c->euc_pulses); pr_c('/'); pr_u(c->euc_rot); pr_ku("algo", c->algo); pr_k("slots"); pr_xm(slots);
-        pr_ku("mfx", c->mfx); pr_k("mfxon"); pr_x(project.ext.mfxc[t].on, 2u); pr_ku("pat", tr[t].pattern + 1u); pr_ku("step", tr[t].step); pr_k("ok"); pr_s(ok);
+        pr_ku("mfx", c->mfx); pr_k("mfxon"); pr_x(project.ext.mfxc[t].on, 2u); pr_k("mfxnew"); pr_x(project.ext.mfxd[t].on, 2u); pr_ku("pat", tr[t].pattern + 1u); pr_ku("step", tr[t].step); pr_k("ok"); pr_s(ok);
         pr_ku("lenpend", len_pend[t]); pr_ku("src", c->src_genre); pr_c('/'); pr_u(c->src_func); pr_c('/'); pr_u(c->src_var);
         pr_kh("steps#", project.step[t][tr[t].pattern], sizeof project.step[t][0]);
         pr_kh("pats#", project.step[t], sizeof project.step[t]); pr_kh("cfg#", c, sizeof *c);

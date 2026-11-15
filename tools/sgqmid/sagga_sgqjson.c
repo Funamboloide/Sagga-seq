@@ -4,6 +4,9 @@
  * tracks' events (read: "tape"; a patch: the tape lines below) and their loop (track tape_bars / tape_quant).
  * 0.19: the MIDI FX chain of each track (mfxc on: a bit per effect, 1 << SQ_MFX_*; amt / time / fb [effect - 1]); the
  * track's mfx .. mfx_fb are its first, set by sanitize (a patch of them alone is undone).
+ * 0.20: the five new MIDI FX and the order of the nine (mfxd on: a bit per new effect, 1 << (SQ_MFX_* - 5); order: the
+ * nine effects; amt / time / fb [effect - 5]); each LFO's envelope (lfoe a d s r); the MOD MATRIX (mod src src_i dst
+ * dst_i amt).
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -13,7 +16,7 @@
  *   sagga_sgqjson new OUT.sgq                    a new project
  *
  * A PATCH is text, a change a line:   GROUP INDEXES FIELD ELEM VALUE
- *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc (and tape, below)
+ *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc mfxd lfoe mod (and tape, below)
  *   INDEXES  "-" for project / song / live / ext, else the index (track, scene ...), "t,p,s" for a step
  *   FIELD    a field of the group (the names of the C structs); ELEM: "-", or which element of an array field
  *   VALUE    an integer in the field's type (u8, s8, u16)
@@ -102,6 +105,14 @@ static const fd_t F_LIVE[] = {
 static const fd_t F_MFXC[] = {                                                                                       /* 0.19 */
     F(sq_mfxc_t, on, 0), A(sq_mfxc_t, amt, int8_t, 1, SQ_MFX_N), A(sq_mfxc_t, time, uint8_t, 0, SQ_MFX_N), A(sq_mfxc_t, fb, uint8_t, 0, SQ_MFX_N),
 };
+static const fd_t F_MFXD[] = {                                                                                       /* 0.20 */
+    F(sq_mfxd_t, on, 0), A(sq_mfxd_t, order, uint8_t, 0, SQ_MFX_ALLN), A(sq_mfxd_t, amt, int8_t, 1, SQ_MFX_NEW),
+    A(sq_mfxd_t, time, uint8_t, 0, SQ_MFX_NEW), A(sq_mfxd_t, fb, uint8_t, 0, SQ_MFX_NEW),
+};
+static const fd_t F_LFOE[] = { F(sq_lfoe_t, a, 0), F(sq_lfoe_t, d, 0), F(sq_lfoe_t, s, 0), F(sq_lfoe_t, r, 0) };   /* 0.20 */
+static const fd_t F_MOD[] = {                                                                                        /* 0.20 */
+    F(sq_mod_t, src, 0), F(sq_mod_t, src_i, 0), F(sq_mod_t, dst, 0), F(sq_mod_t, dst_i, 0), F(sq_mod_t, amt, 1),
+};
 static const fd_t F_EXT[] = {
     F(sq_ext_t, motion_bars, 0), F(sq_ext_t, kb_mode, 0), F(sq_ext_t, kb_ch, 0), F(sq_ext_t, in_thru, 0),
     A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
@@ -121,6 +132,9 @@ static const grp_t G[] = {
     {"live", PO(live), {0}, {0}, F_LIVE, NF(F_LIVE)},
     {"ext", PO(ext), {0}, {0}, F_EXT, NF(F_EXT)},
     {"mfxc", PO(ext) + (uint32_t)offsetof(sq_ext_t, mfxc), {sizeof(sq_mfxc_t)}, {SQ_TRACKS}, F_MFXC, NF(F_MFXC)},   /* 0.19 the MIDI FX chain */
+    {"mfxd", PO(ext) + (uint32_t)offsetof(sq_ext_t, mfxd), {sizeof(sq_mfxd_t)}, {SQ_TRACKS}, F_MFXD, NF(F_MFXD)},   /* 0.20 the new five, the order */
+    {"lfoe", PO(ext) + (uint32_t)offsetof(sq_ext_t, lfoe), {sizeof(sq_lfoe_t)}, {SQ_LFOS}, F_LFOE, NF(F_LFOE)},     /* 0.20 the envelopes */
+    {"mod", PO(ext) + (uint32_t)offsetof(sq_ext_t, mod), {sizeof(sq_mod_t)}, {SQ_MODS}, F_MOD, NF(F_MOD)},          /* 0.20 the MOD MATRIX */
     {"step", PO(step), {sizeof(sq_step_t) * SQ_PATTERNS * SQ_STEPS, sizeof(sq_step_t) * SQ_STEPS, sizeof(sq_step_t)},
      {SQ_TRACKS, SQ_PATTERNS, SQ_STEPS}, F_STEP, NF(F_STEP)},
 };

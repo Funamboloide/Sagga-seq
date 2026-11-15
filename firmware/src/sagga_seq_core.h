@@ -331,7 +331,17 @@ enum { SQ_FM_HOLD = 0, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FMS };   /* 0.11 FOLLOW: H
                                   * key; the chops, the dice and the live keys re-order the slices (sagga_break.c) */
 #define SQ_TF_MASK   0x7Fu
 enum { SQ_VOICE_CLOSE = 0, SQ_VOICE_INV1, SQ_VOICE_INV2, SQ_VOICE_DROP2, SQ_VOICE_OPEN, SQ_VOICES };
-enum { SQ_MFX_OFF = 0, SQ_MFX_HARM, SQ_MFX_OCTAVE, SQ_MFX_ECHO, SQ_MFX_VELOCITY, SQ_MFXS };
+/* the MIDI effects (HOME 6). 0.20: five more after the four of 0.19 - a 0.19 firmware knows only up to SQ_MFXS_019 */
+enum { SQ_MFX_OFF = 0, SQ_MFX_HARM, SQ_MFX_OCTAVE, SQ_MFX_ECHO, SQ_MFX_VELOCITY, SQ_MFXS_019,
+       SQ_MFX_CHANCE = SQ_MFXS_019,   /* each note (or each step) passes with a chance */
+       SQ_MFX_RANDOM,                 /* the note and the velocity moved at random, within a spread, in the key */
+       SQ_MFX_FILTER,                 /* NOTE FILTER: only the notes between two, or one of every N */
+       SQ_MFX_GATE,                   /* the length: times a factor, or a fixed one, a little at random */
+       SQ_MFX_GLITCH,                 /* now and then a step stutters, rises, jumps an octave or is cut short */
+       SQ_MFXS };
+#define SQ_GATE_FACTORS 7u       /* GATE K2 -3..+3: x1/4 x1/2 x3/4 x1 x3/2 x2 x4 */
+#define SQ_GATE_FIXED 8u         /* GATE K3: OFF, 1/32 1/16 1/8 1/4 1/2 1 BAR 2 BARS */
+enum { SQ_GL_MIX = 0, SQ_GL_STUTTER, SQ_GL_RISE, SQ_GL_JUMP, SQ_GL_CUT, SQ_GLITCHES };   /* GLITCH K3 */
 #define SQ_ECHO_TIMES 8u         /* 1/32 1/16 1/8T 1/16. 1/8 1/4T 1/8. 1/4 (sq_echo_ticks) */
 enum { SQ_OCT_ALT = 0, SQ_OCT_RANDOM, SQ_OCT_THIRD, SQ_OCT_FOURTH, SQ_OCT_PATTERNS };
 
@@ -378,8 +388,11 @@ void sq_live_default(sq_live_t *l);
 
 /* LFO: a value that moves with the beat. It goes out as a CC, or moves one parameter of a track. */
 enum { SQ_LFO_SINE = 0, SQ_LFO_TRI, SQ_LFO_RAMP_UP, SQ_LFO_RAMP_DN, SQ_LFO_SQUARE, SQ_LFO_SH, SQ_LFO_SMOOTH,
-       SQ_LFO_DECAY, SQ_LFO_SHAPES };
-enum { SQ_LD_CC = 0, SQ_LD_VEL, SQ_LD_GATE, SQ_LD_CHANCE, SQ_LD_TIMING, SQ_LD_SWING, SQ_LD_KINDS };
+       SQ_LFO_DECAY, SQ_LFO_ENV, SQ_LFO_SHAPES };   /* 0.20 ENV: an envelope (sq_lfoe_t); the others are waves */
+#define SQ_LFO_WAVES SQ_LFO_ENV  /* the periodic shapes (what COOK picks from) */
+enum { SQ_LD_CC = 0, SQ_LD_VEL, SQ_LD_GATE, SQ_LD_CHANCE, SQ_LD_TIMING, SQ_LD_SWING, SQ_LD_KINDS,
+       SQ_LD_MOD = SQ_LD_KINDS,  /* 0.20 MOD ONLY: it sends nothing, it is a source of the MOD MATRIX */
+       SQ_LD_ALL };
 #define SQ_LFO_RATES 20u        /* 0.13: 16 from 16 bars to 1/32, then the triplets 1/4T 1/8T 1/16T 1/32T */
 #define SQ_LFO_RATES_STRAIGHT 16u
 #define SQ_LF_RETRIG 0x01u      /* start the cycle again when the transport starts */
@@ -440,7 +453,7 @@ enum { SQ_KB_OFF = 0, SQ_KB_ALL, SQ_KB_SPLIT, SQ_KBS };   /* the keyboard's note
  * its own values here, saved with the project. The track's mfx .. mfx_fb stay equal to the first effect of the chain
  * that plays (in SQ_MFX_* order), so a 0.18 firmware, which skips this, plays that one; a 0.18 image has no chain: its
  * one effect becomes the chain (sq_mfx_from_track). */
-#define SQ_MFX_N (SQ_MFXS - 1u)          /* the effects, OFF apart: effect x at [x - 1] */
+#define SQ_MFX_N (SQ_MFXS_019 - 1u)      /* the four of 0.19, OFF apart: effect x at [x - 1] */
 typedef struct __attribute__((packed)) {
     uint8_t on;                  /* bit (1 << SQ_MFX_*): that effect plays */
     int8_t amt[SQ_MFX_N];        /* as the track's mfx_amt (each effect its own range) */
@@ -448,13 +461,69 @@ typedef struct __attribute__((packed)) {
     uint8_t fb[SQ_MFX_N];        /* as mfx_fb */
 } sq_mfxc_t;                     /* 13 bytes */
 #define SQ_MFX_ON(m, fx) ((uint8_t)(((m)->on >> (fx)) & 1u))
-#define SQ_MFX_ALL (((1u << SQ_MFXS) - 1u) & ~1u)
-extern const uint8_t SQ_MFX_ORDER[SQ_MFX_N];   /* the order they play in: VEL CURVE, OCTAVE, HARM, ECHO */
+#define SQ_MFX_ALL (((1u << SQ_MFXS_019) - 1u) & ~1u)
+extern const uint8_t SQ_MFX_ORDER[SQ_MFX_N];   /* the order the four of 0.19 play in: VEL CURVE, OCTAVE, HARM, ECHO */
 void sq_mfx_defaults(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb);   /* an effect's values when first chosen */
 void sq_mfx_sanitize(sq_mfxc_t *m);
 void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c);       /* the track's mfx .. mfx_fb from its chain */
 void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m);   /* a 0.18 track's one effect, as a chain */
+/* 0.20: the five new effects of a track, and the ORDER all nine play in (the player's: SEL + K1 in HOME 6). A 0.19
+ * image has none: the defaults, and the order keeps 0.19's VEL CURVE, OCTAVE, HARM, ECHO with the new ones around it */
+#define SQ_MFX_NEW (SQ_MFXS - SQ_MFXS_019)   /* 5: effect x at [x - SQ_MFXS_019] */
+#define SQ_MFX_ALLN (SQ_MFXS - 1u)           /* 9 */
 typedef struct __attribute__((packed)) {
+    uint8_t on;                  /* bit (1 << (fx - SQ_MFXS_019)): that effect plays */
+    uint8_t order[SQ_MFX_ALLN];  /* the nine effects in the order they play, each once */
+    int8_t amt[SQ_MFX_NEW];      /* K2 of each new effect */
+    uint8_t time[SQ_MFX_NEW];    /* K3 */
+    uint8_t fb[SQ_MFX_NEW];      /* K4 */
+} sq_mfxd_t;                     /* 25 bytes */
+extern const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN];   /* FILTER CHANCE VEL RANDOM OCTAVE HARM GATE GLITCH ECHO */
+void sq_mfxd_default(sq_mfxd_t *d);
+void sq_mfxd_sanitize(sq_mfxd_t *d);
+/* any effect of track t, old or new: on, its values (clamped to the effect's range), the count that plays */
+struct sq_ext_s;
+uint8_t sq_mfx_is_on(const struct sq_ext_s *x, uint32_t t, uint8_t fx);
+void sq_mfx_set_on(struct sq_ext_s *x, uint32_t t, uint8_t fx, uint8_t on);
+void sq_mfx_get(const struct sq_ext_s *x, uint32_t t, uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb);
+void sq_mfx_put(struct sq_ext_s *x, uint32_t t, uint8_t fx, int8_t amt, uint8_t time, uint8_t fb);
+uint8_t sq_mfx_count(const struct sq_ext_s *x, uint32_t t);
+void sq_mfx_range(uint8_t fx, uint8_t knob, uint8_t in_key, int32_t *lo, int32_t *hi);   /* knob 0 K2, 1 K3, 2 K4 */
+int sq_mfx_order_pos(const struct sq_ext_s *x, uint32_t t, uint8_t fx);                 /* where fx plays, 0..8 */
+void sq_mfx_order_move(struct sq_ext_s *x, uint32_t t, uint8_t fx, int32_t d);          /* earlier (-) or later (+) */
+uint32_t sq_gate_fixed_ticks(uint8_t idx);   /* GATE K3: 0 (OFF), 3 6 12 24 48 96 192 */
+uint32_t sq_gate_factor_x4(int8_t idx);      /* GATE K2: the factor in quarters (1 2 3 4 6 8 16) */
+
+/* 0.20 ENVELOPES: an LFO whose SHAPE is ENV rises and falls with the notes of its TRIG track (the clock: once a cycle of
+ * its RATE, held half of it): ATTACK, DECAY to SUSTAIN while the note is held, RELEASE after. The times are steps of
+ * the clock (sq_env_ticks). */
+#define SQ_ENV_TIMES 16u         /* 0 1/96 1/48 1/32 1/24 1/16 1/16. 1/8 1/8. 1/4 1/4. 1/2 1/2. 1 BAR 2 BARS 4 BARS */
+typedef struct __attribute__((packed)) {
+    uint8_t a, d;                /* 0..SQ_ENV_TIMES-1 */
+    uint8_t s;                   /* 0..100 % */
+    uint8_t r;                   /* 0..SQ_ENV_TIMES-1 */
+} sq_lfoe_t;                     /* 4 bytes */
+uint32_t sq_env_ticks(uint8_t idx);
+/* the level (0..65535) an envelope has `el` clock ticks (x 65536: fractions) after its note started, the note held for
+ * `gate` ticks (x 65536) */
+uint32_t sq_env_level(const sq_lfoe_t *e, uint64_t el, uint64_t gate);
+
+/* 0.20 MOD MATRIX: eight slots, each a SOURCE moving a DESTINATION by an AMOUNT (-100..+100 %) */
+#define SQ_MODS 8u
+enum { SQ_MS_OFF = 0, SQ_MS_LFO, SQ_MS_MACRO, SQ_MS_ENERGY, SQ_MS_RANDOM, SQ_MS_VEL, SQ_MS_CCIN, SQ_MSS };
+enum { SQ_MD_OFF = 0, SQ_MD_DEPTH, SQ_MD_CENTER, SQ_MD_VEL, SQ_MD_GATE, SQ_MD_CHANCE, SQ_MD_TIMING, SQ_MD_SWING,
+       SQ_MD_FX, SQ_MDS };
+typedef struct __attribute__((packed)) {
+    uint8_t src;                 /* SQ_MS_* */
+    uint8_t src_i;               /* LFO 0..15, MACRO 0..3, VEL: the track 0..15, CC IN: the controller 0..127 */
+    uint8_t dst;                 /* SQ_MD_* */
+    uint8_t dst_i;               /* DEPTH / CENTER: the LFO 0..15; the others: the track 0..15 */
+    int8_t amt;                  /* -100..+100 */
+} sq_mod_t;                      /* 5 bytes */
+uint8_t sq_mod_src_count(uint8_t src);   /* how many of that kind (LFO 16, MACRO 4, VEL 16, CC IN 128, else 1) */
+uint8_t sq_mod_dst_count(uint8_t dst);   /* DEPTH / CENTER 16, the track ones 16, OFF 1 */
+void sq_mod_sanitize(sq_mod_t *m);
+typedef struct __attribute__((packed)) sq_ext_s {
     sq_lfox_t lfo[SQ_LFOS];
     sq_trackx_t track[SQ_TRACKS];
     uint8_t motion_bars;         /* MOTION: 0 off, 1, 2, 4 bars: REC writes the macros' moves, they play back */
@@ -467,9 +536,13 @@ typedef struct __attribute__((packed)) {
                                   * space - _ . + # & ! ' ( ) / :, 0 after the last; a 0.14 image has none (a 0.14 firmware
                                   * takes the 780 bytes before it) */
     sq_mfxc_t mfxc[SQ_TRACKS];   /* 0.19: the MIDI FX chain of each track (a 0.18 image has none: sq_mfx_from_track) */
-} sq_ext_t;                      /* 1004 bytes */
+    sq_mfxd_t mfxd[SQ_TRACKS];   /* 0.20: the five new effects and the order of the nine (a 0.19 image: the defaults) */
+    sq_lfoe_t lfoe[SQ_LFOS];     /* 0.20: each LFO's envelope (SHAPE ENV) */
+    sq_mod_t mod[SQ_MODS];       /* 0.20: the MOD MATRIX */
+} sq_ext_t;                      /* 1508 bytes */
 #define SQ_EXT_014 780u          /* the bytes of sq_ext_t a 0.13 / 0.14 image holds */
 #define SQ_EXT_018 796u          /* ... a 0.15 - 0.18 image */
+#define SQ_EXT_019 1004u         /* ... a 0.19 image */
 #define SQ_CHUNK_EXT 1u          /* the image's chunk of sq_ext_t */
 void sq_ext_default(sq_ext_t *x);
 void sq_ext_sanitize(sq_ext_t *x);

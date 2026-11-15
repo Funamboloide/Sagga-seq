@@ -1,6 +1,6 @@
-# SAGGA Remote, Mutes, Motori, Break, Mod, Live: six RaspiMIDIHub plugins for SAGGA SEQ 0.12 - 0.19
+# SAGGA Remote, Mutes, Motori, Break, Mod, Live, BeatStep: seven RaspiMIDIHub plugins for SAGGA SEQ 0.12 - 0.20
 
-Six pages of the hub's web interface (open them full screen on the phone or a tablet) that send SAGGA SEQ's commands
+Six pages of the hub's web interface (and, 0.20, SAGGA BeatStep: below) (open them full screen on the phone or a tablet) that send SAGGA SEQ's commands
 to the FM-1 as Control Changes on MIDI channels 14, 13 and 12 (the map: docs/SAGGA-SEQ.md, "SAGGA REMOTE", "channel 13",
 "channel 12"). Channels 13 and 12 need **SAVE K2 = REMOTE 13 + 14** on the FM-1 (the default of the PALCO profile; the
 0.12 pages all use it).
@@ -39,16 +39,16 @@ keep their place in the matrix.
 
 ## Install (on the Pi, over SSH)
 
-`install_hub.sh` (the sagga-hub zip, 0.12) copies the six folders into RaspiMIDIHub's plugins folder and restarts the hub
-when the hub is on the same Pi; then only the matrix step below remains. By hand, copy the six folders to the Pi (from the
+`install_hub.sh` (the sagga-hub zip, 0.12) copies the folders (0.20: seven) into RaspiMIDIHub's plugins folder and restarts the hub
+when the hub is on the same Pi; then only the matrix step below remains. By hand, copy the folders to the Pi (from the
 PC, in the folder where they are):
 
-    scp -r sagga_remote sagga_mutes sagga_motori sagga_break sagga_mod sagga_live user@PI-ADDRESS:/tmp/
+    scp -r sagga_remote sagga_mutes sagga_motori sagga_break sagga_mod sagga_live sagga_bsp user@PI-ADDRESS:/tmp/
 
 Then on the Pi:
 
     rw
-    sudo cp -r /tmp/sagga_remote /tmp/sagga_mutes /tmp/sagga_motori /tmp/sagga_break /tmp/sagga_mod /tmp/sagga_live /usr/lib/python3/dist-packages/raspimidihub/plugins/
+    sudo cp -r /tmp/sagga_remote /tmp/sagga_mutes /tmp/sagga_motori /tmp/sagga_break /tmp/sagga_mod /tmp/sagga_live /tmp/sagga_bsp /usr/lib/python3/dist-packages/raspimidihub/plugins/
     sudo systemctl restart raspimidihub
     ro
 
@@ -56,6 +56,14 @@ In the web interface: add the plugins (they are with the controllers), connect e
 matrix (with USB PORTS 2 on the FM-1: to its port 2, "Felucca MIDI 2"), **0.18: and the FM-1's port 2 to each one's
 IN** (what the FM-1 sends back: the values; port 2 carries nothing for the synths), Save Config. Nothing else needs
 them. If an update of RaspiMIDIHub ever removes them, copy them again.
+
+**SAGGA BeatStep** (0.20, `sagga_bsp`): not a page but a plugin with an IN - an Arturia BeatStep Pro in CONTROL mode as
+real knobs and pads. Wire the BeatStep Pro to its IN, its OUT to the FM-1's port 2. **LEARN**: turn the 16 encoders one
+after the other (top row, then bottom), then tap the 16 pads; the hub keeps what it learned. The encoders are SAGGA
+Live's knobs on the tablet's track (TRACK, PATTERN, LENGTH, OCTAVE, SWING, GROOVE, ARP, CHORD / MIDI FX, FX AMOUNT,
+ALGO, A, B, C, PULSES, ROTATION; ABSOLUTE or RELATIVE), the pads the 16 MUTES or (PADS = ACTIONS) PLAY, FILL, FX GO,
+ALGO GO, COOK, BEAT, DICE, UNDO, PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE, EUCLID, ECHO ALL. Its CV outputs are wired
+apart: the FM-1's port 1 to the BeatStep Pro, channels 1, 2 and 10 (docs/SAGGA-SEQ.md, "What is new in 0.20").
 
 **RaspiMIDIHub's own note plugins after the FM-1** (0.19: a chain of MIDI FX on the hub, beside the FM-1's own):
 docs/SAGGA-SEQ.md, "A chain on the hub too" - only the track's notes into the chain (a filtered cell of the matrix),

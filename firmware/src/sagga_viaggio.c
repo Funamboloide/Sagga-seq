@@ -49,6 +49,7 @@ static uint8_t vg_bar;                      /* the bar of the phrase, 0..phrase_
 static uint8_t vg_now;                      /* NOW: the queue runs at the next bar */
 static uint8_t vg_energy_from;              /* the energy the phrase started from (it glides to project.viaggio.energy) */
 static uint8_t vg_energy_cur;               /* the energy applied now */
+static uint8_t vg_energy_now(void) { return vg_energy_cur; }   /* 0.20: the MOD MATRIX's ENERGY */
 static uint8_t vg_riser;                    /* RISER in this phrase */
 static uint8_t vg_fill;                     /* FILL in the last bar (fill_active) */
 static uint8_t vg_break_left;               /* BREAK: bars to go, 0 none */

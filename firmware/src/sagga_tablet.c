@@ -68,8 +68,25 @@ static void tab_algo_abc(uint8_t t, uint8_t k, uint8_t v)
 /* the MIDI FX amount shown on track t (0.19: of the effect its MIDI FX knob shows, playing or READY), without touching mfx_tmp */
 static int8_t tab_mfx_amt(uint32_t t)
 {
-    uint8_t fx = mfx_shown(t);
-    return fx ? project.ext.mfxc[t].amt[fx - 1u] : 0;
+    uint8_t fx = mfx_shown(t), tm, fb;
+    int8_t a = 0;
+    if (fx) sq_mfx_get(&project.ext, t, fx, &a, &tm, &fb);
+    return a;
+}
+/* 0.20: the FX AMOUNT knob (0..24): the four of 0.19 as -12..+12, as before; the new ones over their whole range */
+static int32_t tab_amt_from(uint32_t t, uint8_t fx, uint8_t v)
+{
+    int32_t lo, hi;
+    sq_mfx_range(fx, 0u, track_in_key(t), &lo, &hi);
+    if (fx < SQ_MFXS_019) return clamp_i32((int32_t)v - 12, lo, hi);
+    return lo + ((int32_t)(v > 24u ? 24u : v) * (hi - lo) + 12) / 24;
+}
+static int32_t tab_amt_to(uint32_t t, uint8_t fx, int8_t a)
+{
+    int32_t lo, hi;
+    sq_mfx_range(fx, 0u, track_in_key(t), &lo, &hi);
+    if (fx < SQ_MFXS_019 || hi <= lo) return (int32_t)a + 12;
+    return (((int32_t)a - lo) * 24 + (hi - lo) / 2) / (hi - lo);
 }
 
 static uint16_t tab_mutes(void) { return (uint16_t)(vg_mutes_to_keep() ^ pending_mute); }   /* the mutes as meant */
@@ -122,7 +139,7 @@ static void live12_cc(uint8_t cc, uint8_t v)
     case 9u: mfx_choose(t, v < SQ_MFXS ? v : (uint8_t)SQ_MFX_OFF); return;
     case 10u: {
         sq_track_cfg_t *m = mfx_view(t);
-        mfx_amount(m, ((int32_t)v - 12) - m->mfx_amt);
+        if (m->mfx) m->mfx_amt = (int8_t)tab_amt_from(t, m->mfx, v);
         if (m == &mfx_tmp) mfx_keep(t, m);
         p = put_s(p, "FX AMOUNT "); p = put_i(p, m->mfx_amt); finish(p);
         status_msg(msg_buf);
@@ -172,7 +189,7 @@ static void live12_cc(uint8_t cc, uint8_t v)
     if (!on) return;                                    /* the taps: at the press */
     switch (cc) {
     case 11u:
-        if (mfx_shown(t) == SQ_MFX_OFF && !project.ext.mfxc[t].on) status_msg("NOTHING READY: MIDI FX CHOOSES ONE");
+        if (mfx_shown(t) == SQ_MFX_OFF && !mfx_count(t)) status_msg("NOTHING READY: MIDI FX CHOOSES ONE");
         else mfx_go(t);                                 /* 0.19: the effect shown joins the chain, or leaves it; OFF: all stop */
         break;
     case 16u: algo_go(t); break;
@@ -242,7 +259,7 @@ static uint8_t fb_value(uint32_t k)
         case 7: return project.ext.track[tt].groove;
         case 8: return project.ext.track[tt].groove_amt;
         case 9: return mfx_shown(tt);
-        case 10: return u7((int32_t)tab_mfx_amt(tt) + 12);
+        case 10: return u7(tab_amt_to(tt, mfx_shown(tt), tab_mfx_amt(tt)));
         case 12: return algo_shown(tt);
         case 13: case 14: case 15: return algo_to_cc(algo_edit(tt), (uint8_t)(num - 13u));
         case 17: return c->euc_pulses;

@@ -104,6 +104,20 @@ def t_converter():
     check(r.returncode == 0 and m3.get('on') == 10 and m3.get('amt') == [-3, 1, 4, 3] and m3.get('time', [0] * 4)[2] == 3 and m3.get('fb', [0] * 4)[2] == 40
           and j5['track'][3]['mfx'] == 1 and j5['track'][3]['mfx_amt'] == -3,
           '0.19 the MIDI FX chain: mfxc on, amt / time / fb per effect; the track shows its first, whatever the patch said (%s %s)' % (m3, r.stderr))
+    # 0.20: the new MIDI FX (CHANCE 40 % and GLITCH on), the order (GLITCH first), an envelope, a MOD slot; a broken
+    # order (an effect twice) goes back to the default
+    r = apply(out, ['mfxd 2 on - 17', 'mfxd 2 amt 0 40', 'mfxd 2 order 0 9', 'mfxd 2 order 7 7', 'mfxd 2 time 4 2',
+                    'mfxd 5 order 0 3', 'lfoe 4 a - 3', 'lfoe 4 s - 70', 'mod 1 src - 6', 'mod 1 src_i - 21', 'mod 1 dst - 8', 'mod 1 dst_i - 2',
+                    'mod 1 amt - -60', 'lfo 4 shape - 8', 'lfo 4 dest - 6'], out2)
+    j6 = read(out2)
+    m2, m5 = j6.get('mfxd', [{}] * 16)[2], j6.get('mfxd', [{}] * 16)[5]
+    md, le = j6.get('mod', [{}] * 8)[1], j6.get('lfoe', [{}] * 16)[4]
+    check(r.returncode == 0 and m2.get('on') == 17 and m2.get('amt', [0])[0] == 40 and m2.get('order') == [9, 5, 4, 6, 2, 1, 8, 7, 3]
+          and m2.get('time', [0] * 5)[4] == 2 and m5.get('order') == [7, 5, 4, 6, 2, 1, 8, 9, 3],
+          '0.20 mfxd: on, values, the order (a broken one back to the default) (%s %s %s)' % (m2, m5, r.stderr))
+    check(md == {'src': 6, 'src_i': 21, 'dst': 8, 'dst_i': 2, 'amt': -60} and le.get('a') == 3 and le.get('s') == 70
+          and j6['lfo'][4]['shape'] == 8 and j6['lfo'][4]['dest'] == 6,
+          '0.20 the MOD MATRIX, an LFO\'s envelope, the ENV shape and MOD ONLY (%s %s %s)' % (md, le, j6['lfo'][4]))
     # what the FM-1 would play: the converter's step is a note for the firmware's own sgq2mid
     mid = os.path.join(d, 'x.mid')
     subprocess.run([MID, 'sgq2mid', out, mid], check=True, capture_output=True)
@@ -215,7 +229,7 @@ def t_page_lists():
                          ('SHAPES', 'static const char *lfo_shape_name'), ('RATES', 'static const char *lfo_rate_name'),
                          ('DESTS', 'static const char *lfo_dest_name'), ('QUANT', 'QUANT_NAME[SQ_QUANTS] =')):
         check(js(name) == c(anchor), '%s as the panel\'s (%s / %s)' % (name, js(name), c(anchor)))
-    check(js('MFX') == c('static const char *const MF[SQ_MFXS]'), 'MFX as the panel\'s')
+    check(js('MFX') == c('static const char *const MFX_NAME[SQ_MFXS]'), 'MFX as the panel\'s')
     check(js('VOICE') == c('static const char *const VN[SQ_VOICES]'), 'VOICE as the panel\'s')
 
 
