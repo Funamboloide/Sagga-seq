@@ -83,13 +83,17 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
   la prova si interrompe la pagina offre **Rimetti le celle** (la prova dopo le rimette anche da sola). Alla fine il
   progetto che l'FM-1 aveva in memoria torna dov'era (`IMPORTED`: SAVE per tenerlo).
+* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 28 sessioni, mezz'ora circa): le sessioni
+  dell'esploratore dal PC (ogni situazione dell'FM-1, 60 gesti, il tablet e il grid come eventi del test), dal Pi,
+  senza PC. Il resto uguale: SEL, le celle dei synth staccate, il progetto che torna in memoria.
 * Il log sotto i bottoni; alla fine **raccolta-banco-...json**, **RAPPORTO-BANCO-...md** e il log si scaricano dalla
   pagina. Stanno in `/run/sagga-banco` e anche sulla SD (`/boot/firmware/sagga/banco`, le ultime tre prove). La
   raccolta si confronta con il simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json`.
 
 La prova gira in un servizio a parte (`systemd-run`, come l'aggiornamento): se la pagina si riavvia va avanti. Mentre
 gira l'FM-1 non si installa, il Pi non si aggiorna e l'editor non parla con l'FM-1. Da SSH:
-`sudo python3 /opt/sagga/hub/sagga_banco.py [--solo-matrice] [--sessioni 4] [--non-staccare] [--rimetti]`.
+`sudo python3 /opt/sagga/hub/sagga_banco.py [--piano /opt/sagga/hub/fm1_piano.json] [--solo-matrice] [--sessioni 4]
+[--non-staccare] [--rimetti]`.
 
 ## L'EDITOR DEI PROGETTI (0.14)
 

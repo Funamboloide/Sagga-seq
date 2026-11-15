@@ -1257,7 +1257,7 @@ def main(argv):
         try:
             if a.banco_prova:
                 n, ln = (a.sessioni if a.sessioni is not None else 4), (a.lunghe if a.lunghe != 60 else 24)
-                rc = BC.prova(n, ln, a.seme, os.path.join(a.uscita, "RAPPORTO-BANCO-PROVA.md"))
+                rc = BC.prova(n, ln, a.seme, os.path.join(a.uscita, "RAPPORTO-BANCO-PROVA.md"), fm1=3)   # (+3 of the whole FM-1's)
                 rc2 = BC.prova(1, ln, a.seme, os.path.join(a.uscita, "RAPPORTO-BANCO-PERSI.md"), drop=True)
                 print("sagga banco, le pagine perse: %s" % ("trovate" if rc2 else "NON TROVATE"))
                 rc3 = BC.prova(1, ln, a.seme + 1, os.path.join(a.uscita, "RAPPORTO-BANCO-SORDO.md"), lose=True)

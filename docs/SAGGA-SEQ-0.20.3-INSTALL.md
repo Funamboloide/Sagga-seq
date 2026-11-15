@@ -38,5 +38,11 @@ riavvio lo schermo dice `SAGGA SEQ 0.20.3`.
    memoria, tocca SAVE due volte se vuoi tenerlo nello slot. Le celle dei synth sono tornate nella matrice.
 5. Scarica dalla pagina **raccolta-banco-...json** e **RAPPORTO-BANCO-...md** e mandameli.
 
+## 5. L'FM-1 completo
+
+Come la prova del banco, ma nella tendina scegli **l'FM-1 completo: ogni situazione** (tutte le sessioni: mezz'ora
+circa). Sono le sessioni dell'esploratore che facevi dal PC: ogni situazione dell'FM-1, 60 gesti a sessione. Anche qui
+SEL quando la pagina lo chiede, poi non toccare l'FM-1; alla fine scarica la raccolta e mandamela.
+
 Chiudere la pagina non ferma la prova: va avanti da sola. Se invece il Pi si spegne a metà, alla riaccensione la
 pagina mostra **Rimetti le celle**: premilo (con l'FM-1 e i synth collegati) e le celle dei synth tornano.

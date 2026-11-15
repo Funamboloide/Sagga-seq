@@ -325,7 +325,7 @@ class State:
                 pass
             if not running and m.get('rc') is not None and not m.get('copiati'):
                 self._banco_keep(m)
-        return dict(running=running, modo=(m or {}).get('modo'), rc=None if running or not m else m.get('rc'),
+        return dict(running=running, modo=(m or {}).get('modo'), piano=(m or {}).get('piano'), rc=None if running or not m else m.get('rc'),
                     quando=(m or {}).get('quando'), log=log, files=self.banco_files(),
                     celle=os.path.isfile(self.banco_cells()) and not running,
                     ask=running and bool(log) and log[-1].startswith('>>>'))
@@ -351,13 +351,17 @@ class State:
         except Exception:
             pass
 
-    def start_banco(self, modo, stacca=True, sessioni=0):
+    def start_banco(self, modo, stacca=True, sessioni=0, piano='banco'):
         """0.20.3: the banco's explorer: 'matrice' (only the matrix), 'prova' (everything), 'rimetti' (the cells a prova
-        took away, back) -> None, or (message, HTTP code)"""
-        if modo not in ('matrice', 'prova', 'rimetti'):
+        took away, back) -> None, or (message, HTTP code). piano: 'banco' (the pages, the grid, the panel along the real
+        roads) or 'fm1' (the whole FM-1: the PC explorer's sessions, every situation, from the Pi)"""
+        if modo not in ('matrice', 'prova', 'rimetti') or piano not in ('banco', 'fm1'):
             return 'modo sconosciuto', 400
         if not os.path.isfile(BANCO):
             return "l'esploratore del banco non e' installato (aggiorna il Pi)", 404
+        plan = os.path.join(os.path.dirname(BANCO), '%s_piano.json' % piano)
+        if modo == 'prova' and not os.path.isfile(plan):
+            return "il piano %s non c'e' (aggiorna il Pi)" % os.path.basename(plan), 404
         with self.lock:
             if self.banco_running():
                 return "l'esploratore del banco sta gia' andando", 409
@@ -372,12 +376,13 @@ class State:
             elif modo == 'rimetti':
                 cmd.append('--rimetti')
             else:
+                cmd += ['--piano', plan]
                 if not stacca:
                     cmd.append('--non-staccare')
                 if sessioni:
                     cmd += ['--sessioni', str(int(sessioni))]
             with open(self._bfile('banco.json'), 'w') as f:
-                json.dump(dict(pid=None, started=time.time(), rc=None, modo=modo), f)
+                json.dump(dict(pid=None, started=time.time(), rc=None, modo=modo, piano=piano), f)
             out = self._bfile('banco.out')
             script = '%s >>%s 2>&1' % (' '.join(shlex.quote(x) for x in cmd), shlex.quote(out))
             with open(out, 'w') as f:
@@ -538,7 +543,7 @@ body{font:16px/1.4 system-ui,sans-serif;margin:0;background:#111;color:#eee}head
 main{padding:12px 16px;max-width:720px;margin:auto}h2{font-size:14px;letter-spacing:.1em;color:#9cf;margin:20px 0 8px}
 .row{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid #333}
 button{background:#2a6;color:#fff;border:0;border-radius:6px;padding:8px 14px;font-size:15px}button[disabled]{background:#444}
-.dev{background:#1a2a3a;border-radius:8px;padding:10px 12px}.mono{font-family:ui-monospace,monospace;font-size:13px}
+.dev{background:#1a2a3a;border-radius:8px;padding:10px 12px}.mono{font-family:ui-monospace,monospace;font-size:13px;overflow-wrap:anywhere;min-width:0}
 pre{background:#000;color:#9f9;padding:10px;border-radius:8px;max-height:260px;overflow:auto;font-size:12px}small{color:#999}
 input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small{color:#9cf;font-weight:400;margin-left:6px}</style></head><body>
 <header>SAGGA HUB<small id="ver"></small></header><main>
@@ -552,11 +557,12 @@ input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small
 <pre id="ulog" style="display:none"></pre>
 <h2>ESPLORATORE DEL BANCO</h2><div id="bst"></div>
 <div class="row"><button id="bm" onclick="banco('matrice')">Controlla la matrice</button><button id="bp" onclick="banco('prova')">Avvia la prova</button>
-<select id="bn"><option value="0">tutte le sessioni (20 minuti circa)</option><option value="4">4 sessioni (5 minuti)</option></select>
+<select id="bk"><option value="banco">il banco: pagine, grid, pannello</option><option value="fm1">l'FM-1 completo: ogni situazione</option></select>
+<select id="bn"><option value="0">tutte le sessioni</option><option value="4">4 sessioni (5 minuti)</option></select>
 <label><input type="checkbox" id="bs" checked> <small>stacca i synth</small></label><button id="br" class="del" style="display:none" onclick="banco('rimetti')">Rimetti le celle</button></div>
 <div class="dev" id="bsel" style="display:none"><b>Sull'FM-1: premi SEL per dire s&igrave;</b> <small>(20 secondi; un altro tasto = no)</small></div>
 <pre id="blog" style="display:none"></pre><div id="bf"></div>
-<small>L'FM-1 (SAGGA SEQ 0.20.3), il Pi e il grid insieme, per le strade vere: le sei pagine SAGGA premute dentro RaspiMIDIHub, il bridge del grid con due Launchpad finti, il pannello dell'FM-1 con il suo test. Prima controlla la matrice; durante la prova le celle fra l'FM-1 e i synth sono staccate (i synth tacciono) e tornano alla fine; l'FM-1 si riavvia a ogni sessione, non toccarlo. Alla fine il tuo progetto torna in memoria (sull'FM-1: IMPORTED, SAVE per tenerlo). Mandami la <b>raccolta-banco</b>: la confronto con il simulatore.</small>
+<small><b>Il banco</b> (20 minuti circa): l'FM-1 (SAGGA SEQ 0.20.3), il Pi e il grid insieme, per le strade vere: le sei pagine SAGGA premute dentro RaspiMIDIHub, il bridge del grid con due Launchpad finti, il pannello dell'FM-1 con il suo test. Prima controlla la matrice; durante la prova le celle fra l'FM-1 e i synth sono staccate (i synth tacciono) e tornano alla fine; l'FM-1 si riavvia a ogni sessione, non toccarlo. Alla fine il tuo progetto torna in memoria (sull'FM-1: IMPORTED, SAVE per tenerlo). <b>L'FM-1 completo</b> (mezz'ora circa): l'esploratore dal PC, fatto dal Pi: ogni situazione, 60 gesti a sessione sul pannello, il tablet e il grid come eventi del test. Mandami la <b>raccolta-banco</b>: la confronto con il simulatore.</small>
 <h2>PROGETTI</h2><div id="pr"></div>
 <div class="row" style="flex-wrap:wrap"><input id="np" placeholder="nome del progetto" size="18"><button onclick="newp()">Nuovo</button><button class="sec" onclick="recv()">Ricevi dall'FM-1</button><small id="npm"></small></div>
 <small>Nuovo: un progetto vuoto nella libreria, che si apre nell'editor. Ricevi: il progetto che l'FM-1 ha adesso (fermo), con quel nome. Dall'editor: <b>Manda all'FM-1</b>.</small>
@@ -581,7 +587,7 @@ document.getElementById('ust').innerHTML=!u?'<small>nessun aggiornamento da quan
 const ul=document.getElementById('ulog');ul.style.display=u?'':'none';ul.textContent=u?u.log.join('\n'):'';
 const b=s.banco||{},bon=!!b.running;['bm','bp'].forEach(i=>document.getElementById(i).disabled=bon||s.busy||upd_on);
 document.getElementById('ub').disabled=upd_on||s.busy;document.getElementById('br').style.display=b.celle?'':'none';
-document.getElementById('bst').innerHTML=bon?`<b>${b.modo=='matrice'?'controllo della matrice':b.modo=='rimetti'?'rimetto le celle':'prova'} in corso</b> <small>(non toccare l'FM-1)</small>`:b.rc===0?`<b>finito</b> <small>${h(b.quando||'')}</small>`:b.rc!=null?`<b>finito con qualcosa da guardare</b> <small>(exit ${b.rc}: il log qui sotto)</small>`:b.celle?'<b>celle staccate da una prova interrotta</b> <small>(Rimetti le celle)</small>':'<small>mai fatto da quando il Pi &egrave; acceso</small>';
+document.getElementById('bst').innerHTML=bon?`<b>${b.modo=='matrice'?'controllo della matrice':b.modo=='rimetti'?'rimetto le celle':b.piano=='fm1'?'FM-1 completo':'prova del banco'} in corso</b> <small>(non toccare l'FM-1)</small>`:b.rc===0?`<b>finito</b> <small>${h(b.quando||'')}</small>`:b.rc!=null?`<b>finito con qualcosa da guardare</b> <small>(exit ${b.rc}: il log qui sotto)</small>`:b.celle?'<b>celle staccate da una prova interrotta</b> <small>(Rimetti le celle)</small>':'<small>mai fatto da quando il Pi &egrave; acceso</small>';
 document.getElementById('bsel').style.display=b.ask?'':'none';
 const bl=document.getElementById('blog');bl.style.display=b.log&&b.log.length?'':'none';const atEnd=bl.scrollTop+bl.clientHeight>=bl.scrollHeight-20;bl.textContent=(b.log||[]).join('\n');if(atEnd)bl.scrollTop=bl.scrollHeight;
 document.getElementById('bf').innerHTML=(b.files||[]).map(f=>`<div class="row"><a class="mono" href="/banco/${encodeURIComponent(f.name)}">${h(f.name)}</a><small>${(f.size/1024).toFixed(0)} KB${f.where=='sd'?' (sulla SD)':''}</small></div>`).join('');
@@ -598,10 +604,10 @@ async function upd(){const f=document.getElementById('hz').files[0],m=document.g
 if(!confirm('Aggiornare il Pi con '+f.name+'? Le sue pagine si riavviano: qualche secondo.'))return;
 m.textContent='carico...';const fd=new FormData();fd.append('f',f,f.name);
 try{const r=await fetch('/api/update',{method:'POST',body:fd,headers:{'X-Sagga-Hub':'1'}});m.textContent=r.ok?'':await r.text();if(r.ok)document.getElementById('hz').value='';}catch(e){m.textContent='non arriva al Pi: '+e;}tick();}
-async function banco(m){const st=document.getElementById('bs').checked,n=document.getElementById('bn').value;
-const q=m=='prova'?'Avviare la prova? Dura '+(n=='4'?'5':'20')+' minuti circa: l\'FM-1 si riavvia a ogni sessione, non toccarlo. Il tuo progetto torna in memoria alla fine.'+(st?' I synth tacciono (le loro celle tornano alla fine).':' I synth restano collegati: suoneranno.'):m=='rimetti'?'Rimettere nella matrice le celle staccate?':null;
+async function banco(m){const st=document.getElementById('bs').checked,n=document.getElementById('bn').value,k=document.getElementById('bk').value;
+const q=m=='prova'?'Avviare '+(k=='fm1'?'l\'FM-1 completo':'la prova del banco')+'? Dura '+(n=='4'?'5':k=='fm1'?'30':'20')+' minuti circa: l\'FM-1 si riavvia a ogni sessione, non toccarlo. Il tuo progetto torna in memoria alla fine.'+(st?' I synth tacciono (le loro celle tornano alla fine).':' I synth restano collegati: suoneranno.'):m=='rimetti'?'Rimettere nella matrice le celle staccate?':null;
 if(q&&!confirm(q))return;
-const r=await fetch('/api/banco?modo='+m+'&stacca='+(st?1:0)+'&sessioni='+n,{method:'POST',headers:{'X-Sagga-Hub':'1'}});if(!r.ok)alert(await r.text());tick();}
+const r=await fetch('/api/banco?modo='+m+'&stacca='+(st?1:0)+'&sessioni='+n+'&piano='+k,{method:'POST',headers:{'X-Sagga-Hub':'1'}});if(!r.ok)alert(await r.text());tick();}
 async function pats(){const sel=document.getElementById('pg');const g=sel.value||'TECHNO';const s=await (await fetch('/api/patterns?genre='+g)).json();
 if(!sel.options.length){sel.innerHTML=s.genres.map(x=>`<option${x==g?' selected':''}>${x}</option>`).join('');}
 document.getElementById('pn').textContent=s.parts.reduce((a,p)=>a+p.list.length,0)+' pattern';
@@ -771,7 +777,8 @@ def make_handler(state):
                     n = max(0, min(200, int(q.get('sessioni', ['0'])[0] or 0)))
                 except ValueError:
                     n = 0
-                err = state.start_banco(q.get('modo', [''])[0], stacca=q.get('stacca', ['1'])[0] != '0', sessioni=n)
+                err = state.start_banco(q.get('modo', [''])[0], stacca=q.get('stacca', ['1'])[0] != '0', sessioni=n,
+                                        piano=q.get('piano', ['banco'])[0])
                 if err:
                     return self.send(err[1], err[0], 'text/plain; charset=utf-8')
                 return self.send(200, json.dumps(dict(ok=True)), 'application/json')

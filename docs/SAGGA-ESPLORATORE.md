@@ -164,6 +164,10 @@ con quei messaggi negli stessi punti, come gli eventi del test. In più del rapp
 | VALORI | un valore che l'FM-1 rimanda e che la cella della pagina non segue |
 | SENTITI | l'FM-1 che non ascolta (firmware vecchio), pezzi di quello che ha sentito persi per strada, messaggi da un altro dispositivo |
 
+Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`, 24 sessioni più 4
+con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
+programma, senza Windows. La raccolta si confronta con `--banco` come quella del banco.
+
 `--banco-prova` fa tutto con il simulatore al posto dell'FM-1 (il bridge vero, i ritardi del Pi a caso) e deve dire
 che è tutto uguale; poi perde i comandi delle pagine, e un pezzo di quello che l'FM-1 ha sentito, e deve trovarli. È
 nella suite dei test, con `tests/sagga_banco_tests.py` (il programma del Pi contro un FM-1 e un RaspiMIDIHub finti).

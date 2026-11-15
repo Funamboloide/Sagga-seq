@@ -337,6 +337,20 @@ def t_interrupted():
               "--solo-matrice: the missing cell in the report, rc 1, nothing taken away (%s)" % rc)
 
 
+def t_fm1_plan():
+    group("the whole FM-1's plan (the PC explorer's sessions, no real roads) run by the Pi")
+    dev = BancoFM1()
+    api = FakeAPI(dev)
+    plan = HX.plan(2, midi=True)
+    plan["firmware"] = "0.20.3"
+    rc, data, report, log, status, left = run_main(dev, api, FakeSystem(), plan=plan)
+    check(rc == 0 and data and len(data["sessioni"]) == 2 and data["fatti"].get("piano") == "fm1",
+          "two sessions, rc 0, the raccolta says which plan (%s %s)" % (rc, data and data.get("fatti")))
+    check(data and all(not s["fm1"]["reali_fatti"] and s["fm1"]["sonde"] for s in data["sessioni"]),
+          "nothing through the hub nor the bridge, every probe there")
+    check("l'FM-1 completo" in log and "FM-1 completo" in report and not left, "the log and the report say it (%s)" % report[:80])
+
+
 def t_old_firmware():
     group("an FM-1 older than the plan: nothing done, the cells untouched")
     dev = BancoFM1()
@@ -349,7 +363,7 @@ def t_old_firmware():
 
 
 def main():
-    for t in (t_units, t_audit, t_prova, t_interrupted, t_old_firmware):
+    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware):
         try:
             t()
         except Exception as e:

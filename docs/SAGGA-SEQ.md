@@ -17,7 +17,8 @@ The tutorial (Italian) builds a song step by step; this page is the reference: e
 The banco's explorer (docs/SAGGA-ESPLORATORE.md, "Il banco"): on the hub's page, ESPLORATORE DEL BANCO checks the
 matrix and tests the FM-1, the Pi and the grid together along the real roads (the six SAGGA pages pressed inside
 RaspiMIDIHub through its API, the real grid bridge with two Launchpads of its own, the panel and the probes through the
-PC test), with the cells between the FM-1 and the synths taken away for the run and put back after it.
+PC test), with the cells between the FM-1 and the synths taken away for the run and put back after it. The same page
+also runs the whole FM-1's explorer (the PC explorer's sessions, every situation) from the Pi, no PC needed.
 
 The firmware (0.20.3) changes in its PC test only: GO with byte 1 bit 0 set asks the FM-1 to hear its ports during the
 session. It then plays what comes in (before, the test ignored all the ports' MIDI) and says each message back (SysEx

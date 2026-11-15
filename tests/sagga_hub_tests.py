@@ -614,7 +614,8 @@ out = a[a.index("--out") + 1]
 open(os.path.join(out, "argv.txt"), "w").write(" ".join(a))
 q = "20260101-000000"
 modo = "matrice" if "--solo-matrice" in a else "rimetti" if "--rimetti" in a else "prova"
-st = {"pid": os.getpid(), "started": time.time(), "rc": None, "quando": q, "modo": modo}
+st = {"pid": os.getpid(), "started": time.time(), "rc": None, "quando": q, "modo": modo,
+      "piano": "fm1" if "--piano" in a and os.path.basename(a[a.index("--piano") + 1]).startswith("fm1") else "banco"}
 json.dump(st, open(os.path.join(out, "banco.json"), "w"))
 log = open(os.path.join(out, "banco-%s.log" % q), "w")
 log.write("LA MATRICE\n  tutto a posto\n"); log.flush()
@@ -629,6 +630,8 @@ st["rc"] = 0
 json.dump(st, open(os.path.join(out, "banco.json"), "w"))
 ''')
     FW.BANCO = fake
+    open(os.path.join(d, 'banco_piano.json'), 'w').write('{}')
+    open(os.path.join(d, 'fm1_piano.json'), 'w').write('{}')
     FW.SYSTEMD_RUN = None
     FW.INSTALLER = os.path.join(d, 'none.py')
     state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]), upd_dir=os.path.join(d, 'upd'), banco_dir=bd)
@@ -675,8 +678,9 @@ json.dump(st, open(os.path.join(out, "banco.json"), "w"))
     b = wait(lambda b: b['ask'])
     check(code == 200 and b['running'] and b['modo'] == 'prova' and b['ask'], 'the prova runs, the page asks for SEL (%d %s)' % (code, b))
     argv = open(os.path.join(bd, 'argv.txt')).read().split()
-    check('--non-staccare' in argv and argv[argv.index('--sessioni') + 1] == '4' and argv[argv.index('--celle') + 1] == os.path.join(pr, 'banco', 'celle-staccate.json'),
-          'the runner gets the options: synths kept, 4 sessions, the cells file on the SD (%s)' % argv)
+    check('--non-staccare' in argv and argv[argv.index('--sessioni') + 1] == '4' and argv[argv.index('--celle') + 1] == os.path.join(pr, 'banco', 'celle-staccate.json')
+          and argv[argv.index('--piano') + 1] == os.path.join(d, 'banco_piano.json'),
+          'the runner gets the options: synths kept, 4 sessions, the cells file on the SD, the banco\'s plan (%s)' % argv)
     st = json.loads(urllib.request.urlopen(base + '/api/state', timeout=5).read())
     check(st['busy'], 'the FM-1 is busy meanwhile')
     code, body = post('/api/banco?modo=matrice')
@@ -713,6 +717,14 @@ json.dump(st, open(os.path.join(out, "banco.json"), "w"))
     code, _ = post('/api/banco?modo=matrice')
     wait(lambda b: not b['running'] and b['rc'] is not None)
     check(code == 200 and '--solo-matrice' in open(os.path.join(bd, 'argv.txt')).read(), 'Controlla la matrice: --solo-matrice')
+    code, _ = post('/api/banco?modo=prova&piano=fm1')
+    b = wait(lambda b: not b['running'] and b['rc'] is not None)
+    argv = open(os.path.join(bd, 'argv.txt')).read().split()
+    check(code == 200 and argv[argv.index('--piano') + 1] == os.path.join(d, 'fm1_piano.json') and b['piano'] == 'fm1',
+          "L'FM-1 completo: the whole FM-1's plan (%d %s)" % (code, argv))
+    check(post('/api/banco?modo=prova&piano=altro')[0] == 400, 'an unknown plan: 400')
+    os.unlink(os.path.join(d, 'fm1_piano.json'))
+    check(post('/api/banco?modo=prova&piano=fm1')[0] == 404, 'a plan not installed: 404')
     rec = os.path.join(d, 'sdrun.txt')
     sd = os.path.join(d, 'systemd-run')
     open(sd, 'w').write('#!/bin/sh\necho "$@" > %s\nwhile [ "$1" != "--quiet" ]; do shift; done; shift\n"$@" &\n' % rec)

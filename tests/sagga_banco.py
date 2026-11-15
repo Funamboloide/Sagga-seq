@@ -345,7 +345,7 @@ def compare(session):
     for w in hw.get("errori_pagine") or []:
         found.append(("PAGINE", "ERRORE", w))
     done = hw.get("done") or {}
-    if hw.get("go_ms") is not None and done:
+    if hw.get("go_ms") is not None and done and "reali" in session:      # (the banco's: the whole FM-1's has no roads)
         got = len(hw.get("sentiti") or [])
         partial = "heard" in done and (bool(done.get("heard_lost")) or got < done["heard"])
         lv = "DA GUARDARE" if partial else "ERRORE"          # (a message missing may be one the FM-1 did not say)
@@ -447,7 +447,7 @@ def run_like_banco(sess, rnd, settings=(2, 0), drop_pages=False, lose_heard=Fals
             truth.append((next_hb + 1, [0xBF, 118, 64]))
             noted.append([round(next_hb, 1), "grid", [0xBF, 118, 64]])
             next_hb += HB
-    for r in sorted(sess["reali"], key=lambda r: r[1]):
+    for r in sorted(sess.get("reali") or [], key=lambda r: r[1]):
         t = r[1]
         beats(t)
         if r[0] == "pagina":
@@ -494,10 +494,13 @@ def run_like_banco(sess, rnd, settings=(2, 0), drop_pages=False, lose_heard=Fals
     return out
 
 
-def prova(n, length, seed, out_md, drop=False, lose=False):
+def prova(n, length, seed, out_md, drop=False, lose=False, fm1=0):
     """the banco with the simulator as the FM-1: every session must come out equal; drop / lose: the first session
-    with the pages' messages lost by the hub / a frame of what the FM-1 heard lost (the comparison must say it)"""
+    with the pages' messages lost by the hub / a frame of what the FM-1 heard lost (the comparison must say it);
+    fm1: that many sessions of the whole FM-1's plan too (the PC explorer's, run by the Pi)"""
     plan = piano(n, length, seed)
+    if fm1:
+        plan["sessioni"] += H.piano(fm1 - 1, length, seed, tablet=1)["sessioni"]
     rnd = random.Random(seed)
     plan["sessioni"] = [run_like_banco(s, rnd, drop_pages=drop and k == 0, lose_heard=lose and k == 0)
                         for k, s in enumerate(plan["sessioni"])]

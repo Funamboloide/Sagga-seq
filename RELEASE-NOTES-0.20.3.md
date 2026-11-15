@@ -34,6 +34,14 @@ Sulla pagina del Pi (`http://192.168.4.1:8090`), **ESPLORATORE DEL BANCO**:
   dalla pagina (restano anche sulla SD, le ultime tre prove). La raccolta va confrontata con il simulatore
   (`python3 tests/sagga_explore.py --banco raccolta-banco-....json`): mandamela.
 
+## L'FM-1 completo, dal Pi
+
+Nella stessa sezione puoi scegliere **l'FM-1 completo** al posto del banco: sono le sessioni dell'esploratore che
+prima facevi dal PC con Windows (ogni situazione dell'FM-1, 60 gesti a sessione sul pannello, il tablet e il grid come
+eventi del test), fatte dal Pi: niente PC, niente Python su Windows. 28 sessioni, mezz'ora circa (o 4, per provare). Il
+banco prova le strade (pagine, matrice, bridge), l'FM-1 completo prova l'FM-1: conviene farli tutti e due. La
+raccolta si confronta nello stesso modo.
+
 ## L'FM-1: il test ascolta le porte
 
 Fino alla 0.20 l'FM-1, nel suo test, ignorava tutto il MIDI che arrivava dalle porte (per rifare ogni sessione

@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """SAGGA HUB 0.20.3: l'esploratore del banco - l'FM-1, il Pi e il grid insieme, sul Pi.
 
-    sudo python3 sagga_banco.py [--piano banco_piano.json] [--sessioni N] [--out CARTELLA] [--solo-matrice]
+    sudo python3 sagga_banco.py [--piano banco_piano.json | fm1_piano.json] [--sessioni N] [--out CARTELLA] [--solo-matrice]
                                 [--non-staccare] [--rimetti]
 
 L'esploratore sull'FM-1 (tools/hwtest) fa le sue sessioni dal PC: il PC preme i tasti dell'FM-1 e fa anche da tablet e
@@ -22,7 +22,8 @@ Dopo ogni sessione: i valori che l'FM-1 rimanda sono arrivati alle pagine? Il br
 Alla fine il progetto che l'FM-1 aveva in memoria torna dov'era. Tutto in raccolta-banco-<data>.json (il confronto
 con il simulatore: python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json) e RAPPORTO-BANCO-<data>.md.
 
-Una mano sull'FM-1 ferma tutto. Serve python3-mido e python3-rtmidi (install_hub.sh li installa)."""
+Con --piano fm1_piano.json fa l'FM-1 completo: le sessioni dell'esploratore dal PC (ogni situazione, 60 gesti, il
+tablet e il grid come eventi del test), dal Pi, senza PC. Una mano sull'FM-1 ferma tutto. Serve python3-mido e python3-rtmidi (install_hub.sh li installa)."""
 import argparse
 import json
 import os
@@ -709,7 +710,7 @@ def wait_for_hub(api, timeout=20.0, need_pages=True):
 
 # ---------------------------------------------------------------------------------------------------------- the run
 def report_md(path, audit_f, facts, rows, out_json):
-    lines = ["# L'esploratore del banco", "", "%s. FM-1: %s. Hub: %s, RaspiMIDIHub %s." % (
+    lines = ["# L'esploratore del banco" + ("" if facts.get("piano", "banco") == "banco" else ": l'FM-1 completo"), "", "%s. FM-1: %s. Hub: %s, RaspiMIDIHub %s." % (
         time.strftime("%Y-%m-%d %H:%M"), facts.get("fm1_version", "?"), facts.get("hub", "?"), facts.get("raspimidihub", "?")), ""]
     lines += ["## La matrice", ""]
     if audit_f:
@@ -730,7 +731,8 @@ def report_md(path, audit_f, facts, rows, out_json):
 
 def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
     ap = argparse.ArgumentParser(description="SAGGA HUB: l'esploratore del banco")
-    ap.add_argument("--piano", default=os.path.join(HERE, "banco_piano.json"))
+    ap.add_argument("--piano", default=os.path.join(HERE, "banco_piano.json"), help="il piano: banco_piano.json (il banco), "
+                    "fm1_piano.json (l'FM-1 completo: ogni situazione, come l'esploratore dal PC)")
     ap.add_argument("--sessioni", type=int, default=0, help="solo le prime N sessioni")
     ap.add_argument("--out", default="/run/sagga-banco")
     ap.add_argument("--solo-matrice", action="store_true", help="solo il controllo della matrice (nessun test sull'FM-1)")
@@ -746,7 +748,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
     ts = time.strftime("%Y%m%d-%H%M%S")
     status = os.path.join(a.out, "banco.json")
     T.save(status, {"pid": os.getpid(), "started": time.time(), "rc": None, "quando": ts,
-                    "modo": "rimetti" if a.rimetti else "matrice" if a.solo_matrice else "prova"})
+                    "modo": "rimetti" if a.rimetti else "matrice" if a.solo_matrice else "prova",
+                    "piano": "fm1" if os.path.basename(a.piano).startswith("fm1") else "banco"})
     rep = HT.Report(os.path.join(a.out, "banco-%s.log" % ts))
     say = rep.say
     X.NOTE[0] = rep.f
@@ -778,10 +781,12 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
         say("Rapporto: %s" % out_md)
         return finish(1 if any(lv == "ERRORE" for lv, _ in audit_f) else 0)
     plan = T.load(a.piano)
+    facts["piano"] = "banco" if plan.get("banco") else "fm1"            # (the whole FM-1's plan: no real roads, the PC's)
     sessions = plan["sessioni"][:a.sessioni] if a.sessioni else plan["sessioni"]
     minutes = (sum(s["eventi"][-1][0] for s in sessions) / 1000.0 + 10 * len(sessions)) / 60.0
     say("")
-    say("LE SESSIONI: %d, circa %.0f minuti" % (len(sessions), minutes + 1))
+    say("LE SESSIONI: %d, circa %.0f minuti (%s)" % (len(sessions), minutes + 1, "il banco: pagine, grid e pannello" if plan.get("banco")
+                                                     else "l'FM-1 completo: ogni situazione, il pannello, il tablet e il grid come eventi del test"))
     backend = backend or X.default_backend()
     bridge_was = (services_state(system).get("sagga-grid-bridge") or ("?",))[0] == "active"
     if bridge_was:
