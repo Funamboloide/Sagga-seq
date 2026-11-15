@@ -516,6 +516,11 @@ class Grid:
 
 
 # ------------------------------------------------------------------------------------------------------ a session
+# 0.20.6: four cells the FM-1 sends back on channel 12 CC 33-36 (their own CC is part of an RPN / NRPN in MIDI 2.0)
+ECHO_BACK = {("sagga_live", "swing"): (11, 33), ("sagga_remote", "quant"): (11, 34), ("sagga_motori", "p5"): (11, 35),
+             ("sagga_mod", "lane0"): (11, 36)}
+
+
 def values_back(api, insts, feedback):
     """the values the FM-1 sent back (CC on its remote port; the LFO switches as notes) -> did each page's cell take
     it? [(page, cell, the FM-1's value, the page's value)] for the ones that did not"""
@@ -534,6 +539,9 @@ def values_back(api, insts, feedback):
                     continue
                 want, have = bool(v), bool(params.get(cell))
             else:
+                if (typ, cell) in ECHO_BACK:
+                    e = feedback.get(("cc",) + ECHO_BACK[(typ, cell)])
+                    v = e if e is not None else v
                 if v is None:
                     continue
                 if kind in ("button", "trigger"):

@@ -128,6 +128,15 @@ the FM-1 = REMOTE 13 + 14. Channel 12: CC 1-32, 40-55; channel 13: 112, 113; cha
 
     TRIGGERS = frozenset(c.param.name for c in CELLS if isinstance(c.param, Button) and c.param.trigger)
 
+    def on_cc(self, channel, cc, value):
+        """0.20.6: the FM-1 sends this cell's value back on channel 12 CC 33 (its own CC 6 is, in MIDI 2.0, part of an
+        RPN / NRPN: RaspiMIDIHub 6's pages never get it from the FM-1 as a CC): taken as the cell's"""
+        if channel == 11 and cc == 33:
+            b = self._effective_binding('swing')
+            if b is not None:
+                channel, cc = b["channel"], b["cc"]
+        super().on_cc(channel, cc, value)
+
     def on_param_change(self, name, value):
         super().on_param_change(name, value)
         if name in self.TRIGGERS and value:          # a press: 127, then 0 (the FM-1 acts on the press)

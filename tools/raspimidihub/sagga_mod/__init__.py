@@ -102,6 +102,15 @@ switches. The FM-1: SAVE K2 = REMOTE 13 + 14; wire OUT to it (USB PORTS 2: port 
 
     THROWS = ("th_int", "th_gate", "th_swing", "th_filt")
 
+    def on_cc(self, channel, cc, value):
+        """0.20.6: the FM-1 sends this cell's value back on channel 12 CC 36 (its own CC 101 is, in MIDI 2.0, part of an
+        RPN / NRPN: RaspiMIDIHub 6's pages never get it from the FM-1 as a CC): taken as the cell's"""
+        if channel == 11 and cc == 36:
+            b = self._effective_binding('lane0')
+            if b is not None:
+                channel, cc = b["channel"], b["cc"]
+        super().on_cc(channel, cc, value)
+
     def on_param_change(self, name, value):
         if name.startswith("lfo_sw"):                      # an LFO switch: a note, not the cell's CC
             n = int(name[6:])

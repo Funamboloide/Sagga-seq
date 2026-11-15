@@ -108,6 +108,15 @@ def stub_hub():
                 return None
             return {"channel": c.channel, "cc": c.cc, "on": 127, "off": 0}
 
+        def on_cc(self, channel, cc, value):        # the hub: a CC on a cell's channel and number is its value
+            for name in self._cells:
+                b = self._effective_binding(name)
+                if b is None or b["channel"] != channel or b["cc"] != cc:
+                    continue
+                p = self._cells[name].param
+                self._values[name] = (abs(value - b["on"]) < abs(value - b["off"])) if isinstance(p, Button) else value
+                return
+
         def on_param_change(self, name, value):     # the hub: the cell's value as a CC byte
             b = self._effective_binding(name)
             if b is None:
@@ -234,7 +243,9 @@ def structural():
     keys = [(c.channel, c.cc) for c in cells]
     check(len(keys) == len(set(keys)), "SAGGA Live: every cell its own channel and CC (the FM-1's values come back to one)")
     fwsrc = open(os.path.join(ROOT, "firmware", "src", "sagga_tablet.c")).read()
-    fb = set((int(a.replace("TB_CH", "11")), int(b)) for a, b in re.findall(r"\{(TB_CH|\d+), (\d+), (?:0|FBF_SCALED)\}", fwsrc))
+    echo_own = {"FB_E_SWING": (11, 6), "FB_E_QUANT": (13, 6), "FB_E_PAT6": (12, 38), "FB_E_LANE1": (12, 101)}   # (0.20.6: sent back on ch 12 CC 33-36)
+    fb = set(echo_own[b] if b in echo_own else (int(a.replace("TB_CH", "11")), int(b))
+             for a, b in re.findall(r"\{(TB_CH|\d+), (\d+|FB_E_\w+), (?:0|FBF_SCALED)\}", fwsrc))
     knobs = {(c.channel, c.cc) for c in cells if c.param.__class__.__name__ == "Knob" or (c.param.__class__.__name__ == "Button" and not c.param.trigger)}
     check(knobs - fb <= {(11, cc) for cc in range(40, 56)}, "SAGGA Live: every knob and switch gets the FM-1's value back (%s missing)" % sorted(knobs - fb - {(11, cc) for cc in range(40, 56)}))
     d = {c.param.name: c.param for c in cells}
@@ -300,9 +311,35 @@ def bsp_tests():
         del sys.modules[k]
 
 
+def echo_tests():
+    """0.20.6: four cells whose own CC a MIDI 2.0 page never gets back from the FM-1 (CC 6 / 38: Data Entry, 101: RPN):
+    the FM-1 sends them on channel 12 CC 33-36 (firmware/src/sagga_tablet.c FB_E_*) and the page takes them there"""
+    import re
+    src = open(os.path.join(ROOT, "firmware", "src", "sagga_tablet.c")).read()
+    fw = dict(re.findall(r"FB_E_(\w+) = (\d+)", src))
+    want = [("sagga_live", "swing", fw.get("SWING"), (11, 6), 61), ("sagga_remote", "quant", fw.get("QUANT"), (13, 6), 4),
+            ("sagga_motori", "p5", fw.get("PAT6"), (12, 38), 3), ("sagga_mod", "lane0", fw.get("LANE1"), (12, 101), 77)]
+    stub_hub()
+    for name, cell, echo, own, v in want:
+        m, cls = load_plugin(name)
+        p = cls()
+        c = [x for x in p._cells.values() if x.param.name == cell][0]
+        check(echo is not None and (c.channel, c.cc) == own, "%s %s: its own CC is channel %d CC %d, the FM-1's echo CC %s" % (name, cell, own[0] + 1, own[1], echo))
+        p.on_cc(11, int(echo), v)
+        check(p.get_param(cell) == v, "%s: channel 12 CC %s from the FM-1 is the cell %s (%s)" % (name, echo, cell, p.get_param(cell)))
+        p.on_cc(own[0], own[1], v + 1)
+        check(p.get_param(cell) == v + 1, "%s: its own CC still works too" % name)
+        p.ccs = []
+        p.on_param_change(cell, v)
+        check(p.ccs and p.ccs[0][:2] == own, "%s: the page still sends %s on its own CC (%s)" % (name, cell, p.ccs[:1]))
+    check(len(set(fw.values())) == 4 and all(33 <= int(x) <= 39 for x in fw.values()),
+          "the echoes on channel 12 CC 33-39, free there (the LIVE page's CCs: 1-32, 40-55) (%s)" % fw)
+
+
 def main():
     structural()
     bsp_tests()
+    echo_tests()
     if not RMH or not os.path.isdir(os.path.join(RMH, "src", "raspimidihub")):
         print("sagga plugins: %d checks, %d failures (the hub's own host: skipped, RMH= a RaspiMIDIHub checkout)" % (N[0], len(FAILS)))
         return 1 if FAILS else 0

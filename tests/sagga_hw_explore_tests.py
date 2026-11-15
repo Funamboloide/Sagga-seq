@@ -263,6 +263,17 @@ def fake_rtmidi(dev):
     """a python-rtmidi module whose ports are the fake FM-1's (the runner's own backend, RtBackend, through it)"""
     import types
     mod = types.ModuleType("rtmidi")
+    mod.live, mod.most = 0, 0                    # 0.20.6: the ALSA clients alive now, and the most at once
+
+    def born():
+        mod.live += 1
+        mod.most = max(mod.most, mod.live)
+
+    class _Client:
+        def delete(self):
+            if not getattr(self, "_gone", False):
+                self._gone = True
+                mod.live -= 1
 
     class _Feed:
         def __init__(self, q):
@@ -271,9 +282,10 @@ def fake_rtmidi(dev):
         def on_message(self, data, t):
             self.q.append(list(data))
 
-    class MidiIn:
+    class MidiIn(_Client):
         def __init__(self, queue_size_limit=1024):
             self.q, self.gen = [], None
+            born()
 
         def get_ports(self):
             return FakeBackend(dev).input_names()
@@ -293,9 +305,10 @@ def fake_rtmidi(dev):
         def close_port(self):
             self.end.close()
 
-    class MidiOut:
+    class MidiOut(_Client):
         def __init__(self):
             self.gen = None
+            born()
 
         def get_ports(self):
             return FakeBackend(dev).output_names()
@@ -429,9 +442,10 @@ def main():
     # the same through the runner's own backend (python-rtmidi without callbacks), here with a fake rtmidi module
     dev = FakeFM1(two_ports=True)
     saved = sys.modules.get("rtmidi")
-    sys.modules["rtmidi"] = fake_rtmidi(dev)
+    fake = fake_rtmidi(dev)
+    sys.modules["rtmidi"] = fake
     try:
-        rc, data, log, backups = run(dev, backend=R.default_backend())
+        rc, data, log, backups = run(dev, n=4, backend=R.default_backend())
     finally:
         if saved is not None:
             sys.modules["rtmidi"] = saved
@@ -439,6 +453,8 @@ def main():
             del sys.modules["rtmidi"]
     check(rc == 0 and backups and dev.imported and data and all(len(s["fm1"]["sonde"]) == 3 for s in data["sessioni"]),
           "python-rtmidi, polled: the same run, no hang (%s)" % rc)
+    check(fake.live == 0 and fake.most <= 6, "0.20.6: every rtmidi client ended (an ALSA client each on Linux): none left "
+          "after four sessions and their reconnects, at most %d at once (%d left)" % (fake.most, fake.live))
     # pieces lost on the way: AGAIN and TAKEN bring them back; lost answers: the frame again
     dev = FakeFM1(lose=0.15, seed=9)
     rc, data, log, _ = run(dev)

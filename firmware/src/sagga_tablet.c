@@ -19,6 +19,10 @@
  *   back to the hub (two USB ports, on port 2, once the tablet has said something): what the hub's pages show, as it
  *   changes, and slowly all of it again: channel 12 above; channel 13 CC 33-64 (the patterns and lengths), 92-97 (the
  *   tablet's LFO), 101-106 (its track's lanes), 112-118; notes 100-115 (the LFO switches); channel 14 CC 1, 2, 4-11.
+ *   0.20.6: four of them come back on channel 12 CC 33-36 instead (the pages take them there): SWING (CC 6), QUANTISE
+ *   (channel 14 CC 6), the pattern of track 6 (channel 13 CC 38), lane 1 (channel 13 CC 101). In MIDI 2.0 CC 6 / 38 are
+ *   the Data Entry of an RPN / NRPN and 98-101 choose one: a MIDI 2.0 client (RaspiMIDIHub 6's pages, on a kernel that
+ *   speaks it) never gets them as CCs from a MIDI 1.0 device. Coming in, the old numbers work as before.
  *   The hub's pages take a CC that comes in on a cell's channel and number as the cell's value, and send nothing
  *   back (RaspiMIDIHub's ControllerBase: bidirectional sync). A value the tablet is moving waits until the hand is off it.
  */
@@ -207,16 +211,18 @@ static void live12_cc(uint8_t cc, uint8_t v)
 /* ---- back to the hub. The items: four rows of sixteen (the patterns, the lengths, the mutes, the LFO switches), then one by one */
 enum { FB_PAT = 0, FB_LEN = 16, FB_MUTE = 32, FB_LSW = 48, FB_ONE = 64 };
 #define FBF_SCALED 1u                                   /* 0-127 over another range: the hub keeps the value it sent */
+/* 0.20.6: where the four that MIDI 2.0 would swallow come back (channel 12): SWING, QUANTISE, track 6's pattern, lane 1 */
+enum { FB_E_SWING = 33, FB_E_QUANT = 34, FB_E_PAT6 = 35, FB_E_LANE1 = 36 };
 typedef struct { uint8_t ch, num, flags; } fb_one_t;
 static const fb_one_t FB_ONES[] = {
-    {TB_CH, 1, 0}, {TB_CH, 2, 0}, {TB_CH, 3, 0}, {TB_CH, 4, 0}, {TB_CH, 5, 0}, {TB_CH, 6, 0}, {TB_CH, 7, 0}, {TB_CH, 8, 0},
+    {TB_CH, 1, 0}, {TB_CH, 2, 0}, {TB_CH, 3, 0}, {TB_CH, 4, 0}, {TB_CH, 5, 0}, {TB_CH, FB_E_SWING, 0}, {TB_CH, 7, 0}, {TB_CH, 8, 0},
     {TB_CH, 9, 0}, {TB_CH, 10, 0}, {TB_CH, 12, 0}, {TB_CH, 13, FBF_SCALED}, {TB_CH, 14, FBF_SCALED}, {TB_CH, 15, FBF_SCALED},
     {TB_CH, 17, 0}, {TB_CH, 18, 0}, {TB_CH, 19, 0}, {TB_CH, 20, 0}, {TB_CH, 21, 0}, {TB_CH, 22, 0}, {TB_CH, 23, 0},
     {TB_CH, 24, 0}, {TB_CH, 25, 0},
     {12, 92, 0}, {12, 93, 0}, {12, 94, 0}, {12, 95, 0}, {12, 96, 0}, {12, 97, 0},
-    {12, 101, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
+    {TB_CH, FB_E_LANE1, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
     {12, 112, 0}, {12, 113, 0}, {12, 114, FBF_SCALED}, {12, 115, 0}, {12, 116, 0}, {12, 117, 0}, {12, 118, 0},
-    {13, 1, 0}, {13, 2, 0}, {13, 4, FBF_SCALED}, {13, 5, FBF_SCALED}, {13, 6, 0}, {13, 7, 0}, {13, 8, FBF_SCALED},
+    {13, 1, 0}, {13, 2, 0}, {13, 4, FBF_SCALED}, {13, 5, FBF_SCALED}, {TB_CH, FB_E_QUANT, 0}, {13, 7, 0}, {13, 8, FBF_SCALED},
     {13, 9, FBF_SCALED}, {13, 10, 0}, {13, 11, 0},
 };
 #define FB_N (FB_ONE + (uint32_t)(sizeof FB_ONES / sizeof FB_ONES[0]))
@@ -229,7 +235,8 @@ static uint32_t fb_next_ms, fb_ref_ms;
 static void fb_item(uint32_t k, uint8_t *ch, uint8_t *num, uint8_t *note, uint8_t *flags)
 {
     *note = 0u; *flags = 0u;
-    if (k < FB_LEN) { *ch = 12u; *num = (uint8_t)(33u + k); }
+    if (k == 5u) { *ch = TB_CH; *num = FB_E_PAT6; }    /* (track 6's pattern: CC 38 is a Data Entry in MIDI 2.0) */
+    else if (k < FB_LEN) { *ch = 12u; *num = (uint8_t)(33u + k); }
     else if (k < FB_MUTE) { *ch = 12u; *num = (uint8_t)(49u + k - FB_LEN); }
     else if (k < FB_LSW) { *ch = TB_CH; *num = (uint8_t)(40u + k - FB_MUTE); }
     else if (k < FB_ONE) { *ch = 12u; *num = (uint8_t)(100u + k - FB_LSW); *note = 1u; }
@@ -255,7 +262,6 @@ static uint8_t fb_value(uint32_t k)
         case 3: return tr[tt].pending_pattern < SQ_PATTERNS ? tr[tt].pending_pattern : tr[tt].pattern;
         case 4: return len_shown(tt);
         case 5: return u7((int32_t)c->octave + 3);
-        case 6: return c->swing;
         case 7: return project.ext.track[tt].groove;
         case 8: return project.ext.track[tt].groove_amt;
         case 9: return mfx_shown(tt);
@@ -271,6 +277,9 @@ static uint8_t fb_value(uint32_t k)
         case 23: return arp_run_of(c);
         case 24: return c->chord;
         case 25: return (c->flags & SQ_TF_FOLLOW) ? 127u : 0u;
+        case FB_E_SWING: return c->swing;
+        case FB_E_QUANT: return project.live.remote_ch == SQ_REMOTE_OFF ? 255u : project.live.quant;
+        case FB_E_LANE1: return c->lane_base[0] <= 127u ? c->lane_base[0] : 255u;
         default: return 255u;
         }
     }
@@ -299,7 +308,6 @@ static uint8_t fb_value(uint32_t k)
     case 2: return project.live.morph_b < 8u ? project.live.morph_b : 255u;   /* (the page's MORPH TO: scenes 1-8) */
     case 4: return u7(((int32_t)project.gen.evo_amount - 1) * 127 / 99);
     case 5: return u7(((int32_t)project.gen.heat - 1) * 127 / 99);
-    case 6: return project.live.quant;
     case 7: return u7((int32_t)mac_vel + 64);
     case 8: return u7(mac_gate < 0 ? 64 + ((int32_t)mac_gate * 64 - 45) / 90 : 64 + ((int32_t)mac_gate * 63 + 50) / 100);
     case 9: return u7(64 + ((int32_t)mac_swing * 63 + (mac_swing < 0 ? -12 : 12)) / 25);
@@ -322,6 +330,12 @@ static void fb_heard(uint8_t st, uint8_t d1, uint8_t d2)
     uint8_t ch = st & 15u, isnote = (st & 0xF0u) == 0x90u || (st & 0xF0u) == 0x80u, on = (st & 0xF0u) == 0x90u && d2;
     uint32_t k;
     tab_seen = 1u;
+    if (!isnote) {                                      /* 0.20.6: the four that come back elsewhere: their cell */
+        if (ch == TB_CH && d1 == 6u) d1 = FB_E_SWING;
+        else if (ch == 13u && d1 == 6u) { ch = TB_CH; d1 = FB_E_QUANT; }
+        else if (ch == 12u && d1 == 38u) { ch = TB_CH; d1 = FB_E_PAT6; }
+        else if (ch == 12u && d1 == 101u) { ch = TB_CH; d1 = FB_E_LANE1; }
+    }
     for (k = 0; k < FB_N; k++) {
         uint8_t c, num, note, fl;
         fb_item(k, &c, &num, &note, &fl);

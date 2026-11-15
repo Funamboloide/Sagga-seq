@@ -6267,7 +6267,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.3", "HELLO: nothing asked yet, a normal boot, 0.20.3 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.6", "HELLO: nothing asked yet, a normal boot, 0.20.6 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7794,6 +7794,30 @@ def t018_live_page():
     check(not [m for m in log.msgs if m[1] in (0xBB, 0xBC)], "one port: nothing goes back (%s)" % [m for m in log.msgs if m[1] in (0xBB, 0xBC)][:3])
 
 
+def t0206_echo_ccs():
+    group("0.20.6: what goes back to the hub on CC 6 / 38 / 101 (MIDI 2.0's Data Entry and RPN: a MIDI 2.0 page never gets them) comes on channel 12 CC 33-36 instead; the old numbers still work coming in")
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t1 = t
+    s.raw(t, "midi 0xBB 6 61 2"); t += 40                             # SWING 61 on the tablet's track (1)
+    s.raw(t, "midi 0xBD 6 4 2"); t += 40                              # QUANTISE 4
+    s.raw(t, "midi 0xBC 38 3 2"); t += 40                             # track 6: pattern 4
+    s.raw(t, "midi 0xBC 101 77 2"); t += 40                           # lane 1 of the selected track: 77
+    t2 = t
+    s.at(t, "dump", 5); t += 40
+    log = run(s, t + 6000)                                            # (the whole set comes back every few seconds)
+    out = [(m[0], m[1], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and (m[1] & 0xF0) == 0xB0]
+    back = {(st & 15, c): v for tt, st, c, v in out if tt > t2 + 500}
+    check(back.get((11, 33)) == 61 and back.get((11, 34)) == 4 and back.get((11, 35)) == 3 and back.get((11, 36)) == 77,
+          "back on channel 12: CC 33 SWING 61, 34 QUANTISE 4, 35 track 6's pattern 3, 36 lane 1 77 (%s)" % {k: back.get(k) for k in ((11, 33), (11, 34), (11, 35), (11, 36))})
+    check(not [x for x in out if (x[1] & 15, x[2]) in ((11, 6), (13, 6), (12, 38), (12, 101))],
+          "nothing goes back on ch 12 CC 6, ch 14 CC 6, ch 13 CC 38, ch 13 CC 101 (%s)" % [x for x in out if (x[1] & 15, x[2]) in ((11, 6), (13, 6), (12, 38), (12, 101))][:4])
+    sent = {(11, 33): t1, (11, 34): t1 + 40, (11, 35): t1 + 80, (11, 36): t1 + 120}   # (each cell, when the tablet moved it)
+    early = [x for x in out if (x[1] & 15, x[2]) in sent and sent[(x[1] & 15, x[2])] <= x[0] < sent[(x[1] & 15, x[2])] + 350]
+    check(not early, "what the tablet just sent on the old numbers does not come straight back while its hand is on it (%s)" % early[:3])
+    check(log.dumps and log.dumps[0]["pat"] == 4, "the old CC 38 still sets track 6's pattern: 4 (%s)" % [x["pat"] for x in log.dumps])
+
 
 def t018_live_sweep():
     group("0.18 every command of the LIVE page (channel 12) with a few values, the band playing, the tablet's track changing: every track stays in time, no note hangs")
@@ -8103,7 +8127,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t013_lfo, t013_repeat, t013_keyboard, t013_motion, t013_slide, t013_chain,
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
-         t018_arp_slow, t018_tablet_track, t018_live_page, t018_live_sweep,
+         t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
          t019_mfx_chain, t020_new_fx, t020_env_mod]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

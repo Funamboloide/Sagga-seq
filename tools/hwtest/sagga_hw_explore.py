@@ -66,6 +66,17 @@ def timed(fn, timeout, what):
 
 
 # ------------------------------------------------------------------------------------------------ MIDI without callbacks
+def free(x):
+    """0.20.6: python-rtmidi's object away at once. On Linux each MidiIn / MidiOut is an ALSA sequencer client, and
+    close_port() does not end it: left to the garbage collector they piled up at every reconnect, until ALSA had no
+    client left to give (the first banco on the Pi stopped at its third session: 'error creating ALSA sequencer client
+    object')"""
+    try:
+        x.delete()
+    except Exception:
+        pass
+
+
 class RtLink:
     """python-rtmidi directly, and no callback in the driver: a thread of ours asks it for what came in. (mido hands
     the driver a Python callback; on Windows closing a port while a message arrives can then lock up for ever - the
@@ -82,6 +93,8 @@ class RtLink:
             self.out.open_port(self._index(self.out.get_ports(), out_name))
         except Exception:
             self.inp.close_port()             # (a port left open is a port Windows will not give again)
+            free(self.inp)
+            free(self.out)
             raise
         self._th = threading.Thread(target=self._poll, daemon=True)
         self._th.start()
@@ -112,9 +125,11 @@ class RtLink:
         self._run = False
         self._th.join(1.0)
         self.inp.close_port()
+        free(self.inp)
 
     def close_output(self):
         self.out.close_port()
+        free(self.out)
 
     def close(self):
         self.close_input()
@@ -123,12 +138,12 @@ class RtLink:
 
 class RtBackend:
     def _names(self, cls):
-        import rtmidi
+        import rtmidi  # noqa: F401
         x = cls()
         try:
             return list(dict.fromkeys(x.get_ports()))
         finally:
-            del x
+            free(x)
 
     def input_names(self):
         import rtmidi
