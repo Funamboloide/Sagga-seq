@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.20.7"
+#define SQ_VERSION "0.20.8"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -3079,6 +3079,7 @@ static void tab_leave(void) { focus_get(&foc_tab); focus_put(&foc_keep); foc_on 
 static uint8_t tab_live_ch(uint8_t ch);             /* sagga_tablet.c: channel 12, the hub's LIVE page */
 static void live12_cc(uint8_t cc, uint8_t v);
 static void fb_heard(uint8_t st, uint8_t d1, uint8_t d2);
+static void fb_hub_here(void);                          /* 0.20.8 (sagga_tablet.c): something came in on port 2 */
 /* a message of the tablet (the remote's channels 12, 13, 14), or 0 */
 static uint8_t tab_takes(uint8_t st)
 {
@@ -3104,6 +3105,7 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
     {
         if (usb_ports > 1u) {                       /* 0.8: two USB ports. Port 2: the grid and the remote, nothing else */
             if (cab == 1u) {
+                fb_hub_here();                      /* 0.20.8: the hub is there (the bridge's keep-alive, a page) */
                 if (!grid_midi_in(st, d1, d2) && tab_takes(st)) tab_cmd(st, d1, d2);   /* the remote, the tablet's pages */
                 return;
             }                                       /* port 1 (and the TRS jack): 16 channels of synths, the clock */

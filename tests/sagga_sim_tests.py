@@ -6267,7 +6267,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.7", "HELLO: nothing asked yet, a normal boot, 0.20.7 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.8", "HELLO: nothing asked yet, a normal boot, 0.20.8 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # another key says no, and does nothing else; BOOT without a yes: no
@@ -7831,6 +7831,19 @@ def t0206_echo_ccs():
         check(q and q[-1][3] == 2, "%s: QUANTISE turned on the panel goes back on channel 12 CC 34 (%s)" % ("REMOTE 13 + 14" if remote13 else "REMOTE 14", q[-2:]))
         check(not [x for x in out if x[1] == 0xBB and x[2] != 34] or remote13,
               "REMOTE 14: nothing else on channel 12 (the LIVE page's channel is not the remote's) (%s)" % [x for x in out if x[1] == 0xBB][:3])
+    # 0.20.8: no page touched since the FM-1 started, only the grid bridge's keep-alive on port 2: the pages follow already
+    s = Script()
+    t = usb2(s, 100)
+    t0 = t
+    t = perf(s, t, [(K4, 1)])                                           # before anything came on port 2
+    t1 = t + 400
+    s.raw(t1, "midi 0xBF 118 64 2")                                     # the bridge's keep-alive (no Launchpads needed)
+    t = perf(s, t1 + 300, [(K4, 2)])
+    log = run(s, t + 800)
+    out = [(m[0], m[1], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and (m[1] & 0xF0) == 0xB0]
+    check(not [x for x in out if t0 <= x[0] < t1], "nothing goes back before the hub says anything on port 2 (%s)" % [x for x in out if t0 <= x[0] < t1][:3])
+    q = [x for x in out if x[1] == 0xBB and x[2] == 34 and x[0] > t1]
+    check(q and q[-1][3] == 3, "the bridge's keep-alive is enough: QUANTISE turned on the panel goes back to the page, no page touched (%s)" % q[-2:])
 
 
 def t018_live_sweep():

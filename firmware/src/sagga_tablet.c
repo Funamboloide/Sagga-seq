@@ -16,7 +16,8 @@
  *   CC 26 COOK   27 BEAT   28 PROPOSAL   29 THE PROPOSAL QUEUED   30 RETRIG   31 DICE   32 UNDO   (taps; this track only)
  *   CC 40-55 MUTE of track 1-16 (switches)
  *
- *   back to the hub (two USB ports, on port 2, once the tablet has said something): what the hub's pages show, as it
+ *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
+ *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it
  *   changes, and slowly all of it again: channel 12 above; channel 13 CC 33-64 (the patterns and lengths), 92-97 (the
  *   tablet's LFO), 101-106 (its track's lanes), 112-118; notes 100-115 (the LFO switches); channel 14 CC 1, 2, 4-11.
  *   0.20.6: four of them come back on channel 12 CC 33-36 instead (the pages take them there): SWING (CC 6), QUANTISE
@@ -226,7 +227,9 @@ static const fb_one_t FB_ONES[] = {
     {13, 9, FBF_SCALED}, {13, 10, 0}, {13, 11, 0},
 };
 #define FB_N (FB_ONE + (uint32_t)(sizeof FB_ONES / sizeof FB_ONES[0]))
-static uint8_t tab_seen;                                /* the tablet has said something since the FM-1 started */
+static uint8_t tab_seen;                                /* the hub has said something since the FM-1 started (0.20.8: anything
+                                                         * on port 2 - the grid bridge's keep-alive comes every second -
+                                                         * before: a page's command) */
 static uint8_t fb_last[FB_N];                           /* what the hub shows, as far as the FM-1 knows (255: not known) */
 static uint16_t fb_touch[FB_N];                         /* when the tablet last moved it (ms, 16 bits) */
 static uint8_t fb_pos, fb_ref;
@@ -346,6 +349,8 @@ static void fb_heard(uint8_t st, uint8_t d1, uint8_t d2)
         fb_last[k] = (fl & FBF_SCALED) ? fb_value(k) : note ? (on ? 127u : 0u) : d2;
     }
 }
+
+static void fb_hub_here(void) { tab_seen = 1u; }
 
 static void tab_fb_reset(void)
 {

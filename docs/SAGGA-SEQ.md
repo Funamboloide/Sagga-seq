@@ -12,6 +12,12 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.8 (the FM-1 only)
+
+The FM-1 sent its values back to the hub's pages only after a page had sent a command since it started: turned on the
+FM-1 first, a page did not follow until it was touched. Now anything that comes in on port 2 opens the way, and the grid
+bridge's keep-alive comes every second (with or without Launchpads): the pages follow from the start.
+
 ## What is new in 0.20.7 (the FM-1 only)
 
 0.20.6 sent QUANTISE back on channel 12 CC 34 only with REMOTE 13 + 14; with REMOTE 14 (the FM-1's default, SAGGA Remote
@@ -218,7 +224,8 @@ pages) and the grid each do something else at the same time, and they never lose
   MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG, SWING, GROOVE, FOLLOW, the ARP (mode, octaves, rate, run), the CHORD,
   the MIDI FX (READY, amount, GO), an ALGORITHM (READY, A B C, GO), EUCLID, COOK, BEAT, a PROPOSAL and QUEUE, DICE with
   KEEP / BACK, UNDO (on that track only, whatever the SCOPE), and the sixteen MUTES.
-* **The FM-1 sends its values back to the hub** (with USB PORTS 2, on port 2, once the tablet has said something):
+* **The FM-1 sends its values back to the hub** (with USB PORTS 2, on port 2, once the hub has said something there;
+  0.20.8: anything, the grid bridge's keep-alive too, so from the start):
   turn a knob on the FM-1 and the knob on the tablet moves; a mute on the panel lights on SAGGA Live; the patterns
   and lengths of SAGGA Motori, the tablet's LFO and lanes on SAGGA Mod, the macros, MORPH, QUANTISE and TRANSPOSE of
   SAGGA Remote follow. A value the tablet is moving is left alone while the hand is on it (0.4 s). In the hub's
@@ -1351,7 +1358,9 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 
 ### What goes back to the hub (0.18)
 
-With **USB PORTS 2**, once the tablet has said something since the FM-1 started, the FM-1 sends on its port 2 what the
+With **USB PORTS 2**, once the hub has said something on port 2 since the FM-1 started (0.20.8: anything - the grid
+bridge's keep-alive comes every second, with or without Launchpads - so the pages follow from the start; before 0.20.8 a
+page had to send a command first), the FM-1 sends on its port 2 what the
 hub's pages show: when it changes (a few messages a millisecond, with room left for the clock and the notes), and
 slowly all of it again (one value every 40 ms: a hub that restarted, a page reopened, catch up within seconds). A page
 of RaspiMIDIHub takes a CC that comes in on a cell's channel and number as that cell's value and sends nothing back.
