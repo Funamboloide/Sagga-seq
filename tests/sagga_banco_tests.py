@@ -41,9 +41,22 @@ def group(name):
 class BancoFM1(HX.FakeFM1):
     """the fake FM-1, 0.20.3: GO with listen = every message from its ports said back (74), where it came; the grid
     attached = a few lights"""
-    def __init__(self, **kw):
+    def __init__(self, deaf=0, **kw):
         super().__init__(two_ports=True, version="0.20.3", **kw)
         self.listen, self.seq, self.got = False, 0, []
+        self.deaf = deaf                     # the first `deaf` questions get no key (20 s pass: 4, no answer)
+        self.bridge_up_at_yes = None
+        self.sysm = None
+
+    def _yes(self):
+        if self.sysm is not None:
+            self.bridge_up_at_yes = not any(c[:2] == ["systemctl", "stop"] for c in self.sysm.calls)
+        if self.deaf > 0:
+            self.deaf -= 1
+            self.state = 4
+            self.ans(T.OPEN, [4])
+            return
+        super()._yes()
 
     def rx(self, data):
         m = list(data)
@@ -272,9 +285,10 @@ def t_audit():
 
 def t_prova():
     group("a prova: the pages through the hub, the bridge, the synths away and back, what the FM-1 heard")
-    dev = BancoFM1()
+    dev = BancoFM1(deaf=1)
     api = FakeAPI(dev, own={"sagga_remote": {"fill": {"channel": 13, "cc": 99}}})
     sysm = FakeSystem()
+    dev.sysm = sysm
     before = set(api.conns)
     rc, data, report, log, status, left = run_main(dev, api, sysm)
     check(rc == 0 and data and len(data["sessioni"]) == 2, "two sessions, rc 0 (%s)\n%s" % (rc, log[-1500:]))
@@ -286,6 +300,9 @@ def t_prova():
     stops = [c for c in sysm.calls if c[:2] in (["systemctl", "stop"], ["systemctl", "start"])]
     check(stops == [["systemctl", "stop", "sagga-grid-bridge"], ["systemctl", "start", "sagga-grid-bridge"]],
           "the bridge's service stopped for the prova, started at the end (%s)" % stops)
+    check(dev.bridge_up_at_yes is True and dev.opens == 2 and "(di nuovo)" in log and "nessun tasto premuto" in log,
+          "the question asked while the grid is still attached (no GRID DETACHED over it), and again when nobody "
+          "answered (%s %s)" % (dev.bridge_up_at_yes, dev.opens))
     check(dev.imported and dev.boots == 2 and dev.closes == 1, "the project back in memory; a reboot a session, CLOSE (%s %s)" % (dev.boots, dev.closes))
     if not data:
         return
@@ -362,8 +379,20 @@ def t_old_firmware():
           "0.20: refused, rc 3, the matrix as it was (%s)" % rc)
 
 
+def t_no_yes():
+    group("nobody says yes: asked three times, then nothing done (the bridge never stopped, the cells untouched)")
+    dev = BancoFM1(deaf=3)
+    api = FakeAPI(dev)
+    sysm = FakeSystem()
+    before = set(api.conns)
+    rc, data, report, log, status, left = run_main(dev, api, sysm)
+    check(rc == 1 and dev.opens == 3 and "Niente prova" in log and api.conns == before and
+          not [c for c in sysm.calls if c[:2] in (["systemctl", "stop"], ["systemctl", "start"])],
+          "three questions, rc 1, the bridge and the matrix left alone (%s %s %s)" % (rc, dev.opens, sysm.calls))
+
+
 def main():
-    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware):
+    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes):
         try:
             t()
         except Exception as e:

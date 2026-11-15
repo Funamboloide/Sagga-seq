@@ -12,6 +12,13 @@ The screen says `SAGGA SEQ 0.20` for three seconds after power-on: that is how y
 
 The tutorial (Italian) builds a song step by step; this page is the reference: every control, every message.
 
+## What is new in 0.20.4 (the Pi only)
+
+The banco's explorer stopped the grid bridge before asking the FM-1 for its yes: the FM-1 then let the grid go and its
+GRID DETACHED covered the question (PC TEST? SEL = YES), so nobody pressed SEL and the run ended there. Now the bridge
+is stopped only after the yes, the question is asked again (up to three times) when nobody answers, and without a yes
+the bridge and the matrix are left as they were.
+
 ## What is new in 0.20.3
 
 The banco's explorer (docs/SAGGA-ESPLORATORE.md, "Il banco"): on the hub's page, ESPLORATORE DEL BANCO checks the

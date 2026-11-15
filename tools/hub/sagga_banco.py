@@ -789,10 +789,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
                                                      else "l'FM-1 completo: ogni situazione, il pannello, il tablet e il grid come eventi del test"))
     backend = backend or X.default_backend()
     bridge_was = (services_state(system).get("sagga-grid-bridge") or ("?",))[0] == "active"
-    if bridge_was:
-        system(["systemctl", "stop", "sagga-grid-bridge"])
-        say("il bridge del grid e' fermo per la prova (riparte alla fine)")
-    hub, hello = X.connect(backend, None, say)
+    bridge_stopped = False                              # (only after the yes: stopped, the bridge lets the grid go and the
+    hub, hello = X.connect(backend, None, say)          #  FM-1's GRID DETACHED would cover its question on the screen)
     rc = 0
     out = {"versione": 1, "firmware": plan.get("firmware"), "seme": plan.get("seme"), "audit": audit_f, "fatti": facts,
            "quando": ts, "sessioni": []}
@@ -826,17 +824,27 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
                 say("Il progetto in memoria non si salva (EXPORT: %s): mi fermo, il tuo progetto resta dov'e'." % st)
                 rc = 1
                 return rc
-            hub.take()
-            hub.send(T.open_())
-            say(">>> Sull'FM-1: premi SEL per dire si' (20 secondi). Un altro tasto = no.")
-            ans = hub.wait("open", 2.0)
-            if ans == 1:
-                ans = hub.wait("open", 25.0)
+            ans = None
+            for k_ask in range(3):                       # (asked again when nobody answered: two more times)
+                hub.take()
+                hub.send(T.open_())
+                say(">>> Sull'FM-1: premi SEL per dire si' (lo schermo dice PC TEST? SEL = YES; 20 secondi). Un altro tasto = no.%s"
+                    % (" (di nuovo)" if k_ask else ""))
+                ans = hub.wait("open", 2.0)
+                if ans == 1:
+                    ans = hub.wait("open", 25.0)
+                if ans != 4:                             # (4: nobody pressed anything)
+                    break
+                say("  nessun tasto premuto in 20 secondi")
             if ans != 2:
                 say("L'FM-1 dice: %s. Niente prova." % T.OPEN_STATES.get(ans, "nessuna risposta"))
                 rc = 1
                 return rc
             say("Si'. Si comincia: non toccare l'FM-1 fino alla fine.")
+        if bridge_was:
+            system(["systemctl", "stop", "sagga-grid-bridge"])
+            bridge_stopped = True
+            say("il bridge del grid e' fermo per la prova (riparte alla fine; l'FM-1 dira' GRID DETACHED, e' giusto)")
         if not a.non_staccare:
             cells = detach(api, cells, say, a.celle)
             say("Le celle fra l'FM-1 e i synth sono staccate per la prova (%d): tornano alla fine" % len(cells) if cells else
@@ -928,7 +936,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep):
             if left:
                 rc = rc or 1
                 say("%d celle non sono tornate: Rimetti le celle (pagina del hub) quando i dispositivi ci sono" % left)
-        if bridge_was:
+        if bridge_stopped:
             system(["systemctl", "start", "sagga-grid-bridge"])
             say("il bridge del grid riparte")
         T.save(out_json, out)
