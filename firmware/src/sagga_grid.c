@@ -26,7 +26,7 @@
  */
 
 #define GR_RESERVE    28u      /* LED messages go out only while this many USB MIDI slots are free: notes and clock keep them */
-#define GR_BUDGET     24u      /* LED messages per frame (0.22: 24, it was 8: a new view of 130 lights took 350 ms, now 120; the room they wait for is the same) */
+#define GR_BUDGET     24u      /* LED messages per frame (0.22: 24, it was 8: a new view of 130 lights took 350 ms, now 110; the room they wait for is the same) */
 #define GR_FRAME_MS   20u
 #define GR_REFRESH_MS 100u     /* when nothing changed, one LED is sent again this often: a lost message heals */
 #define GR_TIMEOUT_MS 3500u
