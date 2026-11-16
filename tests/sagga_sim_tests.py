@@ -6268,7 +6268,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.22", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -6513,7 +6513,7 @@ def t012_window():
     s.at(1300, "dump", 0)
     log = run(s, 1400)
     sc = log.screens()
-    check(len(sc) == 3 and sc[0]["lines"][2].startswith("SEQ 1/7") and sc[1]["lines"][2].startswith("SEQ 2/7") and sc[2]["lines"][2].startswith("STEP 1"),
+    check(len(sc) == 3 and sc[0]["lines"][2].startswith("SEQ 1/8") and sc[1]["lines"][2].startswith("SEQ 2/8") and sc[2]["lines"][2].startswith("STEP 1"),     # (0.23: SEQ has eight pages)
           "SEQ tapped: its page stays; OCT+: page 2; SEQ again: the steps (%s)" % [x["lines"][2][:12] for x in sc])
     w = wins(log)
     check(w == [SEQ, SEQ, -1, -1], "the window open: SEQ, then none (%s)" % w)
@@ -7865,7 +7865,7 @@ def t018_live_sweep():
     s.tap_btn(t, PLAY); t += 400
     for tt in (0, 3, 9):
         s.raw(t, "midi 0xBC 112 %d" % tt); t += 30
-        for cc in [c for c in range(1, 33) if c != 30] + [40, 47, 55]:      # (RETRIG: off the bar on purpose)
+        for cc in [c for c in range(1, 33) if c != 30] + [40, 47, 55, 56, 57, 58, 59]:      # (RETRIG: off the bar on purpose; 0.23: 56-59, the THEORY engines)
             for v in (0, 2, 64, 127):
                 s.raw(t, "midi 0xBB %d %d" % (cc, v)); t += 7
     s.at(t + int(2 * 16 * STEP_MS), "probe")
@@ -8488,6 +8488,727 @@ def t022_unrun():
           "a TIE into the same note: the tied one ends as the next begins, which lasts its gate (0.21: the tied note's end, 15 ms later, cut it) (%s)" % seq)
 
 
+def t_theory():
+    group("0.23 THEORY, the engines by the simulator's own verb: they make the band - what plays is what they wrote, the HARMONY moves it, ENERGY fills it, the FM-1 takes the project")
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import sagga_grid_bridge as B
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+
+    def text(style, seed, energy):
+        out = subprocess.run([tool, style, str(seed), "0", "0", str(energy), "64"], capture_output=True, text=True, check=True).stdout.splitlines()
+        return out[0], [l.split("\t") for l in out[1:]]
+
+    def ons(r, bars):                                           # the notes a text plays in its first bars (a roll: 2, 3 or 4)
+        return sum(int(c) if c in "234" else 1 for c in r[:16 * bars] if c not in ".-")
+
+    try:
+        # TECHNO, seed 3: one chord, so every note is the one the engine wrote. Scene 1 the seed's band, 2 and 3 the same
+        # at energy 25 and 95
+        head, parts = text("TECHNO", 3, 60)
+        bpm = int(head.split(" BPM")[0].rsplit(" ", 1)[1])
+        bar = 4 * 60000.0 / bpm
+        root = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(head.split("key ")[1].split(" ")[0])
+        check(" chords i," in head, "the test's seed has one chord (%s)" % head)
+        s = Script()
+        s.raw(100, "theory 0 3 0 0 60 0")
+        s.raw(150, "theory 0 3 0 0 25 1")
+        s.raw(200, "theory 0 3 0 0 95 2")
+        s.raw(300, "sx 7D 53 47 01")
+        t, plays = 6000, []
+        for sc in range(3):
+            s.raw(t, "scene %d 0" % sc)
+            s.raw(t + 20, "energy %d" % (60, 25, 95)[sc])    # (the machine's energy: the engines' patterns follow it)
+            s.tap_btn(t + 100, PLAY)
+            plays.append(t + 100)
+            t = t + 100 + int(2 * bar) - 8
+            s.tap_btn(t, PLAY)
+            t += 600
+        log = run(s, t + 300)
+        t0 = plays[0]
+        kick = [tm - t0 for tm, _, _ in log.notes(ch=0, after=t0 - 2, before=t0 + 2 * bar - 8)]
+        check(all(any(near(k, b * bar / 4, 4.0) for k in kick) for b in range(8)), "TECHNO: a kick on every beat, at the genre's tempo (%d BPM: %s)" % (bpm, [round(k) for k in kick]))
+        for i, (name, r, nt) in enumerate(parts):
+            got = len(log.notes(ch=i, after=t0 - 2, before=t0 + 2 * bar - 8))
+            want = ons(r, 2) * (1 if nt == "-" or name in ("RUMBLE", "BASS", "ARP") else 0)
+            if want:
+                check(got == want, "%s plays the hits the engine wrote: %d in two bars (%d)" % (name, want, got))
+            else:
+                check(got >= ons(r, 2), "%s plays its chords: %d or more notes in two bars (%d)" % (name, ons(r, 2), got))
+            if name in ("RUMBLE", "BASS", "ARP"):
+                wrote = [(root + int(n, 16)) % 12 for c, n in zip(r[:32], nt[:32]) if c not in ".-" for _ in range(int(c) if c in "234" else 1)]
+                played = [d1 % 12 for _, d1, _ in log.notes(ch=i, after=t0 - 2, before=t0 + 2 * bar - 8)]
+                check(played == wrote, "%s plays the notes the engine wrote, in the key (%s / %s)" % (name, played[:12], wrote[:12]))
+        n = [len(log.notes(after=p - 2, before=p + 2 * bar - 8)) for p in plays]
+        check(n[1] < n[0] < n[2], "ENERGY: the same band at 25, 60 and 95 plays more and more notes (%d, %d, %d)" % (n[1], n[0], n[2]))
+        k = [sorted(round((tm - p) / (bar / 16)) for tm, _, _ in log.notes(ch=0, after=p - 2, before=p + 2 * bar - 8)) for p in plays]
+        check(set(k[1]) <= set(k[0]) <= set(k[2]), "ENERGY: the kicks of a lower energy are all in a higher one (%s / %s / %s)" % (k[1], k[0], k[2]))
+        rx, image = B.DumpReceiver(), None
+        for _, msg in log.sysex:
+            r = rx.feed(msg)
+            if r and r[0] == "image":
+                image = r[1]
+        check(image is not None and B.check_image(image) is None, "the project the engines made is one the FM-1 takes (%s)" % (B.check_image(image) if image else "no export"))
+
+        # TECHNO, seed 8: two chords, two bars each. The bass is on the tonic for two bars, then on the second chord
+        head, parts = text("TECHNO", 8, 60)
+        check(" chords i-VII," in head and "2 bars a chord" in head, "the test's seed has two chords (%s)" % head)
+        root = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"].index(head.split("key ")[1].split(" ")[0])
+        bi = [p[0] for p in parts].index("BASS")
+        s = Script()
+        s.raw(100, "theory 0 8 0 0 60 0")
+        s.tap_btn(500, PLAY)
+        log = run(s, 500 + int(4 * bar) + 100)
+        def most(a, b):
+            pcs = [d1 % 12 for _, d1, _ in log.notes(ch=bi, after=500 + a * bar - 2, before=500 + b * bar - 8)]
+            return max(set(pcs), key=pcs.count) if pcs else None
+        check(most(0, 2) == root and most(2, 4) == (root + 10) % 12, "HARMONY: the bass is on the tonic for two bars, then on the VII (%s, %s; the key's root %d)" % (most(0, 2), most(2, 4), root))
+
+        # FREE: its own band of eight parts, no genre in it, 120 BPM
+        head, parts = text("FREE", 1, 60)
+        s = Script()
+        s.raw(100, "theory 25 1 0 0 60 0")
+        s.tap_btn(500, PLAY)
+        log = run(s, 500 + 4 * 2000 + 100)
+        check(len(parts) == 8 and all(log.notes(ch=i, after=498) for i in range(8)) and not log.notes(ch=8, after=498), "FREE: its eight parts play, a track each (%s)" % [len(log.notes(ch=i, after=498)) for i in range(9)])
+        ck = [b - a for a, b in zip(log.clock(), log.clock()[1:])]
+        check(ck and near(sorted(ck)[len(ck) // 2], 60000.0 / 120 / 24, 0.6), "FREE: 120 BPM (a clock tick every %.1f ms)" % (sorted(ck)[len(ck) // 2] if ck else 0))
+    finally:
+        try: os.remove(tool)
+        except OSError: pass
+
+
+def th_dumps(log):
+    """0.23: the 'theory' lines of the dumps: what the engines know of the pattern a track plays, the source, the next seed"""
+    keys = ("t", "track", "pat", "style", "len", "func", "seed", "var", "vary", "energy", "src", "next", "now")
+    return [dict(zip(keys, (int(x) for x in m.groups())))
+            for m in re.finditer(r"^\s*(\d+) ms  theory T(\d+) P(\d+) style (\d+) len (\d+) func (\d+) seed (\d+) var (\d+) vary (\d+) energy (\d+) src (\d+) next (\d+) now (\d+)$", log.text, re.M)]
+
+
+def t023_theory():
+    group("0.23 THEORY: the SOURCE (SEQ 8 K1) - BEAT, KIT, BAND make the patterns from a seed; COOK walks to the next variation; the machine's ENERGY fills and empties them; SEQ 8 K3 / K4 the track's seed and variation; GENRE FREE and LIVE; the dice; UNDO, RELOAD, a power cycle")
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+
+    def text(style, seed, energy, var=0, vary=0, part=None, n=64):
+        out = subprocess.run([tool, style, str(seed), str(var), str(vary), str(energy), str(n)] + ([part] if part else []), capture_output=True, text=True, check=True).stdout.splitlines()
+        rows = {l.split("\t")[0]: l.split("\t")[1] for l in out[1:]}
+        return rows[part] if part else rows
+
+    def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
+    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])        # SAVE 2 K4: the LIBRARY LENGTH, 64 steps (four bars: the answers, the fill)
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
+    def look(s, t, tracks):
+        for k, tk in enumerate(tracks): s.at(t + 15 * k, "dump", tk)
+        return t + 15 * len(tracks) + 40
+    def at(log, track, n=0):                                    # the n-th dump of a track: (steps, theory)
+        d = [x for x in log.dumps if x["track"] == track + 1]
+        h = [x for x in th_dumps(log) if x["track"] == track + 1]
+        return d[n], h[n]
+    PARTS = ["KICK", "CLAP", "HAT", "OPEN HAT", "RIDE", "PERC", "RUMBLE", "BASS", "STAB", "PAD"]
+
+    try:
+        # ---- the SOURCE, BAND, BAND again, UNDO; a library project is what it was
+        s = Script()
+        t = band(s, 100)                                        # the SOURCE on LIBRARY: the library's band
+        t = look(s, t, [0])
+        t = pg(s, t, SEQ, 7, [(K1, 1)])                         # SEQ 8 K1: THEORY
+        s.press(t, SEQ); s.at(t + 60, "ui"); s.release(t + 120, SEQ); t += 200
+        t = band(s, t)
+        t = look(s, t, range(10))
+        t = band(s, t)
+        t = look(s, t, range(10))
+        t = seqkey(s, t, wk(7))                                 # UNDO
+        t = look(s, t, range(10))
+        log = run(s, t + 200)
+        msgs = [x["msg"] for x in log.states]
+        d0, h0 = at(log, 0, 0)
+        check(msgs[0] == "TECHNO BAND #1: 10 TRACKS" and h0["style"] == 0 and h0["src"] == 0, "the SOURCE on LIBRARY: the library's band, nothing of the engines' (%s, %s)" % (msgs[0], h0))
+        check(d0["on"] == onoff(lib_text("TECHNO", "KICK", 0)[0][:16]), "... the library's kick (%s)" % d0["on"])
+        sc = log.screens()
+        check(sc and sc[0]["cells"][0] == ("> SOURCE", "THEORY") and sc[0]["cells"][1] == ("NEXT SEED", "1") and sc[0]["lines"][2].startswith("SEQ 8/8 TECHNO KICK SEED 1"),
+              "SEQ 8: SOURCE THEORY, the next seed, the part it will make (%s, %s)" % (sc[0]["cells"] if sc else None, sc[0]["lines"][2] if sc else None))
+        e = at(log, 0, 1)[1]["now"]
+        want = text("TECHNO", 0, e, n=16)                       # (the LIBRARY LENGTH of a new project: 16 steps)
+        got = [at(log, k, 1 if k == 0 else 0) for k in range(10)]
+        check("TECHNO BAND SEED 1: 10 TRACKS" in msgs, "BAND with the SOURCE on THEORY: a band of seed 1 (%s)" % msgs)
+        check(all(got[k][0]["on"] == onoff(want[PARTS[k]]) for k in range(10)), "... every part is what the engines make of that seed at the machine's energy (%d): %s" % (
+            e, [PARTS[k] for k in range(10) if got[k][0]["on"] != onoff(want[PARTS[k]])]))
+        check(all(got[k][1]["style"] == 1 and got[k][1]["seed"] == 0 and got[k][1]["var"] == 0 and got[k][1]["energy"] == e and got[k][1]["len"] == 16 for k in range(10)),
+              "... and each pattern keeps what it was made from (%s)" % got[3][1])
+        check(got[0][1]["src"] == 1 and got[0][1]["next"] == 1, "... the next seed is 2 (%s)" % got[0][1])
+        want2 = text("TECHNO", 1, e, n=16)
+        got2 = [at(log, k, 2 if k == 0 else 1) for k in range(10)]
+        check("TECHNO BAND SEED 2: 10 TRACKS" in msgs and all(got2[k][0]["on"] == onoff(want2[PARTS[k]]) and got2[k][1]["seed"] == 1 for k in range(10)), "BAND again: another band, of seed 2")
+        check(any(got2[k][0]["hash"] != got[k][0]["hash"] for k in range(10)), "... which is not the first")
+        got3 = [at(log, k, 3 if k == 0 else 2) for k in range(10)]
+        check(all(got3[k][0]["hash"] == got[k][0]["hash"] and got3[k][1]["seed"] == 0 for k in range(10)), "UNDO: the first band back, and what the engines knew of it (%s)" % got3[0][1])
+
+        # ---- BEAT on one track; COOK walks to the next variation of the seed; SEQ 8 K3 / K4
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = pg(s, t, SEQ, 0, [(K4, -30)])                       # HEAT 1 ...
+        t = pg(s, t, SEQ, 0, [(K4, 8)])                         # ... 40
+        s.press(t, SEQ); s.enc(t + 30, E_SEL, 2); s.tap_key(t + 80, wk(9)); s.release(t + 200, SEQ); t += 300    # BEAT: the HAT, seed 1
+        t = look(s, t, [0])
+        for k in range(12):
+            t = seqkey(s, t, wk(8))                             # COOK
+            t = look(s, t, [0])
+        t = pg(s, t, SEQ, 7, [(K3, 4)])                         # the track's seed: 5
+        t = look(s, t, [0])
+        t = pg(s, t, SEQ, 7, [(K4, 2)])                         # its variation: 2
+        t = look(s, t, [0])
+        t = seqkey(s, t, wk(7))                                 # UNDO: the knobs' edit
+        t = look(s, t, [0])
+        log = run(s, t + 200)
+        msgs = [x["msg"] for x in log.states]
+        d, h = at(log, 0, 0)
+        e = h["now"]
+        check(msgs[0] == "TECHNO HAT SEED 1" and d["on"] == onoff(text("TECHNO", 0, e, part="HAT")) and h["func"] == 2 and h["next"] == 1, "BEAT: the part of the seed (%s, %s)" % (msgs[0], h))
+        walk = [at(log, 0, 1 + k) for k in range(12)]
+        reached = next((k for k in range(12) if msgs[1 + k].endswith("REACHED")), None)
+        check(reached is not None and msgs[1].startswith("COOK HAT VAR "), "COOK walks to a variation of the seed and gets there (%s)" % msgs[1:6])
+        if reached is not None:
+            dr, hr = walk[reached]
+            check(dr["on"] == onoff(text("TECHNO", 0, e, hr["var"], hr["vary"], "HAT")) and hr["var"] >= 1 and hr["vary"] >= 40 and hr["seed"] == 0, "... it is the engines' variation %d of the seed (%s)" % (hr["var"], hr))
+            check(dr["on"] != d["on"] or dr["hash"] != d["hash"], "... which is not the pattern as it was: a variation that changes nothing is passed over")
+            check(all(walk[k][1]["var"] == 0 for k in range(reached)), "... the pattern is the seed's own until it arrives")
+            later = [k for k in range(reached + 1, 12) if msgs[1 + k].endswith("REACHED")]
+            check(later and walk[later[0]][1]["var"] > hr["var"], "... and COOK goes on to the next (%s)" % [m for m in msgs[1:13]])
+        n = 13
+        d, h = at(log, 0, n)
+        check(h["seed"] == 4 and h["var"] == 0 and d["on"] == onoff(text("TECHNO", 4, e, part="HAT")) and "HAT SEED 5" in msgs, "SEQ 8 K3: the track's seed - the pattern is another at once (%s)" % h)
+        d, h = at(log, 0, n + 1)
+        check(h["seed"] == 4 and h["var"] == 2 and h["vary"] == 40 and d["on"] == onoff(text("TECHNO", 4, e, 2, 40, "HAT")) and "HAT SEED 5 VAR 2 (40 %)" in msgs, "SEQ 8 K4: its variation (%s)" % h)
+        d2, h2 = at(log, 0, n + 2)
+        before = walk[11]
+        check(d2["on"] == before[0]["on"] and h2["var"] == before[1]["var"] and h2["seed"] == 0, "UNDO takes the knobs' edit back: the pattern and what the engines knew of it (%s)" % h2)
+
+        # ---- THE ENERGY: the band fills and empties with the machine's energy, nothing else moves; a step written by
+        # hand stays; the journey's own thinning leaves the engines' patterns alone
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = band(s, t)
+        t = look(s, t, range(10))
+        s.tap_key(t, bk(3)); t += 100                           # track 4 (the open hat): a step written by hand
+        hand = None
+        e0 = None
+        s.at(t, "dump", 3); t += 60
+        prelog = run(s, t + 50)
+        e0 = at(prelog, 3, 0)[1]["now"]
+        lo_, mid_, hi_ = (text("TECHNO", 0, x, part="OPEN HAT") for x in (10, e0, 95))
+        hand = next(i for i in range(16) if lo_[i] == "." and mid_[i] == "." and hi_[i] == ".")   # a 16th the engines leave empty at any energy
+        t = s.steps(t, [hand]); t += 60
+        s.raw(t, "energy 95"); t += 200
+        t = look(s, t, range(10))
+        s.raw(t, "energy 10"); t += 200
+        t = look(s, t, range(10))
+        s.tap_btn(t, PLAY); p = t
+        t = p + int(2 * BAR_MS)
+        s.raw(t - 10, "energy 95")                              # in play: at once (the verb), the patterns follow in a few passes
+        t2 = t + int(2 * BAR_MS)
+        log = run(s, t2)
+        full = text("TECHNO", 0, 95)
+        thin = text("TECHNO", 0, 10)
+        a = [at(log, k, 1 if k != 3 else 2) for k in range(10)]
+        b = [at(log, k, 2 if k != 3 else 3) for k in range(10)]
+        def with_hand(r, k): return r if k != 3 else r[:hand] + "x" + r[hand + 1:]
+        check(all(a[k][0]["on"] == with_hand(onoff(full[PARTS[k]]), k) and a[k][1]["energy"] == 95 for k in range(10)), "ENERGY 95: every part is the engines' at 95 (%s)" % [PARTS[k] for k in range(10) if a[k][0]["on"] != with_hand(onoff(full[PARTS[k]]), k)])
+        check(all(b[k][0]["on"] == with_hand(onoff(thin[PARTS[k]]), k) and b[k][1]["energy"] == 10 for k in range(10)), "ENERGY 10: ... and at 10 (%s)" % [PARTS[k] for k in range(10) if b[k][0]["on"] != with_hand(onoff(thin[PARTS[k]]), k)])
+        check(all(x == "." or y == "x" for k in range(10) if PARTS[k] != "RUMBLE" for x, y in zip(b[k][0]["on"], a[k][0]["on"])), "... what plays at 10 is all there at 95: the energy only adds")
+        check(a[3][0]["on"][hand] == "x" and b[3][0]["on"][hand] == "x", "... and the step written by hand is still there (16th %d)" % (hand + 1))
+        n_lo = len(log.notes(after=p - 2, before=p + int(2 * BAR_MS) - 20))
+        n_hi = len(log.notes(after=p + int(2 * BAR_MS) + 60, before=p + int(4 * BAR_MS) - 20))
+        check(n_hi > n_lo * 3 // 2, "in play the band fills when the energy rises (%d notes in two bars, then %d)" % (n_lo, n_hi))
+        hat_thin = sum(1 for c in thin["HAT"][:32] if c not in ".-")
+        got_hat = len(log.notes(ch=2, after=p - 2, before=p + int(2 * BAR_MS) - 20))
+        check(got_hat == hat_thin, "at energy 10 the hat plays every hit of its pattern: the journey's own thinning leaves the engines' patterns alone (%d of %d)" % (got_hat, hat_thin))
+        kicks = [round((tm - p) / STEP_MS) % 16 for tm, _, _ in log.notes(ch=0, after=p - 2, before=t2)]
+        check(all(kicks.count(b_) >= 4 for b_ in (0, 4, 8, 12)), "... and the kick never misses a beat while it changes (%s)" % sorted(set(kicks)))
+
+        # ---- GENRE FREE: a band of no genre. GENRE LIVE: a change of genre makes the engines' patterns again in the new
+        # style, from their seed - a genre with rules written by hand (HOUSE), one with rules counted from the library
+        # (HARDTECHNO)
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = pg(s, t, SEQ, 5, [(K4, -1)])                        # GENRE FREE
+        t = band(s, t)
+        t = look(s, t, range(9))
+        log = run(s, t + 200)
+        msgs = [x["msg"] for x in log.states]
+        roles = [c["role"] for c in cfgs(log)]
+        check("FREE BAND SEED 1: 8 TRACKS" in msgs and roles[:9] == [1, 2, 3, 4, 5, 6, 7, 23, 0], "GENRE FREE: FREE's band, eight parts (%s, %s)" % (msgs[-1], roles))
+        check(all(at(log, k, 0)[1]["style"] == 26 for k in range(8)) and at(log, 1, 0)[0]["on"] == onoff(text("FREE", 0, at(log, 0, 0)[1]["now"], part="SNARE")), "... made by the rules of no genre")
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = pg(s, t, SEQ, 5, [(K4, 1)])                         # GENRE LIVE
+        t = band(s, t)
+        t = look(s, t, [1])
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, 3); s.release(t + 100, SEQ); t += 200      # the genre: HOUSE
+        t = look(s, t, [1, 0])
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, -2); s.release(t + 100, SEQ); t += 200     # HARDTECHNO: its rules are counted from the library
+        t = look(s, t, [1])
+        log = run(s, t + 200)
+        d, h = at(log, 1, 1)
+        e = h["now"]
+        check(h["style"] == 4 and h["seed"] == 0 and d["on"] == onoff(text("HOUSE", 0, e, part="CLAP")), "GENRE LIVE, TECHNO -> HOUSE: the clap is HOUSE's, of the same seed (%s)" % h)
+        check(at(log, 0, 0)[1]["style"] == 4, "... the kick too")
+        d, h = at(log, 1, 2)
+        check(h["style"] == 2 and h["seed"] == 0 and d["on"] == onoff(text("HARDTECHNO", 0, e, part="CLAP")), "... -> HARDTECHNO: the clap the engines make by HARDTECHNO's rules, of the same seed (%s, %s)" % (h, d["on"][:16]))
+
+        # ---- the dice: DICE SEQ rolls seeds, OCT- puts everything back; DICE PROG a progression by the style's rules
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = band(s, t)
+        t = look(s, t, [0, 7])
+        t = seqkey(s, t, bk(5)); t = seqkey(s, t, bk(5))        # SCOPE: THIS -> BANK -> ALL
+        t = seqkey(s, t, bk(0))                                 # DICE SEQ
+        t = look(s, t, [0, 7])
+        s.tap_btn(t, OCT_DOWN); t += 150                        # BACK
+        t = look(s, t, [0, 7])
+        t = seqkey(s, t, bk(0), hold=700)                       # DICE PROG
+        t = look(s, t, [0])
+        log = run(s, t + 200)
+        msgs = [x["msg"] for x in log.states]
+        k0, b0 = at(log, 0, 0), at(log, 7, 0)
+        k1, b1 = at(log, 0, 1), at(log, 7, 1)
+        k2, b2 = at(log, 0, 2), at(log, 7, 2)
+        e = k0[1]["now"]
+        check(k1[1]["style"] == 1 and b1[1]["style"] == 1 and (k1[1]["seed"] != 0 or b1[1]["seed"] != 0), "DICE SEQ: the tracks get seeds of the dice (%s, %s)" % (k1[1]["seed"], b1[1]["seed"]))
+        check(k1[0]["on"] == onoff(text("TECHNO", k1[1]["seed"], e, part="KICK")), "... and are the engines' parts of those seeds")
+        check(k2[0]["hash"] == k0[0]["hash"] and b2[0]["hash"] == b0[0]["hash"] and k2[1]["seed"] == 0 and b2[1]["seed"] == 0, "OCT-: back as it was, and what the engines knew of it")
+        m = [x for x in msgs if x.startswith("DICE PROG TECHNO: ")]
+        hp = re.findall(r"harm11 T1 prog (\d+)", log.text)
+        check(m and hp and hp[-1] == "10", "DICE PROG: a progression by TECHNO's rules, in the dice's slot, which plays (%s, prog %s)" % (m, hp[-1:] if hp else None))
+
+        # ---- RELOAD and a power cycle: the pattern comes back with what the engines knew of it, and still follows the energy
+        d = tempfile.mkdtemp()
+        flash = os.path.join(d, "flash.bin")
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        t = band(s, t)
+        s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE); t += 1500
+        t = look(s, t, [2])
+        for k in range(8): t = seqkey(s, t, wk(8))              # COOK the kick-less track 3 (the hat) away
+        s.tap_key(t, bk(2)); t += 100
+        for k in range(8): t = seqkey(s, t, wk(8))
+        t = look(s, t, [2])
+        s.press(t, SEL); s.tap_btn(t + 30, SAVE); s.release(t + 100, SEL); t += 600      # RELOAD
+        t = look(s, t, [2])
+        log = run(s, t + 300, flash)
+        a0, a1, a2 = at(log, 2, 0), at(log, 2, 1), at(log, 2, 2)
+        check(a1[0]["on"] != a0[0]["on"] and a1[1]["var"] >= 1, "(the hat was cooked away: variation %d)" % a1[1]["var"])
+        check(a2[0]["on"] == a0[0]["on"] and a2[1]["var"] == 0 and a2[1]["style"] == 1, "RELOAD: the saved pattern, and what the engines knew of it when it was saved (%s)" % a2[1])
+        s = Script()
+        s.at(100, "dump", 2)
+        s.raw(200, "energy 95")
+        s.at(500, "dump", 2)
+        log = run(s, 800, flash)
+        b0, b1 = at(log, 2, 0), at(log, 2, 1)
+        check(b0[1]["style"] == 1 and b0[1]["src"] == 1 and b0[1]["next"] == 1 and b0[0]["hash"] == a0[0]["hash"], "after a power cycle: the SOURCE, the next seed, the pattern and its record (%s)" % b0[1])
+        check(b1[1]["energy"] == 95 and b1[0]["on"] == onoff(text("TECHNO", 0, 95, part="HAT")), "... and it still follows the energy")
+    finally:
+        try: os.remove(tool)
+        except OSError: pass
+
+
+def t023_theory_genres():
+    group("0.23 THEORY, every genre of the FM-1: BAND makes the band of each of the 25 by its rules (four written by hand, 21 counted from the library); a counted genre fills and empties with the ENERGY, keeps what its library always plays, cooks, rolls its chords")
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+
+    def text(style, seed, energy, n=64):
+        out = subprocess.run([tool, str(style), str(seed), "0", "0", str(energy), str(n)], capture_output=True, text=True, check=True).stdout.splitlines()
+        return out[0], [l.split("\t") for l in out[1:]]
+
+    def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
+    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
+    def look(s, t, tracks):
+        for k, tk in enumerate(tracks): s.at(t + 15 * k, "dump", tk)
+        return t + 15 * len(tracks) + 40
+    def at(log, track, n=0):
+        d = [x for x in log.dumps if x["track"] == track + 1]
+        h = [x for x in th_dumps(log) if x["track"] == track + 1]
+        return d[n], h[n]
+
+    try:
+        # the parts that mind the kick of their band (a rumble never on it, a sub that leans on it): on the FM-1 they
+        # follow the kick that PLAYS, in the tool the seed's own - the same kick here, but a sub leans on other hits of it
+        rules = subprocess.run([tool, "--rules"], capture_output=True, text=True, check=True).stdout.splitlines()
+        minds = {(f[1], f[2]) for f in (l.split("\t") for l in rules) if f[0] == "R" and f[21] == "2"}
+        names = [text(g, 0, 50, 16)[0].split(" seed")[0][2:] for g in range(25)]
+
+        # ---- every genre: BAND, by the buttons; each part is what the engines make of the seed in that genre's style
+        # (a band goes onto the tracks that have its roles: a part is found by what the engines say they made there)
+        FUNCS = {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6, "CLAP": 9, "OPEN HAT": 10, "RIDE": 11, "SHAKER": 12, "CONGA": 13,
+                 "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20, "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25}
+        bad, sizes, counted = [], [], 0
+        for g in range(25):                                     # (a new project each: a band wants free tracks for its roles)
+            s = Script()
+            t = lib64(s, 100)
+            t = pg(s, t, SEQ, 7, [(K1, 1), (K2, g)])            # SOURCE THEORY, the next seed g + 1
+            if g:
+                s.press(t, SEQ); s.enc(t + 30, E_PRE, g); s.release(t + 100, SEQ); t += 200      # the genre
+            t = band(s, t)
+            t = look(s, t, range(16))
+            log = run(s, t + 300)
+            msgs = [x["msg"] for x in log.states]
+            e = at(log, 0, 0)[1]["now"]
+            head, parts = text(g, g, e)
+            sizes.append(len(parts))
+            if "%s BAND SEED %d: %d TRACKS" % (names[g], g + 1, len(parts)) not in msgs:
+                bad.append("%s: no band (%s)" % (names[g], msgs[-1:]))
+                continue
+            made = {}
+            for k in range(16):
+                d, h = at(log, k, 0)
+                if h["style"] == g + 1 and h["seed"] == g and h["len"] == 64:
+                    made[h["func"]] = d
+            for name, r, nt in parts:
+                d = made.get(FUNCS[name])
+                if d is None:
+                    bad.append("%s %s: on no track" % (names[g], name))
+                elif (names[g], name) not in minds and d["on"] != onoff(r):
+                    bad.append("%s %s: %s, the engines write %s" % (names[g], name, d["on"][:32], onoff(r)[:32]))
+                elif (names[g], name) in minds and d["on"].count("x") == 0:
+                    bad.append("%s %s: empty" % (names[g], name))
+                else:
+                    counted += 1
+        check(not bad, "BAND in each of the 25 genres: every part is the engines' part of that seed in the genre's style (%d parts; %s)" % (counted, bad[:4]))
+        check(min(sizes) >= 8 and max(sizes) <= 11 and counted >= 200, "... the bands are the genres' own, 8 to 11 parts (%s)" % sizes)
+
+        # ---- a genre whose rules are counted: REGGAETON. The dembow at every energy; the band fills and empties
+        G = names.index("REGGAETON")
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, G); s.release(t + 100, SEQ); t += 200
+        t = band(s, t)
+        t = look(s, t, range(9))
+        s.raw(t, "energy 10"); t += 300
+        t = look(s, t, range(9))
+        s.raw(t, "energy 95"); t += 300
+        t = look(s, t, range(9))
+        s.tap_key(t, bk(1)); t += 100                           # track 2: the snare
+        for k in range(6):
+            t = seqkey(s, t, wk(8))                             # COOK
+        t = look(s, t, [1])
+        t = seqkey(s, t, bk(0), hold=700)                       # DICE PROG
+        t = look(s, t, [0])
+        s.tap_btn(t, PLAY); p = t
+        log = run(s, p + int(2 * BAR_MS))
+        msgs = [x["msg"] for x in log.states]
+        e = at(log, 0, 0)[1]["now"]
+        for n, en in enumerate((e, 10, 95)):
+            head, parts = text(G, 0, en)
+            got = [at(log, k, n) for k in range(9)]
+            check(all(got[k][0]["on"] == onoff(parts[k][1]) and got[k][1]["energy"] == en for k in range(9)), "REGGAETON at energy %d: every part is the engines' (%s)" % (
+                en, [parts[k][0] for k in range(9) if got[k][0]["on"] != onoff(parts[k][1])]))
+        lo, hi = [at(log, k, 1)[0]["on"] for k in range(9)], [at(log, k, 2)[0]["on"] for k in range(9)]
+        check(all(x == "." or y == "x" for a, b in zip(lo, hi) for x, y in zip(a, b)), "... what plays at 10 is all there at 95")
+        check(sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2, "... and 95 is much fuller (%d hits, %d)" % (sum(r.count("x") for r in lo), sum(r.count("x") for r in hi)))
+        check(all(lo[1][b * 16 + 3] == "x" and lo[1][b * 16 + 11] == "x" for b in range(3)) and all(hi[1][b * 16 + i] == "x" for b in range(3) for i in (3, 6, 11, 14)),
+              "the snare of the dembow: its two accents at every energy, all four hits from energy 25 (%s / %s)" % (lo[1][:16], hi[1][:16]))
+        check(all(hi[0][b * 16 + i] == "x" for b in range(4) for i in (0, 4, 8, 12)), "... on four kicks a bar (%s)" % hi[0][:16])
+        cooked = [m for m in msgs if m.startswith("COOK SNARE VAR ")]
+        d, h = at(log, 1, 3)
+        check(cooked and h["style"] == G + 1 and all(d["on"][b * 16 + i] == "x" for b in range(3) for i in (3, 6, 11, 14)), "COOK: a variation of the snare, still the dembow (%s, %s)" % (cooked[:2], d["on"][:16]))
+        m = [x for x in msgs if x.startswith("DICE PROG REGGAETON: ")]
+        check(m and log.notes(after=p - 2), "DICE PROG: a progression by REGGAETON's rules, and the band plays (%s, %d notes)" % (m, len(log.notes(after=p - 2))))
+
+        # ---- the hub's LIVE page (channel 12, the tablet's track): SOURCE (CC 56: 0 LIBRARY, 1 THEORY, 2 FREE), NEXT
+        # SEED (57), BEAT (27), the track's SEED (58) and VARIATION (59); the FM-1's own changes go back to the page
+        s = Script()
+        t = remote13_on(s, 100)
+        t = usb2(s, t)
+        t = lib64(s, t)
+        s.raw(t, "midi 0xBC 112 2 2"); t += 40                  # the tablet's track: 3
+        s.raw(t, "midi 0xBB 56 1 2"); t += 40                   # SOURCE: THEORY
+        s.raw(t, "midi 0xBB 57 4 2"); t += 40                   # NEXT SEED 5
+        s.raw(t, "midi 0xBB 27 127 2"); s.raw(t + 20, "midi 0xBB 27 0 2"); t += 80     # BEAT on the tablet's track
+        t = look(s, t, [2])
+        s.raw(t, "midi 0xBB 58 9 2"); t += 60                   # its SEED: 10
+        t = look(s, t, [2])
+        s.raw(t, "midi 0xBB 59 2 2"); t += 60                   # its VARIATION: 2
+        t = look(s, t, [2])
+        t1 = t + 600
+        t = pg(s, t1, SEQ, 7, [(K1, -1)])                       # the panel: SOURCE LIBRARY
+        t = pg(s, t + 600, SEQ, 7, [(K1, 1), (K2, 3)])          # ... THEORY again, the next seed + 3
+        log = run(s, t + 900)
+        a, b, c = at(log, 2, 0), at(log, 2, 1), at(log, 2, 2)
+        e = a[1]["now"]
+        f = a[1]["func"]
+        fname = [k for k, v in {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6}.items() if v == f]
+        check(a[1]["src"] == 1 and a[1]["style"] == 1 and a[1]["seed"] == 4 and a[1]["next"] == 5 and fname, "LIVE: THEORY, NEXT SEED 5, BEAT - the tablet's track gets the engines' part of seed 5 (%s)" % a[1])
+        if fname:
+            def one(seed, var=0, vary=0):
+                out = subprocess.run([tool, "0", str(seed), str(var), str(vary), str(e), "64", fname[0]], capture_output=True, text=True, check=True).stdout.splitlines()
+                return onoff(out[1].split("\t")[1])
+            check(a[0]["on"] == one(4), "... which is what the engines write (%s)" % a[0]["on"][:32])
+            check(b[1]["seed"] == 9 and b[1]["var"] == 0 and b[0]["on"] == one(9), "LIVE SEED 10: the pattern is the part of that seed at once (%s)" % b[1])
+            check(c[1]["seed"] == 9 and c[1]["var"] == 2 and c[0]["on"] == one(9, 2, c[1]["vary"]), "LIVE VARIATION 2: its second variation (%s)" % c[1])
+        out = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB]
+        back = [(tm, cc, v) for tm, cc, v in out if cc in (56, 57) and tm > t1]
+        check((56, 0) in [(cc, v) for _, cc, v in back] and (56, 1) in [(cc, v) for _, cc, v in back] and (57, 8) in [(cc, v) for _, cc, v in back],
+              "the panel's SOURCE and NEXT SEED go back to the page: CC 56 = 0 (LIBRARY), then 1 (THEORY), CC 57 = 8 (%s)" % back[:6])
+    finally:
+        try: os.remove(tool)
+        except OSError: pass
+
+
+def t023_theory_free():
+    group("0.23 THEORY free of the genre: the SOURCE on FREE (SEQ 8 K1, past THEORY) - BAND, KIT, BEAT, COOK, the ENERGY and DICE PROG by the rules of no genre, whatever the genre and its mode; a change of genre leaves those patterns alone; GENRE FREE does the same to SOURCE THEORY; the harmony FREE frees the progression alone; the tablet's SOURCE knob has the three positions")
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+
+    def text(style, seed, energy, var=0, vary=0, part=None, n=64):
+        out = subprocess.run([tool, style, str(seed), str(var), str(vary), str(energy), str(n)] + ([part] if part else []), capture_output=True, text=True, check=True).stdout.splitlines()
+        rows = {l.split("\t")[0]: l.split("\t")[1] for l in out[1:]}
+        return rows[part] if part else rows
+
+    def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
+    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])        # SAVE 2 K4: the LIBRARY LENGTH, 64 steps
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
+    def screen(s, t): s.press(t, SEQ); s.at(t + 60, "ui"); s.release(t + 700, SEQ); return t + 800     # (held 0.7 s: not a tap, no window stays open)
+    def look(s, t, tracks):
+        for k, tk in enumerate(tracks): s.at(t + 15 * k, "dump", tk)
+        return t + 15 * len(tracks) + 40
+    def at(log, track, n=0):                                    # the n-th dump of a track: (steps, theory)
+        d = [x for x in log.dumps if x["track"] == track + 1]
+        h = [x for x in th_dumps(log) if x["track"] == track + 1]
+        return d[n], h[n]
+    FREE = ["KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP", "LEAD"]
+    TECHNO = ["KICK", "CLAP", "HAT", "OPEN HAT", "RIDE", "PERC", "RUMBLE", "BASS", "STAB", "PAD"]
+
+    try:
+        # ---- in a genre (REGGAETON, the GENRE mode ON), the SOURCE on FREE: BAND is FREE's band, not the genre's; the
+        # ENERGY fills and empties it; COOK walks to the variations of a FREE part; DICE PROG rolls by the rules of no
+        # genre; the genre itself is still there (the SOURCE back on THEORY: its parts)
+        s = Script()
+        t = lib64(s, 100)
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, 10); s.release(t + 100, SEQ); t += 200        # the genre: REGGAETON
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                         # SEQ 8 K1: LIBRARY -> THEORY -> FREE
+        t = screen(s, t)
+        t = band(s, t)
+        t = look(s, t, range(9))
+        s.raw(t, "energy 10"); t += 300
+        t = look(s, t, range(8))
+        s.raw(t, "energy 95"); t += 300
+        t = look(s, t, range(8))
+        s.tap_key(t, bk(2)); t += 100                           # track 3: the hat
+        for k in range(12):
+            t = seqkey(s, t, wk(8))                             # COOK
+            t = look(s, t, [2])
+        t = seqkey(s, t, bk(0), hold=700)                       # DICE PROG
+        t = look(s, t, [0])
+        t = pg(s, t, SEQ, 7, [(K1, -1)])                        # the SOURCE: THEORY
+        t = screen(s, t)
+        log = run(s, t + 300)
+        msgs = [x["msg"] for x in log.states]
+        sc = log.screens()
+        roles = [c["role"] for c in cfgs(log)]
+        check(len(sc) == 2 and sc[0]["cells"][0] == ("> SOURCE", "FREE") and sc[0]["lines"][2].startswith("SEQ 8/8 FREE KICK SEED 1"),
+              "SEQ 8 K1, two clicks: SOURCE FREE; the part BEAT will make is FREE's (%s, %s)" % (sc[0]["cells"][0] if sc else None, sc[0]["lines"][2] if sc else None))
+        check("SOURCE FREE: MADE BY THE RULES OF NO GENRE" in msgs or any(l.startswith("SOURCE FREE") for l in sc[0]["lines"]), "... and the screen says what FREE is (%s)" % (sc[0]["lines"][3] if sc else None))
+        check("FREE BAND SEED 1: 8 TRACKS" in msgs and roles[:9] == [1, 2, 3, 4, 5, 6, 7, 23, 0], "BAND in REGGAETON with the SOURCE on FREE: FREE's band, eight parts (%s, %s)" % ([m for m in msgs if "BAND" in m][:1], roles[:9]))
+        e = at(log, 0, 0)[1]["now"]
+        for n, en in enumerate((e, 10, 95)):
+            want = text("FREE", 0, en)
+            got = [at(log, k, n) for k in range(8)]
+            check(all(got[k][1]["style"] == 26 and got[k][1]["src"] == 2 and got[k][0]["on"] == onoff(want[FREE[k]]) and got[k][1]["energy"] == en for k in range(8)),
+                  "... at energy %d every part is what the engines make by the rules of no genre (%s)" % (en, [FREE[k] for k in range(8) if got[k][0]["on"] != onoff(want[FREE[k]])]))
+        lo, hi = [at(log, k, 1)[0]["on"] for k in range(8)], [at(log, k, 2)[0]["on"] for k in range(8)]
+        check(all(x == "." or y == "x" for a, b in zip(lo, hi) for x, y in zip(a, b)) and sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2,
+              "the ENERGY fills and empties FREE's parts too: 10 is all there at 95, which is much fuller (%d hits, %d)" % (sum(r.count("x") for r in lo), sum(r.count("x") for r in hi)))
+        cook = [m for m in msgs if m.startswith("COOK ")]
+        walk = [at(log, 2, 3 + k) for k in range(12)]
+        reached = [k for k in range(min(12, len(cook))) if cook[k].endswith("REACHED")]
+        check(len(cook) == 12 and reached and all(m.startswith("COOK HAT VAR ") for m in cook), "COOK walks FREE's hat to a variation of its seed (%s)" % cook[:4])
+        if reached:
+            dr, hr = walk[reached[0]]
+            check(hr["style"] == 26 and hr["var"] >= 1 and hr["seed"] == 0 and dr["on"] == onoff(text("FREE", 0, 95, hr["var"], hr["vary"], "HAT")) and dr["hash"] != at(log, 2, 2)[0]["hash"],
+                  "... which is the engines' variation %d of it by the rules of no genre, and not the pattern as it was (%s)" % (hr["var"], hr))
+        m = [x for x in msgs if x.startswith("DICE PROG ")]
+        check(len(m) == 1 and m[0].startswith("DICE PROG FREE: "), "DICE PROG: a progression by the rules of no genre, not REGGAETON's (%s)" % m)
+        check(sc[1]["cells"][0] == ("> SOURCE", "THEORY") and sc[1]["lines"][2].startswith("SEQ 8/8 REGGAETON KICK SEED 2"), "the SOURCE back on THEORY: the genre was there all along, BEAT will make its part (%s)" % sc[1]["lines"][2])
+
+        # ---- on a band of a genre (TECHNO, made by the engines): the SOURCE on FREE, BEAT on the BANK gives every track
+        # the part of its ROLE by the rules of no genre (a CLAP, an OPEN HAT, a RIDE, a RUMBLE: FREE has a rule for every
+        # role); the tracks it did not touch stay TECHNO's. KIT: FREE's drums. Then GENRE LIVE and a change of genre: the
+        # engines' patterns stay as they are while the SOURCE is FREE; with the SOURCE on THEORY they are made again
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])                         # THEORY
+        t = band(s, t)                                          # TECHNO's band: ten tracks
+        t = look(s, t, range(10))
+        t = pg(s, t, SEQ, 7, [(K1, 1)])                         # the SOURCE: FREE
+        t = pg(s, t, SEQ, 0, keys=[bk(5)])                      # SEQ + black 6: the scope, BANK
+        t = seqkey(s, t, wk(9))                                 # BEAT on the bank
+        t = look(s, t, range(10))
+        t = pg(s, t, SEQ, 0, keys=[bk(5), bk(5)])               # the scope: ALL, TRACK
+        t = pg(s, t, SEQ, 5, [(K4, 1)])                         # SEQ 6 K4: GENRE LIVE
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, 3); s.release(t + 100, SEQ); t += 300     # the genre: HOUSE
+        t = look(s, t, range(10))
+        t = pg(s, t, SEQ, 7, [(K1, -1)])                        # the SOURCE: THEORY
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, -3); s.release(t + 100, SEQ); t += 300    # the genre: TECHNO
+        t = look(s, t, range(10))
+        log = run(s, t + 300)
+        msgs = [x["msg"] for x in log.states]
+        e = at(log, 0, 0)[1]["now"]
+        tech = [at(log, k, 0) for k in range(10)]
+        free = [at(log, k, 1) for k in range(10)]
+        want = {p: text("FREE", 1, e, part=p) for p in TECHNO[:8]}
+        check(all(x[1]["style"] == 1 and x[1]["seed"] == 0 for x in tech) and "BEAT: BANK (8)" in msgs, "TECHNO's band from the engines, then BEAT on the bank with the SOURCE on FREE (%s)" % [m for m in msgs if m.startswith("BEAT")][:2])
+        check(all(free[k][1]["style"] == 26 and free[k][1]["seed"] == 1 and free[k][1]["func"] == tech[k][1]["func"] for k in range(8)),
+              "... every track of the bank: the part of its role, of the next seed, by the rules of no genre (%s)" % [(x[1]["style"], x[1]["func"], x[1]["seed"]) for x in free[:8]])
+        check(all(free[k][0]["on"] == onoff(want[TECHNO[k]]) and "x" in free[k][0]["on"] for k in range(8)),
+              "... each is what the engines write for that role in FREE: a clap, an open hat, a ride, a rumble too (%s)" % [TECHNO[k] for k in range(8) if free[k][0]["on"] != onoff(want[TECHNO[k]])])
+        check(all(free[k][1]["style"] == 1 and free[k][0]["hash"] == tech[k][0]["hash"] for k in (8, 9)), "... the tracks of the other bank stay TECHNO's (%s)" % [free[k][1]["style"] for k in (8, 9)])
+        live = [at(log, k, 2) for k in range(10)]
+        check(any(m.startswith("GENRE HOUSE") for m in msgs) and all(live[k][0]["hash"] == free[k][0]["hash"] and live[k][1]["style"] == free[k][1]["style"] for k in range(10)),
+              "GENRE LIVE, the genre changes with the SOURCE on FREE: the engines' patterns stay as they are, FREE's and TECHNO's (%s)" % [live[k][1]["style"] for k in range(10)])
+        back = [at(log, k, 3) for k in range(10)]
+        check(all(back[k][1]["style"] == 1 for k in range(10)) and all(back[k][0]["hash"] != free[k][0]["hash"] for k in (1, 2)) and all(back[k][1]["seed"] == free[k][1]["seed"] for k in range(10)),
+              "the SOURCE on THEORY, the genre changes: every pattern of the engines is made again in the genre's style, from its seed (%s)" % [(x[1]["style"], x[1]["seed"]) for x in back])
+
+        # ... and a track loaded from the LIBRARY follows the genre as it always did, from the library: the SOURCE on
+        # FREE has nothing to say about a genre (the same gestures with the SOURCE on LIBRARY all along: the same kick)
+        got = []
+        for free in (False, True):
+            s = Script()
+            t = lib64(s, 100)
+            t = seqkey(s, t, wk(9))                             # BEAT, the SOURCE on LIBRARY: the library's TECHNO kick on track 1
+            t = look(s, t, [0])
+            if free:
+                t = pg(s, t, SEQ, 7, [(K1, 2)])                 # the SOURCE: FREE
+                s.tap_key(t, bk(1)); t += 100                   # track 2
+                t = seqkey(s, t, wk(9))                         # BEAT: a kick of no genre there
+                t = look(s, t, [1])
+            t = pg(s, t, SEQ, 5, [(K4, 1)])                     # GENRE LIVE
+            s.press(t, SEQ); s.enc(t + 30, E_PRE, 15); s.release(t + 100, SEQ); t += 300    # the genre: DRUM+BASS
+            t = look(s, t, [0, 1])
+            log = run(s, t + 300)
+            got.append((at(log, 0, 0), at(log, 0, 1), at(log, 1, 0), at(log, 1, -1), [x["msg"] for x in log.states]))
+        (a0, a1, _, _, _), (b0, b1, b2, b3, bm) = got
+        check(a0[0]["hash"] != a1[0]["hash"] and a1[1]["style"] == 0 and b0[0]["hash"] == a0[0]["hash"],
+              "GENRE LIVE, the SOURCE on LIBRARY: the library's kick becomes DRUM+BASS's (%s -> %s)" % (a0[0]["on"][:16], a1[0]["on"][:16]))
+        check(b1[0]["hash"] == a1[0]["hash"] and b1[1]["style"] == 0, "... with the SOURCE on FREE the same: the library's track takes the new genre's part from the library (%s, style %d)" % (b1[0]["on"][:16], b1[1]["style"]))
+        check(b2[1]["style"] == 26 and b2[0]["on"] == onoff(text("FREE", 0, b2[1]["now"], part="KICK")) and "FREE KICK SEED 1" in bm and b3[1]["style"] == 26 and b3[0]["hash"] == b2[0]["hash"],
+              "... and the kick of no genre beside it stays as it is (%s, %s)" % (b3[1], [m for m in bm if "SEED" in m][:1]))
+
+        s = Script()
+        t = lib64(s, 100)
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, 3); s.release(t + 100, SEQ); t += 200         # the genre: HOUSE
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                         # the SOURCE: FREE
+        t = seqkey(s, t, bk(6))                                 # KIT (SEQ + black 7, short)
+        t = look(s, t, range(5))
+        log = run(s, t + 300)
+        msgs = [x["msg"] for x in log.states]
+        e = at(log, 0, 0)[1]["now"]
+        want = text("FREE", 0, e)
+        kit = [at(log, k, 0) for k in range(5)]
+        check(any(m.startswith("FREE KIT SEED 1") for m in msgs) and all(kit[k][1]["style"] == 26 and kit[k][0]["on"] == onoff(want[FREE[k]]) for k in range(4)) and kit[4][1]["style"] == 0,
+              "KIT in HOUSE with the SOURCE on FREE: FREE's drums, four tracks (%s, %s)" % ([m for m in msgs if "KIT" in m][:1], [x[1]["style"] for x in kit]))
+
+        # ---- the other two ways to be free of the genre. The harmony FREE (ARP 4 K2) with the SOURCE on THEORY: the
+        # parts are the genre's, DICE PROG rolls a progression of no genre. The GENRE mode FREE (SEQ 6 K4) with the
+        # SOURCE on THEORY: the engines make parts of no genre, BEAT lists FREE's parts
+        s = Script()
+        t = lib64(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 1)])                         # THEORY (TECHNO)
+        t = pg(s, t, ARP, 3, [(K2, -1)])                        # ARP 4 K2: the harmony FREE of the genre
+        t = band(s, t)
+        t = look(s, t, [0])
+        t = seqkey(s, t, bk(0), hold=700)                       # DICE PROG
+        t = look(s, t, [0])
+        t = pg(s, t, SEQ, 5, [(K4, -1)])                        # GENRE FREE
+        t = look(s, t, [0])
+        t = pg(s, t, SEQ, 7)
+        t = screen(s, t)
+        s.press(t, SEQ); s.enc(t + 30, E_SEL, 7); s.tap_key(t + 80, wk(9)); s.release(t + 200, SEQ); t += 300     # BEAT: the eighth part of the list
+        t = look(s, t, [0])
+        log = run(s, t + 300)
+        msgs = [x["msg"] for x in log.states]
+        sc = log.screens()
+        m = [x for x in msgs if x.startswith("DICE PROG ")]
+        check(at(log, 0, 0)[1]["style"] == 1 and "TECHNO BAND SEED 1: 10 TRACKS" in msgs and m and all(x.startswith("DICE PROG FREE: ") for x in m),
+              "the harmony FREE, the SOURCE on THEORY: the band is TECHNO's, DICE PROG rolls a progression of no genre (%s)" % m[:1])
+        check("GENRE FREE: THEORY MAKES PARTS OF NO GENRE" in msgs and sc and sc[-1]["cells"][0] == ("> SOURCE", "THEORY") and sc[-1]["lines"][2].startswith("SEQ 8/8 FREE KICK SEED 2"),
+              "the GENRE mode FREE with the SOURCE on THEORY: the engines make parts of no genre, the screen says so (%s, %s)" % (sc[-1]["cells"][0] if sc else None, sc[-1]["lines"][2] if sc else None))
+        d, h = at(log, 0, 3)
+        check("FREE LEAD SEED 2" in msgs and h["style"] == 26 and h["func"] == 24 and h["seed"] == 1 and d["on"] == onoff(text("FREE", 1, h["now"], part="LEAD")),
+              "... BEAT goes through FREE's eight parts: the eighth is its LEAD, made from the next seed (%s, %s)" % ([m for m in msgs if "SEED" in m][-1:], h))
+
+        # ---- the hub's LIVE page: its SOURCE knob (channel 12, CC 56) has the three positions - 0 LIBRARY, 1 THEORY, 2
+        # FREE; the panel's SOURCE goes back to it; a value past the three (a switch's "on") is the engines: THEORY
+        # from LIBRARY, and a SOURCE on FREE stays FREE
+        s = Script()
+        t = remote13_on(s, 100)
+        t = usb2(s, t)
+        t = lib64(s, t)
+        s.raw(t, "midi 0xBC 112 0 2"); t += 600                 # the page speaks (the tablet's track: 1): the FM-1 answers it from now on
+        s.raw(t, "midi 0xBB 56 2 2"); t += 60                   # the page: SOURCE FREE
+        t = look(s, t, [0])
+        s.raw(t, "midi 0xBB 27 127 2"); s.raw(t + 20, "midi 0xBB 27 0 2"); t += 80      # BEAT from the page
+        t = look(s, t, [0])
+        s.raw(t, "midi 0xBB 56 127 2"); t += 60                 # a switch's "on": the engines are on, FREE stays
+        t = look(s, t, [0])
+        s.raw(t, "midi 0xBB 56 0 2"); t += 60                   # LIBRARY
+        t = look(s, t, [0])
+        s.raw(t, "midi 0xBB 56 127 2"); t += 60                 # "on" from LIBRARY: THEORY
+        t = look(s, t, [0])
+        t0 = t + 600
+        t = pg(s, t0, SEQ, 7, [(K1, 1)])                        # the panel: THEORY -> FREE
+        t = look(s, t + 600, [0])
+        log = run(s, t + 900)
+        src = [at(log, 0, n)[1]["src"] for n in range(6)]
+        out = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] == 56]
+        check(src == [2, 2, 2, 0, 1, 2], "the page's SOURCE: 2 is FREE; a switch's \"on\" keeps it; 0: LIBRARY; \"on\" from there: THEORY; the panel: FREE again (%s)" % src)
+        d, h = at(log, 0, 1)
+        check(h["style"] == 26 and h["seed"] == 0 and d["on"] == onoff(text("FREE", 0, h["now"], part="KICK")), "BEAT from the page with its SOURCE on FREE: a part of no genre (%s)" % h)
+        check([v for tm, _, v in out if tm > t0][:1] == [2], "the panel's SOURCE FREE goes back to the page: CC 56 = 2 (%s)" % [x for x in out if x[0] > t0][:3])
+        check(1 in [v for tm, _, v in out if tm <= t0], "... and a switch's \"on\" is answered with where the SOURCE is: CC 56 = 1, THEORY (%s)" % [x for x in out if x[0] <= t0][:4])
+    finally:
+        try: os.remove(tool)
+        except OSError: pass
+
+
+def t023_snapshot_direction():
+    group("0.23 a snapshot that brings a track's DIRECTION back puts the track in time (found by the explorer's sessions: SAVE + SEL + black 1, HOME 2 K1, SAVE + black 1 left track 1 a step off the bar; it was so since 0.11, when a snapshot learned to land in time for a new length, start or division)")
+    for back in (False, True):
+        s = Script()
+        s.press(100, SEQ); s.tap_key(130, bk(6), hold=700); s.release(900, SEQ); t = 1000     # the BAND
+        s.tap_btn(t, PLAY); t += 300
+        s.press(t, SAVE); s.press(t + 30, SEL); s.tap_key(t + 60, bk(0)); s.release(t + 130, SEL); s.release(t + 160, SAVE); t += 300   # the snapshot: stored
+        t = pg(s, t, HOME, 1, [(K1, 1)])                         # HOME 2 K1: the DIRECTION of track 1, BACKWARD
+        if back:
+            t = pg(s, t, HOME, 1, [(K1, 1)])                     # ... PING-PONG
+        t += int(BAR_MS)
+        s.press(t, SAVE); s.tap_key(t + 30, bk(0)); s.release(t + 100, SAVE); t += 200       # the snapshot: back (at the QUANTISE)
+        t += int(2 * BAR_MS)
+        s.at(t, "probe")
+        s.tap_btn(t + 100, PLAY)
+        log = run(s, t + 600)
+        ok = [m.group(2) for m in re.finditer(r"PROBE T(\d+) .* ok=(\S+) ", log.text)]
+        dirs = re.findall(r"PROBE T1 .* dir=(\d+) ", log.text)
+        check(len(ok) == 16 and "0" not in ok and dirs and dirs[-1] == "0", "the snapshot is back with FORWARD, two bars on every track is where the bar says (%s, track 1's direction %s; from %s)" % (
+            "".join(ok), dirs[-1:], "PING-PONG" if back else "BACKWARD"))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -8503,7 +9224,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

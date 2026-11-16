@@ -20,7 +20,7 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 16u * 96u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole) */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1508u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1508u + 1028u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 28u && sizeof(sq_phrase_t) == 26u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
@@ -2613,6 +2613,67 @@ static void test_v019_mfx_chain(void)
     CHECK(n > 0u && sq_deserialize(&a, img, n) == 0 && !memcmp(&a, &b, sizeof a));
 }
 
+/* 0.23: the THEORY block of a project - a new project has none and writes no chunk for it; what it holds comes back
+ * from the image (chunk 2); an image without the chunk (a 0.22 one) leaves it empty; garbage is put right */
+static void test_v023_theory_chunk(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[0x10000], img0[0x10000];
+    uint32_t n, n0, t, pat, i;
+    sq_project_init(&a);
+    CHECK(sizeof(sq_theory_t) == 1028u && sizeof(sq_thpat_t) == 8u && sizeof(sq_theory_t) % 4u == 0u);
+    CHECK(a.th.src == SQ_SRC_LIBRARY && a.th.seed == 0u);
+    for (t = 0; t < SQ_TRACKS; t++) for (pat = 0; pat < SQ_PATTERNS; pat++) CHECK(a.th.pat[t][pat].style == 0u);
+    n0 = sq_serialize(&a, img0, sizeof img0);
+    CHECK(n0 > 0u && sq_deserialize(&b, img0, n0) == 0 && !memcmp(&a, &b, sizeof a));
+    a.th.src = SQ_SRC_THEORY; a.th.seed = 427u;
+    a.th.pat[0][0].seed = 427u; a.th.pat[0][0].style = SQ_THP_PACK(SQ_GENRE_TECHNO, 64u); a.th.pat[0][0].energy = 60u; a.th.pat[0][0].func = 9u;
+    a.th.pat[15][7].seed = 999u; a.th.pat[15][7].style = SQ_THP_PACK(SQ_TH_FREE, 16u); a.th.pat[15][7].var = 3u; a.th.pat[15][7].vary = 100u; a.th.pat[15][7].energy = 100u;
+    a.th.pat[4][2].seed = 5u; a.th.pat[4][2].style = SQ_THP_PACK(SQ_GENRE_DNB, 32u); a.th.pat[4][2].var = 250u; a.th.pat[4][2].vary = 35u;
+    CHECK(SQ_THP_STYLE(&a.th.pat[0][0]) == SQ_GENRE_TECHNO && SQ_THP_LEN(&a.th.pat[0][0]) == 64u);
+    CHECK(SQ_THP_STYLE(&a.th.pat[15][7]) == SQ_TH_FREE && SQ_THP_LEN(&a.th.pat[15][7]) == 16u && SQ_THP_LEN(&a.th.pat[4][2]) == 32u);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n == n0 + 3u + 4u + 3u * 10u);                /* the chunk: its head, src + seed + count, three patterns */
+    CHECK(sq_image_ok(img, n) == 0 && sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    /* cut short inside the chunk: refused whole, as any image cut short */
+    CHECK(sq_deserialize(&b, img, n - 6u) != 0);
+    /* a later firmware's longer chunk: what it adds after the patterns is skipped (the length says how much) */
+    {
+        uint32_t at = n0 - 1u;                           /* (the image without the block ends with the chunks' 0) */
+        CHECK(img[at] == SQ_CHUNK_TH && img[at + 1u] == 4u + 3u * 10u && img[at + 6u] == 3u);
+        memmove(img + at + 3u + 34u + 5u, img + at + 3u + 34u, n - (at + 3u + 34u));
+        for (i = 0; i < 5u; i++) img[at + 3u + 34u + i] = 0xEEu;
+        img[at + 1u] = 34u + 5u;
+        CHECK(sq_deserialize(&b, img, n + 5u) == 0 && !memcmp(&a, &b, sizeof a));
+        /* a count that says more patterns than the chunk holds: those it holds, no further */
+        img[at + 6u] = 200u;
+        CHECK(sq_deserialize(&b, img, n + 5u) == 0 && !memcmp(&a.th, &b.th, sizeof a.th));
+        /* a pattern of a track that does not exist: left out; a style that does not exist: not the engines' */
+        img[at + 6u] = 3u;
+        img[at + 7u] = 16u;                              /* the first pattern's track */
+        CHECK(sq_deserialize(&b, img, n + 5u) == 0 && b.th.pat[0][0].style == 0u && b.th.pat[4][2].style && b.th.pat[15][7].style);
+    }
+    /* the SOURCE on FREE (the engines, no genre): it comes back as it is */
+    b = a;
+    b.th.src = SQ_SRC_FREE;
+    n = sq_serialize(&b, img, sizeof img);
+    CHECK(SQ_SRCS == 3u && n > 0u && sq_deserialize(&a, img, n) == 0 && a.th.src == SQ_SRC_FREE && !memcmp(&a, &b, sizeof a));
+    a.th.src = SQ_SRC_THEORY;
+    b = a;
+    b.th.src = 9u; b.th.seed = 1000u; b.th.reserved = 7u;
+    b.th.pat[1][1].style = 0x1Bu; b.th.pat[1][1].seed = 3u;          /* a style past the last (27) */
+    b.th.pat[2][2].style = 0x61u;                                      /* a length that is none */
+    b.th.pat[3][3].style = 0x81u;
+    b.th.pat[0][0].vary = 200u; b.th.pat[0][0].energy = 101u; b.th.pat[0][0].func = 200u; b.th.pat[0][0].reserved = 9u;
+    b.th.pat[5][5].seed = 77u; b.th.pat[5][5].var = 2u;                /* (style 0: not the engines', nothing kept) */
+    sq_project_sanitize(&b);
+    CHECK(b.th.src == SQ_SRC_LIBRARY && b.th.seed == 0u && b.th.reserved == 0u);
+    CHECK(b.th.pat[1][1].style == 0u && b.th.pat[1][1].seed == 0u && b.th.pat[2][2].style == 0u && b.th.pat[3][3].style == 0u);
+    CHECK(b.th.pat[0][0].vary == 100u && b.th.pat[0][0].energy == 100u && b.th.pat[0][0].style == a.th.pat[0][0].style && b.th.pat[0][0].func == 0u && b.th.pat[0][0].reserved == 0u);
+    CHECK(b.th.pat[5][5].seed == 0u && b.th.pat[5][5].var == 0u);
+    CHECK(b.th.pat[15][7].style == a.th.pat[15][7].style && b.th.pat[15][7].seed == 999u);
+}
+
 int main(void)
 {
     test_v012_break();
@@ -2650,6 +2711,7 @@ int main(void)
     test_beats();
     test_generators();
     test_v019_mfx_chain();
+    test_v023_theory_chunk();
     printf("sagga core: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

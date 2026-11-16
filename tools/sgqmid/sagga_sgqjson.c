@@ -7,6 +7,9 @@
  * 0.20: the five new MIDI FX and the order of the nine (mfxd on: a bit per new effect, 1 << (SQ_MFX_* - 5); order: the
  * nine effects; amt / time / fb [effect - 5]); each LFO's envelope (lfoe a d s r); the MOD MATRIX (mod src src_i dst
  * dst_i amt).
+ * 0.23: the THEORY engines - th (src: 1 the patterns are MADE; seed: the next one, 0-998) and thp, what the engines know
+ * of each pattern they made (index: track * 8 + pattern; style 0: not theirs, else the style + 1 with the length in bits
+ * 5-6; seed, func, var, vary, energy). The editor shows it and forgets it (style 0) when it empties or moves a pattern.
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -16,7 +19,7 @@
  *   sagga_sgqjson new OUT.sgq                    a new project
  *
  * A PATCH is text, a change a line:   GROUP INDEXES FIELD ELEM VALUE
- *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc mfxd lfoe mod (and tape, below)
+ *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc mfxd lfoe mod th thp (and tape, below)
  *   INDEXES  "-" for project / song / live / ext, else the index (track, scene ...), "t,p,s" for a step
  *   FIELD    a field of the group (the names of the C structs); ELEM: "-", or which element of an array field
  *   VALUE    an integer in the field's type (u8, s8, u16)
@@ -113,6 +116,10 @@ static const fd_t F_LFOE[] = { F(sq_lfoe_t, a, 0), F(sq_lfoe_t, d, 0), F(sq_lfoe
 static const fd_t F_MOD[] = {                                                                                        /* 0.20 */
     F(sq_mod_t, src, 0), F(sq_mod_t, src_i, 0), F(sq_mod_t, dst, 0), F(sq_mod_t, dst_i, 0), F(sq_mod_t, amt, 1),
 };
+static const fd_t F_TH[] = { F(sq_theory_t, src, 0), F(sq_theory_t, seed, 0) };                                    /* 0.23 */
+static const fd_t F_THP[] = {
+    F(sq_thpat_t, seed, 0), F(sq_thpat_t, style, 0), F(sq_thpat_t, func, 0), F(sq_thpat_t, var, 0), F(sq_thpat_t, vary, 0), F(sq_thpat_t, energy, 0),
+};
 static const fd_t F_EXT[] = {
     F(sq_ext_t, motion_bars, 0), F(sq_ext_t, kb_mode, 0), F(sq_ext_t, kb_ch, 0), F(sq_ext_t, in_thru, 0),
     A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
@@ -135,6 +142,8 @@ static const grp_t G[] = {
     {"mfxd", PO(ext) + (uint32_t)offsetof(sq_ext_t, mfxd), {sizeof(sq_mfxd_t)}, {SQ_TRACKS}, F_MFXD, NF(F_MFXD)},   /* 0.20 the new five, the order */
     {"lfoe", PO(ext) + (uint32_t)offsetof(sq_ext_t, lfoe), {sizeof(sq_lfoe_t)}, {SQ_LFOS}, F_LFOE, NF(F_LFOE)},     /* 0.20 the envelopes */
     {"mod", PO(ext) + (uint32_t)offsetof(sq_ext_t, mod), {sizeof(sq_mod_t)}, {SQ_MODS}, F_MOD, NF(F_MOD)},          /* 0.20 the MOD MATRIX */
+    {"th", PO(th), {0}, {0}, F_TH, NF(F_TH)},                                                                       /* 0.23 the THEORY engines: the SOURCE, the next seed */
+    {"thp", PO(th) + (uint32_t)offsetof(sq_theory_t, pat), {sizeof(sq_thpat_t)}, {SQ_TRACKS * SQ_PATTERNS}, F_THP, NF(F_THP)},   /* ... a pattern's record: track * 8 + pattern */
     {"step", PO(step), {sizeof(sq_step_t) * SQ_PATTERNS * SQ_STEPS, sizeof(sq_step_t) * SQ_STEPS, sizeof(sq_step_t)},
      {SQ_TRACKS, SQ_PATTERNS, SQ_STEPS}, F_STEP, NF(F_STEP)},
 };

@@ -238,6 +238,7 @@ static void gr_copy_pattern(uint8_t dst)
     undo_begin();
     undo_add(t, dst);
     memcpy(project.step[t][dst], project.step[t][src], sizeof project.step[0][0]);
+    project.th.pat[t][dst] = project.th.pat[t][src];    /* 0.23: and what the engines know of it */
     status_num("COPIED TO PATTERN ", (uint32_t)dst + 1u);
     ui_dirty = grid_dirty = 1u;
 }
@@ -591,6 +592,11 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
         else if (x == 6u) harm_toggle();
         else if (x == 7u) harm_bars_turn(1);
         else if (x == 8u) follow_set(selected_track, (cfg->flags & SQ_TF_FOLLOW) ? 0u : 1u);
+        else if (x >= 9u && beat_func != SQ_FUNC_PROG && beat_func != SQ_FUNC_KIT && th_style_now(beat_genre) != 255u) {   /* 0.23 THEORY: the seeds */
+            uint32_t base = project.th.seed - project.th.seed % 6u, sd = x == 9u ? base + 6u + project.th.seed % 6u : base + x - 10u;
+            project.th.seed = (uint16_t)(sd % SQ_TH_SEEDS);
+            status_num("NEXT SEED ", (uint32_t)project.th.seed + 1u);
+        }
         else if (x == 9u) { g_var_page ^= 1u; status_msg(g_var_page ? "VARIATIONS 7-12" : "VARIATIONS 1-6"); }   /* 0.11 */
         else if (x >= 10u) {
             uint8_t v = (uint8_t)(g_var_page * 6u + x - 10u), nv = sq_beat_variants(beat_genre, beat_func);
@@ -1532,7 +1538,8 @@ static void gr_render_beat(void)
     uint32_t x, nv = sq_beat_variants(beat_genre, beat_func), ti = gen_target_index();
     const sq_gen_t *g = &project.gen;
     const sq_track_cfg_t *cfg = &project.track[selected_track];
-    uint8_t harm = g->harm_on, mine = 1u;
+    uint8_t harm = g->harm_on, mine = 1u, st = th_style_now(beat_genre);
+    uint8_t th = (uint8_t)(st != 255u && beat_func != SQ_FUNC_PROG && beat_func != SQ_FUNC_KIT);   /* 0.23 THEORY: pads 11-16 are six seeds, pad 10 the next six */
     for (x = 0; x < 16u; x++) {
         if (x < 12u) { uint32_t gn = g_genre_page * 12u + x; gr_put(x, 0, gn >= SQ_GENRES ? GL_OFF : gn == beat_genre ? GL_WHITE : GL_DIM); }
         else gr_put(x, 0, x == 12u ? (g_genre_page == 2u ? GL_VIOLET : g_genre_page ? GL_CYAN : GL_BLUE) :   /* (0.16: page 3, the merengue) */
@@ -1549,7 +1556,8 @@ static void gr_render_beat(void)
         else if (x == 6u) gr_put(x, 2, harm ? GL_ON : GL_FAINT);
         else if (x == 7u) gr_put(x, 2, g->harm_bars ? GL_YELLOW : GL_BLUE);
         else if (x == 8u) gr_put(x, 2, (cfg->flags & SQ_TF_FOLLOW) ? GL_CYAN : GL_FAINT);
-        else if (x == 9u) gr_put(x, 2, nv > 6u ? (g_var_page ? GL_CYAN : GL_BLUE) : GL_OFF);
+        else if (x == 9u) gr_put(x, 2, th ? GL_BLUE : nv > 6u ? (g_var_page ? GL_CYAN : GL_BLUE) : GL_OFF);
+        else if (x >= 10u && th) gr_put(x, 2, project.th.seed % 6u == x - 10u ? GL_WHITE : GL_VIOLET);
         else if (x >= 10u) { uint32_t v = g_var_page * 6u + x - 10u; gr_put(x, 2, v >= nv ? GL_OFF : (beat_var % (nv ? nv : 1u)) == v ? GL_WHITE : GL_VIOLET); }
         if (x < 5u) gr_put(x, 3, dice_pending && dice_kind == DICE_SEQ + x ? GL_PLAY : GL_ORANGE);
         else if (x == 5u || x == 6u) gr_put(x, 3, dice_pending ? (x == 5u ? GL_ON : GL_MUTED) : GL_FAINT);
@@ -1559,7 +1567,13 @@ static void gr_render_beat(void)
     }
     if (gr_shift()) {                                   /* the pattern chosen, 32 steps over two rows */
         const char *notes, *text = nv ? sq_beat_text(beat_genre, beat_func, (uint8_t)(beat_var % nv), &notes) : 0;
+        char thr[SQ_STEPS + 1u], thn[SQ_STEPS + 1u];
         uint32_t i, end = 0u;
+        if (th) {                                       /* 0.23: what the engines would make of the seed */
+            sq_th_t h;
+            th_set(&h, st, project.th.seed, 0u, 0u, vg_energy_now(), selected_track, tr[selected_track].pattern, beat_func);
+            text = sq_th_part(&h, beat_func, 32u, thr, thn) ? thr : 0;
+        }
         for (i = 0; i < 32u; i++) {
             char c = (text && !end) ? text[i] : '\0';
             uint8_t role = GL_OFF;

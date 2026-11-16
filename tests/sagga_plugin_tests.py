@@ -29,7 +29,7 @@ CH14_CCS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11} | set(range(12, 20)) | set(range(
            set(range(80, 85)) | {85, 86, 87, 88, 89} | set(range(90, 106)) | set(range(106, 114)) | set(range(114, 120))
 CH13_CCS = set(range(1, 33)) | set(range(33, 49)) | set(range(49, 65)) | set(range(65, 76)) | set(range(76, 92)) | set(range(92, 98)) | \
            set(range(101, 107)) | set(range(107, 119))
-CH12_CCS = set(range(1, 33)) | set(range(40, 56))                      # 0.18: the LIVE page (sagga_tablet.c)
+CH12_CCS = set(range(1, 33)) | set(range(40, 60))                      # 0.18: the LIVE page (sagga_tablet.c); 0.23: 56-59, the THEORY engines
 PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
 
 
@@ -182,7 +182,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -258,6 +258,16 @@ def structural():
     i = core.index("GROOVE_NAME[SQ_GROOVES]")
     check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]), "SAGGA Live: GROOVE names as the FM-1's")
     check(m.RATE_LABELS == ["1/4", "1/2", "ROLL", "1", "2", "3", "4"] and d["arp_rate"].max == 6, "SAGGA Live: RATE in the FM-1's knob order")
+    # 0.23: the THEORY engines - the SOURCE, the next seed, the track's seed and variation, as sagga_tablet.c takes them
+    th = {n: (c.channel, c.cc) for c in cells for n in [c.param.name] if n in ("source", "next_seed", "seed", "variation")}
+    check(th == {"source": (11, 56), "next_seed": (11, 57), "seed": (11, 58), "variation": (11, 59)} and all(re.search(r"case %du:(?:\s*/\*.*?\*/)?\s*th_knobs\(" % cc, fwsrc) for cc in (56, 57, 58, 59)),
+          "SAGGA Live: SOURCE, NEXT SEED, SEED, VARIATION on channel 12 CC 56-59, which the FM-1 takes (%s)" % th)
+    check(d["seed"].max == 127 and m.SEED_LABELS[0] == "1" and m.SEED_LABELS[127] == "128" and d["variation"].max == 99,
+          "SAGGA Live: the seeds are shown from 1 as on the FM-1, the variation 0-99")
+    hdr = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.h")).read()
+    srcs = re.findall(r"SQ_SRC_([A-Z]+)", hdr[hdr.index("enum { SQ_SRC_LIBRARY"):hdr.index("SQ_SRCS")])
+    check(d["source"].__class__.__name__ == "Knob" and d["source"].min == 0 and d["source"].max == 2 and m.SOURCE_LABELS == srcs == ["LIBRARY", "THEORY", "FREE"],
+          "SAGGA Live: SOURCE is a knob of three positions, named as the FM-1 names them: LIBRARY, THEORY, FREE (%s, %s)" % (m.SOURCE_LABELS, srcs))
     m, cls = load_plugin("sagga_mod")
     g = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "genre"][0]
     check(g.param.max == 24 and m.GENRE_LABELS[24] == "MERENGUE", "SAGGA Mod: GENRE reaches MERENGUE (25 genres)")

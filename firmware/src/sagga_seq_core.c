@@ -479,6 +479,7 @@ void sq_project_init(sq_project_t *p)
     for (s = 0; s < SQ_SNAPS; s++) snap_default(&p->snap[s]);
     sq_viaggio_default(&p->viaggio);
     sq_ext_default(&p->ext);
+    sq_theory_default(&p->th);
     for (t = 0; t < SQ_TRACKS; t++) p->tape_cnt[t] = 0u;
     p->tape_n = 0u;
     p->tape_reserved = 0u;
@@ -699,6 +700,7 @@ void sq_project_sanitize(sq_project_t *p)
     for (n = 0; n < sizeof p->live.reserved; n++) p->live.reserved[n] = 0u;
     sq_viaggio_sanitize(&p->viaggio);
     sq_ext_sanitize(&p->ext);
+    sq_theory_sanitize(&p->th);
     for (t = 0; t < SQ_TRACKS; t++) sq_mfx_mirror(&p->ext.mfxc[t], &p->track[t]);   /* 0.19: the track shows its chain's first */
     sq_tape_sanitize(p);
     for (n = 0; n < SQ_LFOS; n++) sanitize_lfo(&p->lfo[n]);
@@ -1604,6 +1606,34 @@ void sq_ext_default(sq_ext_t *x)
     for (i = 0; i < SQ_TRACKS; i++) sq_mfxd_default(&x->mfxd[i]);   /* 0.20 */
     for (i = 0; i < SQ_LFOS; i++) { x->lfoe[i].a = 1u; x->lfoe[i].d = 7u; x->lfoe[i].s = 0u; x->lfoe[i].r = 5u; }   /* a short pluck */
     for (i = 0; i < SQ_MODS; i++) x->mod[i].amt = 50;
+}
+
+/* 0.23: the THEORY block */
+void sq_theory_default(sq_theory_t *h)
+{
+    uint32_t i;
+    uint8_t *b = (uint8_t *)h;
+    for (i = 0; i < sizeof *h; i++) b[i] = 0u;
+}
+void sq_thpat_sanitize(sq_thpat_t *m)
+{
+    if (!(m->style & 31u) || (m->style & 31u) > SQ_TH_STYLES || (m->style & 0x80u) || ((m->style >> 5) & 3u) > 2u) {
+        m->seed = 0u; m->style = 0u; m->func = 0u; m->var = 0u; m->vary = 0u; m->energy = 0u; m->reserved = 0u;   /* not the engines': nothing kept */
+        return;
+    }
+    if (m->func >= 64u) m->func = 0u;                    /* (the library checks the rest: a part the engines cannot make is not made) */
+    if (m->vary > 100u) m->vary = 100u;
+    if (m->energy > 100u) m->energy = 100u;
+    m->reserved = 0u;
+}
+void sq_theory_sanitize(sq_theory_t *h)
+{
+    uint32_t t, pat;
+    if (h->src >= SQ_SRCS) h->src = SQ_SRC_LIBRARY;
+    h->reserved = 0u;
+    if (h->seed >= SQ_TH_SEEDS) h->seed = 0u;
+    for (t = 0; t < SQ_TRACKS; t++)
+        for (pat = 0; pat < SQ_PATTERNS; pat++) sq_thpat_sanitize(&h->pat[t][pat]);
 }
 
 void sq_ext_sanitize(sq_ext_t *x)
@@ -2633,13 +2663,32 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             wr_put(&w, &p->ext, sizeof p->ext);
         }
     }
+    {   /* 0.23: chunk 2, the THEORY block, when it says something: the source, the seed, the patterns the engines made */
+        uint32_t n = 0u, tk, pk;
+        for (tk = 0; tk < SQ_TRACKS; tk++) for (pk = 0; pk < SQ_PATTERNS; pk++) if (p->th.pat[tk][pk].style) n++;
+        if (n || p->th.src || p->th.seed) {
+            uint32_t len = 4u + n * (2u + (uint32_t)sizeof(sq_thpat_t));
+            uint8_t h[7];
+            h[0] = SQ_CHUNK_TH; h[1] = (uint8_t)(len & 0xFFu); h[2] = (uint8_t)(len >> 8);
+            h[3] = p->th.src; h[4] = (uint8_t)(p->th.seed & 0xFFu); h[5] = (uint8_t)(p->th.seed >> 8); h[6] = (uint8_t)n;
+            wr_put(&w, h, 7);
+            for (tk = 0; tk < SQ_TRACKS; tk++)
+                for (pk = 0; pk < SQ_PATTERNS; pk++) {
+                    uint8_t at[2];
+                    if (!p->th.pat[tk][pk].style) continue;
+                    at[0] = (uint8_t)tk; at[1] = (uint8_t)pk;
+                    wr_put(&w, at, 2);
+                    wr_put(&w, &p->th.pat[tk][pk], sizeof(sq_thpat_t));
+                }
+        }
+    }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
     return w.bad ? 0u : w.pos;
 }
 
 /* SGQB / SGQA reader: the whole project, or one track and pattern for RELOAD. */
 static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t want_t, uint8_t want_pat,
-                    sq_track_cfg_t *cfg, sq_step_t *row)
+                    sq_track_cfg_t *cfg, sq_step_t *row, sq_thpat_t *th)
 {
     rd_t r;
     sq_step_t def, tmp;
@@ -2739,6 +2788,25 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
             rd_get(&r, &p->ext, k);
             rd_skip(&r, n - k);
             ext_n = k;
+        } else if (h[0] == SQ_CHUNK_TH && (p || th) && n >= 4u) {   /* 0.23 (what a later one adds after the patterns: skipped) */
+            uint8_t hd[4] = {0u, 0u, 0u, 0u};
+            uint32_t k, used = 4u;
+            rd_get(&r, hd, 4);
+            if (p) {
+                p->th.src = hd[0];
+                p->th.seed = (uint16_t)((uint32_t)hd[1] | ((uint32_t)hd[2] << 8));
+            }
+            for (k = 0; k < hd[3] && used + 2u + (uint32_t)sizeof(sq_thpat_t) <= n && !r.bad; k++) {
+                uint8_t at[2] = {255u, 255u};
+                sq_thpat_t m;
+                rd_get(&r, at, 2);
+                rd_get(&r, &m, sizeof m);
+                used += 2u + (uint32_t)sizeof m;
+                if (r.bad || at[0] >= SQ_TRACKS || at[1] >= SQ_PATTERNS) continue;
+                if (p) p->th.pat[at[0]][at[1]] = m;
+                else if (at[0] == want_t && at[1] == want_pat) *th = m;   /* (one pattern asked: RELOAD) */
+            }
+            rd_skip(&r, n - used);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
@@ -2748,20 +2816,26 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
     return 0;
 }
 
-int sq_image_ok(const uint8_t *in, uint32_t len) { return sq_parse(in, len, 0, 0u, 0u, 0, 0); }
+int sq_image_ok(const uint8_t *in, uint32_t len) { return sq_parse(in, len, 0, 0u, 0u, 0, 0, 0); }
 
-int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len) { return sq_parse(in, len, p, 0u, 0u, 0, 0); }
+int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len) { return sq_parse(in, len, p, 0u, 0u, 0, 0, 0); }
 
-int sq_image_track(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row)
+int sq_image_track_th(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row, sq_thpat_t *th)
 {
     int rc;
     uint32_t i;
     if (t >= SQ_TRACKS || pat >= SQ_PATTERNS) return -1;
-    rc = sq_parse(in, len, 0, t, pat, cfg, row);
+    if (th) { th->seed = 0u; th->style = 0u; th->func = 0u; th->var = 0u; th->vary = 0u; th->energy = 0u; th->reserved = 0u; }
+    rc = sq_parse(in, len, 0, t, pat, cfg, row, th);
     if (rc) return rc;
+    if (th) sq_thpat_sanitize(th);
     sq_track_sanitize(cfg);
     for (i = 0; i < SQ_STEPS; i++) sanitize_step(&row[i]);
     return 0;
+}
+int sq_image_track(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row)
+{
+    return sq_image_track_th(in, len, t, pat, cfg, row, 0);
 }
 
 /* ------------------------------------------------------------------ 0.9 VIAGGIO: the pure parts */

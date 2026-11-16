@@ -1,66 +1,76 @@
-# SAGGA SEQ 0.22
+# SAGGA SEQ 0.23
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
 tracks**, eight patterns of up to 64 steps per track, **sixteen scenes**, eight **snapshots**, a song of **64
 entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
-steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
+steps), the **THEORY engines** that make a band from a seed in each of them (0.23), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.22` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.23` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.21.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.22.
 
-## What is new in 0.22
+## What is new in 0.23
 
-0.22 is the dig down to the first version: the parts no test could see (the USB's ring, the panel's wait, the
-counters' wraps), the tools that test the rest, and the way the FM-1, the Pi and the grid spend their time. No new
-feature, the same project format (`SGQB`).
+**The THEORY engines.** Until 0.22 a part was LOADED: the library holds up to twelve written patterns for each part of
+each genre. With **SOURCE THEORY** (the new SEQ page 8, K1) a part is **MADE** when you ask for it, from the rules of
+the genre and a number, the **SEED**; one more click, **SOURCE FREE**, and it is made by the rules of **no genre**,
+whatever the genre is. SOURCE LIBRARY is 0.22 as it was; the three can be switched at any time, in play too. The whole
+of it, in Italian: [TEORIA.md](TEORIA.md) (what each engine does, why, which existing instrument it is
+like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted from the library).
 
-* **The notes waited for the screen.** A piece of the screen (a line: 5 ms of pixels at 12 MHz; a big cell: 8) goes out
-  by itself, but the piece after it waited for it to end, with the whole loop: the clock and the notes due in that
-  time left late. With the simulator charging the panel's time, four knobs turned in play made 79 notes of 130 leave
-  1 to 8 ms late; a tempo knob at 300 BPM gave clock gaps of 3 to 14 ms for 8.3. The loop now starts a piece only when
-  the panel has taken the one before (`lcd_idle`): 0 to 2 ms, gaps of 7 to 10.
-* **A burst of messages could be lost.** The USB output ring held 64 events, as the input's; what a pass sent beyond
-  its room was dropped and only counted (DROPPED on the USB page). A dice on the CCs sends six lanes on sixteen tracks
-  at once; three keys together made 68 Control Changes in one pass and four were gone. No test could see it: the
-  simulator had no ring. It has the FM-1's now, the random test plays with it, and the ring is 256 (the senders that
-  can wait - the grid's lights, the lanes, the LFOs, the values for the hub - still see the first 64, so the music
-  never queues behind them).
-* **The GATE effect never made a note longer than its step.** FIXED 1/8 .. 2 BARS and x3/2, x2, x4 gave a 1/16
-  whatever was asked: a note of a step ends when the track's next step comes, and the effect's longer gate was cut
-  with it (since 0.20; the only test tried FIXED 1/32). A note the MIDI FX chain makes longer than the gap to the
-  track's next hit now goes out as a held note, with its own end (`MFX_LONG` in `fire_slice`): FIXED 1/8 is two steps,
-  x4 of a gate of 80 % is 3.2. It overlaps the notes after it (a mono synth: legato); the same note coming back
-  before its end ends it there. HUMAN alone still never carries a note past its step.
-* **A TIE into the same note left 15 ms of it.** The tied note's end, 15 ms into the next step, came while the new
-  note of the same pitch sounded, and ended it (since 0.10). A held voice of the same pitch that would end before the
-  new note does now ends as the new note begins (`held_same_off`); one that outlasts it is left as it was.
-* **The grid shows a view in a tenth of a second.** 24 lights a frame, not 8: a view of 130 lights took 350 ms, now
-  110. The bridge sends a frame of lights as one message to each Launchpad (it sent one a light), and wakes 50 times a
-  second when nothing happens, not 200.
-* **The Pi asked the FM-1 who it was every 5 seconds** while the hub's page was open: a Python started, an ALSA client
-  made (RaspiMIDIHub scans its devices again at each one) and a SysEx to the FM-1, twelve times a minute, in the
-  middle of a set too. It asks when ALSA's clients change.
-* **The explorer explored an empty project.** Its "band" was 0.11's gesture (SEQ + SEL + black 7), which 0.12 gave to
-  something else: fourteen situations of seventeen, in the simulator and in the plans for the FM-1 and the banco, had
-  no band, and its grid went after 3.5 s (no keep-alive). With real bands and a grid that stays: 55829 gestures in 17
-  situations, 6799 pairs, 200 sessions, no error. A situation "with a band" that has none is now an error itself.
-* **What no test ran.** gcov over every suite that drives the simulator (`-DSAGGA_GCOV --coverage`: the forked
-  branches of the explorer write their counters too): 97 % of the firmware's lines run (347 of 13223 run in no test).
-  Of what never ran, read and tried by hand: a TAPE track's grid view, six destinations and three sources of the MOD
-  MATRIX, the harmony's rhythms 3+5, 3+1 and 2 BARS, the conditions 1:4, 4:4 and NOT FILL, the GATE effect's factors
-  and lengths - all as the manual says but GATE (above). They are a test now (`t022_unrun`), and the explorer taps the
-  128 pads of the grid's VIAGGIO view too.
-* The audio interrupt no longer clears, scales and shifts a buffer of silence every 5.8 ms. 76 and 150 minutes in
-  play across the counters' wraps (every 179 s, and the microseconds at 71.6 minutes): the clock never late, the band
-  the same, nothing hung - a test now. Two functions nothing called are gone.
+* **A seed is a band.** The same seed gives the same parts; another seed another band of the same genre; 999 seeds a
+  genre. All **25 genres** have a style, and **FREE** is a style with no genre: the metre and what a family of parts
+  does. The engines make drums, bass lines, chords, arpeggios, motifs (LEAD, VOX) and progressions.
+* **Free of the genre.** **SOURCE FREE** (SEQ 8 K1, past THEORY) is the engines' own free mode: BAND, KIT, BEAT, the
+  dice and DICE PROG work by FREE's rules whatever the genre and its mode, and a change of genre leaves the engines'
+  patterns as they are (with GENRE LIVE too: only the library's tracks follow it, from the library). The machine's **GENRE FREE** (SEQ 6 K4) frees the engines with
+  everything else while the SOURCE is THEORY; **HARMONY FREE** (ARP 4 K2) frees DICE PROG alone.
+* **The same gestures.** BEAT, KIT, BAND make the pattern from NEXT SEED (pressed again: the next seed); SEQ + ALG is
+  the seed where it was the library's variation; **COOK** walks the pattern to the next VARIATION of its own seed, HEAT
+  being its size (EVERY + COOK: it evolves); DICE SEQ rolls seeds (OCT+ keeps, OCT- puts back); DICE PROG makes a
+  progression by the genre's rules into the dice's slot; GENRE LIVE makes the engines' patterns again in the new
+  genre from the same seeds. **SEQ 8**: K1 SOURCE, K2 NEXT SEED, K3 the SEED of the pattern the track plays (turned:
+  another part at once), K4 its VARIATION.
+* **The ENERGY is the engines' own.** The machine's ENERGY (GLO 3 K1, the grid, RISER, DROP, the remote) fills and
+  empties what the engines made: a service makes one pattern a pass again at the new energy, the kicks first, and
+  writes only the steps that differ - a step written by hand stays. A higher energy only ADDS: the hits of a lower one
+  are all there, and a note that stays keeps its pitch. The journey's own thinning leaves these patterns alone.
+* **The rules.** TECHNO, HOUSE, DRUM+BASS, DUBSTEP and FREE are written by hand (`sagga_theory.c`). The other 21 genres
+  are **counted from the library itself** (`tools/theory/gen_rules.py` -> `sagga_theory_data.h`, the way of GESMI): the
+  variations of a part that are one pattern are a family; what nearly all of them play is always there (half of it at
+  every energy, the rest from energy 25), what some play has a weight; a variation of two bars gives a rule for the
+  bar and one for its answer; the levels and the rolls are the place's own; the tones of a bass are fitted to the
+  library's counts; the six progressions of a genre give the way its chords move. Measured against the library at
+  energy 50 (`tools/theory/compare.py`): 218 of 229 parts fall where the library's fall, a made bar is half a 16th from
+  the nearest written one on average, two bars of three are bars the library has.
+* **A project remembers** the SOURCE, the next seed and, for each pattern the engines made, what it was made from
+  (8 bytes: seed, style, part, variation and its size, energy): image chunk 2, written only when there is something
+  to say; a 0.22 firmware skips it and plays the patterns as written ones. UNDO, the dice's BACK, RELOAD and a copy
+  of a pattern keep it; a pattern pasted, doubled, cleared or loaded from the library is nobody's again.
+* **The grid**: the BEAT view's third row shows seeds where it showed variations (pads 11-16 six seeds, pad 10 the next
+  six; SHIFT: what the seed would make). **The tablet** (channel 12): CC 56 SOURCE (0 LIBRARY, 1 THEORY, 2 FREE), 57
+  NEXT SEED, 58 the track's SEED, 59 its VARIATION, with their values back to the hub; SAGGA Live has a row for them. **The Pi's editor** keeps the
+  records, marks a track whose pattern is the engines' with its seed, and forgets a record when it empties or moves
+  the pattern.
+* **A snapshot that brought a track's DIRECTION back left it off the bar.** Recalling a snapshot put a track in time
+  when its length, start or division changed, not when its DIRECTION did: BACKWARD played, a snapshot with FORWARD
+  recalled, and the track stayed a step away from where the bar says until the next STOP. So since 0.11, when a
+  snapshot learned to land in time. The explorer's random sessions found it; a test now.
+* **The explorer** explores the engines: five situations (TECHNO; REGGAETON with GENRE LIVE; SOURCE FREE with
+  four-bar patterns; AMAPIANO with the tablet and the grid; HOUSE on the MOSSE), the tablet's four new
+  commands, SEQ page 8, and a rule of its own (MOTORI: stopped, every pattern the engines know is at the machine's
+  energy) - checked by breaking the service on purpose.
 
-What was new in 0.21 and before: [storia/NOVITA.md](storia/NOVITA.md).
+Not verified on an FM-1: everything here ran in the simulator (the firmware itself, built for a computer). The size of
+the image grows by about 45 KB (the engines 12, the counted rules 30): it fits the FM-1's flash with room to spare, but
+the build that says so is GitHub's.
+
+What was new in 0.22 and before: [storia/NOVITA.md](storia/NOVITA.md).
 
 ## The FM-1 panel
 
@@ -122,6 +132,7 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 | 5 EXPO 2 | VEL FLAT, FALL, RISE, BOUNCE, GRACE (the first hit at 75 %) | GATE 5-100 % | JITTER 0-50 % | NOTES CHORD, ARP, ARP +1 .. +3 OCT |
 | 6 TOOLS | random density 0-100 % | **WHEN**: NOW, BAR, 2, 4, 8, 16 BARS | **EVERY**: OFF, 1, 2, 4, 8, 16, 32 BARS | **GENRE**: FREE, ON, LIVE |
 | **7 BREAK** (0.12) | **CHOP**: the re-order written over the loop (16, one a white key: STRAIGHT .. BUILD; UNDO takes it back) | **ROLLS** 0-7: how many steps the dice rolls | **SWAP** 0-100 %: how much of the bar the dice re-orders | **SLICES** 8 / 16 / 32 |
+| **8 THEORY** (0.23) | **SOURCE**: LIBRARY (the patterns are loaded), THEORY (they are made by the genre's rules), FREE (made by the rules of no genre) | **NEXT SEED** 1-999: the seed of the next BEAT, KIT, BAND | **TRACK SEED**: the seed of the pattern this track plays - turned, it is another part at once | **VARIATION** 0-99 of that pattern, its size HEAT (COOK walks there a step at a time) |
 
 (The harmony, SEQ 4 and SEQ 8 until 0.11, is **ARP 3-6**.)
 
@@ -148,14 +159,16 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 |---|---|
 | white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops; a MIDI FX READY on the track (HOME 6): it starts**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
 | black keys 1-11 | DICE SEQ (**held: DICE PROG**; on a BREAK: the backbone kept), DICE CC, DICE LFO, DICE GROOVE, DICE ALL, SCOPE (next; held + white keys: the CUSTOM tracks), KIT (**held: BAND**), DRIFT, EVOLVE on / off, FREEZE, REVERT |
-| SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** / **the genre** (of everything; the harmony follows only what is loaded) |
+| SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** (**0.23, SOURCE THEORY: the NEXT SEED**) / **the genre** (of everything; the harmony follows only what is loaded) |
 | SAVE | **the selected track's loop to the Pi** as a variation of its part (**ARP + SAVE**: the progression, the one being written on ARP 5 / 6, else the one playing) |
 
 BEAT on one track loads the part chosen at the LIBRARY length (KIT: the genre's drums; they become drum tracks; BAND:
 the genre's whole band, on the tracks with those roles, else on free tracks; channels are kept); pressed again, the
 next variation. A BASS or ARP loaded while HARMONY is on gets FOLLOW. A loaded track remembers where it came from:
 GENRE LIVE reloads it from the new genre at the bar line. The tools apply to the scope (the screen says on how many
-tracks).
+tracks). **0.23, SOURCE THEORY** (SEQ 8 K1): the part is not loaded, the engines make it from NEXT SEED in the genre's
+style (pressed again: the next seed; SOURCE FREE, or GENRE FREE: the style of no genre); COOK walks to the next variation of the
+pattern's own seed; the machine's ENERGY fills and empties it ([THEORY](#theory-the-engines-023)).
 
 ### Other controls
 
@@ -304,6 +317,30 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
 * **EVOLVE** every 1-16 bars, by the amount, around the seed (DRIFT: away from it); FREEZE, REVERT. Rhythm-heavy genres
   move the rhythm more, melodic ones the notes; on FOLLOW tracks the beats get chord tones of the tonic, the steps
   between move by step. A locked step (EDIT + black 1) never changes.
+
+## THEORY: the engines (0.23)
+
+SEQ 8 K1 chooses where BEAT, KIT, BAND, the dice and the proposals take a pattern from: the **LIBRARY** (the written
+variations, as until 0.22), the **THEORY** engines, which make it from the rules of the genre and a seed, or the engines
+**FREE** of the genre, which make it from the rules of no genre whatever the genre and its mode. In Italian,
+with what each engine does and why: [TEORIA.md](TEORIA.md); the rules of the 21 counted genres: [TEORIA-GENERI.md](TEORIA-GENERI.md).
+
+| | |
+|---|---|
+| a band, a kit, a part | BAND, KIT, BEAT as always: made from **NEXT SEED** (SEQ 8 K2, SEQ + ALG, the grid's BEAT view) in the genre's style; the next press takes the next seed. The screen: `REGGAETON BAND SEED 12: 9 TRACKS`, `TECHNO HAT SEED 3` |
+| another part on a track | SEQ 8 K3, the pattern's own seed: made again at once (the first turn is one UNDO) |
+| a variation | COOK walks the pattern towards variation n + 1 of its seed (`COOK HAT VAR 3 TO GO`, then `REACHED`), n + 2 after it; HEAT is how much of the part a variation makes again - up to 40 % the details, above it the big choices too (a motif's shape); the family of the part is the seed's and stays. SEQ 8 K4 goes there at once. A variation that would change nothing is passed over |
+| fuller, emptier | the machine's ENERGY (GLO 3 K1, the grid's energy row, RISER, DROP, remote CC 3 on channel 14, channel 13 CC 114): the patterns the engines made follow it, one a pass, the kicks first. Only the steps that differ between the two energies are written (a part that minds the kick - a rumble, a sub - is written whole) |
+| the dice | DICE SEQ: seeds of the dice on the scope (the rolls, OCT+ and OCT- as with the library); DICE PROG: a progression by the genre's rules in the DICE / PI slot, which plays |
+| the genre | GENRE LIVE: a new genre makes the engines' patterns again in its style from their seeds, at the bar |
+| no genre | **SOURCE FREE** (SEQ 8 K1, the click past THEORY): FREE's band (KICK SNARE HAT PERC BASS CHORD ARP LEAD; KIT: the first four) and its rules of no genre, no swing or groove of a genre, the tempo as it is; BEAT on several tracks (the scope) gives each the part of its ROLE - FREE has a rule for every role; DICE PROG rolls in any scale; a change of genre leaves the engines' patterns alone, GENRE LIVE or not (a track of the library takes the new genre's part from the library, as always). The screen: `FREE BAND SEED 3: 8 TRACKS`, `FREE HAT SEED 4`. **GENRE FREE** (SEQ 6 K4) does the same while the SOURCE is THEORY (the cell says THEORY, the line under it FREE); **HARMONY FREE** (ARP 4 K2) frees DICE PROG alone. A pattern keeps the style it was made in: the energy and COOK treat a FREE one as FREE until BEAT makes it again |
+| the length | the LIBRARY LENGTH (SAVE 2 K4): 16 steps a bar, 32 a bar and its answer, 64 the two again with the genre's fill in the last |
+
+What the engines know of a pattern (its seed, style, part, variation, energy) is kept with the pattern: saved with the
+project, restored by UNDO, RELOAD and the dice's BACK, copied with the pattern. A pattern that is pasted, doubled,
+cleared, recorded over by a tool that writes it whole or loaded from the library is nobody's again: the energy leaves
+it alone. A TAPE or BREAK track's pattern is never the engines'. With SOURCE LIBRARY the patterns the engines made
+earlier still follow the energy. The SOURCE is saved with the project (0 LIBRARY, 1 THEORY, 2 FREE).
 
 ## The journey and the MOSSE (VIAGGIO until 0.16)
 
@@ -531,7 +568,8 @@ then the steps (a 24-bit mask of the bytes that differ from an empty step, then 
 tail of chunks `tag len*2 data`, ended by a 0. Chunk 1 (0.13) holds what 0.13 added (RATE SEQ and TRIG, the CHAIN
 LISTs, MOTION, LIVE IN): 780 bytes, 796 from 0.15 (the GROOVE in two bytes that were reserved, the name at the end); it is
 written only when it is not at its defaults, and a firmware reads as much of it as it knows. A later version can add chunks; 0.11 skips the ones it does
-not know. An `SGQA` image is read with 80-byte tracks, 18-byte progressions (four) and 24-byte generators, the rest
+not know. Chunk 2 (0.23) is the THEORY engines': the SOURCE, the next seed (two bytes), a count, then ten bytes for each pattern the engines made
+(track, pattern, seed, style + 1 with the length in bits 5-6, part, variation, its size, energy, a reserved byte); written only when there is something to say. An `SGQA` image is read with 80-byte tracks, 18-byte progressions (four) and 24-byte generators, the rest
 put to what 0.10 did. SGQ3 .. SGQ9 images are refused.
 
 ## SAGGA REMOTE: the commands on MIDI channel 14
@@ -617,7 +655,8 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 25 | FOLLOW (a switch) | 26 / 27 | COOK, BEAT (taps; this track only, now) |
 | 28 | PROPOSAL (as SEQ + BEAT held) | 29 | QUEUE the proposal (as PRESETS) |
 | 30 | RETRIG | 31 / 32 | DICE SEQ, UNDO (taps; this track only) |
-| 40-55 | MUTE of track 1-16 (switches) | | |
+| 40-55 | MUTE of track 1-16 (switches) | 56 | **SOURCE** (0.23): 0 LIBRARY, 1 THEORY, 2 FREE (a higher value, a switch's "on": THEORY from LIBRARY, a SOURCE on FREE stays) |
+| 57 | NEXT SEED 0-127 (seeds 1-128) | 58 / 59 | the SEED 0-127 of the pattern the tablet's track plays (made again at once) / its VARIATION 0-99 |
 
 ### What goes back to the hub (0.18)
 
@@ -631,7 +670,8 @@ A value the tablet has just moved is left alone for 0.4 s (no fight with the han
 LENGTH past the pattern, an OCTAVE on a drum track) comes back corrected after that.
 
 * channel 12: CC 1-10, 12-15, 17-25 (the tablet's track as above), 40-55 (the mutes as meant: MUTE QUEUE's waiting ones
-  included, a BREAK's silence not);
+  included, a BREAK's silence not), 56-59 (0.23: THEORY, the next seed, the track's seed and variation - a seed past
+  128 shows as 128; nothing for a pattern that is not the engines');
 * channel 13: CC 33-48 (the patterns: the one queued, else the one playing), 49-64 (the lengths: the one waiting for
   the bar, else the length), 73-75 (0.21: the BREAK's SWAP, ROLLS and SLICES 0-2 of the tablet's track), 92-97 (the tablet's LFO), 101-106 (the tablet's track's lanes), 112 (the tablet's track),
   113 (its MODE), 114-118 (energy 0-127, genre, key, progression, HARMONY); notes 100-115 (the LFOs on / off: note on
@@ -651,6 +691,11 @@ In RaspiMIDIHub's matrix: the FM-1's port 2 ("Felucca MIDI 2") to the IN of each
 FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1 goes to the synths).
 
 ## Limits you should know
+
+* The THEORY engines (0.23): the parts do not listen to each other, the kick apart (a rumble avoids it, a sub leans on
+  it); 16ths in 4/4 only (triplets as rolls); a phrase is two bars (four bars: the two again, with the fill); a motif is
+  one voice and does not know the chord (FOLLOW moves it); the counted genres play like their library, not better. The
+  tablet reaches seeds 1-128, the panel all 999.
 
 * A TAPE note plays its note, velocity and length (with the track's transpose, key, mute, kill, INTENSITY and a positive
   DELAY): no conditions, ratchets, lanes or EXPO on a tape. A TAPE track's steps rest while it is a TAPE and are back

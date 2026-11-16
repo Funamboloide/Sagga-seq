@@ -29,6 +29,7 @@ table{border-collapse:collapse}td,th{padding:2px 5px;border-bottom:1px solid var
 @media (max-width:600px){.tr .lb{min-width:84px;max-width:84px;font-size:11px}main{padding:8px 6px 60px}}
 .chg{color:var(--sel)}.mono{font-family:ui-monospace,monospace}
 .c.ph{box-shadow:inset 0 0 0 2px #fff}.pp{font-style:normal;color:var(--warn);margin-left:4px}#pos{font-size:12px;color:#9cf}
+.thb{font-weight:normal;font-size:10px;color:#9cf}
 label.tg{display:inline-flex;gap:4px;align-items:center;font-size:13px;color:#ccc}
 .rollw{display:flex;border:1px solid var(--line);border-radius:6px;background:#0b0b0b;max-height:62vh;overflow:auto}
 .keys{position:sticky;left:0;z-index:2;background:#151515;flex:none;width:38px}.keys div{height:10px;font-size:9px;line-height:10px;color:#888;padding-left:3px;border-bottom:1px solid #1d1d1d}
@@ -309,10 +310,13 @@ function trackSel() { return '<select onchange="V.t=+this.value;keepView();rende
 
 function rTracce() {
   let on = 0, o = '<div class="row"><span>pattern</span>' + patSel() + '<label><input type="checkbox"' + (V.toggle ? ' checked' : '') + ' onchange="V.toggle=this.checked;keepView()"> un tocco accende / spegne</label>' +
-    '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') + '</small></div><div class="ov">';
+    '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') +
+    (P.th && P.th.src ? ' · sorgente ' + (P.th.src === 2 ? 'FREE (i motori, nessun genere)' : 'THEORY') + ' (prossimo seme ' + (P.th.seed + 1) + ')' : '') + '</small></div><div class="ov">';
   for (let t = 0; t < 16; t++) {
-    const c = P.track[t];
-    o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="impostazioni della traccia">' + h(trackLabel(t)) + '<i class="pp" id="pp' + t + '"></i></span>';
+    const c = P.track[t], m = thOf(t, V.pat);            // 0.23: a pattern the THEORY engines made says so, with its seed
+    o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="' +
+      (m ? 'fatto dai motori THEORY' + ((m.style & 31) === 26 ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano.' : 'impostazioni della traccia') +
+      '">' + h(trackLabel(t)) + (m ? ' <b class="thb">◆' + (m.seed + 1) + '</b>' : '') + '<i class="pp" id="pp' + t + '"></i></span>';
     if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + (TP[t] || []).length + ' note · <a href="#" onclick="V.tt=' + t + ';V.tab=\'tape\';keepView();render();return false">apri nella scheda Tape</a></span></div>'; continue; }
     for (let s = 0; s < 64; s++) {
       const st = getStep(t, V.pat, s), out = s < c.start || s >= c.length;
@@ -390,18 +394,26 @@ function rTraccia() {
     '<button class="warn" onclick="clearPat()">Svuota il pattern</button><button class="sec" onclick="shiftPat(-1)">◀ sposta</button><button class="sec" onclick="shiftPat(1)">sposta ▶</button></div>';
   return o;
 }
+// 0.23: what the THEORY engines know of a pattern they made (null: not theirs, or a project of before 0.23). A pattern
+// emptied or moved here is no longer what they made: they forget it (else the FM-1's ENERGY would write into it again);
+// a copy onto another pattern of the same track takes what they know with it.
+const TH_F = ['seed', 'style', 'func', 'var', 'vary', 'energy'];
+function thOf(t, p) { const m = P.thp && P.thp[t * 8 + p]; return m && (m.style & 31) ? m : null; }
+function thForget(t, p) { if (P.thp && P.thp[t * 8 + p]) for (const f of TH_F) set('thp', t * 8 + p, f, '-', 0); }
 function copyPat() {
   const t2 = +$('cpt').value, p2 = +$('cpp').value;
   if (t2 === V.t && p2 === V.pat) return status('stesso pattern');
   if (!confirm('Copio T' + (V.t + 1) + ' P' + (V.pat + 1) + ' sopra T' + (t2 + 1) + ' P' + (p2 + 1) + '?')) return;
   for (let s = 0; s < 64; s++) copyInto(t2 + ',' + p2 + ',' + s, clone(getStep(V.t, V.pat, s)));
+  if (t2 === V.t && thOf(V.t, V.pat)) { for (const f of TH_F) set('thp', t2 * 8 + p2, f, '-', P.thp[V.t * 8 + V.pat][f]); } else thForget(t2, p2);
   commit(); status('copiato in T' + (t2 + 1) + ' P' + (p2 + 1) + ' (Annulla lo toglie)'); render();
 }
-function clearPat() { if (!confirm('Svuoto T' + (V.t + 1) + ' P' + (V.pat + 1) + '?')) return; for (let s = 0; s < 64; s++) copyInto(V.t + ',' + V.pat + ',' + s, P.step_default); commit(); render(); }
+function clearPat() { if (!confirm('Svuoto T' + (V.t + 1) + ' P' + (V.pat + 1) + '?')) return; for (let s = 0; s < 64; s++) copyInto(V.t + ',' + V.pat + ',' + s, P.step_default); thForget(V.t, V.pat); commit(); render(); }
 function shiftPat(d) {
   const c = P.track[V.t], a = c.start, n = c.length - a; if (n < 2) return;
   const src = range(a, c.length - 1).map(s => clone(getStep(V.t, V.pat, +s)));
   for (let k = 0; k < n; k++) copyInto(V.t + ',' + V.pat + ',' + (a + ((k + d + n) % n)), src[k]);
+  thForget(V.t, V.pat);
   commit(); render();
 }
 

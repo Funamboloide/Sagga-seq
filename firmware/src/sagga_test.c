@@ -130,6 +130,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("scene", scene_cursor); pr_k("snap"); pr_d(snap_cur == 255u ? -1 : (int32_t)snap_cur);
     pr_k("mac"); pr_d(mac_vel); pr_c('/'); pr_d(mac_gate); pr_c('/'); pr_d(mac_swing); pr_c('/'); pr_d(mac_filt);
     pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
+    pr_ku("thsrc", project.th.src); pr_ku("thseed", project.th.seed); pr_ku("en", vg_energy_now());   /* 0.23 THEORY: the SOURCE, the next seed, the energy applied now */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);
     pr_kh("song#", &project.song, sizeof project.song); pr_kh("snaps#", project.snap, sizeof project.snap);
@@ -157,6 +158,10 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_ku("euc", c->euc_pulses); pr_c('/'); pr_u(c->euc_rot); pr_ku("algo", c->algo); pr_k("slots"); pr_xm(slots);
         pr_ku("mfx", c->mfx); pr_k("mfxon"); pr_x(project.ext.mfxc[t].on, 2u); pr_k("mfxnew"); pr_x(project.ext.mfxd[t].on, 2u); pr_ku("pat", tr[t].pattern + 1u); pr_ku("step", tr[t].step); pr_k("ok"); pr_s(ok);
         pr_ku("lenpend", len_pend[t]); pr_ku("src", c->src_genre); pr_c('/'); pr_u(c->src_func); pr_c('/'); pr_u(c->src_var);
+        {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
+            const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+            pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(m->vary); pr_c('/'); pr_u(m->energy);
+        }
         pr_kh("steps#", project.step[t][tr[t].pattern], sizeof project.step[t][0]);
         pr_kh("pats#", project.step[t], sizeof project.step[t]); pr_kh("cfg#", c, sizeof *c);
         pr_c('\n');

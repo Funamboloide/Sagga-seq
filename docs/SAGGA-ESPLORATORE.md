@@ -18,7 +18,9 @@ cosa cambia) e `build/explore/rapporto.json`.
    l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
-   tornano al hub sulla porta 2).
+   tornano al hub sulla porta 2). 0.23: **cinque con i motori THEORY**: una band TECHNO; una REGGAETON
+   (regole contate) con GENRE LIVE; SOURCE FREE (nessun genere) con pattern di quattro battute, ferma; una AMAPIANO con il tablet e il
+   grid; una HOUSE sulle MOSSE, dove RISER, DROP e l'energia riempiono e svuotano quello che i motori hanno fatto.
 2. **I gesti.** Quasi 5000: ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -53,6 +55,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 | MIDI | byte MIDI non validi |
 | MORTO | il firmware che si pianta, o (con i sanitizer) un errore di memoria |
 | RITORNO | una manopola girata di uno e poi indietro che non rimette la musica dov'era (da guardare) |
+| MOTORI | 0.23: da fermo, un pattern fatto dai motori THEORY che non è all'ENERGIA della macchina, o di cui i motori ricordano uno stile che non esiste |
 
 Le regole sono scritte in fondo al file, una funzione ciascuna, con le eccezioni volute (`HARM_OK`, `CH_OK`,
 `ACCETTATI`): aggiungerne una è qualche riga. Con i sanitizer trova anche gli errori di memoria:
@@ -93,6 +96,12 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   da fermo (la direzione, un dado rimesso) e poi CONTINUE (2 gesti: HOME 2 K1, SEL + PLAY); un RELOAD di una traccia a
   cui VIAGGIO aveva cambiato il loop (3 gesti: salva, HOME 8 ALG, SEL + SAVE). Corrette tutte; ognuna è una sessione di
   `t011_explorer_sessions`, che la rifà a ogni giro dei test.
+
+* **Sulla 0.23**, in una sessione delle situazioni nuove con i motori: uno **snapshot** richiamato dopo aver cambiato
+  la DIREZIONE di una traccia la lasciava uno step fuori dalla battuta (3 gesti: SAVE + SEL + nero 1, HOME 2 K1, SAVE +
+  nero 1). Non c'entrano i motori: succedeva in ogni situazione, dalla 0.11. Corretto; è il test
+  `t023_snapshot_direction`. La regola MOTORI è stata provata rompendo apposta il servizio dei motori in una copia del
+  firmware: 17 errori sulle MOSSE, zero sul firmware vero.
 
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.

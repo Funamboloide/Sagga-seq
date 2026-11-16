@@ -576,14 +576,21 @@ static void ui_build(void)
             ui_cell(1, "TOOLS WHEN", WN[g->when < SQ_WHENS ? g->when : 0u], g->when ? C_ACCENT : C_WHITE);
             ui_cell(2, "EVERY", EN[g->every < SQ_EVERYS ? g->every : 0u], g->every ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "GENRE", GN[g->genre_mode < SQ_GMS ? g->genre_mode : 1u], g->genre_mode == SQ_GM_FREE ? SQ_C_DIM : C_ACCENT);
-        } else {                                     /* 0.12 BREAK: the chop, the dice's rolls and swap, the slices */
+        } else if (seq_page == 6u) {                 /* 0.12 BREAK: the chop, the dice's rolls and swap, the slices */
             uint8_t bon = track_break(t);
             ui_cell(0, "CHOP", sq_brk_chop(cfg->brk_chop)->name, bon ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "DICE ROLLS", f_u(SQ_BRK_ROLL(cfg->brk_cfg)), bon ? C_WHITE : SQ_C_DIM);
             ui_cell(2, "DICE SWAP", f_pct((uint32_t)SQ_BRK_SWAP(cfg->brk_cfg) * 100u / 7u), bon ? C_WHITE : SQ_C_DIM);
             ui_cell(3, "SLICES", f_u(SQ_BRK_SLICES(SQ_BRK_SL(cfg->brk_cfg))), bon ? C_WHITE : SQ_C_DIM);
+        } else {                                     /* 0.23 THEORY: where the patterns come from, the next seed; this track's */
+            const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+            uint8_t on = project.th.src != SQ_SRC_LIBRARY ? 1u : 0u;
+            ui_cell(0, "SOURCE", project.th.src == SQ_SRC_FREE ? "FREE" : on ? "THEORY" : "LIBRARY", on ? C_ACCENT : C_WHITE);   /* (THEORY while the GENRE mode is FREE: the line below says FREE) */
+            ui_cell(1, "NEXT SEED", f_u((uint32_t)project.th.seed + 1u), on ? C_WHITE : SQ_C_DIM);
+            ui_cell(2, "TRACK SEED", m->style ? f_u((uint32_t)m->seed + 1u) : "-", m->style ? C_WHITE : SQ_C_DIM);
+            ui_cell(3, "VARIATION", m->style ? f_u(m->var) : "-", !m->style ? SQ_C_DIM : m->var ? C_ACCENT : C_WHITE);
         }
-        p = b; p = put_s(p, "SEQ "); p = put_u(p, (uint32_t)seq_page + 1u); p = put_s(p, "/7 ");
+        p = b; p = put_s(p, "SEQ "); p = put_u(p, (uint32_t)seq_page + 1u); p = put_s(p, "/8 ");
         if (seq_page == 3u || seq_page == 4u) {
             p = put_s(p, cfg->expo.shape ? "EXPO ON: THE CURVE IS THE RHYTHM" : "EXPO OFF: TURN A KNOB");
         } else if (seq_page == 1u) {                        /* 0.11: the four slots, the one shown marked */
@@ -598,6 +605,9 @@ static void ui_build(void)
             p = put_s(p, "TOOLS: WHEN THEY APPLY, HOW OFTEN");
         } else if (seq_page == 6u) {
             p = put_s(p, track_break(t) ? "BREAK  ARP+KEYS: SLICES, BLACK: ROLL.." : "BREAK: HOME 4 K1 MAKES THE TRACK ONE");
+        } else if (beat_func != SQ_FUNC_PROG && th_style_now(beat_genre) != 255u) {   /* 0.23 THEORY: the part and the seed it will be made from */
+            p = put_s(p, th_style_now(beat_genre) == SQ_TH_FREE ? "FREE" : sq_genre_name(beat_genre)); p = put_s(p, " "); p = put_s(p, sq_func_name(beat_func));
+            p = put_s(p, " SEED "); p = put_u(p, (uint32_t)project.th.seed + 1u);
         } else {
             p = put_s(p, sq_genre_name(beat_genre)); p = put_s(p, " "); p = put_s(p, sq_func_name(beat_func));
             if (nv && beat_var >= nv) { p = put_s(p, " #"); p = put_u(p, (uint32_t)beat_var + 1u); p = put_s(p, "/"); p = put_u(p, nv); p = put_s(p, "+PI"); }   /* 0.11 */

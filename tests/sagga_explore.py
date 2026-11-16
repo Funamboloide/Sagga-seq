@@ -49,7 +49,7 @@ BAR_MS = 4 * 24 * S.TICK_US / 1000.0          # a bar at 128 BPM, 1875 ms
 BTN_NAME = {S.OCT_DOWN: "OCT-", S.OCT_UP: "OCT+", S.FX: "FX", S.SEL: "SEL", S.ENV: "ENV", S.LFO: "LFO", S.EDIT: "EDIT",
             S.GLO: "GLO", S.HOME: "HOME", S.SAVE: "SAVE", S.ARP: "ARP", S.SEQ: "SEQ", S.PLAY: "PLAY", S.REC: "REC"}
 ENC_NAME = {S.E_SEL: "SELECT", S.E_ALG: "ALG", S.K1: "K1", S.K2: "K2", S.K3: "K3", S.K4: "K4", S.E_PRE: "PRESETS"}
-PAGES = {S.HOME: 8, S.SEQ: 7, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 3}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD
+PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 3}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
 MODS = [S.HOME, S.SEQ, S.ENV, S.LFO, S.ARP, S.SAVE, S.FX, S.SEL, S.EDIT, S.GLO]
 SEL_MODS = (S.HOME, S.SEQ, S.EDIT, S.FX, S.GLO, S.SAVE)    # the groups with SEL + knob variants (0.12: EDIT notes, FX throws, GLO tempo, SAVE 3 reconnect)
 
@@ -286,7 +286,8 @@ def g_ctl(c, shift=False):
 TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5)), (6, "SWING", (58, 66)), (7, "GROOVE", (1, 3)),
              (8, "GROOVE AMT", (40,)), (9, "MIDI FX", (3, 1)), (10, "FX AMOUNT", (14, 9)), (12, "ALGO", (1, 2)), (13, "A", (40,)),
              (14, "B", (90,)), (15, "C", (127,)), (17, "PULSES", (3, 7)), (18, "ROTATION", (2,)), (20, "ARP", (1, 8)),
-             (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13))]
+             (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13)),
+             (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40))]   # 0.23: the THEORY engines
 TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
 TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO")]
 
@@ -564,6 +565,59 @@ def sit_tablet2(s):                                         # ... with USB PORTS
     return _play(s, t + 100)
 
 
+def _theory(s, t):
+    """0.23: SEQ 8 K1, the SOURCE on THEORY - BEAT, KIT, BAND and the dice MAKE their patterns; back on SEQ 1"""
+    t = S.pg(s, t, S.SEQ, 7, [(S.K1, 1)])
+    return S.pg(s, t, S.SEQ, 0)
+
+
+def sit_theory_techno(s):
+    """0.23: THEORY, a TECHNO band the engines made (rules written by hand), in play"""
+    t = _theory(s, 200)
+    t = _band(s, t)
+    return _play(s, t + 100)
+
+
+def sit_theory_live(s):
+    """0.23: THEORY, REGGAETON (rules counted from the library), GENRE LIVE (a change of genre makes the band again), in play"""
+    t = _genre(s, 200, 10)
+    t = _theory(s, t)
+    t = S.tools_knobs(s, t, [(S.K4, 1)])                    # TOOLS (SEQ 6): GENRE ON -> LIVE
+    t = S.pg(s, t, S.SEQ, 0)
+    t = _band(s, t)
+    return _play(s, t + 100)
+
+
+def sit_theory_free(s):
+    """0.23: the SOURCE on FREE (SEQ 8 K1, two clicks: the engines with the rules of no genre): a band of no genre, four
+    bars a pattern (LIBRARY LENGTH 64: the answers, the fills), stopped"""
+    t = S.pg(s, 200, S.SAVE, 1, [(S.K4, 2)])
+    t = S.pg(s, t, S.SAVE, 0)
+    t = S.pg(s, t, S.SEQ, 7, [(S.K1, 2)])                   # LIBRARY -> THEORY -> FREE
+    t = S.pg(s, t, S.SEQ, 0)
+    return _band(s, t) + 100
+
+
+def sit_theory_mosse(s):
+    """0.23: THEORY, a HOUSE band, the MOSSE (SEL + GLO): the journey's moves - RISER, DROP, the energy - fill and empty
+    what the engines made; in play"""
+    t = _genre(s, 200, 3)
+    t = _theory(s, t)
+    t = _band(s, t)
+    s.press(t, S.SEL); s.tap_btn(t + 30, S.GLO); s.release(t + 90, S.SEL); t += 150
+    return _play(s, t)
+
+
+def sit_theory_tablet(s):
+    """0.23: THEORY, an AMAPIANO band (counted rules, eleven parts), the tablet and the grid, in play"""
+    s.press(150, S.SAVE); s.enc(180, S.K2, 1); s.release(250, S.SAVE)
+    s.raw(300, "attach")
+    t = _genre(s, 400, 17)
+    t = _theory(s, t)
+    t = _band(s, t)
+    return _play(s, t + 100)
+
+
 SITUAZIONI = [
     Situazione("vuoto, fermo", sit_vuoto, band=False),
     Situazione("vuoto, in play", sit_vuoto_play, band=False),
@@ -582,6 +636,11 @@ SITUAZIONI = [
     Situazione("grid attaccato, band in play", sit_grid, grid=True),
     Situazione("0.18 tablet e grid, band in play", sit_tablet, grid=True, tablet=True),
     Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),
+    Situazione("0.23 THEORY: TECHNO band dei motori, in play", sit_theory_techno),
+    Situazione("0.23 THEORY: REGGAETON (regole contate), GENRE LIVE, in play", sit_theory_live),
+    Situazione("0.23 THEORY: SOURCE FREE (nessun genere), pattern di 4 battute, fermo", sit_theory_free),
+    Situazione("0.23 THEORY: AMAPIANO, tablet e grid, in play", sit_theory_tablet, grid=True, tablet=True),
+    Situazione("0.23 THEORY: HOUSE, le MOSSE (RISER, DROP, energia), in play", sit_theory_mosse),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -797,6 +856,8 @@ REGOLE = {
     "MORTO": ("ERRORE", "il firmware non muore (crash, errore di memoria con i sanitizer)"),
     "RITORNO": ("DA GUARDARE", "una manopola girata di uno e poi indietro di uno rimette la musica dov'era (in almeno uno dei "
                                "due versi: in fondo alla scala un verso non si muove)"),
+    "MOTORI": ("ERRORE", "0.23: da fermo ogni pattern fatto dai motori THEORY e' all'ENERGIA della macchina (lo riempie e lo svuota "
+                         "il servizio dei motori, qualunque gesto sia stato fatto), e cio' che i motori sanno di lui e' uno stile che esiste"),
 }
 
 
@@ -904,6 +965,18 @@ def _check(sit, g, base, br, null, findings, off):
         hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
             findings.append(Finding("NOTE APPESE", "ERRORE", sit.name, name, ", ".join(hung[:8]) + (" ..." if len(hung) > 8 else "")))
+    # MOTORI (0.23): stopped, the engines' patterns are at the machine's energy; a record is of a style there is
+    if pf["G"].get("play") == "0" and "en" in pf["G"]:
+        stale = []
+        for t in range(1, 17):
+            tp = pf.get("T%d" % t, {})
+            th = (tp.get("th") or "0/0/0/0/0").split("/")
+            if len(th) != 5 or not th[0].isdigit() or int(th[0]) > 26:
+                stale.append("T%d: th=%s" % (t, tp.get("th")))
+            elif th[0] != "0" and tp.get("mode") not in ("T", "B") and th[4] != pf["G"]["en"]:
+                stale.append("T%d: fatto a energia %s, la macchina e' a %s" % (t, th[4], pf["G"]["en"]))
+        if stale:
+            findings.append(Finding("MOTORI", "ERRORE", sit.name, name, "; ".join(stale[:6])))
     # CLOCK: the ticks between the fork and the STOP, as many as the branch that did nothing
     if base_playing and null and probes[0]["G"].get("play") == "1" and probes[1]["G"].get("play") == "1" \
             and probes[0]["G"].get("bpm") == base["G"].get("bpm") and g.kind != "trasporto" and "MASTER" not in name:
@@ -1253,7 +1326,7 @@ def main(argv):
     global EMPTY_ROW
     ap = argparse.ArgumentParser(description="SAGGA SEQ, l'esploratore")
     ap.add_argument("--veloce", action="store_true", help="poche situazioni e i gesti principali (per la suite dei test)")
-    ap.add_argument("--solo", help="solo questa situazione")
+    ap.add_argument("--solo", help="solo questa situazione (il nome intero, o un pezzo: tutte quelle che lo contengono)")
     ap.add_argument("--gesto", help="solo questo gesto (con --solo e --vedi: tutto quello che fa)")
     ap.add_argument("--vedi", action="store_true", help="mostra un gesto per intero")
     ap.add_argument("--coppie", type=int, default=None, help="quante coppie di gesti per situazione (0: nessuna)")
@@ -1340,9 +1413,10 @@ def main(argv):
                 pass
     if not a.no_build:
         build()
-    sits = SITUAZIONI if not a.veloce else [SITUAZIONI[0], SITUAZIONI[2], SITUAZIONI[3], SITUAZIONI[5], SITUAZIONI[10]]
+    sits = SITUAZIONI if not a.veloce else [SITUAZIONI[0], SITUAZIONI[2], SITUAZIONI[3], SITUAZIONI[5], SITUAZIONI[10],
+                                            SITUAZIONI[18]]     # (0.23: + THEORY with counted rules and GENRE LIVE)
     if a.solo:
-        sits = [x for x in SITUAZIONI if x.name == a.solo]
+        sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:
             print("situazioni: " + "; ".join(x.name for x in SITUAZIONI)); return 2
     gestures = catalogo(veloce=a.veloce, grid=any(x.grid for x in sits), tablet=any(x.tablet for x in sits))

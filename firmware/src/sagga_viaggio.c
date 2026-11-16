@@ -201,6 +201,7 @@ static uint8_t vg_density_hit(uint32_t t, uint8_t on, uint32_t rel, uint32_t h, 
     uint8_t dens = vg_fx.density;
     if (!vg_on() || sq_track_algo_any(&project.track[t], SQ_ALGO_DENSITY)) return on;   /* (0.11: any slot) */
     if (!track_has_notes(t)) return on;                              /* 0.9.1: no ghosts on a track with nothing in it */
+    if (project.th.pat[t][tr[t].pattern].style) dens = 100u;         /* 0.23: a pattern of the engines fills and empties itself (th_service) */
     if (vg_fill && vg_bars() && vg_bar + 1u >= vg_bars()) {           /* the FILL bar: ghost hits on every track, more
                                                                           * in its second half (the patterns' own FILL
                                                                           * conditions play too: fill_active) */
@@ -299,6 +300,7 @@ static void vg_tira(uint8_t t, uint8_t dice)
         const sq_afro_t *a = sq_afro((uint8_t)(dice ? grand(SQ_AFRO_N) : vg_tira_n[t] % SQ_AFRO_N));
         n = sq_beat_load_text(project.step[t][pat], a->text, 0, SQ_FUNC_PERC, PEN(t));
         if (n) {
+            th_forget(t, pat);                          /* 0.23 */
             beat_cfg_for(&project.track[t], genre, SQ_FUNC_PERC, n, PEN(t), &cfg);
             if (a->steps == 12u) cfg.length = 12u;
         }
@@ -309,6 +311,7 @@ static void vg_tira(uint8_t t, uint8_t dice)
         /* the energy chooses the variant: low energy the first (the simplest), high the last; the dice any */
         var = dice ? (uint8_t)grand(nv) : (uint8_t)(((uint32_t)vg_energy_cur * nv) / 101u);
         if (!dice && vg_tira_n[t]) var = (uint8_t)((var + vg_tira_n[t]) % nv);
+        if (th_style_now(genre) != 255u) var = dice ? (uint8_t)(1u + grand(250u)) : vg_tira_n[t];   /* 0.23 THEORY: a seed (the energy is the engines' own matter) */
         n = beat_onto_x(t, pat, genre, fn, var, 0u, &cfg);
         if (!n) return;
     }
@@ -1111,6 +1114,7 @@ static void rg_frase_apply(void)
     if (locked || vg_rec_t == t) { rg_risposta(t, 2u); return; }
     undo_begin();
     undo_add(t, pat);
+    th_forget(t, pat);                                  /* 0.23 */
     for (i = 0; i < len; i++) if (!(row[i].flags & SQ_STEP_LOCK)) sq_step_default(&row[i]);
     for (i = 0; i < rg_frase_n; i++) {
         sq_step_t *s = &row[rg_frase[i][0]];

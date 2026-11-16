@@ -544,6 +544,41 @@ typedef struct __attribute__((packed)) sq_ext_s {
 #define SQ_EXT_018 796u          /* ... a 0.15 - 0.18 image */
 #define SQ_EXT_019 1004u         /* ... a 0.19 image */
 #define SQ_CHUNK_EXT 1u          /* the image's chunk of sq_ext_t */
+
+/* 0.23 THEORY: a pattern can be MADE by the engines (sagga_theory.h) from the rules of a style instead of loaded from
+ * the library. The project keeps where its patterns come from, the seed of the next one, and for every pattern the
+ * engines made what it was made from - so it can be made again at another energy, or walked to its next variation. */
+#define SQ_TH_FREE 25u           /* a style is a genre of the library (SQ_GENRE_* of sagga_beats.h: 0..24), or FREE: no genre */
+#define SQ_TH_STYLES 26u
+#define SQ_TH_SEEDS 999u         /* the seeds of the FM-1: 0..998 (the screen shows 1..999) */
+enum { SQ_SRC_LIBRARY = 0,      /* the patterns are loaded from the library */
+       SQ_SRC_THEORY,           /* ... made by the engines, in the style of the genre (of no genre while the GENRE mode is FREE) */
+       SQ_SRC_FREE,             /* ... made by the engines in the style of NO genre, whatever the genre and its mode */
+       SQ_SRCS };
+typedef struct __attribute__((packed)) {
+    uint16_t seed;               /* the seed it was made from */
+    uint8_t style;               /* 0: not the engines' (written by hand, loaded from the library). Else bits 0-4: 1 +
+                                  * the style; bits 5-6: the length it was made at, 0 = 16 steps, 1 = 32, 2 = 64 */
+    uint8_t func;                /* the part it is: SQ_FUNC_* (sagga_beats.h) */
+    uint8_t var;                 /* the variation of the seed it is (0: the seed's own; COOK walks to the next) */
+    uint8_t vary;                /* how large that variation is, 0..100 % */
+    uint8_t energy;              /* the energy it was made at, 0..100 */
+    uint8_t reserved;
+} sq_thpat_t;                    /* 8 bytes */
+#define SQ_THP_STYLE(m) ((uint8_t)(((m)->style & 31u) - 1u))            /* the style of a pattern the engines made */
+#define SQ_THP_LEN(m)   ((uint8_t)(16u << (((m)->style >> 5) & 3u)))    /* 16, 32, 64 */
+#define SQ_THP_PACK(style, len) ((uint8_t)(((style) + 1u) | ((len) >= 64u ? 0x40u : (len) >= 32u ? 0x20u : 0u)))
+typedef struct __attribute__((packed)) {
+    uint8_t src;                 /* SQ_SRC_*: where BEAT, KIT, BAND, the proposals, the dice and GENRE LIVE take patterns from */
+    uint8_t reserved;
+    uint16_t seed;               /* 0..SQ_TH_SEEDS-1: the seed of the next band, the next part */
+    sq_thpat_t pat[SQ_TRACKS][SQ_PATTERNS];
+} sq_theory_t;                   /* 1028 bytes */
+#define SQ_CHUNK_TH 2u           /* the image's chunk of it: src, seed (2), n, then n x (track, pattern, sq_thpat_t): only the
+                                  * patterns the engines made; no chunk when there is nothing to say (a 0.22 firmware skips it) */
+void sq_theory_default(sq_theory_t *h);
+void sq_theory_sanitize(sq_theory_t *h);
+void sq_thpat_sanitize(sq_thpat_t *m);
 void sq_ext_default(sq_ext_t *x);
 void sq_ext_sanitize(sq_ext_t *x);
 /* RATE SEQ: the rate an LFO has at clock tick `tick` (24 a beat), and the tick its cycle counts from (a new rate starts it) */
@@ -832,6 +867,7 @@ struct sq_project {
     sq_snap_t snap[SQ_SNAPS];
     sq_viaggio_t viaggio;        /* 0.9 */
     sq_ext_t ext;                /* 0.13: chunk 1 of the image */
+    sq_theory_t th;              /* 0.23: chunk 2 of the image */
     uint16_t tape_cnt[SQ_TRACKS];                /* events of each track, in tape_ev one track after the other */
     uint16_t tape_n;                             /* events in tape_ev in all (the sum of tape_cnt) */
     uint16_t tape_reserved;                      /* (keeps the struct a multiple of 4: no padding bytes to compare) */
@@ -1133,6 +1169,8 @@ void sq_brk_backwards(sq_step_t *row, uint8_t start, uint8_t length);
 /* RELOAD: one track's settings and one of its patterns, as an image has them (the rest of the image is not read);
  * 0 = ok, both sanitised */
 int sq_image_track(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row);
+/* 0.23: ... and what the engines knew of the pattern (th->style 0: nothing: it was not theirs) */
+int sq_image_track_th(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row, sq_thpat_t *th);
 /* returns the number of bytes written, or 0 if `cap` is too small */
 uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap);
 /* 0 = ok; the project is rebuilt from the image and sanitised */

@@ -16,6 +16,9 @@
  *   CC 24 CHORD 0-31   25 FOLLOW (a switch)
  *   CC 26 COOK   27 BEAT   28 PROPOSAL   29 THE PROPOSAL QUEUED   30 RETRIG   31 DICE   32 UNDO   (taps; this track only)
  *   CC 40-55 MUTE of track 1-16 (switches)
+ *   CC 56 SOURCE 0-2 (0.23: LIBRARY, THEORY - BEAT / KIT / BAND / the dice MAKE their patterns by the genre's rules -,
+ *   FREE - by the rules of no genre; a higher value, a switch's "on": THEORY from LIBRARY)   57 NEXT SEED 0-127
+ *   (seeds 1-128)   58 the SEED of the pattern its track plays 0-127 (made again at once)   59 its VARIATION 0-99
  *
  *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
  *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it
@@ -191,6 +194,14 @@ static void live12_cc(uint8_t cc, uint8_t v)
         ui_dirty = grid_dirty = 1u;
         return;
     case 25u: follow_set(t, on); return;
+    /* 0.23 THEORY: what SEQ 8 does at the panel, with values in the place of turns (the tablet's track) */
+    case 56u:                                          /* (0 LIBRARY, 1 THEORY, 2 FREE; more - a switch's "on": the engines, THEORY from LIBRARY) */
+        th_knobs(t, (int32_t)(v < SQ_SRCS ? v : project.th.src == SQ_SRC_LIBRARY ? SQ_SRC_THEORY : project.th.src) - (int32_t)project.th.src, 0, 0, 0, 1, 1);
+        ui_dirty = grid_dirty = 1u;
+        return;
+    case 57u: th_knobs(t, 0, (int32_t)v - (int32_t)project.th.seed, 0, 0, 1, 1); ui_dirty = grid_dirty = 1u; return;
+    case 58u: th_knobs(t, 0, 0, (int32_t)v - (int32_t)project.th.pat[t][tr[t].pattern].seed, 0, 1, 1); ui_dirty = grid_dirty = 1u; return;
+    case 59u: th_knobs(t, 0, 0, 0, (int32_t)(v > 99u ? 99u : v) - (int32_t)project.th.pat[t][tr[t].pattern].var, 1, 1); ui_dirty = grid_dirty = 1u; return;
     default: break;
     }
     if (!on) return;                                    /* the taps: at the press */
@@ -222,6 +233,7 @@ static const fb_one_t FB_ONES[] = {
     {TB_CH, 9, 0}, {TB_CH, 10, 0}, {TB_CH, 12, 0}, {TB_CH, 13, FBF_SCALED}, {TB_CH, 14, FBF_SCALED}, {TB_CH, 15, FBF_SCALED},
     {TB_CH, 17, 0}, {TB_CH, 18, 0}, {TB_CH, 19, 0}, {TB_CH, 20, 0}, {TB_CH, 21, 0}, {TB_CH, 22, 0}, {TB_CH, 23, 0},
     {TB_CH, 24, 0}, {TB_CH, 25, 0},
+    {TB_CH, 56, 0}, {TB_CH, 57, 0}, {TB_CH, 58, 0}, {TB_CH, 59, 0},      /* 0.23 THEORY: the SOURCE, the next seed, the track's seed and variation */
     {12, 92, 0}, {12, 93, 0}, {12, 94, 0}, {12, 95, 0}, {12, 96, 0}, {12, 97, 0},
     {TB_CH, FB_E_LANE1, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
     {12, 112, 0}, {12, 113, 0}, {12, 114, FBF_SCALED}, {12, 115, 0}, {12, 116, 0}, {12, 117, 0}, {12, 118, 0},
@@ -285,6 +297,10 @@ static uint8_t fb_value(uint32_t k)
         case 23: return arp_run_of(c);
         case 24: return c->chord;
         case 25: return (c->flags & SQ_TF_FOLLOW) ? 127u : 0u;
+        case 56: return project.th.src;
+        case 57: return u7(project.th.seed);            /* (the page's knobs hold seeds 1-128: a higher one shows as 128) */
+        case 58: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].seed) : 255u;
+        case 59: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].var) : 255u;
         case FB_E_SWING: return c->swing;
         case FB_E_QUANT: return project.live.remote_ch == SQ_REMOTE_OFF ? 255u : project.live.quant;
         case FB_E_LANE1: return c->lane_base[0] <= 127u ? c->lane_base[0] : 255u;

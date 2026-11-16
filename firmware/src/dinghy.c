@@ -31,11 +31,12 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.22"
+#define SQ_VERSION "0.23"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
+#include "sagga_theory.c"                              /* 0.23: the THEORY engines - a part made from the rules of a style */
 _Static_assert(BRK_GENRES == SQ_GENRES, "a BREAK chop list for every genre of the library (sagga_seq_core.c BRK_GENRE)");
 
 /* 0.11 the PC test (sagga_test.c): the buttons, keys and knobs the PC presses, beside the hands' (which stop it). The app
@@ -162,6 +163,7 @@ static uint8_t ext_out[128];               /* ... and the note that went out for
 #define PEN(t) (project.track[t].pen)          /* what a new step plays, per track (0.8: saved with the track) */
 static uint8_t undo_valid, undo_track[U_ROWS], undo_pat[U_ROWS], undo_len[U_ROWS], undo_start[U_ROWS];
 static uint16_t undo_txn[U_ROWS];                    /* the edit each row belongs to (0: free) */
+static sq_thpat_t undo_th[U_ROWS];                   /* 0.23: what the engines knew of the row (it comes back with it) */
 static uint16_t u_cur, u_top, u_seq;                 /* the edit being recorded; the newest one UNDO takes; the counter */
 static uint8_t seq_page;                   /* SEQ + K1..K4: Euclid / random / heat, then scope and EVOLVE, then harmony */
 static uint32_t sq_midi_in_n;              /* MIDI messages received (the diagnostics page counts them a second) */
@@ -3687,7 +3689,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
     if (d1 || d2 || d3 || d4) ui_dirty = grid_dirty = 1u;
 }
 #define HOME_PAGES 8u                                  /* 0.13: 8 CHAIN LIST */
-#define SEQ_PAGES 7u
+#define SEQ_PAGES 8u
 #define ARP_PAGES 6u
 #define SAVE_PAGES 4u                                  /* 0.13: 4 LIVE IN */
 #define PERF_PAGES 3u
@@ -3921,6 +3923,10 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
     }
     if (dalg) {
         if (held & (1u << BTN_HOME)) set_loop_start(selected_track, change_u8(cfg->start, dalg, 0u, 63u));
+        else if ((held & (1u << BTN_SEQ)) && beat_func != SQ_FUNC_PROG && th_style_now(beat_genre) != 255u) {   /* 0.23 THEORY: SEQ + ALG the seed */
+            project.th.seed = (uint16_t)kstep(project.th.seed, dalg, fa, 0, (int32_t)SQ_TH_SEEDS - 1);
+            ui_dirty = grid_dirty = 1u;
+        }
         else if (held & (1u << BTN_SEQ)) {                                     /* SEQ + ALG: the variation (0.11: on into the Pi's) */
             uint8_t nv = sq_beat_variants(beat_genre, beat_func), npi = pipat_count(beat_genre, beat_func);
             beat_var = nv ? (uint8_t)clamp_i32((int32_t)beat_var + dalg, 0, (int32_t)nv + npi - 1) : 0u;
@@ -4194,8 +4200,10 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d2) { g->when = change_u8(g->when, d2, 0u, SQ_WHENS - 1u); status_msg(g->when ? "TOOLS WAIT FOR THE BAR LINE" : "TOOLS APPLY AT ONCE"); }
             if (d3) { g->every = change_u8(g->every, d3, 0u, SQ_EVERYS - 1u); every_arm(); }
             if (d4) { g->genre_mode = change_u8(g->genre_mode, d4, 0u, SQ_GMS - 1u); genre_mode_note(); }
-        } else {                                                          /* 0.12 BREAK: the chop, the rolls, how much the dice swaps, the slices */
+        } else if (seq_page == 6u) {                                      /* 0.12 BREAK: the chop, the rolls, how much the dice swaps, the slices */
             break_knobs(t, d1, d2, d3, d4, f2, f3);
+        } else {                                                          /* 0.23 THEORY: the source, the next seed; this track's seed and variation */
+            th_knobs(t, d1, d2, d3, d4, f2, f3);
         }
         if (d1 || d2 || d3 || d4) ui_dirty = grid_dirty = 1u;
     } else if (held & (1u << BTN_SEL)) {                                  /* the mix of the track */
@@ -4596,6 +4604,75 @@ static void app_host_probe(void)
     }
 }
 
+/* the simulator: "T theory STYLE SEED VAR VARY ENERGY PAT" - a band MADE by the THEORY engines, for the tools that
+ * write out what they make (tools/theory/render.py) and for the tests. PAT 0: a new band - the SOURCE on THEORY, the
+ * style's genre (FREE: GENRE FREE), a key of the seed's, the genre's tempo, four progressions of the style in USER 1-4
+ * with the HARMONY on USER 1, the machine's ENERGY, the band onto tracks 1.. as BAND makes it. PAT 1-7: pattern PAT + 1
+ * of the same tracks made from the seed, the variation and the energy given, and scene PAT + 1 plays it.
+ * "T scene N [K]": scene N + 1 (K: with the player's progression K + 1). "T energy E": the machine's energy, at once. */
+static void app_host_theory(int packed, int seed)
+{
+    uint8_t style = (uint8_t)(packed & 31), pat = (uint8_t)((packed >> 5) & 15), energy = (uint8_t)((packed >> 9) & 127);
+    uint8_t vary = (uint8_t)((packed >> 16) & 127), var = (uint8_t)((packed >> 24) & 127), g, t, k, n, funcs[SQ_TH_BAND_MAX];
+    uint16_t lo, hi, sd = (uint16_t)((uint32_t)seed % SQ_TH_SEEDS);
+    if (style >= SQ_TH_STYLES || pat >= SQ_PATTERNS) return;
+    g = sq_th_genre(style);
+    if (g >= SQ_GENRES) g = beat_genre;                 /* (FREE has no genre: the one that is set stays, and gives the kit its notes) */
+    n = sq_th_band(style, funcs);
+    if (n > SQ_TRACKS) n = (uint8_t)SQ_TRACKS;
+    project.th.src = SQ_SRC_THEORY;
+    if (pat == 0u) {
+        sq_th_t p;
+        memset(&p, 0, sizeof p);
+        p.style = style; p.seed = sd;
+        project.key_scale = sq_th_scale(&p);
+        project.key_root = sq_th_root(&p);
+        key_sync_slot();
+        beat_genre = g; project.gen.genre = g;
+        project.gen.genre_mode = style == SQ_TH_FREE ? SQ_GM_FREE : SQ_GM_ON;
+        sq_genre_bpm(g, &lo, &hi);
+        project.bpm = (uint16_t)(style == SQ_TH_FREE ? 120u : (lo + hi) / 2u);
+        knob_live = 0u; knob_ref = fm1_knob;
+        project.gen.lib_len = SQ_LL_64;
+        p.scale = project.key_scale; p.energy = energy;
+        for (k = 0; k < SQ_UPROGS; k++) {                /* USER 1: the seed's own chords; 2-4: three more of the style */
+            p.var = k; p.vary = (uint8_t)(k ? 100u : 0u);
+            sq_th_prog(&project.uprog[k], &p);
+        }
+        project.gen.harm_on = 1u;
+        project.gen.harm_bars = 0u;
+        project.viaggio.energy = energy > 100u ? 100u : energy;
+        vg_energy_from = project.viaggio.energy;
+        vg_energy_apply(project.viaggio.energy);
+        project.th.seed = sd;
+        for (t = 0; t < n; t++) {
+            PEN(t) = sq_part_note(g, funcs[t]);
+            beat_onto_x(t, 0u, g, funcs[t], 0u, 1u, 0);
+            activate_row(t, project.step[t][0]);
+        }
+        project.gen.harm_prog = (uint8_t)SQ_PROGS;
+        for (k = 0; k < SQ_SCENES; k++) for (t = 0; t < SQ_TRACKS; t++) project.scene[k].pattern[t] = 0u;
+    } else {
+        for (t = 0; t < n; t++) {
+            th_make(t, pat, style, funcs[t], sd, var, vary, energy, 64u);
+            activate_row(t, project.step[t][pat]);
+            project.scene[pat].pattern[t] = pat;
+        }
+    }
+    ui_dirty = grid_dirty = 1u;
+}
+static void app_host_scene(int s, int prog)
+{
+    if (prog >= 0 && prog < (int)SQ_UPROGS) harm_prog_set((uint8_t)(SQ_PROGS + (uint32_t)prog));
+    if (s >= 0 && s < (int)SQ_SCENES) scene_recall((uint8_t)s);
+}
+static void app_host_energy(int e)
+{
+    project.viaggio.energy = (uint8_t)(e < 0 ? 0 : e > 100 ? 100 : e);
+    vg_energy_from = project.viaggio.energy;
+    vg_energy_apply(project.viaggio.energy);
+}
+
 static void app_host_dump(int t)
 {
     const sq_step_t *row;
@@ -4715,6 +4792,12 @@ static void app_host_dump(int t)
         }
         putchar('\n');
     }
+    {   /* 0.23: what the engines know of the pattern the track plays, the source and the next seed */
+        const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+        printf("%6u ms  theory T%d P%u style %u len %u func %u seed %u var %u vary %u energy %u src %u next %u now %u\n", fm1_ms, t + 1,
+               (unsigned)tr[t].pattern + 1u, (unsigned)(m->style & 31u), (unsigned)(m->style ? SQ_THP_LEN(m) : 0u), (unsigned)m->func, (unsigned)m->seed,
+               (unsigned)m->var, (unsigned)m->vary, (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+    }
     vg_host_dump();
 }
 #endif
@@ -4788,6 +4871,7 @@ static void app_main(void)
         store_service();
         live_service();
         vg_service();                                  /* 0.9: a track key held = the dice */
+        th_service();                                  /* 0.23: the engines' patterns follow the energy, a track a pass */
         regia_service();                               /* 0.9: STATO, TOCCATA, REGIA TASTO to the Pi */
 
         /* one piece of the screen per pass: the clock is served between pieces (see the screen, sagga_ui.c). 0.22: and

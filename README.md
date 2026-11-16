@@ -1,10 +1,11 @@
-# SAGGA SEQ 0.22
+# SAGGA SEQ 0.23
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
 SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 16 tracks, 8 patterns of up to 64 steps per
 track, scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
-variations a part in order of likeness, notes of their own length), live Euclidean rhythms and four algorithm slots per
+variations a part in order of likeness, notes of their own length), the THEORY engines (0.23: a band MADE from the rules
+of a genre and a seed, in all 25 genres and in none, that the ENERGY fills and empties), live Euclidean rhythms and four algorithm slots per
 track, a harmony that the tracks follow (the genre's progressions or yours, on any root, with lengths in 16ths, pushes,
 the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, nine MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch), envelopes and a MOD MATRIX, six CC lanes with slides and NRPN, tools that wait for the bar or repeat
 every so many, TAPE tracks and EXPO curves, the journey (every set cut into phrases; the MOSSE, PERF's third page,
@@ -28,20 +29,22 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23 is `FM-1_973`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.22.md](RELEASE-NOTES-0.22.md): what changed in this version (Italian).
+* [RELEASE-NOTES-0.23.md](RELEASE-NOTES-0.23.md): what changed in this version (Italian).
+* [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
+  [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 21 genres, counted from the library (Italian).
 * [docs/SAGGA-ESPLORATORE.md](docs/SAGGA-ESPLORATORE.md): the explorer, on a computer, on the FM-1 and on the banco (Italian).
 * [tools/hub/LEGGIMI.md](tools/hub/LEGGIMI.md): the Pi's page - the firmware library, the projects and their editor, the
   update, the keeper of the FM-1's cells, the banco (Italian). [tools/raspimidihub/README.md](tools/raspimidihub/README.md): the
   seven plugins.
 * [docs/storia/](docs/storia/): the past - what each version brought ([NOVITA.md](docs/storia/NOVITA.md)), the release
-  notes of 0.8 to 0.21, the installation sheets of their time, the design 0.12 started from.
+  notes of 0.8 to 0.22, the installation sheets of their time, the design 0.12 started from.
 * [docs/SAGGA-GRID-ZYNTHIAN.md](docs/SAGGA-GRID-ZYNTHIAN.md): the minimal stage set-up, the bridge on a Zynthian (Italian).
 * [tools/norns/figo/README.md](tools/norns/figo/README.md) and [tools/gills/LEGGIMI.md](tools/gills/LEGGIMI.md): the live
   effects of the set, FIGO on norns (the loop varied by itself, in time) and SCENA on the Ksoloti Gills (one knob from
@@ -62,7 +65,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.22         # identity FM-1_972
+./build.sh --release 0.23         # identity FM-1_973
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with

@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""SAGGA LIVE - a RaspiMIDIHub controller for SAGGA SEQ 0.18 - 0.20: the tablet's own track, while the FM-1 works on another.
+"""SAGGA LIVE - a RaspiMIDIHub controller for SAGGA SEQ 0.18 - 0.23: the tablet's own track, while the FM-1 works on another.
 
 The tablet has a track of its own on the FM-1 (TRACK, channel 13 CC 112, the same as SAGGA Motori's and Mod's): what
 this page sends acts there, and the FM-1's screen says so ("TAB T5: ..."); the FM-1's track, page and cursor stay as
@@ -7,7 +7,9 @@ they are. Channel 12 (firmware/src/sagga_tablet.c): MUTE, SOLO, PATTERN, LENGTH,
 amount, FOLLOW; the ARP (mode, octaves, rate, run) and the CHORD; the MIDI FX (one of the four - 0.20: of the nine -, its
 amount, GO: 0.19, it joins the track's chain or leaves it); an ALGORITHM
 (READY, A B C, GO); EUCLID (pulses, rotation, on / off); COOK, BEAT, a PROPOSAL and QUEUE (it enters at the
-QUANTISE), DICE, KEEP / BACK, UNDO; the sixteen MUTES.
+QUANTISE), DICE, KEEP / BACK, UNDO; 0.23, the THEORY engines: SOURCE (LIBRARY: BEAT and the dice load a pattern of the
+library; THEORY: they MAKE it from a seed and the genre's rules; FREE: from the rules of no genre), NEXT SEED, the SEED
+and the VARIATION of the pattern the track plays; the sixteen MUTES.
 
 The FM-1 sends its values back (USB PORTS 2: on its port 2): turn a knob on the FM-1 and the knob here moves too.
 Wire this plugin's OUT to the FM-1's port 2 and the FM-1's port 2 to this plugin's IN; SAVE K2 on the FM-1 = REMOTE 13 + 14.
@@ -35,6 +37,8 @@ CHORD_LABELS = ["OFF", "OCTAVE", "POWER", "5-8", "MAJOR", "MINOR", "DIM", "AUG",
 MFX_LABELS = ["OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH"]   # 0.20: nine
 MFX_AMT_LABELS = ["%+d" % (i - 12) if i != 12 else "0" for i in range(25)]
 ALGO_LABELS = ["OFF", "TURING", "CELL", "ACCENT", "DENSITY"]
+SEED_LABELS = ["%d" % (i + 1) for i in range(128)]             # 0.23: the FM-1 counts its seeds from 1
+SOURCE_LABELS = ["LIBRARY", "THEORY", "FREE"]                  # 0.23: SEQ 8 K1 - loaded, made by the genre's rules, by no genre's
 
 
 def tap(name, label, cc, col, row, color="green", ch=CH12):
@@ -95,7 +99,12 @@ CELLS = [
     tap("back", "BACK", 86, 3, 9, "red", ch=CH14),
     tap("undo", "UNDO", 32, 4, 9, "red"),
 
-    *[switch("m%d" % t, "MUTE %d" % (t + 1), 40 + t, 1 + t % 4, 10 + t // 4) for t in range(16)],
+    knob("source", "SOURCE", 56, 1, 10, 0, 2, 0, SOURCE_LABELS),    # 0.23: where the patterns come from
+    knob("next_seed", "NEXT SEED", 57, 2, 10, 0, 127, 0, SEED_LABELS),
+    knob("seed", "SEED", 58, 3, 10, 0, 127, 0, SEED_LABELS),
+    knob("variation", "VARIATION", 59, 4, 10, 0, 99, 0),
+
+    *[switch("m%d" % t, "MUTE %d" % (t + 1), 40 + t, 1 + t % 4, 11 + t // 4) for t in range(16)],
 ]
 
 
@@ -103,9 +112,9 @@ class SaggaLive(ControllerBase):
     """SAGGA SEQ's tablet track: everything of one track at hand while the FM-1 works on another."""
 
     NAME = "SAGGA Live"
-    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat - and the 16 mutes"
+    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat, the THEORY engines - and the 16 mutes"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.20"
+    VERSION = "0.23"
     HELP = """\
 TRACK picks the tablet's own track on the FM-1 (the FM-1 keeps its own: one hand there, one here); MODE is its mode.
 MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW (the
@@ -114,13 +123,17 @@ harmony); ARP, OCTAVES, RATE (1/4 and 1/2: a note every 4 / 2 steps), RUN; CHORD
 four of 0.19: -12..+12; the new five: their whole range, the FM-1's screen says the value), FX GO (the effect shown
 joins the track's chain - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
 on / off. COOK, BEAT, DICE (KEEP / BACK), UNDO on this track only; PROPOSAL writes a variation on a free pattern, QUEUE
-sends it in. MUTE 1-16: every track.
+sends it in. With FM-1 0.23, SOURCE (SEQ 8 K1 on the FM-1): on THEORY, BEAT and the dice do not load a pattern of the
+library, they MAKE one from the rules of the genre and a seed (NEXT SEED: the seed of the next one, 1-128 from here);
+on FREE they make it from the rules of NO genre, whatever the genre is; SEED is the seed of the pattern
+this track plays - turn it and it is another part at once - and VARIATION how far it has walked from it (COOK goes to
+the next). The FM-1's ENERGY fills and empties what the engines made. MUTE 1-16: every track.
 The FM-1 sends its values back: wire OUT to the FM-1's port 2 and the FM-1's port 2 to IN (USB PORTS 2); SAVE K2 on
-the FM-1 = REMOTE 13 + 14. Channel 12: CC 1-32, 40-55; channel 13: 112, 113; channel 14: 85, 86."""
+the FM-1 = REMOTE 13 + 14. Channel 12: CC 1-32, 40-59; channel 13: 112, 113; channel 14: 85, 86."""
 
     params = [
         Radio("bg", "Background", ControllerBase.BG_OPTIONS, default="Wine", config_only=True),
-        LayoutGrid("controller", "", cols=4, rows=13, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
+        LayoutGrid("controller", "", cols=4, rows=14, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
     ]
 
     cc_outputs = sorted({c.cc for c in CELLS})

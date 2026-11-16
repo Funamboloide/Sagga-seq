@@ -32,8 +32,11 @@ changes them.
 * **SAGGA Live** (0.18, channel 12): the tablet's track, everything at hand while the FM-1 works on another - TRACK and
   MODE, MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW; ARP, OCTAVES, RATE (1/4, 1/2:
   a note every 4 / 2 steps), RUN; CHORD; MIDI FX (READY), FX AMOUNT, FX GO (0.19: the effect shown joins the track's chain, again: it leaves); ALGO (READY), A, B, C, ALGO GO; PULSES,
-  ROTATION, EUCLID; COOK, BEAT, PROPOSAL, QUEUE; DICE, KEEP, BACK, UNDO (on that track only); MUTE 1-16. The hub's PANIC
-  leaves it alone (its switches are the FM-1's mutes).
+  ROTATION, EUCLID; COOK, BEAT, PROPOSAL, QUEUE; DICE, KEEP, BACK, UNDO (on that track only); 0.23: SOURCE (LIBRARY: BEAT
+  and the dice load a pattern; THEORY: they MAKE it from a seed and the genre's rules; FREE: from the rules of no
+  genre - the FM-1's SEQ 8 K1), NEXT SEED, SEED and VARIATION of the
+  pattern the track plays (seeds 1-128 from here; channel 12 CC 56-59); MUTE 1-16. The hub's PANIC leaves it alone (its
+  switches are the FM-1's mutes).
 
 To update from an older SAGGA: copy the folders again (the same commands as below) and restart the hub; the plugins
 keep their place in the matrix.

@@ -96,6 +96,7 @@ static void pipat_loaded(const uint8_t *text, const uint8_t *notes, uint8_t n)
     undo_add(t, pi_get.pat);
     len = sq_beat_load_text(row, r, notes ? nt : 0, f, note);
     if (!len) { status_msg("PI: NOT A PATTERN OF THIS PART"); return; }
+    th_forget(t, pi_get.pat);                           /* 0.23: the Pi's pattern */
     if (len < want && want % len == 0u) { for (i = len; i < want; i++) row[i] = row[i % len]; len = want; }   /* (the library's length: repeated) */
     beat_cfg_for(c, g, f, len, note, &o);
     beat_cfg_apply(t, &o);

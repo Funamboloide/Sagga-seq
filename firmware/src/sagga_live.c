@@ -150,10 +150,12 @@ static void reload_track(uint32_t t)
     uint32_t l;
     sq_track_cfg_t *c = &project.track[t];
     sq_track_cfg_t was;
-    if (sq_image_track(store_img, rl_len, (uint8_t)t, pat, &rl_cfg, rl_row)) return;
+    sq_thpat_t th;
+    if (sq_image_track_th(store_img, rl_len, (uint8_t)t, pat, &rl_cfg, rl_row, &th)) return;
     was = *c;
     undo_add((uint8_t)t, pat);
     memcpy(project.step[t][pat], rl_row, sizeof rl_row);
+    project.th.pat[t][pat] = th;                       /* 0.23: and what the engines knew of it when it was saved */
     *c = rl_cfg;
     track_cfg_back(t, &was);                           /* 0.11: in time (the explorer) */
     for (l = 0; l < SQ_LANES; l++)                     /* the synth's sound back as it was saved */
@@ -396,7 +398,7 @@ static void snap_apply(uint8_t n)
     if (n >= SQ_SNAPS || !sn->used) return;
     for (t = 0; t < SQ_TRACKS; t++) {
         sq_track_cfg_t *c = &project.track[t];
-        uint8_t p = sn->pattern[t] < SQ_PATTERNS ? sn->pattern[t] : 0u, div = c->division, len = c->length, st = c->start;
+        uint8_t p = sn->pattern[t] < SQ_PATTERNS ? sn->pattern[t] : 0u, div = c->division, len = c->length, st = c->start, dir = c->direction;
         *c = sn->track[t];
         sq_mfx_mirror(&project.ext.mfxc[t], c);          /* 0.19: the MIDI FX chain is the track's, not a snapshot's */
         if (c->division != div) tr[t].div_accum = (uint16_t)(tr[t].div_accum % sq_div_ticks(c->division));
@@ -405,7 +407,10 @@ static void snap_apply(uint8_t n)
         tr[t].pattern = p;
         tr[t].pending_pattern = SQ_NO_PENDING;
         if (tr[t].step >= c->length || tr[t].step < c->start) tr[t].step = c->start;
-        if (c->length != len || c->start != st || c->division != div) track_loaded((uint8_t)t);   /* 0.11: another loop: in time */
+        if (c->length != len || c->start != st || c->division != div || c->direction != dir)
+            track_loaded((uint8_t)t);                      /* 0.11: another loop: in time (0.23: another DIRECTION too - a snapshot that
+                                                            * brought back FORWARD left the track where BACKWARD had it, a step off
+                                                            * the bar until the next STOP: the explorer's sessions found it) */
     }
     mute_mask = sn->mute; solo_mask = sn->solo; pending_mute = 0u;
     mac_vel = sn->mac[0]; mac_gate = sn->mac[1]; mac_swing = sn->mac[2];

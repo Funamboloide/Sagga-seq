@@ -5,6 +5,52 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.22
+
+0.22 is the dig down to the first version: the parts no test could see (the USB's ring, the panel's wait, the
+counters' wraps), the tools that test the rest, and the way the FM-1, the Pi and the grid spend their time. No new
+feature, the same project format (`SGQB`).
+
+* **The notes waited for the screen.** A piece of the screen (a line: 5 ms of pixels at 12 MHz; a big cell: 8) goes out
+  by itself, but the piece after it waited for it to end, with the whole loop: the clock and the notes due in that
+  time left late. With the simulator charging the panel's time, four knobs turned in play made 79 notes of 130 leave
+  1 to 8 ms late; a tempo knob at 300 BPM gave clock gaps of 3 to 14 ms for 8.3. The loop now starts a piece only when
+  the panel has taken the one before (`lcd_idle`): 0 to 2 ms, gaps of 7 to 10.
+* **A burst of messages could be lost.** The USB output ring held 64 events, as the input's; what a pass sent beyond
+  its room was dropped and only counted (DROPPED on the USB page). A dice on the CCs sends six lanes on sixteen tracks
+  at once; three keys together made 68 Control Changes in one pass and four were gone. No test could see it: the
+  simulator had no ring. It has the FM-1's now, the random test plays with it, and the ring is 256 (the senders that
+  can wait - the grid's lights, the lanes, the LFOs, the values for the hub - still see the first 64, so the music
+  never queues behind them).
+* **The GATE effect never made a note longer than its step.** FIXED 1/8 .. 2 BARS and x3/2, x2, x4 gave a 1/16
+  whatever was asked: a note of a step ends when the track's next step comes, and the effect's longer gate was cut
+  with it (since 0.20; the only test tried FIXED 1/32). A note the MIDI FX chain makes longer than the gap to the
+  track's next hit now goes out as a held note, with its own end (`MFX_LONG` in `fire_slice`): FIXED 1/8 is two steps,
+  x4 of a gate of 80 % is 3.2. It overlaps the notes after it (a mono synth: legato); the same note coming back
+  before its end ends it there. HUMAN alone still never carries a note past its step.
+* **A TIE into the same note left 15 ms of it.** The tied note's end, 15 ms into the next step, came while the new
+  note of the same pitch sounded, and ended it (since 0.10). A held voice of the same pitch that would end before the
+  new note does now ends as the new note begins (`held_same_off`); one that outlasts it is left as it was.
+* **The grid shows a view in a tenth of a second.** 24 lights a frame, not 8: a view of 130 lights took 350 ms, now
+  110. The bridge sends a frame of lights as one message to each Launchpad (it sent one a light), and wakes 50 times a
+  second when nothing happens, not 200.
+* **The Pi asked the FM-1 who it was every 5 seconds** while the hub's page was open: a Python started, an ALSA client
+  made (RaspiMIDIHub scans its devices again at each one) and a SysEx to the FM-1, twelve times a minute, in the
+  middle of a set too. It asks when ALSA's clients change.
+* **The explorer explored an empty project.** Its "band" was 0.11's gesture (SEQ + SEL + black 7), which 0.12 gave to
+  something else: fourteen situations of seventeen, in the simulator and in the plans for the FM-1 and the banco, had
+  no band, and its grid went after 3.5 s (no keep-alive). With real bands and a grid that stays: 55829 gestures in 17
+  situations, 6799 pairs, 200 sessions, no error. A situation "with a band" that has none is now an error itself.
+* **What no test ran.** gcov over every suite that drives the simulator (`-DSAGGA_GCOV --coverage`: the forked
+  branches of the explorer write their counters too): 97 % of the firmware's lines run (347 of 13223 run in no test).
+  Of what never ran, read and tried by hand: a TAPE track's grid view, six destinations and three sources of the MOD
+  MATRIX, the harmony's rhythms 3+5, 3+1 and 2 BARS, the conditions 1:4, 4:4 and NOT FILL, the GATE effect's factors
+  and lengths - all as the manual says but GATE (above). They are a test now (`t022_unrun`), and the explorer taps the
+  128 pads of the grid's VIAGGIO view too.
+* The audio interrupt no longer clears, scales and shifts a buffer of silence every 5.8 ms. 76 and 150 minutes in
+  play across the counters' wraps (every 179 s, and the microseconds at 71.6 minutes): the clock never late, the band
+  the same, nothing hung - a test now. Two functions nothing called are gone.
+
 ## What is new in 0.21
 
 0.21 is 0.20.9 read again from end to end: no new feature to learn, the same project format (`SGQB`).

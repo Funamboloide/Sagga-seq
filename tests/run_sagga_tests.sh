@@ -17,6 +17,14 @@ step() {
 }
 cc -std=c11 -Wall -Wextra -Werror -Ifirmware/src tests/sagga_core_tests.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_core_tests
 step "core" tail 1 build/sagga_core_tests
+# 0.23: the THEORY engines (parts made from the rules of a genre, not loaded). First the rules counted from the library
+# (21 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
+# makes of the library as it is now), then what the engines promise over many seeds in the 25 genres and FREE, then the
+# sheet of the rules written by hand (docs/TEORIA.md) against the tables it is written from
+step "theory counted" tail 1 python3 tools/theory/gen_rules.py --check
+cc -std=c11 -O2 -Wall -Wextra -Werror -Ifirmware/src tests/sagga_theory_tests.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_theory_tests
+step "theory" tail 1 build/sagga_theory_tests "${THEORY_SEEDS:-150}"
+step "theory rules" tail 1 python3 tools/theory/regole.py --check docs/TEORIA.md
 # the JieLi library divides 64-bit numbers without a sign only (__udivdi3; no __divdi3 / __moddi3): no int64_t in the firmware
 if grep -n '[^u]int64_t' firmware/src/*.c firmware/src/*.h firmware/hal/*.c firmware/hal/*.h 2>/dev/null | grep -v 'sagga_test.c'; then
     echo "firmware 64-bit: FAIL, a signed 64-bit number (the JieLi link has no __divdi3)"; exit 1
@@ -27,7 +35,8 @@ else echo "firmware 64-bit: no signed 64-bit numbers"; fi
 if command -v clang >/dev/null 2>&1 && echo 'int x;' | clang --target=armv7m-none-eabi -ffreestanding -fsyntax-only -x c - 2>/dev/null; then
     TF="--target=armv7m-none-eabi -ffreestanding -fsyntax-only -Os -fno-builtin -Wall -Wno-unused-function -Werror -Ifirmware/hal -Ifirmware/src"
     # shellcheck disable=SC2086
-    if clang $TF firmware/loader/loader.c && clang $TF -Ifirmware/gen '-DFELUCCA_ID="FM-1_950"' '-DAPP_VER="0.0"' firmware/src/dinghy.c; then
+    if clang $TF firmware/loader/loader.c && clang $TF -Ifirmware/gen '-DFELUCCA_ID="FM-1_950"' '-DAPP_VER="0.0"' firmware/src/dinghy.c &&
+       clang $TF firmware/src/sagga_theory.c; then            # (0.23: the THEORY engines are in the app; alone too, as the Pi's tools build them)
         echo "firmware target builds: the app and the update loader parse (clang, no toolchain)"
     else echo "firmware target builds: FAIL"; exit 1; fi
 else echo "firmware target builds: skipped (no clang with an ARM target)"; fi

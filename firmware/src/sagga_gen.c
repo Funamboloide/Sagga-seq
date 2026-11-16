@@ -135,6 +135,14 @@ static uint8_t gen_role(uint32_t t)
     return sq_func_role(sq_beat_role(track_drum(t), PEN(t)));       /* (0.11: a chord register is a CHORD) */
 }
 static uint8_t genre_feel(void) { return project.gen.genre_mode != SQ_GM_FREE; }   /* 0.10: the generators mind the genre */
+/* 0.23 THEORY: the style the engines make a part of `genre` in now (every genre has one; SOURCE FREE, or GENRE FREE: the
+ * style of no genre); 255: the patterns come from the library - the SOURCE says so (SEQ 8 K1) */
+static uint8_t th_style_now(uint8_t genre)
+{
+    if (project.th.src != SQ_SRC_THEORY && project.th.src != SQ_SRC_FREE) return 255u;
+    if (project.th.src == SQ_SRC_FREE || project.gen.genre_mode == SQ_GM_FREE) return SQ_TH_FREE;
+    return sq_th_style(genre);
+}
 static uint16_t genre_reload_pend;                     /* 0.10 GENRE LIVE: tracks to reload from the library at the bar */
 static uint8_t lib_len_steps(void) { return project.gen.lib_len == SQ_LL_64 ? 64u : project.gen.lib_len == SQ_LL_32 ? 32u : 16u; }
 
@@ -204,6 +212,13 @@ static void gen_genre_set(uint8_t g)
 }
 static void genre_mode_note(void)
 {
+    if (project.th.src == SQ_SRC_FREE)                  /* 0.23: the engines are free of the genre whatever its mode */
+        status_msg(project.gen.genre_mode == SQ_GM_FREE ? "GENRE FREE (THE SOURCE TOO: PARTS OF NO GENRE)" :
+                   project.gen.genre_mode == SQ_GM_LIVE ? "GENRE LIVE (SOURCE FREE: ITS PARTS STAY)" : "GENRE ON (SOURCE FREE: PARTS OF NO GENRE)");
+    else if (project.th.src == SQ_SRC_THEORY)           /* ... what the mode means to them */
+        status_msg(project.gen.genre_mode == SQ_GM_FREE ? "GENRE FREE: THEORY MAKES PARTS OF NO GENRE" :
+                   project.gen.genre_mode == SQ_GM_LIVE ? "GENRE LIVE: A CHANGE MAKES THE PARTS AGAIN" : "GENRE ON: THEORY MAKES THE GENRE'S PARTS");
+    else
     status_msg(project.gen.genre_mode == SQ_GM_FREE ? "GENRE FREE: THE GENERATORS IGNORE IT" :
                project.gen.genre_mode == SQ_GM_LIVE ? "GENRE LIVE: A CHANGE RELOADS THE LIBRARY TRACKS" : "GENRE ON: ITS FEEL IN COOK, DICE, EVOLVE");
 }
@@ -214,7 +229,8 @@ static void gen_func_set(uint8_t f)
     if (f != beat_func) beat_var = 0u;
     beat_func = f;
     p = put_s(p, "BEAT "); p = put_s(p, sq_func_name(f));
-    if (f != SQ_FUNC_PROG && f != SQ_FUNC_KIT) { p = put_s(p, " ("); p = put_u(p, sq_beat_variants(beat_genre, f)); p = put_s(p, ")"); }
+    if (f != SQ_FUNC_PROG && th_style_now(beat_genre) != 255u) p = put_s(p, " (THEORY)");   /* 0.23: made, any number of them */
+    else if (f != SQ_FUNC_PROG && f != SQ_FUNC_KIT) { p = put_s(p, " ("); p = put_u(p, sq_beat_variants(beat_genre, f)); p = put_s(p, ")"); }
     finish(p);
     status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
@@ -222,7 +238,7 @@ static void gen_func_set(uint8_t f)
 /* 0.11: what the instrument knob (SEQ + SELECT) goes through: the genre's parts (its band first), PROG, KIT */
 static uint8_t beat_list(uint8_t *out)
 {
-    uint8_t n = sq_genre_parts(beat_genre, out);
+    uint8_t n = th_style_now(beat_genre) == SQ_TH_FREE ? sq_th_band(SQ_TH_FREE, out) : sq_genre_parts(beat_genre, out);   /* (0.23: no genre: FREE's band) */
     out[n++] = SQ_FUNC_PROG;
     out[n++] = SQ_FUNC_KIT;
     return n;
@@ -265,6 +281,7 @@ static void undo_begin(void)
     u_cur = u_seq;
 }
 
+static const sq_thpat_t *undo_th_src;                 /* 0.23: the record that goes with a row that is not the project's (a dice's snapshot) */
 static void undo_add_row(uint8_t t, uint8_t pat, const sq_step_t *row, uint8_t len, uint8_t start)
 {
     uint32_t i, slot = U_ROWS;
@@ -278,6 +295,7 @@ static void undo_add_row(uint8_t t, uint8_t pat, const sq_step_t *row, uint8_t l
         for (i = 0; i < U_ROWS; i++) if (undo_txn[i] == oldest) { undo_txn[i] = 0u; if (slot == U_ROWS) slot = i; }
     }
     memcpy(undo_row[slot], row, sizeof undo_row[0]);
+    undo_th[slot] = undo_th_src ? *undo_th_src : project.th.pat[t][pat < SQ_PATTERNS ? pat : 0u];   /* 0.23 */
     undo_track[slot] = t;
     undo_pat[slot] = pat;
     undo_len[slot] = len;
@@ -313,6 +331,11 @@ static void undo_apply(uint16_t txn)                     /* swap the rows of one
         was = *c;
         l = c->length; s0 = c->start;
         for (i = 0; i < SQ_STEPS; i++) { tmp = row[i]; row[i] = undo_row[k][i]; undo_row[k][i] = tmp; }
+        if (undo_pat[k] < SQ_PATTERNS) {                  /* 0.23: and what the engines knew of it */
+            sq_thpat_t m = project.th.pat[undo_track[k]][undo_pat[k]];
+            project.th.pat[undo_track[k]][undo_pat[k]] = undo_th[k];
+            undo_th[k] = m;
+        }
         c->length = undo_len[k]; c->start = undo_start[k];
         undo_len[k] = l; undo_start[k] = s0;
         track_cfg_back(undo_track[k], &was);              /* 0.11: in time (the explorer) */
@@ -1176,12 +1199,26 @@ static void harm_rhythm_set(uint8_t r)
     status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
 }
-/* 0.11 SEQ + SEL + black 1: DICE PROG - a new progression of the MOOD (any) into the DICE/PI slot, which plays */
+/* 0.11 SEQ + SEL + black 1: DICE PROG - a new progression of the MOOD (any) into the DICE/PI slot, which plays.
+ * 0.23 THEORY: a progression by the rules of the harmony's genre's style (HARMONY FREE, GENRE FREE: of no genre) */
+static void th_prog_dice(uint8_t style);
 static void harm_dice(void)
 {
     sq_uprog_t *u = &project.uprog[SQ_UPROGS];
     uint8_t minor = (uint8_t)(((sq_scale_mask(project.key_scale) >> 3) & 1u) && !((sq_scale_mask(project.key_scale) >> 4) & 1u));
+    uint8_t style = th_style_now(project.gen.harm_genre < SQ_GENRES ? project.gen.harm_genre : beat_genre);
     char *p = msg_buf;
+    if (style != 255u && project.gen.harm_free) style = SQ_TH_FREE;   /* (the engines are on, the harmony is nobody's: so is its progression) */
+    if (style != 255u) {
+        th_prog_dice(style);
+        p = put_s(p, "DICE PROG "); p = put_s(p, sq_th_name(style)); p = put_s(p, ": ");
+        sq_uprog_name(u, project.key_scale, p, 40u);
+        while (*p) p++;
+        finish(p);
+        status_msg(msg_buf);
+        ui_dirty = grid_dirty = 1u;
+        return;
+    }
     if (project.key_scale == SQ_SC_CHROMATIC) minor = 1u;
     piprog_leave();
     sq_uprog_dice(u, project.gen.harm_mood, minor, harm_rhythm_now(), &sq_rng_state);
@@ -1236,6 +1273,7 @@ static uint8_t prog_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t var, u
     uint8_t center = PEN(t) >= 48u && PEN(t) <= 72u ? PEN(t) : 60u, n;
     n = sq_beat_chords(project.step[t][pat < SQ_PATTERNS ? pat : tr[t].pattern], genre, var, gen_root(t), gen_scale(), center);
     if (!n) return 0u;
+    project.th.pat[t][pat < SQ_PATTERNS ? pat : tr[t].pattern].style = 0u;   /* 0.23: the library's chords */
     if (cfg) { cfg->length = n; cfg->swing = c->swing; cfg->flags = (uint8_t)((c->flags & ~SQ_TF_DRUM) | SQ_TF_SCALE | SQ_TF_FOLLOW); cfg->pen = c->pen; }
     if (apply) {
         c->length = n; c->start = 0u;
@@ -1275,20 +1313,193 @@ static void beat_cfg_apply(uint8_t t, const beat_cfg_t *o)
     project.ext.track[t].groove_amt = o->groove_amt;
 }
 
+/* ---- 0.23 THEORY: the engines (sagga_theory.c) where the library was. With the SOURCE on THEORY (SEQ 8 K1) a part
+ * is not loaded: it is MADE, from the rules of the genre's style (GENRE FREE: of no genre) and a seed. What it was made
+ * from is kept with the pattern (project.th.pat), so it can be made again: at another energy (th_service: the machine's
+ * ENERGY fills and empties it), walked to its next variation (COOK), from another seed (SEQ 8 K3). Every genre of the
+ * FM-1 has its style: four with rules written by hand, the others with rules counted from the library itself. */
+static uint8_t vg_energy_now(void);                   /* sagga_viaggio.c: the energy applied now */
+static sq_step_t th_row_a[SQ_STEPS] __attribute__((section(".pool")));   /* the rows the engines work in */
+static sq_step_t th_row_b[SQ_STEPS] __attribute__((section(".pool")));
+static uint8_t th_kick_lev[SQ_STEPS];
+
+/* the kick that plays with pattern `pat` of track t: the first other track whose role is KICK and that plays in 16ths,
+ * its pattern as levels a 16th (the one the engines made for the same pattern number, else the one it plays now).
+ * 0: none, or the part is a kick itself: the engines then use the kick of the part's own seed. */
+static const uint8_t *th_kick(uint8_t t, uint8_t pat, uint8_t func)
+{
+    uint32_t k, i;
+    if (sq_func_family(func) == SQ_FUNC_KICK) return 0;
+    for (k = 0; k < SQ_TRACKS; k++) {
+        const sq_track_cfg_t *c = &project.track[k];
+        const sq_step_t *row;
+        uint8_t len, any = 0u;
+        if (k == t || c->role != SQ_ROLE_KICK || c->division != SQ_DIV_1_16 || c->length <= c->start || track_tape(k) || track_break(k)) continue;
+        row = project.step[k][pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern];
+        len = (uint8_t)(c->length - c->start);
+        for (i = 0; i < SQ_STEPS; i++) {
+            const sq_step_t *st = &row[c->start + i % len];
+            uint8_t v = (st->flags & SQ_STEP_ON) ? (uint8_t)(st->velocity ? st->velocity : 1u) : 0u;
+            th_kick_lev[i] = (uint8_t)(!v ? 0u : v >= 112u ? 4u : v >= 88u ? 3u : v >= 60u ? 2u : 1u);
+            if (v) any = 1u;
+        }
+        return any ? th_kick_lev : 0;
+    }
+    return 0;
+}
+static void th_set(sq_th_t *h, uint8_t style, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat, uint8_t func)
+{
+    h->style = style; h->energy = energy > 100u ? 100u : energy; h->vary = vary > 100u ? 100u : vary;
+    h->scale = gen_scale();
+    h->seed = seed; h->var = var;
+    h->kick = th_kick(t, pat, func);
+}
+static uint8_t th_note(uint8_t t, uint8_t func) { return sq_func_kind(func) != SQ_KIND_DRUM ? gen_root_note(t) : PEN(t); }
+/* a pattern written whole by something else (a tool, the library, the Pi): it is not the engines' any more */
+static void th_forget(uint8_t t, uint8_t pat) { if (t < SQ_TRACKS && pat < SQ_PATTERNS) project.th.pat[t][pat].style = 0u; }
+/* the part `func` made into pattern `pat` of track t; what it was made from is kept with the pattern. Returns its steps */
+static uint8_t th_make(uint8_t t, uint8_t pat, uint8_t style, uint8_t func, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t len)
+{
+    sq_th_t h;
+    sq_thpat_t *m = &project.th.pat[t][pat];
+    uint8_t n;
+    th_set(&h, style, seed, var, vary, energy, t, pat, func);
+    n = sq_th_load(project.step[t][pat], &h, func, len, th_note(t, func));
+    if (!n) return 0u;
+    m->seed = seed; m->style = SQ_THP_PACK(style, n); m->func = func; m->var = var; m->vary = h.vary; m->energy = h.energy; m->reserved = 0u;
+    return n;
+}
+/* the pattern the engines made, made again as it is kept (after its seed or its variation was changed by hand) */
+static uint8_t th_again(uint8_t t, uint8_t pat)
+{
+    sq_thpat_t *m = &project.th.pat[t][pat];
+    if (!m->style) return 0u;
+    return th_make(t, pat, SQ_THP_STYLE(m), m->func, m->seed, m->var, m->vary, vg_energy_now(), SQ_THP_LEN(m));
+}
+/* THE ENERGY: a pattern of the engines that plays, and was made at another energy than the machine has now, is made
+ * again at this one - only the steps that are not the same at the two energies are written (sq_th_remake), so the
+ * pattern fills and empties without anything else in it moving, and what was changed by hand elsewhere stays. One
+ * track a pass of the main loop; the kicks first, since a rumble and a sub mind where the kick is. */
+static uint8_t th_serv_t, th_serv_phase, th_serv_e = 255u;
+static void th_service(void)
+{
+    uint8_t e = vg_energy_now(), t, phase, pat, kick;
+    sq_thpat_t *m;
+    sq_th_t from, to;
+    sq_step_t *row;
+    if (e != th_serv_e) { th_serv_e = e; th_serv_t = 0u; th_serv_phase = 0u; }   /* a new energy: from the kicks again */
+    t = th_serv_t; phase = th_serv_phase;
+    if (++th_serv_t >= SQ_TRACKS) { th_serv_t = 0u; th_serv_phase ^= 1u; }       /* (a round of the kicks, a round of the others) */
+    pat = tr[t].pattern;
+    m = &project.th.pat[t][pat];
+    if (!m->style || m->energy == e || track_tape(t) || track_break(t)) return;
+    kick = (uint8_t)(sq_func_family(m->func) == SQ_FUNC_KICK);
+    if ((phase == 0u) != (kick != 0u)) return;
+    row = project.step[t][pat];
+    th_set(&from, SQ_THP_STYLE(m), m->seed, m->var, m->vary, m->energy, t, pat, m->func);
+    to = from; to.energy = e;
+    if (sq_th_remake(row, &from, &to, m->func, SQ_THP_LEN(m), th_note(t, m->func), th_row_a, th_row_b)) {
+        activate_row(t, row);
+        ui_dirty = grid_dirty = 1u;
+    }
+    m->energy = e;
+}
+/* SEQ 8: K1 the SOURCE, K2 the SEED of the next band, the next part; K3 the seed of the pattern the selected track
+ * plays, K4 its variation: turned, the pattern is made again at once (the first turn is an edit UNDO takes back; one
+ * after two seconds, or on another pattern, an edit of its own) */
+static uint8_t th_knob_t = 255u, th_knob_pat;
+static uint32_t th_knob_ms;
+static void th_knobs(uint32_t t, int32_t d1, int32_t d2, int32_t d3, int32_t d4, int32_t f2, int32_t f3)
+{
+    char *p = msg_buf;
+    uint8_t pat = tr[t].pattern;
+    sq_thpat_t *m = &project.th.pat[t][pat];
+    if (d1) {
+        project.th.src = change_u8(project.th.src, d1, 0u, SQ_SRCS - 1u);
+        status_msg(project.th.src == SQ_SRC_FREE ? "SOURCE FREE: MADE BY THE RULES OF NO GENRE" :
+                   project.th.src == SQ_SRC_THEORY ? "SOURCE THEORY: MADE BY THE GENRE'S RULES" : "SOURCE LIBRARY: THE PATTERNS ARE LOADED");
+    }
+    if (d2) {
+        project.th.seed = (uint16_t)kstep(project.th.seed, d2, f2, 0, (int32_t)SQ_TH_SEEDS - 1);
+        status_num("NEXT SEED ", (uint32_t)project.th.seed + 1u);
+    }
+    if (!d3 && !d4) return;
+    if (!m->style || track_tape(t) || track_break(t)) {
+        status_msg(project.th.src != SQ_SRC_LIBRARY ? "NOT A PATTERN OF THE ENGINES: BEAT MAKES ONE" : "SOURCE LIBRARY: K1 FOR THEORY");
+        return;
+    }
+    if (th_knob_t != t || th_knob_pat != pat || time_due(fm1_ms, th_knob_ms)) { undo_begin(); undo_add((uint8_t)t, pat); }
+    th_knob_t = (uint8_t)t; th_knob_pat = pat; th_knob_ms = fm1_ms + 2000u;
+    if (d3) { m->seed = (uint16_t)kstep(m->seed, d3, f3, 0, (int32_t)SQ_TH_SEEDS - 1); m->var = 0u; m->vary = 0u; }
+    if (d4) { m->var = (uint8_t)clamp_i32((int32_t)m->var + d4, 0, 99); m->vary = (uint8_t)(m->var ? tool_heat : 0u); }
+    if (th_again((uint8_t)t, pat)) {
+        activate_row(t, project.step[t][pat]);
+        if (tr[t].step >= project.track[t].length) tr[t].step = 0u;
+    }
+    p = put_s(p, sq_func_name(m->func)); p = put_s(p, " SEED "); p = put_u(p, (uint32_t)m->seed + 1u);
+    if (m->var) { p = put_s(p, " VAR "); p = put_u(p, m->var); p = put_s(p, " ("); p = put_u(p, m->vary); p = put_s(p, " %)"); }
+    finish(p);
+    status_msg(msg_buf);
+}
+/* a progression by the rules of a style, from a seed of the dice, into the DICE / PI slot, which plays */
+static void th_prog_dice(uint8_t style)
+{
+    sq_th_t h;
+    piprog_leave();
+    th_set(&h, style, (uint16_t)grand(SQ_TH_SEEDS), 0u, 0u, vg_energy_now(), 0u, 0u, SQ_FUNC_KICK);
+    sq_th_prog(&project.uprog[SQ_UPROGS], &h);
+    project.gen.harm_prog = SQ_PROG_PI;
+    project.gen.harm_on = 1u;
+}
+/* GENRE LIVE: a pattern of the engines made again in the new genre's style, from the same seed (the new genre's part
+ * for it: a CLAP where it has no SNARE). The SOURCE on FREE: the engines are free of the genre, the pattern stays as it
+ * is. 0: not the engines' (the library reloads it) */
+static void beat_cfg_for(const sq_track_cfg_t *c, uint8_t genre, uint8_t func, uint8_t n, uint8_t note, beat_cfg_t *o);
+static void beat_cfg_apply(uint8_t t, const beat_cfg_t *o);
+static uint8_t th_restyle(uint8_t t, uint8_t pat, uint8_t genre)
+{
+    sq_thpat_t *m = &project.th.pat[t][pat];
+    sq_track_cfg_t *c = &project.track[t];
+    uint8_t style = th_style_now(genre), fn, n;
+    beat_cfg_t o;
+    if (!m->style || style == 255u) return 0u;
+    if (project.th.src == SQ_SRC_FREE) return 1u;       /* the SOURCE is free of the genre: a change of genre leaves the engines' patterns as they are */
+    fn = style == SQ_TH_FREE ? m->func : sq_genre_part_for(genre, m->func);
+    if (fn == 255u || fn >= SQ_FUNCS) fn = m->func;
+    n = th_make(t, pat, style, fn, m->seed, m->var, m->vary, vg_energy_now(), SQ_THP_LEN(m));
+    if (!n) return 0u;
+    beat_cfg_for(c, genre, fn, n, th_note(t, fn), &o);
+    if (style == SQ_TH_FREE) { o.swing = SQ_SWING_MIN; o.groove = SQ_GROOVE_OFF; o.groove_amt = 0u; }   /* (no genre: no feel of one) */
+    beat_cfg_apply(t, &o);
+    c->src_func = fn; c->src_genre = genre;
+    harm_follow_genre(genre);
+    track_loaded(t);
+    return 1u;
+}
+
 /* a pattern of the library onto pattern `pat` of track t; `cfg` (may be 0): what the track should become, applied now
- * when `apply` (BEAT), kept for later when not (0.9: a proposal). Returns the steps, 0 if there is no such pattern. */
-static uint8_t beat_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t func, uint8_t var, uint8_t apply, beat_cfg_t *cfg)
+ * when `apply` (BEAT), kept for later when not (0.9: a proposal). Returns the steps, 0 if there is no such pattern.
+ * 0.23: `style` is where it comes from - 255 the library, else the engines make it in that style (th_style_now) */
+static uint8_t beat_onto_s(uint8_t t, uint8_t pat, uint8_t genre, uint8_t func, uint8_t var, uint8_t apply, beat_cfg_t *cfg, uint8_t style)
 {
     sq_track_cfg_t *c = &project.track[t];
-    sq_step_t *row = project.step[t][pat < SQ_PATTERNS ? pat : tr[t].pattern];
+    uint8_t pi = pat < SQ_PATTERNS ? pat : tr[t].pattern;
+    sq_step_t *row = project.step[t][pi];
     uint8_t nv, n, melodic = sq_func_kind(func) != SQ_KIND_DRUM, note = melodic ? gen_root_note(t) : PEN(t);
     beat_cfg_t o;
     if (func == SQ_FUNC_PROG || func == SQ_FUNC_KIT || func >= SQ_FUNCS) return 0u;
     nv = sq_beat_variants(genre, func);
-    if (!nv) return 0u;
-    n = sq_beat_load_len(row, genre, func, (uint8_t)(var % nv), note, apply ? lib_len_steps() : 0u);   /* (a proposal: the native length) */
+    if (style != 255u) {                                 /* 0.23 THEORY: made, from the seed `var` after the one SEQ 8 K2 shows */
+        n = th_make(t, pi, style, func, (uint16_t)(((uint32_t)project.th.seed + var) % SQ_TH_SEEDS), 0u, 0u, vg_energy_now(), lib_len_steps());
+        if (!nv) nv = 1u;                                /* (any part: the engines make them all) */
+    } else {
+        if (!nv) return 0u;
+        n = sq_beat_load_len(row, genre, func, (uint8_t)(var % nv), note, apply ? lib_len_steps() : 0u);   /* (a proposal: the native length) */
+        if (n) project.th.pat[t][pi].style = 0u;        /* (the library's: not the engines' any more) */
+    }
     if (!n) return 0u;
     beat_cfg_for(c, genre, func, n, note, &o);
+    if (style == SQ_TH_FREE) { o.swing = SQ_SWING_MIN; o.groove = SQ_GROOVE_OFF; o.groove_amt = 0u; }   /* (no genre: no feel of one) */
     if (apply) {
         beat_cfg_apply(t, &o);
         c->src_func = func; c->src_var = (uint8_t)(var % nv);        /* 0.10: GENRE LIVE knows where it came from */
@@ -1299,6 +1510,10 @@ static uint8_t beat_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t func, 
     }
     if (cfg) *cfg = o;
     return n;
+}
+static uint8_t beat_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t func, uint8_t var, uint8_t apply, beat_cfg_t *cfg)
+{
+    return beat_onto_s(t, pat, genre, func, var, apply, cfg, th_style_now(genre));   /* (the SOURCE says: SEQ 8 K1) */
 }
 
 static void beat_onto(uint8_t t, uint8_t func, uint8_t var)
@@ -1324,9 +1539,10 @@ static void band_load(uint8_t drums_only)
 {
     char *p = msg_buf;
     uint8_t parts[SQ_PARTS_MAX], dest[SQ_BAND_MAX], nb = sq_genre_band(beat_genre), i, v = beat_var, done = 0u, skipped = 0u, pass, k;
-    uint8_t first = drums_only ? selected_track : (uint8_t)(selected_track & 8u);
-    uint16_t used = 0u;
+    uint8_t first = drums_only ? selected_track : (uint8_t)(selected_track & 8u), style = th_style_now(beat_genre);
+    uint16_t used = 0u, seed = project.th.seed;
     sq_genre_parts(beat_genre, parts);
+    if (style != 255u) nb = sq_th_band(style, parts);    /* 0.23 THEORY: the style's band (GENRE FREE: a band of no genre), all of one seed */
     if (!nb) return;
     if (!project.gen.harm_on && !drums_only) project.gen.harm_on = 1u;   /* (before the loads: the melodic parts FOLLOW) */
     for (i = 0; i < nb; i++) {                                           /* the tracks that have the part's role */
@@ -1348,19 +1564,23 @@ static void band_load(uint8_t drums_only)
     for (i = 0; i < nb; i++) {
         uint8_t tt = dest[i], fn = parts[i], nv = sq_beat_variants(beat_genre, fn);
         if (drums_only && sq_func_kind(fn) != SQ_KIND_DRUM) continue;
+        if (style != 255u && !nv) nv = 1u;
         if (tt == 255u || !nv) { skipped++; continue; }
         undo_add(tt, tr[tt].pattern);
         if (!row_written(tt) && PEN(tt) == 60u) PEN(tt) = sq_part_note(beat_genre, fn);   /* a new track (nothing written, its note the default): a starting note */
-        beat_onto(tt, fn, (uint8_t)(v < nv ? v : nv - 1u));
+        beat_onto(tt, fn, (uint8_t)(style != 255u ? 0u : v < nv ? v : nv - 1u));
         activate_row(tt, project.step[tt][tr[tt].pattern]);
         done++;
     }
-    p = put_s(p, sq_genre_name(beat_genre)); p = put_s(p, drums_only ? " KIT #" : " BAND #"); p = put_u(p, (uint32_t)v + 1u);
+    p = put_s(p, style == SQ_TH_FREE ? "FREE" : sq_genre_name(beat_genre));
+    if (style != 255u) { p = put_s(p, drums_only ? " KIT SEED " : " BAND SEED "); p = put_u(p, (uint32_t)seed + 1u); }
+    else { p = put_s(p, drums_only ? " KIT #" : " BAND #"); p = put_u(p, (uint32_t)v + 1u); }
     p = put_s(p, ": "); p = put_u(p, done); p = put_s(p, " TRACKS");
     if (skipped) { p = put_s(p, ", "); p = put_u(p, skipped); p = put_s(p, " NO ROOM"); }
     finish(p);
     status_msg(msg_buf);
-    beat_var = (uint8_t)((v + 1u) % SQ_BEAT_VARS);
+    if (style != 255u) project.th.seed = (uint16_t)((seed + 1u) % SQ_TH_SEEDS);   /* (pressed again: the next seed, another band) */
+    else beat_var = (uint8_t)((v + 1u) % SQ_BEAT_VARS);
     ui_dirty = grid_dirty = 1u;
 }
 static void beat_kit(void) { band_load(1u); }
@@ -1378,6 +1598,8 @@ static uint8_t dice_pending;
  * A track written by hand, a TAPE track, or SEQ + SEL + COOK (cook_random): the 0.10 COOK, at random. */
 static uint8_t cook_random;                    /* the next COOK is the random one (SEL held; kept if it waits for the bar) */
 static uint8_t cook_said;                      /* cook_towards wrote the message: tool_status keeps quiet */
+typedef struct { uint8_t on, pat, base, next, vary; uint16_t seed; } th_walk_t;   /* 0.23: where a COOK of the engines is going */
+static th_walk_t th_walk[SQ_TRACKS];
 static uint8_t cook_towards(uint8_t t)
 {
     static sq_step_t target[SQ_STEPS];
@@ -1385,6 +1607,49 @@ static uint8_t cook_towards(uint8_t t)
     sq_step_t *row = project.step[t][tr[t].pattern];
     uint8_t g = c->src_genre < SQ_GENRES ? c->src_genre : beat_genre, fn = c->src_func, nv, next, left, steps, len = c->length, n, i;
     char *p = msg_buf;
+    {   /* 0.23 THEORY: a pattern of the engines walks to the next variation of its own seed; HEAT says how large the
+         * variation is (and, as for the library, how many steps move a press). A variation that is the pattern as it
+         * is - a part with little to vary, a small HEAT - is passed over: the next ones, then larger ones, until one
+         * differs. The walk keeps its target until it is there. */
+        sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+        if (m->style && !track_tape(t)) {
+            sq_th_t h;
+            th_walk_t *wk = &th_walk[t];
+            uint8_t vy = tool_heat, tries, found = 0u;
+            if (wk->on && wk->pat == tr[t].pattern && wk->base == m->var && wk->seed == m->seed) {   /* the walk goes on */
+                next = wk->next; vy = wk->vary;
+                th_set(&h, SQ_THP_STYLE(m), m->seed, next, vy, m->energy, t, tr[t].pattern, m->func);
+                n = sq_th_load(target, &h, m->func, SQ_THP_LEN(m), th_note(t, m->func));
+                found = n ? 1u : 0u;
+            }
+            for (tries = 0; tries < 8u && !found; tries++) {
+                uint32_t r = sq_rng_state;               /* (looking only: the dice's numbers stay where they are) */
+                next = (uint8_t)(1u + ((uint32_t)m->var + tries % 3u) % 250u);
+                vy = (uint8_t)(tries < 3u ? tool_heat : tries < 6u ? (tool_heat > 60u ? tool_heat : 60u) : 100u);
+                th_set(&h, SQ_THP_STYLE(m), m->seed, next, vy, m->energy, t, tr[t].pattern, m->func);
+                n = sq_th_load(target, &h, m->func, SQ_THP_LEN(m), th_note(t, m->func));
+                if (!n) break;
+                for (i = n; i < len; i++) target[i] = target[i % n];
+                if (sq_row_approach(row, target, len, 0u, &r)) found = 1u;
+            }
+            if (found) {
+                for (i = n; i < len; i++) target[i] = target[i % n];
+                steps = (uint8_t)(1u + ((uint32_t)tool_heat * len) / 800u);
+                left = sq_row_approach(row, target, len, steps, &sq_rng_state);
+                wk->on = left ? 1u : 0u; wk->pat = tr[t].pattern; wk->base = m->var; wk->next = next; wk->vary = vy; wk->seed = m->seed;
+                if (!left) { m->var = next; m->vary = h.vary; }
+                p = put_s(p, "COOK "); p = put_s(p, sq_func_name(m->func)); p = put_s(p, " VAR "); p = put_u(p, next);
+                if (left) { p = put_s(p, ": "); p = put_u(p, left); p = put_s(p, " TO GO"); }
+                else p = put_s(p, " REACHED");
+            } else {
+                p = put_s(p, "COOK "); p = put_s(p, sq_func_name(m->func)); p = put_s(p, ": NOTHING TO VARY IN IT");
+            }
+            finish(p);
+            status_msg(msg_buf);
+            cook_said = 1u;
+            return 1u;
+        }
+    }
     if (fn >= SQ_FUNCS || fn == SQ_FUNC_KIT || track_tape(t)) return 0u;
     nv = sq_beat_variants(g, fn);
     if (nv < 2u) return 0u;
@@ -1457,6 +1722,7 @@ static void tool_one(uint8_t tool, uint8_t t)
     case TOOL_WRITE:  for (i = 0; i < len; i++) part[i].flags |= SQ_STEP_ON; break;   /* (not reached: live_write) */
     default: break;
     }
+    if (tool != TOOL_COOK && tool != TOOL_HUMAN && tool != TOOL_WRITE) th_forget(t, tr[t].pattern);   /* 0.23: cleared, turned, written at random: the player's */
     activate_row(t, row);
     if (tr[t].step >= cfg->length || tr[t].step < cfg->start) tr[t].step = cfg->start;
 }
@@ -1499,10 +1765,14 @@ static void tool_bar_tick(void)                         /* every bar line: the t
             sq_track_cfg_t *c = &project.track[t];
             if (!(genre_reload_pend & (1u << t)) || c->src_func == 255u || track_tape(t)) continue;
             undo_add((uint8_t)t, tr[t].pattern);
-            if (c->src_func == SQ_FUNC_PROG) prog_onto_x((uint8_t)t, tr[t].pattern, beat_genre, c->src_var, 1u, 0);
+            if (th_restyle((uint8_t)t, tr[t].pattern, beat_genre)) { }   /* 0.23: the engines' own, in the new style, from its seed */
+            else if (c->src_func == SQ_FUNC_PROG) prog_onto_x((uint8_t)t, tr[t].pattern, beat_genre, c->src_var, 1u, 0);
             else {                                        /* 0.11: the new genre's part for it (a CLAP where it has no SNARE ...) */
                 uint8_t fn = sq_genre_part_for(beat_genre, c->src_func);
-                if (fn != 255u) beat_onto_x((uint8_t)t, tr[t].pattern, beat_genre, fn, c->src_var, 1u, 0);
+                /* (0.23: the SOURCE on FREE has nothing to say about a genre: a track of the library takes the new
+                 *  genre's part from the library, as it always did) */
+                if (fn != 255u) beat_onto_s((uint8_t)t, tr[t].pattern, beat_genre, fn, c->src_var, 1u, 0,
+                                            project.th.src == SQ_SRC_FREE ? 255u : th_style_now(beat_genre));
             }
             activate_row(t, project.step[t][tr[t].pattern]);
             if (tr[t].step >= c->length) tr[t].step = 0u;
@@ -1567,6 +1837,7 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
     if (tool == TOOL_PASTE || tool == TOOL_DOUBLE) {      /* (these two: the selected track only) */
         undo_begin();
         undo_add(t, pat);
+        th_forget(t, pat);                               /* 0.23 */
         if (tool == TOOL_PASTE) {
             uint8_t n = clip_len < (uint8_t)(SQ_STEPS - lo) ? clip_len : (uint8_t)(SQ_STEPS - lo);
             memcpy(part, clip_row, (uint32_t)n * sizeof(sq_step_t));
@@ -1584,6 +1855,22 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
         uint8_t nv = sq_beat_variants(beat_genre, beat_func), v;
         char *p = msg_buf;
         if (beat_func == SQ_FUNC_KIT) { beat_kit(); return; }
+        if (beat_func != SQ_FUNC_PROG && th_style_now(beat_genre) != 255u) {   /* 0.23 THEORY: the part made from the seed; again: the next seed */
+            uint16_t seed = project.th.seed;
+            undo_begin();
+            undo_add(t, pat);
+            if (!row_written(t) && PEN(t) == 60u) PEN(t) = sq_part_note(beat_genre, beat_func);
+            if (!beat_onto_x(t, pat, beat_genre, beat_func, 0u, 1u, 0)) { status_msg("NO PATTERN"); return; }
+            project.th.seed = (uint16_t)((seed + 1u) % SQ_TH_SEEDS);
+            p = put_s(p, th_style_now(beat_genre) == SQ_TH_FREE ? "FREE" : sq_genre_name(beat_genre)); p = put_s(p, " "); p = put_s(p, sq_func_name(beat_func));
+            p = put_s(p, " SEED "); p = put_u(p, (uint32_t)seed + 1u);
+            finish(p);
+            activate_row(t, row);
+            if (tr[t].step >= project.track[t].length) tr[t].step = 0u;
+            status_msg(msg_buf);
+            ui_dirty = grid_dirty = 1u;
+            return;
+        }
         if (!nv) { status_msg("NO PATTERN"); return; }
         if (beat_var >= nv && beat_func != SQ_FUNC_PROG) {   /* 0.11: one of the Pi's: asked, loaded when it comes */
             uint8_t npi = pipat_count(beat_genre, beat_func);
@@ -1636,13 +1923,14 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
             if (!(mask & (1u << k))) continue;
             undo_add((uint8_t)k, tr[k].pattern);
             fn = project.track[k].role ? sq_role_func(project.track[k].role) : sq_beat_role(track_drum(k), PEN(k));
-            if (fn != SQ_FUNC_PROG) fn = sq_genre_part_for(beat_genre, fn);   /* 0.11: the genre's part for it */
+            if (fn != SQ_FUNC_PROG && th_style_now(beat_genre) != SQ_TH_FREE) fn = sq_genre_part_for(beat_genre, fn);   /* 0.11: the genre's part for it */
             if (fn == 255u) continue;
-            beat_onto((uint8_t)k, fn, v);
+            beat_onto((uint8_t)k, fn, (uint8_t)(th_style_now(beat_genre) != 255u && fn != SQ_FUNC_PROG ? 0u : v));   /* (THEORY: one seed for all) */
             activate_row(k, project.step[k][tr[k].pattern]);
             if (tr[k].step >= project.track[k].length) tr[k].step = 0u;
         }
-        beat_var = (uint8_t)((v + 1u) % SQ_BEAT_VARS);
+        if (th_style_now(beat_genre) != 255u) project.th.seed = (uint16_t)((project.th.seed + 1u) % SQ_TH_SEEDS);
+        else beat_var = (uint8_t)((v + 1u) % SQ_BEAT_VARS);
     } else {
         for (k = 0; k < SQ_TRACKS; k++) {
             if (!(mask & (1u << k))) continue;
@@ -1662,6 +1950,7 @@ static uint8_t dice_kind;
 static uint16_t dsnap_mask;
 static sq_step_t dsnap_row[SQ_TRACKS][SQ_STEPS] __attribute__((section(".pool")));
 static sq_track_cfg_t dsnap_cfg[SQ_TRACKS];
+static sq_thpat_t dsnap_th[SQ_TRACKS];             /* 0.23: what the engines knew of each row */
 static uint8_t dsnap_pat[SQ_TRACKS], dsnap_key[3], dsnap_harm[5];
 static sq_lfo_t dsnap_lfo[SQ_LFOS];
 static uint32_t dhist_seed[DICE_HIST];
@@ -1681,6 +1970,7 @@ static void dice_save(uint16_t mask)
     for (t = 0; t < SQ_TRACKS; t++) {
         if (!(mask & ~dsnap_mask & (1u << t))) continue;
         dsnap_pat[t] = tr[t].pattern;
+        dsnap_th[t] = project.th.pat[t][tr[t].pattern];
         memcpy(dsnap_row[t], project.step[t][tr[t].pattern], sizeof dsnap_row[t]);
         dsnap_cfg[t] = project.track[t];
         dsnap_mask |= (uint16_t)(1u << t);
@@ -1695,6 +1985,7 @@ static void dice_restore(void)
         if (!(dsnap_mask & (1u << t))) continue;
         was = *c;
         memcpy(project.step[t][dsnap_pat[t]], dsnap_row[t], sizeof dsnap_row[t]);
+        project.th.pat[t][dsnap_pat[t]] = dsnap_th[t];
         *c = dsnap_cfg[t];
         track_cfg_back(t, &was);                          /* 0.11: the loop as it was, in time (the explorer) */
         for (l = 0; l < SQ_LANES; l++)                    /* the synth's sound back as it was */
@@ -1725,7 +2016,9 @@ static void dice_answer(uint8_t keep)
         undo_begin();
         for (t = 0; t < SQ_TRACKS; t++) {
             if (!(dsnap_mask & (1u << t))) continue;
+            undo_th_src = &dsnap_th[t];
             undo_add_row((uint8_t)t, dsnap_pat[t], dsnap_row[t], dsnap_cfg[t].length, dsnap_cfg[t].start);
+            undo_th_src = 0;
         }
         status_msg("DICE KEPT");
     } else {
@@ -1742,20 +2035,29 @@ static void dice_seq(uint16_t mask)
     uint32_t t;
     uint8_t melodic = 0u;
     for (t = 0; t < SQ_TRACKS; t++) if ((mask & (1u << t)) && !track_drum(t) && !track_break(t)) melodic = 1u;
+    uint8_t style = th_style_now(beat_genre);
     if (melodic && !project.gen.harm_lock) {              /* one progression of the genre for the roll: chords, bass, arps (not under HARM LOCK) */
         project.gen.harm_on = 1u;
-        project.gen.harm_prog = (uint8_t)grand(SQ_PROGS);
+        if (style != 255u) th_prog_dice(style);           /* 0.23 THEORY: one by the style's rules */
+        else project.gen.harm_prog = (uint8_t)grand(SQ_PROGS);
     }
     for (t = 0; t < SQ_TRACKS; t++) {
-        uint8_t fn, nv;
+        uint8_t fn, nv, own;
         sq_track_cfg_t *c = &project.track[t];
         sq_step_t *row;
         if (!(mask & (1u << t))) continue;
-        fn = project.track[t].role ? sq_role_func(project.track[t].role) : sq_beat_role(track_drum(t), PEN(t));
+        own = fn = project.track[t].role ? sq_role_func(project.track[t].role) : sq_beat_role(track_drum(t), PEN(t));
         if (fn != SQ_FUNC_PROG) fn = sq_genre_part_for(beat_genre, fn);   /* 0.11: the genre's part for the track */
         nv = fn < SQ_FUNCS ? sq_beat_variants(beat_genre, fn) : 0u;
         row = project.step[t][tr[t].pattern];
         if (track_break(t)) { brk_dice_track(t); continue; }   /* 0.12: the slices re-ordered, the backbone kept */
+        if (style != 255u && own != SQ_FUNC_PROG && own < SQ_FUNCS && !track_tape(t)) {   /* 0.23 THEORY: the part from a seed of the dice */
+            if (style == SQ_TH_FREE || fn >= SQ_FUNCS) fn = own;
+            beat_onto((uint8_t)t, fn, (uint8_t)(1u + grand(250u)));
+            activate_row(t, row);
+            if (tr[t].step >= c->length) tr[t].step = 0u;
+            continue;
+        }
         if (genre_feel() && nv) {
             beat_onto((uint8_t)t, fn, (uint8_t)grand(nv));
             sq_row_cook_role(row + c->start, (uint8_t)(c->length - c->start), (uint8_t)(tool_heat / 4u + 1u), gen_role(t), gen_root(t), gen_scale(), &sq_rng_state);   /* a take of its own */

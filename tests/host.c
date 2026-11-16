@@ -269,6 +269,9 @@ static void app_sysex(const uint8_t *p, uint32_t n);
 static void app_host_dump(int t);          /* dinghy.c: a track's pattern, for the tests ("T dump TRACK") */
 static void app_host_probe(void);          /* dinghy.c: the whole machine as key=value, for the explorer ("T probe") */
 static void app_host_ui(void);             /* dinghy.c: the screen's text (0.12: "T ui"), lines and cells */
+static void app_host_theory(int packed, int seed);   /* dinghy.c: 0.23 a band made by the THEORY engines */
+static void app_host_scene(int s, int prog);         /* ... and a scene recalled (prog 0..3: with that progression of the player's) */
+static void app_host_energy(int e);                  /* ... the machine's energy, at once */
 static uint8_t host_sx[1u << 20];
 static uint32_t host_sx_n, host_sx_dead;
 static int sysex_send(const uint8_t *p, uint32_t n)
@@ -351,6 +354,17 @@ static void read_script(const char *path)
         }
         else if (!strcmp(what, "dump")) { int v = 0; sscanf(line, "%*u %*s %d", &v); e.kind = 10; e.a = v; }
         else if (!strcmp(what, "probe")) { e.kind = 17; }
+        else if (!strcmp(what, "theory")) {          /* 0.23: STYLE SEED VAR VARY ENERGY PAT (STYLE: a genre 0..24, 25 FREE) */
+            int st = 0, seed = 0, var = 0, vary = 0, en = 60, pat = 0;
+            sscanf(line, "%*u %*s %d %d %d %d %d %d", &st, &seed, &var, &vary, &en, &pat);
+            e.kind = 21; e.a = (st & 31) | (pat & 15) << 5 | (en & 127) << 9 | (vary & 127) << 16 | (var & 127) << 24; e.b = seed;
+        }
+        else if (!strcmp(what, "energy")) { int v = 50; sscanf(line, "%*u %*s %d", &v); e.kind = 23; e.a = v; }
+        else if (!strcmp(what, "scene")) {           /* N [K]: scene N; K: with the player's progression K (0..3) */
+            int v = 0, k = -1;
+            sscanf(line, "%*u %*s %d %d", &v, &k);
+            e.kind = 22; e.a = v; e.b = k;
+        }
         else if (!strcmp(what, "ui")) { e.kind = 18; }                                                   /* the screen's text */
         else if (!strcmp(what, "leds")) { e.kind = 19; }                                                 /* the key LEDs: X lit, g glow */
         else if (!strcmp(what, "fork")) { e.kind = 13; }
@@ -471,6 +485,9 @@ static void platform_poll(void)                 /* one call = one millisecond */
         else if (e->kind == 8) app_sysex(host_sx + e->a, (uint32_t)e->b);
         else if (e->kind == 10) app_host_dump(e->a);
         else if (e->kind == 17) app_host_probe();
+        else if (e->kind == 21) app_host_theory(e->a, e->b);
+        else if (e->kind == 22) app_host_scene(e->a, e->b);
+        else if (e->kind == 23) app_host_energy(e->a);
         else if (e->kind == 18) app_host_ui();
         else if (e->kind == 19) host_leds_print();
         else if (e->kind >= 14 && e->kind <= 16) { }   /* (a branch's marks outside a fork: nothing) */

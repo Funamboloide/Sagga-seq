@@ -128,6 +128,13 @@ vuoto con il nome che scrivi) e **Ricevi dall'FM-1** (quello che l'FM-1 ha adess
 prende. Con il bridge del grid acceso l'hub chiede a lui (ha la porta dell'FM-1, file in `/run/sagga`); senza, usa
 `sagga_grid_bridge.py --export / --import`.
 
+0.23, i motori THEORY: una traccia il cui pattern è **fatto dai motori** ha accanto al nome un segno con il seme
+(`◆8`: seme 8), e in alto leggi `sorgente THEORY (prossimo seme N)`, oppure `sorgente FREE` quando i motori sono
+liberi dal genere (SEQ 8 K1 su FREE). Il fumetto del segno dice se il pattern è di nessun genere. L'editor tiene quello che i motori sanno di ogni
+pattern (da quale seme, a che variazione): un passo che cambi resta, e l'ENERGIA dell'FM-1 continua a riempire e
+svuotare il resto. Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
+**Copia in...** su un altro pattern della stessa traccia porta con sé il seme; su un'altra traccia no.
+
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:
 tocchi il vuoto e c'è una nota da un sedicesimo, la trascini per spostarla, dal bordo destro la allunghi, Canc la toglie;

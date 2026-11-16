@@ -117,6 +117,29 @@ def t_converter():
     check(md == {'src': 6, 'src_i': 21, 'dst': 8, 'dst_i': 2, 'amt': -60} and le.get('a') == 3 and le.get('s') == 70
           and j6['lfo'][4]['shape'] == 8 and j6['lfo'][4]['dest'] == 6,
           '0.20 the MOD MATRIX, an LFO\'s envelope, the ENV shape and MOD ONLY (%s %s %s)' % (md, le, j6['lfo'][4]))
+    # 0.23: what the THEORY engines know of a pattern they made - the SOURCE, the next seed, a record a pattern (track
+    # * 8 + pattern) - comes through a read, a patch that touches something else, and goes when the patch says so; a
+    # style there is not is put right (the record is nobody's)
+    r = apply(out, ['th - src - 1', 'th - seed - 41', 'thp 19 style - %d' % (11 | 0x40), 'thp 19 seed - 7', 'thp 19 func - 1', 'thp 19 var - 3', 'thp 19 vary - 40',
+                    'thp 19 energy - 60', 'thp 127 style - 26', 'thp 127 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)
+    j7 = read(out2)
+    check(r.returncode == 0 and j7.get('th') == {'src': 1, 'seed': 41} and len(j7.get('thp', [])) == 128
+          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60} and j7['thp'][127]['style'] == 26 and j7['thp'][127]['seed'] == 998,
+          '0.23 THEORY: the SOURCE, the next seed, the record of a pattern (track 3 pattern 4: REGGAETON, 64 steps, seed 8, variation 3) (%s %s)' % (j7.get('th'), r.stderr))
+    check(j7['thp'][5] == {'seed': 0, 'style': 0, 'func': 0, 'var': 0, 'vary': 0, 'energy': 0}, '... a style there is not: the record is put right - nobody\'s (%s)' % j7['thp'][5])
+    out3 = os.path.join(d, 'th2.sgq')
+    r = apply(out2, ['step 2,3,0 flags - 3', 'thp 127 style - 0'], out3)
+    j8 = read(out3)
+    check(r.returncode == 0 and j8['thp'][19] == j7['thp'][19] and j8['th'] == j7['th'] and j8['thp'][127]['style'] == 0 and j8['thp'][127]['seed'] == 0,
+          '... a patch of a step keeps the pattern\'s record; the record goes when the patch says so (%s)' % j8['thp'][127])
+    out4 = os.path.join(d, 'th3.sgq')                     # the SOURCE on FREE (2: the engines, the rules of no genre); one there is not
+    r = apply(out2, ['th - src - 2'], out4)
+    j10 = read(out4)
+    check(r.returncode == 0 and j10['th'] == {'src': 2, 'seed': 41} and j10['thp'][19] == j7['thp'][19], '... the SOURCE on FREE comes through, the records with it (%s %s)' % (j10.get('th'), r.stderr))
+    r = apply(out2, ['th - src - 3'], out4)
+    check(r.returncode == 0 and read(out4)['th'] == {'src': 0, 'seed': 41}, '... a SOURCE there is not is put right: LIBRARY (%s %s)' % (read(out4).get('th'), r.stderr))
+    j9 = read(HW)
+    check(j9.get('th') == {'src': 0, 'seed': 0} and not any(m['style'] for m in j9['thp']), 'a project of before 0.23: SOURCE LIBRARY, no pattern is the engines\'')
     # what the FM-1 would play: the converter's step is a note for the firmware's own sgq2mid
     mid = os.path.join(d, 'x.mid')
     subprocess.run([MID, 'sgq2mid', out, mid], check=True, capture_output=True)
@@ -504,6 +527,84 @@ def t015_backend():
         check(e.code == 409 and 'bridge' in str(e), 'no bridge: the page is told (%s)' % e)
 
 
+def t023_page():
+    group('0.23 the page and the THEORY engines: a pattern they made says so with its seed; emptied here, they forget it; one copied on its track keeps what they know; the others stay')
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (skipped: no playwright)')
+        return
+    import sagga_fw as FW
+    d = tempfile.mkdtemp()
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    name = os.path.join(pr, 'motori.sgq')
+    # track 3 (index 2): pattern 1 made from seed 8, variation 3; track 6: pattern 1 from seed 21; the SOURCE on THEORY
+    r = apply(HW, ['th - src - 1', 'th - seed - 41', 'thp 16 style - 11', 'thp 16 seed - 7', 'thp 16 func - 1', 'thp 16 var - 3', 'thp 16 vary - 40', 'thp 16 energy - 50',
+                   'thp 40 style - 1', 'thp 40 seed - 20', 'thp 40 energy - 50', 'step 2,0,3 flags - 3', 'step 2,0,3 note 0 38', 'step 5,0,0 flags - 3'], name)
+    check(r.returncode == 0, 'a project with two patterns of the engines (%s)' % r.stderr)
+    # ... and one with the SOURCE on FREE: track 1's pattern made by the rules of no genre (style 26), from seed 4
+    r = apply(HW, ['th - src - 2', 'th - seed - 6', 'thp 0 style - 26', 'thp 0 seed - 3', 'thp 0 energy - 50', 'step 0,0,0 flags - 3'], os.path.join(pr, 'libero.sgq'))
+    check(r.returncode == 0, 'a project with the SOURCE on FREE (%s)' % r.stderr)
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch()
+            pg = b.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/edit/motori.sgq' % port)
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.pat=0;V.t=2;V.tab='tracce';render()")
+            labels = [x.text_content() for x in pg.query_selector_all('.tr .lb')]
+            head = pg.text_content('#main .row small') or ''
+            check(len(labels) == 16 and '\u25c68' in labels[2] and '\u25c621' in labels[5] and not any('\u25c6' in x for i, x in enumerate(labels) if i not in (2, 5)),
+                  'the tracks whose pattern the engines made say so, with the seed as the FM-1 shows it (%s)' % [labels[2], labels[5]])
+            check('sorgente THEORY (prossimo seme 42)' in head, 'the SOURCE and the next seed (%s)' % head)
+            title = pg.get_attribute('.tr .lb.cur', 'title') or ''
+            check('seme 8' in title and 'variazione 3' in title and 'ENERGIA' in title, 'the label says what it means (%s)' % title)
+            pg.evaluate("V.tab='traccia';render()")
+            pg.select_option('#cpt', '2'); pg.select_option('#cpp', '4')            # copy T3 P1 onto T3 P5: its record goes with it
+            pg.click('button:has-text("Copia in")')
+            pg.wait_for_timeout(100)
+            check(pg.evaluate('thOf(2,4) && thOf(2,4).seed') == 7 and pg.evaluate('thOf(2,4).var') == 3, 'a copy onto another pattern of the track keeps what the engines know (%s)' % pg.evaluate('JSON.stringify(P.thp[20])'))
+            pg.select_option('#cpt', '9'); pg.select_option('#cpp', '0')            # ... onto another track: a pattern of nobody's
+            pg.click('button:has-text("Copia in")')
+            pg.wait_for_timeout(100)
+            check(pg.evaluate('thOf(9,0)') is None and pg.evaluate('getStep(9,0,3).flags') & 1 == 1, '... onto another track: the steps, not the record')
+            pg.click('button:has-text("Svuota il pattern")')
+            pg.wait_for_timeout(100)
+            check(pg.evaluate('thOf(2,0)') is None and pg.evaluate('thOf(5,0).seed') == 20, 'a pattern emptied here: the engines forget it; the other stays (%s)' % pg.evaluate('JSON.stringify(P.thp[16])'))
+            pg.keyboard.press('Control+z')
+            check(pg.evaluate('thOf(2,0) && thOf(2,0).seed') == 7 and pg.evaluate('getStep(2,0,3).flags') & 1 == 1, 'Ctrl+Z: the pattern and what the engines knew of it')
+            pg.click('button:has-text("Svuota il pattern")')
+            pg.wait_for_timeout(100)
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            j = read(name)
+            check(j['thp'][16]['style'] == 0 and j['thp'][16]['seed'] == 0 and j['thp'][20] == {'seed': 7, 'style': 11, 'func': 1, 'var': 3, 'vary': 40, 'energy': 50}
+                  and j['thp'][40]['seed'] == 20 and j['thp'][72]['style'] == 0 and j['th'] == {'src': 1, 'seed': 41},
+                  'saved: the emptied pattern is nobody\'s, the copy and the other pattern are the engines\', the SOURCE stays (%s)' % [j['thp'][k] for k in (16, 20, 40)])
+            pg.goto('http://127.0.0.1:%d/edit/libero.sgq' % port)                    # the SOURCE on FREE
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.pat=0;V.t=0;V.tab='tracce';render()")
+            head = pg.text_content('#main .row small') or ''
+            labels = [x.text_content() for x in pg.query_selector_all('.tr .lb')]
+            title = pg.get_attribute('.tr .lb.cur', 'title') or ''
+            check('sorgente FREE' in head and 'nessun genere' in head and 'prossimo seme 7' in head, 'the SOURCE on FREE: the page says the engines make by no genre (%s)' % head)
+            check('\u25c64' in labels[0] and 'FREE' in title and 'seme 4' in title, '... and a pattern made so says it (%s, %s)' % (labels[0], title))
+            check(not errs, 'no script errors (%s)' % errs[:2])
+            b.close()
+    finally:
+        srv.shutdown()
+
+
 def t015_bridge():
     group('0.15 the bridge: asks the FM-1 for positions while the page wants them, writes them, sends the previews')
     import sagga_grid_bridge as B
@@ -671,7 +772,7 @@ def t015_page():
 
 def main():
     build()
-    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page):
+    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page):
         try:
             t()
         except Exception as e:
