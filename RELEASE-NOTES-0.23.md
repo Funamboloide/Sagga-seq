@@ -108,7 +108,25 @@ SAVE + SEL + nero 1, HOME 2 K1, SAVE + nero 1). Corretto, ed è un test.
 
 ## Come è stato provato
 
-@@PROVE@@
+Tutto nel simulatore, che è il firmware stesso compilato per il computer.
+
+* **I motori da soli**: 36.252.432 controlli, su 150 semi per ognuno dei 26 stili (i 25 generi e FREE). Una parte non
+  è mai vuota; salendo di energia nessun colpo si perde e le note che restano tengono l'altezza; quello che ogni
+  pattern della libreria suona, i motori lo suonano sempre.
+* **Il confronto con la libreria** (energia 50, 60 semi per genere): 218 parti su 229 cadono dove cade la libreria.
+* **L'FM-1 intero**: 1.237 controlli fatti con i tasti e le manopole, fra cui i 25 generi uno per uno (BAND, energia,
+  COOK, DICE PROG), il modo FREE dentro un genere, GENRE LIVE, il tablet, il grid, l'editor del Pi in un browser.
+* **L'esploratore completo**: 73.819 gesti da soli in 22 situazioni (5 con i motori: TECHNO, REGGAETON con GENRE
+  LIVE, SOURCE FREE, AMAPIANO con tablet e grid, HOUSE sulle MOSSE), 8.797 coppie di gesti, 200 sessioni a caso da 60
+  gesti: **0 errori**. Ha trovato l'errore vecchio dello snapshot (qui sopra), ora corretto.
+* **La memoria**: la suite intera rifatta con i controlli della memoria (AddressSanitizer e
+  UndefinedBehaviorSanitizer): i 1.237 controlli dell'FM-1, 26 prove a caso, l'esploratore veloce. Nessun errore.
+* **I test che controllano i test**: ho rotto il firmware apposta per vedere se i test se ne accorgono. Con il
+  servizio dell'energia spento la regola MOTORI dell'esploratore trova 17 casi (0 sul firmware vero); senza le due
+  righe nuove di FREE (GENRE LIVE che lascia stare i pattern dei motori, e le tracce della libreria che seguono il
+  genere) il test nuovo fallisce.
+* **GitHub** ha compilato il pacchetto (`FM-1_973`) e rifatto i 1.110.950 controlli del cuore del firmware.
+* **Cosa non è stato provato**: un FM-1 vero, e come suona. Quello lo dicono le tue orecchie.
 
 ## Installare
 
@@ -119,8 +137,9 @@ SAVE + SEL + nero 1, HOME 2 K1, SAVE + nero 1). Corretto, ed è un test.
 ## Da sapere
 
 * **Niente di questo ha girato su un FM-1 vero.** Tutto è provato nel simulatore, che è il firmware stesso compilato
-  per il computer: la logica, i tempi, il MIDI che esce. Il firmware cresce di circa 45 KB e ci sta con margine, ma è
-  la compilazione di GitHub a dirlo, e l'FM-1 a confermarlo.
+  per il computer: la logica, i tempi, il MIDI che esce. Il firmware cresce di 51 KB e ci sta con margine: 441.544 byte
+  su 581.564 (la 0.22: 390.132), la RAM 68.736 byte su 98.304 (+464). Lo dice la compilazione di GitHub; l'FM-1 lo
+  confermerà.
 * **Come suona lo dicono le tue orecchie.** I test dicono che i motori stanno nel genere e non si rompono. Se una parte
   di un genere non ti convince, dimmi quale: le regole contate si rifanno, quelle a mano si correggono.
 * **I progetti di prima** si aprono come sono, con SOURCE LIBRARY. Un progetto fatto con la 0.23, caricato su una 0.22,

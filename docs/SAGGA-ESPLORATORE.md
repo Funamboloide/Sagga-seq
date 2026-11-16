@@ -21,7 +21,7 @@ cosa cambia) e `build/explore/rapporto.json`.
    tornano al hub sulla porta 2). 0.23: **cinque con i motori THEORY**: una band TECHNO; una REGGAETON
    (regole contate) con GENRE LIVE; SOURCE FREE (nessun genere) con pattern di quattro battute, ferma; una AMAPIANO con il tablet e il
    grid; una HOUSE sulle MOSSE, dove RISER, DROP e l'energia riempiono e svuotano quello che i motori hanno fatto.
-2. **I gesti.** Quasi 5000: ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
+2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
@@ -102,6 +102,8 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   nero 1). Non c'entrano i motori: succedeva in ogni situazione, dalla 0.11. Corretto; è il test
   `t023_snapshot_direction`. La regola MOTORI è stata provata rompendo apposta il servizio dei motori in una copia del
   firmware: 17 errori sulle MOSSE, zero sul firmware vero.
+  Il giro completo della 0.23, a errore corretto: 73.819 gesti da soli in 22 situazioni, 8.797 coppie, 200 sessioni
+  da 60 gesti, nessun errore; la suite di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer, nessun errore.
 
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.

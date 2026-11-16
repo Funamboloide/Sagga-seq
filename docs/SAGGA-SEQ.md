@@ -66,9 +66,9 @@ like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted 
   commands, SEQ page 8, and a rule of its own (MOTORI: stopped, every pattern the engines know is at the machine's
   energy) - checked by breaking the service on purpose.
 
-Not verified on an FM-1: everything here ran in the simulator (the firmware itself, built for a computer). The size of
-the image grows by about 45 KB (the engines 12, the counted rules 30): it fits the FM-1's flash with room to spare, but
-the build that says so is GitHub's.
+Not verified on an FM-1: everything here ran in the simulator (the firmware itself, built for a computer). GitHub's
+build of 0.23: the image 441,544 B of 581,564 (0.22: 390,132; +51 KB, the engines and their counted rules), RAM
+.data + .bss 68,736 B of 98,304 (+464), the pool 326,416 B of 344,064 (+3,332: the engines' rows and the records).
 
 What was new in 0.22 and before: [storia/NOVITA.md](storia/NOVITA.md).
 
