@@ -123,7 +123,7 @@ Quasi tutto come sopra. Le differenze, perché il codice le ha chieste:
 * Il **canale 13**: i 16 slice come pad sono **CC 76-91** (il hub manda solo CC dalle celle), un LFO alla volta con le
   manopole (92 quale, 93-97 shape, rate, depth, dest, on/off) e **i sedici interruttori come note 100-115** (il plugin
   SAGGA Mod le manda da solo: `send_note_on` / `send_note_off` di PluginBase, dato che i CC liberi del canale erano
-  cinque); le note 36-51 fanno lo stesso dei pad. La mappa completa è in `docs/SAGGA-SEQ.md`.
+  cinque); le note 36-51 fanno lo stesso dei pad. La mappa completa è in `../SAGGA-SEQ.md`.
 * Le lunghezze dai tasti: i bianchi 4, 8 .. 64, i **neri 3 5 6 7 9 10 11 13 14 15** (le polimetrie, non 2, 6 .. 38).
 * Le percentuali dai tasti: bianchi 1-10 = 10..100 %, neri = 5, 15 .. 95 %.
 * I quattro gesti SEQ + SEL + tasto sono **tasti tenuti 0,6 s**; il tocco agisce quando lasci il tasto.

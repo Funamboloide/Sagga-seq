@@ -133,7 +133,7 @@ per lo swing: dopo li giri tu per il tuo feel.
 
 Fra parentesi lo swing del genere, che hanno tutte le parti dove non è detto altro; senza parentesi: 50. L'open hat
 segue l'hat con un po' meno; arp, lead e voci seguono gli accordi. La tabella completa, parte per parte, è in
-`docs/SAGGA-SEQ.md`.
+`../SAGGA-SEQ.md`.
 
 ## Sotto il cofano
 

@@ -7,7 +7,6 @@ skipped without it). 0.15: the name, the GROOVE, the TAPE events, the positions 
 
     python3 tests/sagga_editor_tests.py
 """
-import io
 import json
 import os
 import re

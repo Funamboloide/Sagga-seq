@@ -196,7 +196,7 @@ static uint8_t ui_perf_pp(void)
 /* the text of the screen for the moment: four lines and four cells */
 static void ui_build(void)
 {
-    char b[64], *p;
+    char *const b = ui_b, *p;                  /* (0.21: 64 bytes that put_c ends, not the stack) */
     uint8_t mode = ui_mode();
     uint32_t t = selected_track, i;
     sq_track_cfg_t *cfg = &project.track[t];

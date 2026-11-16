@@ -17,7 +17,6 @@ ROOT = os.path.dirname(HERE)
 sys.path.insert(0, os.path.join(ROOT, "tools", "hwtest"))
 import sagga_testport as T      # noqa: E402
 import sagga_hw_explore as R    # noqa: E402
-import sagga_hw_test as HT      # noqa: E402
 import fm1_install as FI        # noqa: E402
 
 CHECKS, FAILS = [0], []

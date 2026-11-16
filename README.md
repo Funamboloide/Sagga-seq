@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.20
+# SAGGA SEQ 0.21
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
@@ -6,13 +6,13 @@ SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 16 track
 track, scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
 variations a part in order of likeness, notes of their own length), live Euclidean rhythms and four algorithm slots per
 track, a harmony that the tracks follow (the genre's progressions or yours, on any root, with lengths in 16ths, pushes,
-the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, four MIDI effects in a chain on every track (velocity curve, octave, harmony, echo), six CC lanes with slides and NRPN, tools that wait for the bar or repeat
+the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, nine MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch), envelopes and a MOD MATRIX, six CC lanes with slides and NRPN, tools that wait for the bar or repeat
 every so many, TAPE tracks and EXPO curves, the journey (every set cut into phrases; the MOSSE, PERF's third page,
 queue moves for the phrase, the bar or the beat, and what you played becomes a song), BREAK tracks (a drum break in slices, sixteen chops on the white keys, re-ordered live),
 TAKE and THROWS, every knob also set from the keys (PICK, from the grid too), the buttons' pages as windows a tap
 opens (no button to hold), and a 16 x 8 grid made of two Launchpads through a Raspberry Pi that follows the FM-1's page,
-with six controller pages for the Pi's RaspiMIDIHub: the tablet works on a track of its own, and the FM-1 sends its
-values back to it.
+with six controller pages for the Pi's RaspiMIDIHub (and a BeatStep Pro as knobs and pads): the tablet works on a track
+of its own, and the FM-1 sends its values back to it.
 
 **MIDI only.** SAGGA SEQ makes no sound: the FM-1's speaker and headphone output stay silent. It plays your synths
 over USB MIDI (and listens on the TRS input). It cannot read the projects or samples of other FM-1 firmwares.
@@ -21,29 +21,28 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 
 * **In the browser:** [The Firmware Hub](https://thefirmwarehub.com) (Chrome or Edge, FM-1 on USB): one click, and one
   click back to the official firmware or any other.
-* **From a computer:** download `sagga-0.20.fwsc` (the `pacchetti` branch has the newest) and run
-  `python3 tools/fm1_install.py sagga-0.20.fwsc` (Python 3 and `mido` + `python-rtmidi`).
+* **From the Pi:** the hub's page (port 8090), FIRMWARE: upload `sagga-X.fwsc`, Installa. The whole set (the FM-1, the
+  Pi, the grid), the first time and every update: [docs/INSTALLA.md](docs/INSTALLA.md) (Italian).
+* **From a computer:** download `sagga-X.fwsc` (the `pacchetti` branch has the newest) and run
+  `python3 tools/fm1_install.py sagga-X.fwsc` (Python 3 and `mido` + `python-rtmidi`).
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
-* [RELEASE-NOTES-0.20.9.md](RELEASE-NOTES-0.20.9.md): the keeper of the FM-1's cells (RaspiMIDIHub loses them when the FM-1 is away during its autosave), the banco's reboots (Italian).
-* [RELEASE-NOTES-0.20.8.md](RELEASE-NOTES-0.20.8.md): the pages follow the FM-1 from the start, no page touched first (the FM-1 only).
-* [RELEASE-NOTES-0.20.7.md](RELEASE-NOTES-0.20.7.md): QUANTISE back on SAGGA Remote with REMOTE 14 too (the FM-1 only).
-* [docs/SAGGA-SEQ-0.20.6-INSTALL.md](docs/SAGGA-SEQ-0.20.6-INSTALL.md): QUANTISE and SWING back on the pages, the banco past its third session (Italian; the FM-1 and the Pi).
-* [docs/SAGGA-SEQ-0.20.5-INSTALL.md](docs/SAGGA-SEQ-0.20.5-INSTALL.md): the banco's runner after the first runs on the real banco (Italian; only the Pi changes).
-* [docs/SAGGA-SEQ-0.20.4-INSTALL.md](docs/SAGGA-SEQ-0.20.4-INSTALL.md): the banco's prova asks for SEL with the grid still attached (Italian; only the Pi changes).
-* [docs/SAGGA-SEQ-0.20.3-INSTALL.md](docs/SAGGA-SEQ-0.20.3-INSTALL.md): the banco's explorer, the FM-1, the Pi and the grid tested together (Italian).
-* [docs/SAGGA-SEQ-0.20.2-INSTALL.md](docs/SAGGA-SEQ-0.20.2-INSTALL.md): the hub install no longer stops halfway (Italian; only the Pi changes); [0.20.1](docs/SAGGA-SEQ-0.20.1-INSTALL.md): the Pi updates itself from its page.
-* [docs/SAGGA-SEQ-0.20-INSTALL.md](docs/SAGGA-SEQ-0.20-INSTALL.md): install (Italian); [0.19](docs/SAGGA-SEQ-0.19-INSTALL.md), [0.18.1](docs/SAGGA-SEQ-0.18.1-INSTALL.md) (the explorer on the FM-1), [0.18](docs/SAGGA-SEQ-0.18-INSTALL.md), [0.17](docs/SAGGA-SEQ-0.17-INSTALL.md), [0.16](docs/SAGGA-SEQ-0.16-INSTALL.md), [0.15](docs/SAGGA-SEQ-0.15-INSTALL.md), [0.12](docs/SAGGA-SEQ-0.12-INSTALL.md).
-* [docs/SAGGA-SEQ-0.12-DISEGNO.md](docs/SAGGA-SEQ-0.12-DISEGNO.md): the design 0.12 started from, and how it went (Italian).
+* [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
+* [RELEASE-NOTES-0.21.md](RELEASE-NOTES-0.21.md): what changed in this version (Italian).
+* [docs/SAGGA-ESPLORATORE.md](docs/SAGGA-ESPLORATORE.md): the explorer, on a computer, on the FM-1 and on the banco (Italian).
+* [tools/hub/LEGGIMI.md](tools/hub/LEGGIMI.md): the Pi's page - the firmware library, the projects and their editor, the
+  update, the keeper of the FM-1's cells, the banco (Italian). [tools/raspimidihub/README.md](tools/raspimidihub/README.md): the
+  seven plugins.
+* [docs/storia/](docs/storia/): the past - what each version brought ([NOVITA.md](docs/storia/NOVITA.md)), the release
+  notes and the installation sheets of 0.8 to 0.20.9, the design 0.12 started from.
 * [docs/SAGGA-GRID-ZYNTHIAN.md](docs/SAGGA-GRID-ZYNTHIAN.md): the minimal stage set-up, the bridge on a Zynthian (Italian).
-* [RELEASE-NOTES-0.20.md](RELEASE-NOTES-0.20.md): what changed (Italian); [0.20.6](RELEASE-NOTES-0.20.6.md), [0.20.5](RELEASE-NOTES-0.20.5.md), [0.20.4](RELEASE-NOTES-0.20.4.md) (the Pi only), [0.20.3](RELEASE-NOTES-0.20.3.md) (the banco's explorer), [0.20.2](RELEASE-NOTES-0.20.2.md), [0.20.1](RELEASE-NOTES-0.20.1.md) (the Pi only), [0.19](RELEASE-NOTES-0.19.md), [0.18.1](RELEASE-NOTES-0.18.1.md), [0.18](RELEASE-NOTES-0.18.md), [0.17](RELEASE-NOTES-0.17.md), [0.16](RELEASE-NOTES-0.16.md), [0.15](RELEASE-NOTES-0.15.md), [0.14](RELEASE-NOTES-0.14.md), [0.13](RELEASE-NOTES-0.13.md), [0.12](RELEASE-NOTES-0.12.md), [0.11](RELEASE-NOTES-0.11.md), [0.10](RELEASE-NOTES-0.10.md), [0.9](RELEASE-NOTES-0.9.md), [0.8](RELEASE-NOTES-0.8.md).
 * [tools/norns/figo/README.md](tools/norns/figo/README.md) and [tools/gills/LEGGIMI.md](tools/gills/LEGGIMI.md): the live
   effects of the set, FIGO on norns (the loop varied by itself, in time) and SCENA on the Ksoloti Gills (one knob from
   break-down to build-up) (Italian).
@@ -55,7 +54,7 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 | | |
 | --- | --- |
 | FM-1 | the firmware: `firmware/` |
-| Raspberry Pi with [RaspiMIDIHub](https://github.com/wamdam/raspimidihub) | the grid bridge (`tools/sagga_grid_bridge.py`), the remote and mutes plugins (`tools/raspimidihub/`), the M8 link's Pi side (`tools/m8link/pi/`) |
+| Raspberry Pi with [RaspiMIDIHub](https://github.com/wamdam/raspimidihub) | the hub's page (`tools/hub/`: firmware, projects, editor, update, the keeper of the FM-1's cells, the banco), the grid bridge (`tools/sagga_grid_bridge.py`), the seven plugins (`tools/raspimidihub/`), the M8 link's Pi side (`tools/m8link/pi/`) |
 | TrimUI Brick with KNULLI | the M8 link's Brick side (`tools/m8link/brick/`) |
 
 Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete sequencer.
@@ -63,7 +62,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.20         # identity FM-1_970
+./build.sh --release 0.21         # identity FM-1_971
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with
@@ -72,8 +71,8 @@ Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh`
 ## Test (no FM-1 needed)
 
 ```sh
-sh tests/run_sagga_tests.sh                 # core, USB descriptors, bridge, plugins (RMH=...), simulator, fuzz, explorer
-SANITIZE=1 FUZZ=60 sh tests/run_sagga_tests.sh
+sh tests/run_sagga_tests.sh                 # core, the FM-1's two builds parsed, USB, bridge, plugins (RMH=...), hub, simulator, fuzz (ASan + UBSan), explorer, banco
+SANITIZE=1 FUZZ=200 sh tests/run_sagga_tests.sh   # everything with the sanitizers, more random runs
 python3 tests/sagga_explore.py              # the explorer, all of it: every gesture in 11 situations, pairs, sessions
 ```
 
@@ -84,7 +83,7 @@ what each gesture changes and how to repeat a broken rule.
 
 ## Project format
 
-0.12 and 0.11 write `SGQB` (0.12 uses two of a track's reserved bytes for its BREAK settings) and read 0.10's `SGQA` too (a 0.10 project opens with the new things off); SGQ3 .. SGQ9 slots and
+0.11 and later write `SGQB` (0.12 uses two of a track's reserved bytes for its BREAK settings; what 0.13 - 0.20 added lives in a tagged chunk an older firmware skips) and read 0.10's `SGQA` too (a 0.10 project opens with the new things off); SGQ3 .. SGQ9 slots and
 files are refused (keep a 0.9 firmware for 0.9 projects). The format carries the track settings (96 bytes a track: the
 four algorithm slots, FOLLOW's way), five user progressions (roots, shapes, lengths, pushes, moods), 16 scenes, a song of 64 entries with a tempo
 each, the snapshots (sparse), the project's id (the Pi keeps the snapshot patches by it) and a tail of tagged chunks,
@@ -92,8 +91,8 @@ so a later version can add data without a new format.
 
 ## USB
 
-One USB-MIDI port by default (the grid on channels 15 / 16, the tracks on 1-14). USB PORTS 2 (the USB page, HOME +
-SEL) gives two: port 1 the synths with 16 channels, port 2 the grid, the remote and the SysEx.
+One USB-MIDI port by default (the grid on channels 15 / 16, the tracks on 1-14). USB PORTS 2 (SAVE page 3,
+K1; SEL + K1 twice reconnects) gives two: port 1 the synths with 16 channels, port 2 the grid, the remote and the SysEx.
 
 ## Credits and licence
 

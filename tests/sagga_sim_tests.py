@@ -4380,7 +4380,6 @@ def seq_page_turn(s, t, page, encs):
 
 def t010_expo():
     group("0.10 EXPO: the curve's hits over a bar, RAMP both ways, BOUNCE, the STEP span, ARP, the gate, off = as written, saved")
-    import math
     def gaps(n, k): return [n[i + 1][0] - n[i][0] for i in range(min(k, len(n)) - 1)]
 
     def scenario(encs5, encs6=(), steps=(0,), before=None, bars=2, flash=None):
@@ -6267,7 +6266,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.20.9", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.21", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -8150,6 +8149,59 @@ def t020_env_mod():
     check(sc and sc[-1]["cells"][1][1] == "CC IN 21", "LEARN: MOD 1's source is CC IN 21 (%s)" % (sc[-1]["cells"] if sc else sc))
 
 
+def t021_clean():
+    group("0.21: the screen's line of what is going on, with everything on at once, is cut and not written past its end; SAGGA Break's knobs go back to the page; a value the tablet moved goes back at once 65 seconds later too")
+    # DICE? TEMP LOOP RESTART MACRO MORPH ECHO ALL together: 70 characters and more for a line of 31 (64 bytes to write it)
+    s = Script()
+    t = remote13_on(s, 100)
+    t = s.steps(t, [0, 4, 8, 12])
+    s.tap_btn(t, PLAY); t += 300
+    for cc, v in ((37, 127), (26, 127), (26, 0), (88, 127), (88, 0), (7, 100), (1, 127), (118, 127), (118, 0)):
+        s.raw(t, "midi 0xBD %d %d" % (cc, v)); t += 15                # TEMP held, LOOP 1/16, RESTART, a macro, MORPH, ECHO ALL
+    s.raw(t, "midi 0xBB 31 127"); s.raw(t + 10, "midi 0xBB 31 0"); t += 40   # the tablet's DICE: KEEP or BACK?
+    s.at(t, "ui"); t += 100
+    s.raw(t, "midi 0xBD 37 0"); t += 40
+    s.at(t, "ui"); s.at(t, "dump", 0); t += 100
+    log = run(s, t + 300)
+    sc = log.screens()
+    l5 = sc[0]["lines"][5] if sc else ""
+    check(len(sc) == 2 and l5.startswith("DICE? +KEEP -BACK ") and "TEMP" in l5 and len(l5) <= 31,
+          "everything on at once: the line starts with the dice and ends at the screen's edge (%r)" % l5)
+    check(len(sc) == 2 and sc[1]["lines"][5].startswith("LOOP 1/16 RESTART MACRO MORPH") and log.dumps,
+          "... and the FM-1 goes on: TEMP let go (the dice go back with it) leaves the line (%r)" % (sc[1]["lines"][5] if len(sc) == 2 else sc))
+    # the BREAK's SWAP, ROLLS, SLICES of the tablet's track go back to SAGGA Break (channel 13 CC 73-75)
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    s.raw(t, "midi 0xBC 112 1 2"); t += 40                            # the tablet's track: 2
+    s.raw(t, "midi 0xBC 75 2 2"); t += 40                             # its SLICES 32,
+    s.raw(t, "midi 0xBC 74 5 2"); t += 40                             # ROLLS 5,
+    s.raw(t, "midi 0xBC 73 6 2"); t += 700                            # SWAP 6
+    t1 = t
+    s.raw(t, "midi 0xBC 112 0 2"); t += 700                           # the tablet's track: 1 (16 slices, 2 rolls, swap 3)
+    t2 = t
+    s.raw(t, "midi 0xBC 112 1 2"); t += 700                           # and 2 again
+    log = run(s, t + 200)
+    out = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBC and m[2] in (73, 74, 75)]
+    one = {c: v for tt, c, v in out if t1 <= tt < t2}
+    two = {c: v for tt, c, v in out if tt >= t2}
+    check(one == {73: 3, 74: 2, 75: 1}, "the tablet's track changes to 1: its SWAP 3, ROLLS 2, SLICES 16 go to the page (%s)" % one)
+    check(two == {73: 6, 74: 5, 75: 2}, "... and back to 2: SWAP 6, ROLLS 5, SLICES 32 (%s)" % two)
+    echo = [x for x in out if x[0] < t1 and x[1:] in ((73, 6), (74, 5), (75, 2))]
+    check(not echo, "what the page itself sent does not come back (%s)" % echo[:3])
+    # the stamps of what the tablet moved are 16 bits of ms: 65.536 s later the value looked "just moved" again for 400 ms
+    s = Script()
+    t = usb2(s, 100)
+    s.raw(t, "midi 0xBD 6 4 2")                                        # SAGGA Remote's QUANTISE: 4
+    s.tap_btn(t + 65536 - 300, GLO)                                    # PERF ...
+    s.enc(t + 65536 + 60, K4, -1)                                      # ... and QUANTISE on the panel, 60 ms into those 400
+    s.tap_btn(t + 65536 + 700, GLO)
+    log = run(s, t + 65536 + 1000)
+    q = [(m[0], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] == 34 and m[0] >= t + 65536 + 60]
+    check(q and q[0][1] == 3 and q[0][0] < t + 65536 + 60 + 150,
+          "QUANTISE turned on the panel 65.6 s after the page moved it goes back at once, not 340 ms later (%s, the turn at %d)" % (q[:2], t + 65536 + 60))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -8165,7 +8217,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

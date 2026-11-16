@@ -14,7 +14,7 @@ progetto salvato dalla 0.12 si apre anche sulla 0.11 (che ignora quei due campi 
 SAVE 3, i quattro gesti SEQ + SEL + tasto sono tasti **tenuti** (UNDO = REDO, COOK = COOK a caso, KIT = BAND, DICE =
 DICE PROG), l'ottava live è GLO + SEL + OCT. **Un tocco su HOME, SEQ, EDIT, ENV, LFO, ARP o FX apre la finestra del
 tasto** (come tenerlo premuto, finché non lo tocchi di nuovo); SEL + ARP è l'arpeggio on / off, SEL + FX il loop a due
-step (erano i tocchi di ARP e FX). La tabella completa: `docs/SAGGA-SEQ.md`, "The FM-1 panel".
+step (erano i tocchi di ARP e FX). La tabella completa: `../SAGGA-SEQ.md`, "The FM-1 panel".
 
 ## 1. Compila in WSL
 
@@ -148,5 +148,5 @@ python3 tests/sagga_explore.py --hw "$(ls -t /mnt/c/Users/user/Downloads/sagga-e
 
 e mandami `build/explore/RAPPORTO-HW.md` (o la raccolta).
 
-Le note di rilascio (`RELEASE-NOTES-0.12.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`;
-il disegno da cui è partita la 0.12 è `docs/SAGGA-SEQ-0.12-DISEGNO.md` (con, in fondo, cosa è stato fatto diversamente).
+Le note di rilascio (`RELEASE-NOTES-0.12.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`;
+il disegno da cui è partita la 0.12 è `SAGGA-SEQ-0.12-DISEGNO.md` (con, in fondo, cosa è stato fatto diversamente).

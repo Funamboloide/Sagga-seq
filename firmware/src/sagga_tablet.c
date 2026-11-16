@@ -8,7 +8,8 @@
  *   channel 12, the tablet's track (a switch: 64 and up on; a tap: acts at 64 and up)
  *   CC 1 MUTE   2 SOLO   3 PATTERN 0-7 (at the QUANTISE)   4 LENGTH 1-64 (at the bar)   5 OCTAVE 0-6 (3 = 0)
  *   CC 6 SWING 50-75   7 GROOVE 0-9   8 GROOVE AMOUNT 0-100
- *   CC 9 MIDI FX 0-4 (READY)   10 ITS AMOUNT 0-24 (12 = 0)   11 FX GO (the READY one starts; none: the one playing stops)
+ *   CC 9 MIDI FX 0-9 (READY; 0.20: the nine)   10 ITS AMOUNT 0-24 (the four of 0.19: 12 = 0; the others: over their
+ *   range)   11 FX GO (the one shown joins the chain, or leaves it; OFF shown: all stop)
  *   CC 12 ALGO 0-4 (READY on the slot shown)   13 / 14 / 15 its A / B / C (0-127 over the algorithm's range)   16 ALGO GO
  *   CC 17 EUCLID PULSES 1-64   18 ROTATION 0-63   19 EUCLID LIVE (a switch, this track only)
  *   CC 20 ARP 0-12   21 OCTAVES 1-3   22 RATE 0-6 (1/4 1/2 ROLL 1 2 3 4)   23 RUN 0-3 (OFF RETRIG HOLD HOLD+RT)
@@ -18,8 +19,9 @@
  *
  *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
  *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it
- *   changes, and slowly all of it again: channel 12 above; channel 13 CC 33-64 (the patterns and lengths), 92-97 (the
- *   tablet's LFO), 101-106 (its track's lanes), 112-118; notes 100-115 (the LFO switches); channel 14 CC 1, 2, 4-11.
+ *   changes, and slowly all of it again: channel 12 above; channel 13 CC 33-64 (the patterns and lengths), 73-75 (0.21:
+ *   the BREAK's SWAP, ROLLS, SLICES of its track), 92-97 (the tablet's LFO), 101-106 (its track's lanes), 112-118; notes
+ *   100-115 (the LFO switches); channel 14 CC 1, 2, 4-11.
  *   0.20.6: four of them come back on channel 12 CC 33-36 instead (the pages take them there): SWING (CC 6), QUANTISE
  *   (channel 14 CC 6), the pattern of track 6 (channel 13 CC 38), lane 1 (channel 13 CC 101). In MIDI 2.0 CC 6 / 38 are
  *   the Data Entry of an RPN / NRPN and 98-101 choose one: a MIDI 2.0 client (RaspiMIDIHub 6's pages, on a kernel that
@@ -223,6 +225,7 @@ static const fb_one_t FB_ONES[] = {
     {12, 92, 0}, {12, 93, 0}, {12, 94, 0}, {12, 95, 0}, {12, 96, 0}, {12, 97, 0},
     {TB_CH, FB_E_LANE1, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
     {12, 112, 0}, {12, 113, 0}, {12, 114, FBF_SCALED}, {12, 115, 0}, {12, 116, 0}, {12, 117, 0}, {12, 118, 0},
+    {12, 73, 0}, {12, 74, 0}, {12, 75, 0},              /* 0.21: SAGGA Break's SWAP, ROLLS, SLICES of the tablet's track */
     {13, 1, 0}, {13, 2, 0}, {13, 4, FBF_SCALED}, {13, 5, FBF_SCALED}, {TB_CH, FB_E_QUANT, 0}, {13, 7, 0}, {13, 8, FBF_SCALED},
     {13, 9, FBF_SCALED}, {13, 10, 0}, {13, 11, 0},
 };
@@ -291,6 +294,9 @@ static uint8_t fb_value(uint32_t k)
     if (ch == 12u) {
         if (num >= 101u && num <= 106u) return c->lane_base[num - 101u] <= 127u ? c->lane_base[num - 101u] : 255u;
         switch (num) {
+        case 73: return (uint8_t)SQ_BRK_SWAP(c->brk_cfg);
+        case 74: return (uint8_t)SQ_BRK_ROLL(c->brk_cfg);
+        case 75: return (uint8_t)SQ_BRK_SL(c->brk_cfg);
         case 92: return ls;
         case 93: return l->shape;
         case 94: return l->rate;
@@ -361,9 +367,11 @@ static void tab_fb_reset(void)
 
 /* every pass: a few items that changed go to the hub (USB room left for the clock and the notes); every 40 ms one item
  * is sent again whatever (the whole set every few seconds: a hub that restarted, a page that came back) */
+static void tab_fb_stamps(void);
 static void tab_fb_service(void)
 {
     uint32_t i, sent = 0u;
+    tab_fb_stamps();
     if (!tab_seen || usb_ports < 2u || project.live.remote_ch == SQ_REMOTE_OFF) return;
     if (!time_due(fm1_ms, fb_next_ms)) return;
     fb_next_ms = fm1_ms + 1u;
@@ -384,4 +392,14 @@ static void tab_fb_service(void)
         if ((uint16_t)((uint16_t)fm1_ms - fb_touch[fb_ref]) >= FB_HANDS_MS) fb_last[fb_ref] = 255u;
         fb_ref = (uint8_t)((fb_ref + 1u) % FB_N);
     }
+}
+
+/* 0.21: the stamps are 16 bits of ms: one left alone would look "just touched" again 65 seconds later, for 400 ms
+ * (and all of them 55 seconds after the start). Every pass one of them, when it is older than half a minute, is put at
+ * a quarter of a minute ago: old, and never coming round */
+static void tab_fb_stamps(void)
+{
+    static uint8_t at;
+    if ((uint16_t)((uint16_t)fm1_ms - fb_touch[at]) >= 0x8000u) fb_touch[at] = (uint16_t)(fm1_ms - 0x4000u);
+    at = (uint8_t)((at + 1u) % FB_N);
 }

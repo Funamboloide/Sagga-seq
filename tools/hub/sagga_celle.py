@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: GPL-3.0-only
-"""SAGGA HUB 0.20.9: il custode delle celle dell'FM-1.
+"""SAGGA HUB 0.20.9 (0.21: le pagine nuove): il custode delle celle dell'FM-1.
 
 RaspiMIDIHub 6 perde le celle di un dispositivo che non c'e': il suo salvataggio automatico (ogni 15-30 secondi, quando
 qualcosa e' cambiato - e le pagine SAGGA cambiano sempre, seguono l'FM-1) scrive solo le celle dei dispositivi presenti.
@@ -11,8 +11,9 @@ quando l'FM-1 torna non le rimette. Il custode le ricorda per lui:
     nel kernel, che cambiano a ogni volta), o quando se ne va e torna l'altro capo di una cella, aspetta che
     RaspiMIDIHub abbia fatto il suo (5 secondi), poi rimette quelle che mancano, come erano;
   * una cella che sparisce mentre tutti e due i capi ci sono l'hai tolta tu: la dimentica. Toglile con l'FM-1 acceso;
-  * la prima volta (nessun ricordo) parte dalle celle che servono alle pagine SAGGA: ogni pagina verso la porta 2
-    dell'FM-1, la porta 2 verso ogni pagina (quelle che la matrice del banco chiede);
+  * una pagina SAGGA nuova (0.21: aggiunta in RaspiMIDIHub; o tutte, la prima volta, senza ricordo) riceve da sola le
+    sue celle: la pagina verso la porta 2 dell'FM-1, la porta 2 verso la pagina (SAGGA BeatStep: solo l'OUT). Una volta
+    per pagina, e solo con USB PORTS 2: tolte a mano, restano tolte;
   * i Launchpad non hanno celle (parlano solo con il bridge): mai rimesse.
 Il custode gira dentro sagga_fw (la pagina del hub); durante l'esploratore del banco aspetta (il banco stacca e rimette
 le sue celle da se')."""
@@ -215,15 +216,15 @@ def describe(conns, by, fm, pages_only=False, others_only=False):
 
 
 def needed_page_cells(by, fm):
-    """the cells the SAGGA pages need (the banco's matrix asks for them): each page to the FM-1's remote port, that port
-    to each page (not the BeatStep's: it plays the synths itself)"""
+    """the cells the SAGGA pages need: each page to the FM-1's remote port, that port to each page (SAGGA BeatStep:
+    only its OUT to the FM-1 - its IN is the BeatStep Pro's, and what the FM-1 sends back would be taken for a pad)"""
     rp = remote_port(fm)
     out = []
     for d in by.values():
         typ = d.get("plugin_type")
-        if typ not in PAGE_NAMES or typ == "sagga_bsp":
+        if typ not in PAGE_NAMES:
             continue
-        for fm1_src in (False, True):
+        for fm1_src in ((False,) if typ == "sagga_bsp" else (False, True)):
             out.append({"fm1_src": fm1_src, "fm1_port": rp, "other_port": 0, "other": d.get("stable_id"),
                         "other_name": d.get("name", PAGE_NAMES[typ]), "other_type": typ})
     return out
@@ -276,7 +277,8 @@ class Keeper:
         self.mem = {}                 # key -> {"cell": cell, "broken": an end went away since it was last seen, "tried": t}
         self.ends = {}                # an end (stable id or name) -> ((client, its USB appearance, a USB device), since)
         self.events = []              # [(time, text)] the last things done, for the page
-        self.seed = True              # no memory yet: start from the cells the pages need
+        self.pages = set()            # the SAGGA pages that have had their cells (0.21: a new one gets them by itself,
+                                      # once: no memory yet = every page is new, 0.20.9's "first time")
         self.fm_end = None            # the FM-1's stable id, the last time it was here
         self._saved = None
         try:
@@ -284,7 +286,8 @@ class Keeper:
                 data = json.load(f) or {}
             for c in data.get("celle") or []:
                 self.mem[cell_key(c)] = {"cell": c, "broken": True, "tried": None}   # (what happened while nobody watched?)
-            self.seed = False
+            # (a memory of 0.20.9 has no pages: the ones here at the first look had their cells then, or lost them by hand)
+            self.pages = set(data["pagine"]) if isinstance(data.get("pagine"), list) else None
             self._saved = self._dump()
         except (OSError, ValueError, KeyError, TypeError):
             pass
@@ -297,7 +300,10 @@ class Keeper:
 
     def _dump(self):
         cells = [dict((k, v) for k, v in m["cell"].items() if k != "id") for _, m in sorted(self.mem.items(), key=lambda x: repr(x[0]))]
-        return json.dumps({"celle": cells}, indent=1, sort_keys=True).encode()
+        data = {"celle": cells}
+        if self.pages is not None:
+            data["pagine"] = sorted(self.pages)
+        return json.dumps(data, indent=1, sort_keys=True).encode()
 
     def _event(self, text):
         self.events = (self.events + [(time.strftime("%Y-%m-%d %H:%M:%S"), text)])[-12:]
@@ -346,17 +352,30 @@ class Keeper:
         if not settled(self.fm_end):
             return []
         current = {cell_key(c): c for c in describe(conns, by, fm)}
-        if self.seed:
-            for c in needed_page_cells(by, fm):
-                k = cell_key(c)
-                if k not in current and settled(c.get("other") or c.get("other_name")):
-                    self.mem[k] = {"cell": c, "broken": True, "tried": None}
-            self.seed = False
-        done, failed = [], []
+        # 0.21: a SAGGA page that is new here (added in RaspiMIDIHub's interface, or all of them the first time) gets
+        # its cells with the FM-1's remote port, once: taken away by hand afterwards, they stay away. Only with USB
+        # PORTS 2: with one port the pages' port is the synths' too, and the cells would stay there when it becomes two
+        two = len([p for p in fm.get("ports", []) if p.get("is_output")]) >= 2
+        needed = needed_page_cells(by, fm) if two else []
+        if two and self.pages is None:
+            self.pages = {c.get("other") or c.get("other_name") for c in needed}
+        fresh = set()
+        for c in needed:
+            e = c.get("other") or c.get("other_name")
+            if e in self.pages or not settled(e):
+                continue
+            fresh.add(e)
+            k = cell_key(c)
+            if k not in current and k not in self.mem:
+                self.mem[k] = {"cell": c, "broken": True, "tried": None, "new": True}
+        if fresh:
+            self.pages |= fresh
+        done, failed, linked = [], [], []
         for k, m in list(self.mem.items()):
             c = m["cell"]
             if k in current:
                 m["cell"], m["broken"], m["tried"] = current[k], False, None
+                m.pop("new", None)
                 continue
             other = c.get("other") or c.get("other_name")
             if not settled(other):
@@ -372,7 +391,7 @@ class Keeper:
             if err:
                 failed.append((c, err))
             else:
-                done.append(c)
+                (linked if m.pop("new", None) else done).append(c)
                 m["broken"], m["tried"] = False, None
         for k, c in current.items():
             if k not in self.mem:
@@ -380,6 +399,10 @@ class Keeper:
         if done:
             self._event("RaspiMIDIHub aveva perso %d celle dell'FM-1: rimesse (%s)" % (len(done), ", ".join(arrow(c) for c in done[:4]) +
                                                                                        (" ..." if len(done) > 4 else "")))
+        if linked:
+            names = sorted({c.get("other_name") or "?" for c in linked})
+            self._event("%s: %s all'FM-1 (%d celle)" % (", ".join(names[:4]) + (" ..." if len(names) > 4 else ""),
+                                                      "pagina nuova, collegata" if len(names) == 1 else "pagine nuove, collegate", len(linked)))
         for c, err in failed[:2]:
             self._event("la cella %s non torna: %s" % (arrow(c), err))
         dump = self._dump()
@@ -389,7 +412,7 @@ class Keeper:
                 self._saved = dump
             except Exception as e:
                 self.say("il ricordo delle celle non si scrive (%s)" % e)
-        return done
+        return done + linked
 
     def _break(self, end):
         for m in self.mem.values():

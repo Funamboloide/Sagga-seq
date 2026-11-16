@@ -135,5 +135,5 @@ python3 tests/sagga_explore.py --hw "$(ls -t /mnt/c/Users/user/Downloads/sagga-e
 
 e mandami `build/explore/RAPPORTO-HW.md` (o la raccolta).
 
-Le note di rilascio (`RELEASE-NOTES-0.11.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`;
+Le note di rilascio (`RELEASE-NOTES-0.11.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`;
 il manuale (in italiano) è il documento che accompagna il rilascio.

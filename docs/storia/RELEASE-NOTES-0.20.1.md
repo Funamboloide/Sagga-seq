@@ -25,7 +25,7 @@
   bottoni nuovi mandano un'intestazione che solo la pagina del hub mette, così un modulo di un altro sito non li può
   premere.
 
-**La prima volta** (per avere questa pagina) si passa ancora da Termux / SSH: `docs/SAGGA-SEQ-0.20.1-INSTALL.md`. Da lì
+**La prima volta** (per avere questa pagina) si passa ancora da Termux / SSH: `SAGGA-SEQ-0.20.1-INSTALL.md`. Da lì
 in poi gli zip del hub si caricano dalla pagina.
 
 ## Sotto il cofano

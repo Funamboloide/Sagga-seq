@@ -1098,7 +1098,7 @@ typedef struct {
     uint8_t gate;                /* the steps' gate: 100 = the step, 102 = two steps (HALF: a slice held through the gap) */
 } sq_brk_chop_t;
 const sq_brk_chop_t *sq_brk_chop(uint8_t i);
-/* the chops of a genre (sagga_beats.h's 24), the ones COOK walks in this order: the count, and chop `pos` (0..count-1) */
+/* the chops of a genre (sagga_beats.h's 25), the ones COOK walks in this order: the count, and chop `pos` (0..count-1) */
 uint8_t sq_brk_genre_chops(uint8_t genre);
 uint8_t sq_brk_genre_chop(uint8_t genre, uint8_t pos);
 #define SQ_BRK_SLICES(sl) ((sl) == 0u ? 8u : (sl) == 2u ? 32u : 16u)   /* SQ_BRK_SL(cfg) -> how many slices */

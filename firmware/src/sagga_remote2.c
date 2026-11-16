@@ -15,7 +15,7 @@
  *   CC 101-106     lane 1-6 of the selected track: the base value, sent at once
  *   CC 107 TAKE    108-111 THROWS: INTENSITY, GATE, SWING, FILTER thrown (they glide back to 0 over a bar)
  *   CC 112 SELECT TRACK (0-127 / 8)    113 MODE (FREE IN KEY DRUM TAPE BREAK)
- *   CC 114 ENERGY  115 GENRE (0-23)    116 KEY (the root, 0-127 / 11)    117 PROGRESSION    118 HARMONY (OFF ON LOCK)
+ *   CC 114 ENERGY  115 GENRE (0-24)    116 KEY (the root, 0-127 / 11)    117 PROGRESSION    118 HARMONY (OFF ON LOCK)
  */
 
 static void remote13_note(uint8_t d1, uint8_t d2, uint8_t on)

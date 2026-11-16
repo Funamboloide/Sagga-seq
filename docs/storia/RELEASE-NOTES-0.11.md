@@ -143,7 +143,7 @@ vista), poi coppie di gesti e sessioni lunghe a caso, e dice cosa cambia e quali
 cambia l'armonia, un canale cambiato da chi non deve, una traccia fuori fase, note appese, il clock che salta. Gira
 nel simulatore, in circa tre minuti e mezzo (un minuto con `--veloce`, che è nella suite dei test). Sulla 0.10 trova in
 19 secondi il problema dell'armonia che cambiava sfogliando i generi. Come si usa e come si legge:
-`docs/SAGGA-ESPLORATORE.md`.
+`../SAGGA-ESPLORATORE.md`.
 
 **Anche sull'FM-1 vero.** La 0.11 ha il test dal PC (`firmware/src/sagga_test.c`): con il tuo sì sull'FM-1 (SEL) il PC
 preme i tasti, gira le manopole e suona la tastiera ai tempi delle sessioni dell'esploratore, e l'FM-1 manda dopo ogni
@@ -159,7 +159,7 @@ fine; una mano su un tasto ferma tutto. Come si fa: `tools/hwtest/LEGGIMI.md`, p
 * `SGQB` è `SGQA` con le tracce da 96 byte (i quattro slot, il modo di FOLLOW), cinque progressioni utente da 52 byte
   (fondamentale, forma, durata, push, mood) e i generatori da 32 (genere e LOCK dell'armonia, RHYTHM, MOOD). Il bridge,
   l'hub, il convertitore `.mid` e il test hardware leggono tutti e due.
-* SysEx nuovi 60-65 (le variazioni del Pi), 66-6B (le progressioni) e 70-73 (il test dal PC): in `docs/SAGGA-SEQ.md`.
+* SysEx nuovi 60-65 (le variazioni del Pi), 66-6B (le progressioni) e 70-73 (il test dal PC): in `../SAGGA-SEQ.md`.
 
 ## I test
 

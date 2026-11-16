@@ -34,7 +34,7 @@ insieme** sulla stessa traccia, sempre in quest'ordine:
 ## E una catena sul hub
 
 I plugin di RaspiMIDIHub (Velocity Equalizer, Chord Generator, Hold, MIDI Delay ...) si mettono in fila nella matrice
-del hub, l'OUT di uno nell'IN del successivo, dopo la catena dell'FM-1. La ricetta è nel manuale (`docs/SAGGA-SEQ.md`,
+del hub, l'OUT di uno nell'IN del successivo, dopo la catena dell'FM-1. La ricetta è nel manuale (`../SAGGA-SEQ.md`,
 "A chain on the hub too"): nella catena solo le note della traccia, i CC e il clock diretti al synth. I plugin nascono
 con dei CC legati (MIDI Delay 74 / 75 / 76, Note Transpose 74, Scale Remapper 74): un CC legato non passa al synth.
 
@@ -45,7 +45,7 @@ apre con il suo effetto come catena. Un progetto della 0.19 aperto da una 0.18 s
 lista di K1 (HARM, OCTAVE, ECHO, VEL CURVE).
 
 **Il Pi cambia** (l'editor e il convertitore dei progetti sanno della catena): `sagga-hub-0.19.zip`, vedi
-`docs/SAGGA-SEQ-0.19-INSTALL.md`.
+`SAGGA-SEQ-0.19-INSTALL.md`.
 
 ## Sotto il cofano
 

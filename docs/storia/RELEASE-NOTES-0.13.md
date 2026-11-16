@@ -93,5 +93,5 @@ Python: niente da installare sul Pi.
 * L'esploratore ha due situazioni nuove (CHAIN LIST + MOTION + KEYBOARD + SLIDE in play; RATE SEQ + TRIG) e conosce le
   pagine nuove (HOME 8, LFO 4, SAVE 4).
 
-Il riferimento completo è `docs/SAGGA-SEQ.md` ("What is new in 0.13" e le tabelle); l'installazione
-`docs/SAGGA-SEQ-0.13-INSTALL.md`.
+Il riferimento completo è `../SAGGA-SEQ.md` ("What is new in 0.13" e le tabelle); l'installazione
+`SAGGA-SEQ-0.13-INSTALL.md`.

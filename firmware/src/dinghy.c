@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.20.9"
+#define SQ_VERSION "0.21"
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -143,6 +143,7 @@ static uint8_t grid_dirty = 1u;
 static uint32_t msg_until;
 static const char *msg_text;
 static char msg_buf[64];                     /* (two lines of 29 on the screen) */
+static char ui_b[64];                        /* 0.21: the screen's lines while they are written (sagga_ui.c: ui_build) */
 
 static uint8_t white_key[16], black_key[11], white_count, black_count;
 static uint32_t prev_keys, prev_held;
@@ -458,11 +459,13 @@ static uint8_t change_u8(uint8_t v, int32_t d, uint8_t lo, uint8_t hi)
     return (uint8_t)clamp_i32((int32_t)v + d, lo, hi);
 }
 
-/* the text writers: a message longer than msg_buf is cut (0.7 wrote past its end: "CC CAPTURE ON ..." found it) */
+/* the text writers: a message longer than msg_buf is cut (0.7 wrote past its end: "CC CAPTURE ON ..." found it).
+ * 0.21: a line of the screen longer than ui_b too. It was 64 bytes of ui_build's stack and nothing cut it: the line
+ * of what is going on (DICE? EVOLVE LOOP MACRO MORPH ECHO ALL STEP LOOP ... together) went past its end */
 static char *put_c(char *d, char c)
 {
-    uintptr_t a = (uintptr_t)d, lo = (uintptr_t)msg_buf;
-    if (a >= lo + sizeof msg_buf - 1u && a < lo + sizeof msg_buf) return d;   /* (the last byte: the end mark) */
+    uintptr_t a = (uintptr_t)d;
+    if (a == (uintptr_t)msg_buf + sizeof msg_buf - 1u || a == (uintptr_t)ui_b + sizeof ui_b - 1u) return d;   /* (the last byte: the end mark) */
     *d++ = c;
     return d;
 }
@@ -4050,7 +4053,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d4) e->r = change_u8(e->r, d4, 0u, SQ_ENV_TIMES - 1u);
             if ((d1 || d2 || d3 || d4) && l->shape != SQ_LFO_ENV) status_msg("ENV: SHAPE ENV ON PAGE 1 MAKES IT PLAY");
         } else if (lfo_page == LFO_PAGE_MOD) {                                /* 0.20 MOD MATRIX: slot, source, destination, amount */
-            sq_mod_t *m = &project.ext.mod[mod_slot];
+            sq_mod_t *m;
             uint8_t sel = (held & (1u << BTN_SEL)) ? 1u : 0u;
             if (d1) mod_slot = change_u8(mod_slot, d1, 0u, SQ_MODS - 1u);
             m = &project.ext.mod[mod_slot];

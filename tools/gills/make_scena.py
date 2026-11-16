@@ -10,7 +10,6 @@ compile it against the firmware's headers (tests/run_sagga_tests.sh does it with
 """
 import os
 import sys
-import uuid
 from xml.sax.saxutils import escape
 
 HERE = os.path.dirname(os.path.abspath(__file__))

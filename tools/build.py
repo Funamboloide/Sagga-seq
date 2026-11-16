@@ -16,7 +16,6 @@ import hashlib
 import os
 import platform
 import re
-import shutil
 import struct
 import subprocess
 import sys

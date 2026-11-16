@@ -1021,7 +1021,7 @@ static void harm_genre_set(uint8_t g)
     ui_dirty = grid_dirty = 1u;
 }
 
-/* 0.16 ARP 4 K2: FREE, then the 24 genres. FREE keeps the progression playing (its genre stays harm_genre, for what
+/* 0.16 ARP 4 K2: FREE, then the 25 genres. FREE keeps the progression playing (its genre stays harm_genre, for what
  * reads it) and from then on no pattern loaded moves it; K2 on ARP 3 goes through every genre's six */
 static uint8_t harm_genre_pos(void) { return project.gen.harm_free ? 0u : (uint8_t)(project.gen.harm_genre + 1u); }
 static void harm_genre_turn(int32_t d)
@@ -1522,7 +1522,7 @@ static void tool_apply(uint8_t tool)
     if (tool_schedulable(tool)) {
         project.gen.every_tool = tool;                    /* EVERY repeats the last tool used */
         if (project.gen.when && playing && !track_tape(selected_track)) {   /* WHEN: at the bar line asked */
-            uint32_t bar = global_clock / 96u, n = WHEN_BARS[project.gen.when < SQ_WHENS ? project.gen.when : 0u];
+            uint32_t bar = global_clock / 96u, n = WHEN_BARS[project.gen.when < SQ_WHENS ? project.gen.when : SQ_WHEN_BAR];   /* (never 0 bars: n divides) */
             char *p = msg_buf;
             tool_due_tool = tool;
             tool_due_bar = (bar / n + 1u) * n;

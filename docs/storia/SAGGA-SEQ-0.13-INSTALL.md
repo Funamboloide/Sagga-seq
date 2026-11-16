@@ -14,7 +14,7 @@ il blocco.
 **La mappa dei tasti è la stessa della 0.12**, con le aggiunte: LFO ha 4 pagine (la 4 è RATE SEQ, la 3 ha TRIG su K4),
 HOME ne ha 8 (la 8 è la CHAIN LIST; HOME 7 K2 è OFF / P1+2 / LIST), SAVE ne ha 4 (la 4 è LIVE IN: MOTION, KEYBOARD, KEYB
 CH, MIDI IN), EDIT + nero 7 è lo SLIDE, ARP + nero 1-4 su una traccia DRUM in play è il NOTE REPEAT. La tabella completa:
-`docs/SAGGA-SEQ.md`, "The FM-1 panel" e "What is new in 0.13".
+`../SAGGA-SEQ.md`, "The FM-1 panel" e "What is new in 0.13".
 
 ## 1. Compila in WSL
 
@@ -135,4 +135,4 @@ python3 tests/sagga_explore.py --hw "$(ls -t /mnt/c/Users/user/Downloads/sagga-e
 
 e mandami `build/explore/RAPPORTO-HW.md` (o la raccolta).
 
-Le note di rilascio (`RELEASE-NOTES-0.13.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`.
+Le note di rilascio (`RELEASE-NOTES-0.13.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`.

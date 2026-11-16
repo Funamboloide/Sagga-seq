@@ -46,6 +46,8 @@ class FakeHub:
         self.conns[(SYNTH, 0, FM1, 0)] = {}
         self.posts, self.patches, self.maps = [], [], []
         self.down = False
+        self.extra = []                    # pages added later: (client, name, plugin type, stable id)
+        self.fm_ports = 2                  # USB PORTS
         self.devnum = {"1-1.2": 5, "1-1.3": 7, "1-1.4": 9}
         self.write_sysfs()
 
@@ -67,7 +69,7 @@ class FakeHub:
         ports = [{"port_id": 0, "is_output": True, "is_input": True}, {"port_id": 1, "is_output": True, "is_input": True}]
         out = []
         if self.on["fm1"]:
-            out.append({"client_id": FM1, "name": "Felucca", "online": True, "ports": ports, "stable_id": "usb-0001:0002-FM1",
+            out.append({"client_id": FM1, "name": "Felucca", "online": True, "ports": ports[:self.fm_ports], "stable_id": "usb-0001:0002-FM1",
                         "usb_path": "1-1.2"})
         if self.on["synth"]:
             out.append({"client_id": self.synth_client, "name": "MicroFreak", "online": True, "ports": ports[:1],
@@ -79,6 +81,8 @@ class FakeHub:
                     "stable_id": "plugin-r1"})
         out.append({"client_id": LIVE, "name": "SAGGA Live 1", "online": True, "ports": ports[:1], "plugin_type": "sagga_live",
                     "stable_id": "plugin-l1"})
+        for cid, name, typ, sid in self.extra:
+            out.append({"client_id": cid, "name": name, "online": True, "ports": ports[:1], "plugin_type": typ, "stable_id": sid})
         out.append({"client_id": None, "name": "Old synth", "online": False, "stable_id": "usb-old"})
         return out
 
@@ -251,6 +255,59 @@ def t_first_time():
         check(not hub.posts, "with a memory the rule is not used again (%s)" % hub.posts)
 
 
+def t_new_page():
+    group("0.21: the keeper - a SAGGA page added in RaspiMIDIHub gets its cells by itself, once; SAGGA BeatStep its OUT only; a 0.20.9 memory; USB PORTS 1")
+    BREAK, BSP = 140, 141
+    with tempfile.TemporaryDirectory() as d:
+        hub, clock = FakeHub(os.path.join(d, "sys")), Clock()
+        k, _ = keeper(hub, d, clock)
+        settle(k, clock, n=4)
+        check(not hub.posts, "the pages that have their cells: nothing to do (%s)" % hub.posts)
+        hub.extra.append((BREAK, "SAGGA Break 1", "sagga_break", "plugin-b1"))
+        k.poll()
+        check(not hub.posts, "a new page: not before RaspiMIDIHub has had its seconds (%s)" % hub.posts)
+        clock.t += 3
+        settle(k, clock, n=3)
+        check(set(hub.posts) == {(BREAK, 0, FM1, 1), (FM1, 1, BREAK, 0)}, "SAGGA Break added: its OUT to the FM-1's port 2, port 2 to its IN (%s)" % sorted(hub.posts))
+        check(any("pagina nuova" in e[1] and "SAGGA Break 1" in e[1] for e in k.events), "the page says so (%s)" % k.events[-1:])
+        hub.posts.clear()
+        del hub.conns[(FM1, 1, BREAK, 0)]            # taken away by hand, the FM-1 on
+        settle(k, clock, n=4)
+        check(not hub.posts, "taken away by hand afterwards: it stays away (%s)" % hub.posts)
+        hub.extra.append((BSP, "SAGGA BeatStep 1", "sagga_bsp", "plugin-s1"))
+        settle(k, clock, n=4)
+        check(hub.posts == [(BSP, 0, FM1, 1)], "SAGGA BeatStep: its OUT to the FM-1 only (its IN is the BeatStep Pro's) (%s)" % hub.posts)
+        # the Pi restarts: the pages it knows are in the memory, the cell taken away stays away
+        hub.posts.clear()
+        clock2 = Clock()
+        k2, _ = keeper(hub, d, clock2)
+        settle(k2, clock2, n=4)
+        check(not hub.posts and k2.pages == {"plugin-r1", "plugin-l1", "plugin-b1", "plugin-s1"}, "after a restart: nothing again (%s, %s)" % (hub.posts, sorted(k2.pages or [])))
+    with tempfile.TemporaryDirectory() as d:         # a memory written by 0.20.9: no pages in it
+        hub, clock = FakeHub(os.path.join(d, "sys")), Clock()
+        del hub.conns[(FM1, 1, LIVE, 0)]             # (taken away by hand in 0.20.9's days)
+        with open(os.path.join(d, "celle-fm1.json"), "w") as f:
+            json.dump({"celle": []}, f)
+        k, _ = keeper(hub, d, clock)
+        settle(k, clock, n=4)
+        check(not hub.posts, "a 0.20.9 memory: the pages that are here are not new (%s)" % hub.posts)
+        hub.extra.append((BREAK, "SAGGA Break 1", "sagga_break", "plugin-b1"))
+        settle(k, clock, n=4)
+        check(set(hub.posts) == {(BREAK, 0, FM1, 1), (FM1, 1, BREAK, 0)}, "... and one added now is (%s)" % sorted(hub.posts))
+    with tempfile.TemporaryDirectory() as d:         # USB PORTS 1: no cells by themselves; then 2: on port 2
+        hub, clock = FakeHub(os.path.join(d, "sys")), Clock()
+        hub.fm_ports = 1
+        hub.conns = {}
+        k, _ = keeper(hub, d, clock)
+        settle(k, clock, n=4)
+        check(not hub.posts, "USB PORTS 1: no page is connected by itself (%s)" % hub.posts)
+        hub.fm_ports = 2
+        hub.reboot_fm1(lose=False)
+        settle(k, clock, n=5)
+        check(set(hub.posts) == {(REMOTE, 0, FM1, 1), (FM1, 1, REMOTE, 0), (LIVE, 0, FM1, 1), (FM1, 1, LIVE, 0)},
+              "USB PORTS 2 afterwards: the pages on port 2 (%s)" % sorted(hub.posts))
+
+
 def t_no_sysfs():
     group("0.20.9: the keeper - no device number (sysfs not readable): a missing cell is put back, never forgotten")
     with tempfile.TemporaryDirectory() as d:
@@ -352,7 +409,7 @@ def t_thread():
 
 
 def main():
-    for t in (t_reboot, t_by_hand, t_synth_back, t_first_time, t_no_sysfs, t_same_number, t_usb, t_thread):
+    for t in (t_reboot, t_by_hand, t_synth_back, t_first_time, t_new_page, t_no_sysfs, t_same_number, t_usb, t_thread):
         t()
     print("sagga celle: %d checks, %d failures" % (CHECKS[0], len(FAILS)))
     return 1 if FAILS else 0

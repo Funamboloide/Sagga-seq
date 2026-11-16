@@ -62,7 +62,7 @@ Il formato resta `SGQB`: i nuovi effetti, l'ordine, gli inviluppi e la MOD MATRI
 progetto della 0.19 o di prima si apre come era.
 
 **Il Pi cambia** (l'editor, il convertitore, SAGGA Live e il nuovo SAGGA BeatStep): `sagga-hub-0.20.zip`, vedi
-`docs/SAGGA-SEQ-0.20-INSTALL.md`.
+`SAGGA-SEQ-0.20-INSTALL.md`.
 
 ## Sotto il cofano
 

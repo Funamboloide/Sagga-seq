@@ -5,7 +5,7 @@ pagina (`RELEASE-NOTES-0.20.1.md`). L'FM-1 resta alla 0.20: non serve reinstalla
 
 ## 1. L'ultima volta da Termux
 
-Come per la 0.20 (`docs/SAGGA-SEQ-0.20-INSTALL.md`): il tablet sulla rete `RaspiMIDIHub-XXXX`, e in Termux
+Come per la 0.20 (`SAGGA-SEQ-0.20-INSTALL.md`): il tablet sulla rete `RaspiMIDIHub-XXXX`, e in Termux
 
 ```sh
 scp ~/storage/downloads/sagga-hub-0.20.1.zip user@192.168.4.1:/tmp/

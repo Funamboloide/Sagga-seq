@@ -53,7 +53,13 @@ if [ -n "$KSOLOTI" ]; then sh tools/gills/armcheck/check_arm.sh; else echo "scen
 if python3 -c "import numpy, scipy" 2>/dev/null && command -v ffmpeg >/dev/null; then step "strati" tail 1 python3 tests/strati_tests.py; else echo "strati: skipped (needs numpy, scipy, ffmpeg)"; fi
 if [ -n "$SANITIZE" ]; then export SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g"; fi
 step "sim" tail 1 python3 tests/sagga_sim_tests.py
-step "fuzz" tail 3 python3 tests/sagga_fuzz.py "${FUZZ:-24}"
+# 0.21: the fuzz with ASan + UBSan whenever this compiler has them (200 runs of it found a line of the screen written
+# past its buffer: nothing a run without them can see)
+if [ -z "$SAGGA_SIM_CFLAGS" ] && echo 'int main(void){return 0;}' | cc -fsanitize=address,undefined -x c - -o build/san_probe 2>/dev/null && build/san_probe; then
+    step "fuzz" tail 3 env SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g" python3 tests/sagga_fuzz.py "${FUZZ:-24}"
+else
+    step "fuzz" tail 3 python3 tests/sagga_fuzz.py "${FUZZ:-24}"
+fi
 step "explore" head 12 python3 tests/sagga_explore.py --veloce          # 0.11 the explorer: every gesture, the rules (tutto: senza --veloce)
 step "explore hw" head 8 python3 tests/sagga_explore.py --hw-prova      # 0.11 the explorer on the FM-1, with the simulator in its place
 step "hw explore" tail 1 python3 tests/sagga_hw_explore_tests.py        # 0.11 the Windows runner, against a fake FM-1

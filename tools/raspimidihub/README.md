@@ -22,6 +22,7 @@ changes them.
 * **SAGGA Break** (0.12): sixteen slice pads (slice 1 bottom left), ROLL and ROLL/2 (held), HALF, DOUBLE, BACKWARDS,
   DICE, RESET, TAKE; the knobs CHOP (the library of sixteen re-orders, the FM-1's white keys), ROLLS, SWAP, SLICES (8 / 16
   / 32). The tablet's track must be a BREAK (HOME 4 K1 on the FM-1, or Motori's MODE): its PEN note is slice 1 on the sampler.
+  0.21: ROLLS, SWAP and SLICES show the tablet's track's (they follow TRACK and the FM-1, as the other pages' knobs).
 * **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the six CC lanes of the tablet's
   track (their base, sent as you move it), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
@@ -55,7 +56,10 @@ Then on the Pi:
 In the web interface: add the plugins (they are with the controllers), connect each one's OUT to the FM-1 in the
 matrix (with USB PORTS 2 on the FM-1: to its port 2, "Felucca MIDI 2"), **0.18: and the FM-1's port 2 to each one's
 IN** (what the FM-1 sends back: the values; port 2 carries nothing for the synths), Save Config. Nothing else needs
-them. If an update of RaspiMIDIHub ever removes them, copy them again.
+them. If an update of RaspiMIDIHub ever removes them, copy them again. **0.21: with SAGGA HUB on the same Pi those two
+cells come by themselves** a few seconds after a page is added (the FM-1 on, USB PORTS 2): the keeper of the FM-1's
+cells (the hub's page, LE CELLE DELL'FM-1) makes them once a page, SAGGA BeatStep's OUT too, and puts them back when
+RaspiMIDIHub loses them.
 
 **SAGGA BeatStep** (0.20, `sagga_bsp`): not a page but a plugin with an IN - an Arturia BeatStep Pro in CONTROL mode as
 real knobs and pads. Wire the BeatStep Pro to its IN, its OUT to the FM-1's port 2. **LEARN**: turn the 16 encoders one

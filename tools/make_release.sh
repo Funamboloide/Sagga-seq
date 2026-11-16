@@ -7,7 +7,8 @@
 #     sagga-seq-X.Y-source.zip     the repository (what git tracks), for ./build.sh --release X.Y on WSL
 #     sagga-hub-X.Y.zip            the Raspberry Pi side: install_hub.sh and everything it installs (the grid bridge,
 #                                  the hub page, the .sgq <-> .mid converter's sources, the M8 link, the plugins)
-#     SAGGA-SEQ-X.Y-INSTALL.md     the installation sheet (Italian), and the release notes
+#     INSTALLA.md                  the installation sheet (Italian: docs/INSTALLA.md, the one of today's set),
+#     RELEASE-NOTES-X.Y.md         and the release notes (the root's; a past version's: docs/storia/)
 set -e
 VER=${1:?version, e.g. 0.10}
 cd "$(dirname "$0")/.."
@@ -52,14 +53,13 @@ cp tools/m8link/pi/sagga_m8_host.py tools/m8link/pi/sagga-m8-link.service "$H/"
 cp -r tools/raspimidihub/. "$H/raspimidihub/"
 cp tools/sgqmid/sagga_sgqmid.c tools/sgqmid/sagga_sgqjson.c firmware/src/sagga_seq_core.c firmware/src/sagga_seq_core.h firmware/src/sagga_beats.c \
    firmware/src/sagga_beats.h firmware/src/sagga_beats_data.h firmware/src/sagga_setgenre_data.h firmware/src/sagga_devices.h "$H/sgqmid/"
-cp docs/SAGGA-GRID.md docs/SAGGA-GRID-ZYNTHIAN.md "$H/"
-[ -f "docs/SAGGA-SEQ-$VER-INSTALL.md" ] && cp "docs/SAGGA-SEQ-$VER-INSTALL.md" "$H/" || true
+cp docs/SAGGA-GRID.md docs/SAGGA-GRID-ZYNTHIAN.md docs/INSTALLA.md "$H/"
 find "$H" -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
 (cd "$T" && rm -f "$OUT/$HUB.zip" && zip -qr "$OUT/$HUB.zip" "$HUB")
 
 # 3. the sheets
-[ -f "docs/SAGGA-SEQ-$VER-INSTALL.md" ] && cp "docs/SAGGA-SEQ-$VER-INSTALL.md" "$OUT/" || true
-[ -f "RELEASE-NOTES-$VER.md" ] && cp "RELEASE-NOTES-$VER.md" "$OUT/" || true
+cp docs/INSTALLA.md "$OUT/"
+for n in "RELEASE-NOTES-$VER.md" "docs/storia/RELEASE-NOTES-$VER.md"; do [ -f "$n" ] && cp "$n" "$OUT/" && break; done || true
 
 # the converter must build from the zip's own files (the Pi does exactly this)
 cc -std=c11 -O2 -I"$H/sgqmid" "$H/sgqmid/sagga_sgqmid.c" "$H/sgqmid/sagga_seq_core.c" "$H/sgqmid/sagga_beats.c" -o "$T/sagga_sgqmid"

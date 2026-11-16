@@ -16,7 +16,7 @@ legati a una pagina dell'FM-1.
 4. **ARP RATE 1/2 e 1/4**: una nota ogni 2 o 4 step, per stendere un accordo su 16 step e più.
 
 Il formato resta `SGQB`. **Il Pi cambia**: c'è una pagina nuova (SAGGA Live) e SAGGA Mod è aggiornata; nella matrice del
-hub va aggiunto un collegamento (la porta 2 dell'FM-1 verso le pagine SAGGA). Vedi `docs/SAGGA-SEQ-0.18-INSTALL.md`.
+hub va aggiunto un collegamento (la porta 2 dell'FM-1 verso le pagine SAGGA). Vedi `SAGGA-SEQ-0.18-INSTALL.md`.
 
 ## La traccia del tablet
 
@@ -55,7 +55,7 @@ DENSITY: densità, ghost); lo schermo dell'FM-1 dice il valore vero (`TAB T5: TU
 
 Il PANIC del hub non tocca SAGGA Live (i suoi interruttori sono i mute dell'FM-1, non note da spegnere).
 
-La mappa completa è in `docs/SAGGA-SEQ.md`, "Channel 12".
+La mappa completa è in `../SAGGA-SEQ.md`, "Channel 12".
 
 ## I valori tornano al tablet
 

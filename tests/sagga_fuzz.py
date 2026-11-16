@@ -4,9 +4,12 @@
 Launchpad bridge that attaches, taps pads, goes quiet and comes back, all at random for a minute of FM-1 time.
 After every run the MIDI the firmware sent is checked:
 
-  * no crash (build it with SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -g" to catch memory errors too)
+  * no crash, and no memory error: run_sagga_tests.sh builds it with ASan + UBSan when the compiler has them
+    (SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -g"; 0.21: seed 85 found a line of the screen past its buffer)
   * every data byte is 7-bit; notes and CCs only on channels 1-14; grid traffic only on 9F / BE, roles 0..15
   * no hung notes after a final panic: every note-on has its note-off
+  * 0.21: half of the seeds play the hub's pages too (channels 12 and 13, the pads, any SysEx of the app; a quarter on
+    USB PORTS 2), one in eight starts from a project image with bytes changed at random
   * odd seeds run with the screen's SPI time charged to the clock (the script verb "lcdcost"): no clock recovery and
     no pass of the main loop over 20 ms, whatever was pressed (a pass that erases the flash, ~45 ms, is counted
     apart: the store erases only while stopped, and never while playing)
@@ -33,6 +36,30 @@ def make_script(seed, length_ms=60000):
         s.raw(2, "lcdcost")
     t = 100
     held, rec, keys = set(), 0, 0
+    # 0.21: half of the seeds with the hub's pages too (REMOTE 13 + 14: channels 12 and 13 speak, the pads of channel 13,
+    # every SysEx of the app), and half of those on USB PORTS 2 (the hub on port 2: what goes back to its pages)
+    tablet, two = seed % 4 >= 2, seed % 8 >= 6
+    if tablet:
+        t = S.remote13_on(s, t)
+        if two:
+            t = S.usb2(s, t)
+    port = " 2" if two else ""
+    # 0.21: one seed in eight starts from a project with bytes changed at random, sent in as the Pi sends one (no
+    # checksum in the image itself: what the FM-1 takes it must play and show, on every page, whatever it says)
+    if seed % 8 == 4:
+        img = bytearray(S.sgq_image([]))
+        k = rnd.random()
+        if k < 0.4:
+            for _ in range(rnd.choice([1, 2, 4, 8, 16])):
+                img[rnd.randrange(4, len(img))] = rnd.choice([0, 1, 127, 128, 200, 254, 255, rnd.randrange(256)])
+        elif k < 0.8:
+            for _ in range(rnd.choice([40, 100, 300, 1000])):
+                img[rnd.randrange(4, len(img))] = rnd.choice([255, 255, 128, rnd.randrange(256)])
+        else:
+            a, v = rnd.randrange(4, len(img) - 8), rnd.choice([0, 255, 128, None])
+            for j in range(a, min(len(img), a + rnd.choice([8, 64, 300, 2000]))):
+                img[j] = rnd.randrange(256) if v is None else v
+        t = S.sx_import(s, t, bytes(img)) + 300
     while t < length_ms:
         t += rnd.choice([5, 10, 20, 40, 80, 150, 400])
         r = rnd.random()
@@ -65,7 +92,13 @@ def make_script(seed, length_ms=60000):
             s.knob(t, rnd.choice([0, 100, 512, 700, 1023, rnd.randrange(1024)]))
         elif r < 0.70:                                            # MIDI in: realtime, notes, 0.5: remote, CCs, SPP, battery
             k = rnd.random()
-            if k < 0.25:
+            if tablet and k < 0.45:                               # 0.21: a page of the hub: any CC of channels 12, 13, 14
+                s.raw(t, "midi 0x%X %d %d%s" % (rnd.choice([0xBB, 0xBB, 0xBC, 0xBC, 0xBD]), rnd.randrange(128),
+                                                rnd.choice([0, 1, 5, 64, 127, rnd.randrange(128)]), port))
+            elif tablet and k < 0.52:                             # ... a pad of channel 13, an LFO switch
+                n = rnd.choice(list(range(36, 52)) + list(range(100, 116)))
+                s.raw(t, "midi 0x9C %d %d%s" % (n, rnd.choice([0, 100]), port))
+            elif k < 0.25:
                 s.raw(t, "midi 0xBD %d %d" % (rnd.choice([1, 2, 4, 5, 6, 7, 8, 9, 10, 11] + list(range(20, 106))), rnd.choice([0, 0, 64, 127, rnd.randrange(128)])))
             elif k < 0.32:
                 s.raw(t, "midi 0x%X %d %d" % (0xB0 | rnd.randrange(13), rnd.randrange(128), rnd.randrange(128)))
@@ -94,7 +127,10 @@ def make_script(seed, length_ms=60000):
             s.raw(t, "txroom %d" % rnd.choice([0, 20, 28, 29, 40, 64]))
         elif r < 0.96:                                            # SysEx for the app: requests, chunks, ends, junk
             k = rnd.random()
-            if k < 0.2:
+            if tablet and k < 0.5:                                # 0.21: any message of the app (the PC test apart: it
+                sub = rnd.choice([x for x in range(128) if not 0x70 <= x <= 0x74])   # reboots, and has its own tests)
+                body = [0x7D, 0x53, 0x47, sub] + [rnd.randrange(128) for _ in range(rnd.choice([0, 1, 2, 4, 9, 30, 120]))]
+            elif k < 0.2:
                 body = [0x7D, 0x53, 0x47, 0x01] + ([rnd.randrange(128)] if rnd.random() < 0.5 else [])
             elif k < 0.7:
                 n = rnd.choice([0, 1, 5, 40, 293, 300, 330])
@@ -121,7 +157,12 @@ def make_script(seed, length_ms=60000):
     for i in range(32):
         s.at(t + 30, "ctl", i, 0)
     for cc in [23, 24, 25, 26, 27, 37] + list(range(64, 80)):     # the remote's held buttons let go
-        s.raw(t + 35, "midi 0xBD %d 0" % cc)
+        s.raw(t + 35, "midi 0xBD %d 0%s" % (cc, port))
+    if tablet:                                                    # ... the pages' too: the ROLLs, the pads, the notes
+        for cc in [65, 71] + list(range(76, 92)):
+            s.raw(t + 36, "midi 0xBC %d 0%s" % (cc, port))
+        for n in range(36, 52):
+            s.raw(t + 37, "midi 0x8C %d 0%s" % (n, port))
     for x in range(16):
         for y in range(8):
             s.at(t + 40, "pad", x, y, 0)
@@ -146,6 +187,8 @@ def check_log(log, seed, panic_t=1 << 30):
             bad.append("%d: data byte over 127 in %02X %d %d" % (t, st, d1, d2))
         kind, ch = st & 0xF0, st & 15
         two = ports_at(t) > 1
+        if two and port == 2 and ch == 12 and kind in (0x80, 0x90) and 100 <= d1 <= 115:
+            continue                                               # 0.18: the LFO switches as the hub's pages show them: a state
         if two and port == 1:
             top = 15                                               # two ports: port 1 has 16 channels of tracks
         elif st == 0x9F:
@@ -182,12 +225,17 @@ def check_log(log, seed, panic_t=1 << 30):
     return bad
 
 
+# seeds that found something, run whatever the count asked. 85 (0.21, with ASan): the screen's line of what is going on
+# (DICE? EVOLVE LOOP MACRO MORPH ECHO ALL STEP LOOP ... together) written past the 64 bytes it had on the stack
+FOUND = [85]
+
+
 def main():
     seeds = int(sys.argv[1]) if len(sys.argv) > 1 else 24
     S.build()
     fails = 0
     try:
-        for seed in range(seeds):
+        for seed in list(range(seeds)) + [x for x in FOUND if x >= seeds]:
             s, end, panic_t = make_script(seed)
             try:
                 log = S.run(s, end)
@@ -202,7 +250,8 @@ def main():
     finally:
         if os.path.exists(S.BIN):
             os.remove(S.BIN)
-    print("sagga fuzz: %d runs, %d failures" % (seeds, fails))
+    print("sagga fuzz: %d runs, %d failures%s" % (seeds + len([x for x in FOUND if x >= seeds]), fails,
+                                               " (ASan + UBSan)" if "sanitize" in os.environ.get("SAGGA_SIM_CFLAGS", "") else ""))
     return 1 if fails else 0
 
 

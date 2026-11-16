@@ -495,7 +495,6 @@ def t_update_delete():
     check(code == 409 and b'FM-1' in body, 'no update while the FM-1 installs: the restart would kill the install (%d %s)' % (code, body))
     time.sleep(1.2)
     # the zips that are refused, and why
-    import zipfile
     for zb, why, what in ((b'PK not a zip at all', 'non è uno zip', 'not a zip'),
                           (hub_zip(top='sagga-seq-0.20'), 'sagga-hub-X', 'the source zip, not the hub'),
                           (hub_zip(extra={'other/x': 'y'}), 'una cartella sola', 'two folders'),

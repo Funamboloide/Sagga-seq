@@ -290,8 +290,7 @@ static void gr_ctl(uint8_t id, uint8_t down)
         /* PERF again: SONG; then VIAGGIO (0.9); then REGIA, once a regista on the Pi has spoken (SysEx 51 or 54). 0.17:
          * PERF first always (the journey always runs) */
         gr_set_view(shift ? GV_LFO : g_view == GV_PERF ? GV_SONG : g_view == GV_SONG ? GV_VIAGGIO :
-                    g_view == GV_VIAGGIO ? (rg_active ? GV_REGIA : GV_PERF) :
-                    g_view == GV_REGIA ? GV_PERF : GV_PERF);
+                    g_view == GV_VIAGGIO && rg_active ? GV_REGIA : GV_PERF);
     } else if (id == GC_VTRACK) {                                           /* TRACK again: TRACK 2, TRACK 3; BEAT again: EUCLID */
         if (shift) gr_set_view(g_view == GV_BEAT ? GV_EUCLID : GV_BEAT);
         else gr_set_view(g_view == GV_TRACK ? GV_TRACK2 : g_view == GV_TRACK2 ? GV_TRACK3 : GV_TRACK);

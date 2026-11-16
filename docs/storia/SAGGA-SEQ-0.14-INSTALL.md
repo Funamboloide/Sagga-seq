@@ -10,7 +10,7 @@ Ti servono due file nei Download di Windows (li fa `sh tools/make_release.sh 0.1
 aprono così come sono.
 
 **Cosa cambia.** Sull'FM-1 solo una cosa: caricare uno slot vuoto (HOME + SAVE due volte) dà un **progetto nuovo**. Sul
-Pi c'è l'**editor dei progetti** nella pagina dell'hub. La tabella completa è in `docs/SAGGA-SEQ.md`, "What is new in
+Pi c'è l'**editor dei progetti** nella pagina dell'hub. La tabella completa è in `../SAGGA-SEQ.md`, "What is new in
 0.14".
 
 ## 1. Compila in WSL
@@ -107,4 +107,4 @@ python3 tests/sagga_explore.py --hw "$(ls -t /mnt/c/Users/user/Downloads/sagga-e
 
 e mandami `build/explore/RAPPORTO-HW.md` (o la raccolta).
 
-Le note di rilascio (`RELEASE-NOTES-0.14.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`.
+Le note di rilascio (`RELEASE-NOTES-0.14.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`.

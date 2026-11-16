@@ -6,7 +6,7 @@ pagine distribuite meglio fra i tasti; **le finestre: un tocco al posto del tast
 non solo con le manopole; il BREAK, gli slice di un break di batteria per la jungle e non solo; e tre pagine nuove
 per il RaspiMIDIHub. Il formato resta **`SGQB`**: i progetti, gli snapshot e la libreria del Pi della 0.11 si aprono
 come sono (i campi nuovi delle tracce, le impostazioni del BREAK, partono dai loro valori di base). La mappa dei tasti
-cambia: è la tabella in `docs/SAGGA-SEQ.md`.
+cambia: è la tabella in `../SAGGA-SEQ.md`.
 
 ## Le finestre: un tocco al posto del tasto tenuto
 

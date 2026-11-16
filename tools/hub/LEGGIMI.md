@@ -1,4 +1,6 @@
-# SAGGA HUB 0.1.1 (0.13: il BREAK IN SLICE; 0.14: l'editor dei progetti; 0.15: nome, Tape, segui e ascolta; 0.20.1: si aggiorna dalla sua pagina): la libreria firmware e i progetti su RaspiMIDIHub; l'expander dell'FM-1 (moduli pronti + software)
+# SAGGA HUB: il Pi di SAGGA SEQ - la pagina (firmware, progetti, editor, aggiornamento, custode delle celle) su RaspiMIDIHub, il bridge del grid, e l'expander dell'FM-1 (moduli pronti + software)
+
+Installare e aggiornare, in breve: `docs/INSTALLA.md` del repository (questo file è il dettaglio del Pi).
 
 È un'aggiunta a RaspiMIDIHub, su qualunque Pi: la pagina web con i firmware dell'FM-1 (li carichi, li installi) e i
 progetti esportati dal grid, il bridge dei Launchpad, l'M8 link e, volendo, una porta USB-MIDI verso il computer.
@@ -104,8 +106,10 @@ l'FM-1 si riavvia o è spento le sue celle spariscono. La pagina del Pi ha un **
 l'FM-1 c'è ricorda le sue celle (le pagine, i synth, i filtri e le mappature) in `/boot/firmware/sagga/celle-fm1.json`;
 quando l'FM-1 (o l'altro capo di una cella) se ne va e torna - il suo numero USB cambia ogni volta - aspetta 5 secondi
 che RaspiMIDIHub faccia il suo e rimette quelle che mancano. Una cella tolta con l'FM-1 acceso resta tolta; con l'FM-1
-spento torna. La prima volta parte dalle celle che servono alle pagine (ognuna verso la porta 2, la porta 2 verso
-ognuna). Sulla pagina, **LE CELLE DELL'FM-1** dice cosa ha rimesso; durante la prova del banco aspetta. Per spegnerlo:
+spento torna. **Una pagina SAGGA nuova viene collegata da sola** (0.21): quando la aggiungi in RaspiMIDIHub, o tutte
+la prima volta, il custode mette le sue due celle (il suo OUT verso la porta 2 dell'FM-1, la porta 2 verso il suo IN;
+per SAGGA BeatStep solo l'OUT), una volta sola, con USB PORTS 2 sull'FM-1: se poi le togli a mano restano tolte. Sulla
+pagina, **LE CELLE DELL'FM-1** dice cosa ha rimesso; durante la prova del banco aspetta. Per spegnerlo:
 `--senza-custode` in `sagga-fw.service`.
 
 Il banco, dalla 0.20.9, fa lo stesso a ogni riavvio dell'FM-1; se l'FM-1 non risponde per 12 secondi lo fa ritrovare

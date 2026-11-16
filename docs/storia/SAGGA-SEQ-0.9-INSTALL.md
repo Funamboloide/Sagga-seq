@@ -130,5 +130,5 @@ La scelta resta salvata nell'FM-1. Per tornare a una porta sola: la stessa pagin
    Ancora SAVE + K4: si torna a `FULL`.
 6. Sul grid, **PERF** premuto tre volte: la vista VIAGGIO (pulsante nel colore accento).
 
-Le note di rilascio (`RELEASE-NOTES-0.9.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`,
+Le note di rilascio (`RELEASE-NOTES-0.9.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`,
 sezione VIAGGIO.

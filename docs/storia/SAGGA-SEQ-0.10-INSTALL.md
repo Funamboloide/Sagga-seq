@@ -90,5 +90,5 @@ due porte USB (i canali 15 e 16 alle tracce). Entrambe le impostazioni sopravviv
 Poi il test hardware (`tools/hwtest`: `run_hw_test.ps1` da PowerShell, con l'FM-1 direttamente sul PC) per il
 controllo completo del timing: deve dire `0 failures`.
 
-Le note di rilascio (`RELEASE-NOTES-0.10.md`) elencano tutto il nuovo; il riferimento completo è `docs/SAGGA-SEQ.md`;
+Le note di rilascio (`RELEASE-NOTES-0.10.md`) elencano tutto il nuovo; il riferimento completo è `../SAGGA-SEQ.md`;
 il manuale 0.10 (in italiano) è il documento che accompagna il rilascio.

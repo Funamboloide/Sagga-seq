@@ -68,7 +68,8 @@ drum break cut into slices on consecutive notes of your sampler
 what you played in the last loop). ROLL and ROLL/2: while held, the slice that played last comes again on every step
 (or twice a step). HALF, DOUBLE, BACKWARDS: the pattern's slices transformed; DICE: re-ordered, the kick and snare kept
 on the beats; RESET: 1..16 in a row. CHOP writes a re-order from the library over the loop (UNDO on the FM-1 takes it
-back); ROLLS and SWAP set the dice; SLICES says how many the break has (8, 16, 32).
+back); ROLLS and SWAP set the dice; SLICES says how many the break has (8, 16, 32): the three show the tablet's
+track's (SAGGA SEQ 0.21 sends them back; CHOP is a move, it shows the last one you wrote).
 Channel 13: CC 76-91 pads, 65 ROLL, 71 ROLL/2, 66-70 the moves, 107 TAKE, 72-75 the knobs. The FM-1: SAVE K2 = REMOTE
 13 + 14; wire OUT to it (USB PORTS 2: port 2)."""
 
