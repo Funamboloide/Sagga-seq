@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.21
+# SAGGA SEQ 0.22
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,33 +8,59 @@ steps), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF'
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.21` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.22` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.20.9.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.21.
 
-## What is new in 0.21
+## What is new in 0.22
 
-0.21 is 0.20.9 read again from end to end: no new feature to learn, the same project format (`SGQB`).
+0.22 is the dig down to the first version: the parts no test could see (the USB's ring, the panel's wait, the
+counters' wraps), the tools that test the rest, and the way the FM-1, the Pi and the grid spend their time. No new
+feature, the same project format (`SGQB`).
 
-* **A line of the screen could be written past its end.** The line of what is going on (DICE? EVOLVE SONG TEMP LOOP
-  STOP@BAR RESTART TR> MACRO MOTION MORPH LEARN RELOAD MUTES WAIT ECHO ALL STEP LOOP TOOL WAITS EVERY SNAP CAPTURE, the
-  chord) was put together in 64 bytes of the stack with nothing to stop it: seven or eight of those at once (a dice
-  waiting, TEMP held, a LOOP, RESTART, a macro, MORPH, ECHO ALL) went past them, into whatever the stack held next. A
-  random run with the memory checker found it (one in five hundred); seven controls of the hub's pages do it too. The
-  lines are now written in a buffer the text writers end, as the messages always were.
-* **What goes back to the hub's pages**: a value the tablet had moved looked "just moved" again 65.536 s later, for
-  0.4 s (the stamps are 16 bits of ms), and a change made on the panel in that moment reached the page late. The
-  stamps are kept young now. And SAGGA Break's knobs follow the tablet's track as the other pages do: SWAP, ROLLS and
-  SLICES go back on channel 13 CC 73-75.
-* The tests: the suite fails when a test fails (the pipes hid the exit codes), parses the FM-1's two builds with
-  this computer's clang (0.20.9's first push did not build), and runs the random test with ASan + UBSan; the random
-  test plays the hub's pages too (channels 12 and 13, the pads, every SysEx of the app, USB PORTS 2), and one run in
-  eight starts from a project image with bytes changed at random.
-* The documents: one installation sheet for today's set ([INSTALLA.md](INSTALLA.md)), the release notes and the
-  sheets of the past versions in [storia/](storia/), this page without its 800 lines of history.
+* **The notes waited for the screen.** A piece of the screen (a line: 5 ms of pixels at 12 MHz; a big cell: 8) goes out
+  by itself, but the piece after it waited for it to end, with the whole loop: the clock and the notes due in that
+  time left late. With the simulator charging the panel's time, four knobs turned in play made 79 notes of 130 leave
+  1 to 8 ms late; a tempo knob at 300 BPM gave clock gaps of 3 to 14 ms for 8.3. The loop now starts a piece only when
+  the panel has taken the one before (`lcd_idle`): 0 to 2 ms, gaps of 7 to 10.
+* **A burst of messages could be lost.** The USB output ring held 64 events, as the input's; what a pass sent beyond
+  its room was dropped and only counted (DROPPED on the USB page). A dice on the CCs sends six lanes on sixteen tracks
+  at once; three keys together made 68 Control Changes in one pass and four were gone. No test could see it: the
+  simulator had no ring. It has the FM-1's now, the random test plays with it, and the ring is 256 (the senders that
+  can wait - the grid's lights, the lanes, the LFOs, the values for the hub - still see the first 64, so the music
+  never queues behind them).
+* **The GATE effect never made a note longer than its step.** FIXED 1/8 .. 2 BARS and x3/2, x2, x4 gave a 1/16
+  whatever was asked: a note of a step ends when the track's next step comes, and the effect's longer gate was cut
+  with it (since 0.20; the only test tried FIXED 1/32). A note the MIDI FX chain makes longer than the gap to the
+  track's next hit now goes out as a held note, with its own end (`MFX_LONG` in `fire_slice`): FIXED 1/8 is two steps,
+  x4 of a gate of 80 % is 3.2. It overlaps the notes after it (a mono synth: legato); the same note coming back
+  before its end ends it there. HUMAN alone still never carries a note past its step.
+* **A TIE into the same note left 15 ms of it.** The tied note's end, 15 ms into the next step, came while the new
+  note of the same pitch sounded, and ended it (since 0.10). A held voice of the same pitch that would end before the
+  new note does now ends as the new note begins (`held_same_off`); one that outlasts it is left as it was.
+* **The grid shows a view in a tenth of a second.** 24 lights a frame, not 8: a view of 130 lights took 350 ms, now
+  110. The bridge sends a frame of lights as one message to each Launchpad (it sent one a light), and wakes 50 times a
+  second when nothing happens, not 200.
+* **The Pi asked the FM-1 who it was every 5 seconds** while the hub's page was open: a Python started, an ALSA client
+  made (RaspiMIDIHub scans its devices again at each one) and a SysEx to the FM-1, twelve times a minute, in the
+  middle of a set too. It asks when ALSA's clients change.
+* **The explorer explored an empty project.** Its "band" was 0.11's gesture (SEQ + SEL + black 7), which 0.12 gave to
+  something else: fourteen situations of seventeen, in the simulator and in the plans for the FM-1 and the banco, had
+  no band, and its grid went after 3.5 s (no keep-alive). With real bands and a grid that stays: 55829 gestures in 17
+  situations, 6799 pairs, 200 sessions, no error. A situation "with a band" that has none is now an error itself.
+* **What no test ran.** gcov over every suite that drives the simulator (`-DSAGGA_GCOV --coverage`: the forked
+  branches of the explorer write their counters too): 97 % of the firmware's lines run (347 of 13223 run in no test).
+  Of what never ran, read and tried by hand: a TAPE track's grid view, six destinations and three sources of the MOD
+  MATRIX, the harmony's rhythms 3+5, 3+1 and 2 BARS, the conditions 1:4, 4:4 and NOT FILL, the GATE effect's factors
+  and lengths - all as the manual says but GATE (above). They are a test now (`t022_unrun`), and the explorer taps the
+  128 pads of the grid's VIAGGIO view too.
+* The audio interrupt no longer clears, scales and shifts a buffer of silence every 5.8 ms. 76 and 150 minutes in
+  play across the counters' wraps (every 179 s, and the microseconds at 71.6 minutes): the clock never late, the band
+  the same, nothing hung - a test now. Two functions nothing called are gone.
 
+What was new in 0.21 and before: [storia/NOVITA.md](storia/NOVITA.md).
 
 ## The FM-1 panel
 

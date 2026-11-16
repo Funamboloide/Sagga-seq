@@ -31,7 +31,8 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.21"
+#define SQ_VERSION "0.22"
+#define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -317,7 +318,6 @@ static void tape_tool(uint8_t t, uint8_t tool);
 static void tape_grid_render(uint32_t t);
 static void tape_grid_pad(uint32_t t, uint8_t x, uint8_t y);
 static void remote_cc(uint8_t cc, uint8_t v);              /* sagga_live.c */
-static uint8_t learn_take(uint8_t ch, uint8_t cc);
 static uint8_t learn_take_v(uint8_t ch, uint8_t cc, uint8_t v);   /* 0.10: the value too */
 static uint8_t learn_kind;                                 /* sagga_live.c: LEARN armed (store_loaded clears it) */
 static void reload_request(void);
@@ -770,6 +770,17 @@ static void held_note_on(uint32_t t, uint8_t ch, uint8_t note, uint8_t vel, uint
     hold_off_us[t][slot] = off_us;
 }
 
+/* 0.22: a step's note that starts while the same pitch is still held on the channel (a TIE's 15 ms into the next step,
+ * a note the GATE effect made longer than its step) and would outlast it: that voice ends now. Its own end, coming
+ * while the new note sounds, cut the new note short: a TIE into the same note left 15 ms of it. A held voice that
+ * outlasts the new note is left as it was (a long note with the same note inside) */
+static void held_same_off(uint32_t t, uint8_t ch, uint8_t note, uint32_t end_us)
+{
+    uint32_t n;
+    for (n = 0; n < SQ_HOLD_MAX; n++)
+        if (hold_note[t][n] == note && hold_ch[t][n] == ch && (int32_t)(hold_off_us[t][n] - end_us) < 0) held_note_off(t, n);
+}
+
 static void track_all_off(uint32_t t)
 {
     uint32_t n;
@@ -1101,7 +1112,11 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
                 uint32_t g = fixed ? fixed : mfx_ev[i].gate * sq_gate_factor_x4(a) / 4u;   /* (32 bits: no 64-bit division on the FM-1) */
                 if (fb) {                              /* (no signed 64-bit numbers: the JieLi library has no __divdi3) */
                     int32_t r = (int32_t)(sq_rng_next(&sq_rng_state) % (2u * fb + 1u)) - (int32_t)fb;
+                    uint32_t g0 = g;
                     g = (uint32_t)clamp_i32((int32_t)g + (int32_t)(g / 100u) * r, 1, 0x7FFFFFFF);
+                    /* 0.22: HUMAN alone does not carry the step's note into the next one (it never did: the next step
+                     * ended it); a FIXED length or a factor that is longer than the step does (fire_slice) */
+                    if (i == 0u && g0 <= ev[t].slice_us && g > ev[t].slice_us) g = ev[t].slice_us;
                 }
                 mfx_ev[i].gate = g ? g : 1u;
             }
@@ -1728,6 +1743,10 @@ static void lfo_gate(uint32_t t, uint32_t gate)
     for (i = 0; i < SQ_LFOS; i++) if (project.ext.lfo[i].trig == t + 1u) lfo_gate_us[i] = gate;
 }
 
+/* 0.22: the MIDI FX chain made this note longer than the gap to the track's next hit: it goes out as a held note, with its
+ * own end, not as a note of the step (those end when the track's next step comes). Until 0.21 the GATE effect's FIXED
+ * 1/8 .. 2 BARS and its x3/2, x2, x4 stopped at the next step all the same: a 1/16 whatever was asked */
+#define MFX_LONG(ng) ((ng) > gate && (ng) > ev[t].slice_us)
 static void fire_slice(uint32_t t, uint32_t now)
 {
     const sq_step_t *s = ev[t].step;
@@ -1809,8 +1828,9 @@ static void fire_slice(uint32_t t, uint32_t now)
             ng = gate;
             if (mfx_run(t, ch, slice_no, &note, &nv, &ng, now)) {   /* 0.20: the MIDI FX chain (it may drop the note) */
                 if (fx & (1u << FX_MAXVEL)) nv = 127u;
-                if (((s->length > 100u || held) && !cfg->arp_rate) || (s->flags & SQ_STEP_LEGATO)) held_note_on(t, ch, note, nv, now + ng);
+                if (((s->length > 100u || held) && !cfg->arp_rate) || (s->flags & SQ_STEP_LEGATO) || MFX_LONG(ng)) held_note_on(t, ch, note, nv, now + ng);
                 else {
+                    held_same_off(t, ch, note, now + ng);
                     midi_send(0x90u | ch, note, nv);
                     ev[t].active_note[0] = note;
                     ev[t].active_ch[0] = ch;
@@ -1837,9 +1857,10 @@ static void fire_slice(uint32_t t, uint32_t now)
                 ev[t].strum_note[src] = note; ev[t].strum_ch[src] = ch; ev[t].strum_vel[src] = nv;
                 ev[t].strum_on[src] = now + delay; ev[t].strum_off[src] = now + delay + ng;
                 ev[t].strum_mask |= bit;
-                if (s->length > 100u || held || (s->flags & SQ_STEP_LEGATO)) ev[t].strum_held |= bit;
-            } else if (s->length > 100u || held || (s->flags & SQ_STEP_LEGATO)) held_note_on(t, ch, note, nv, now + ng);
+                if (s->length > 100u || held || (s->flags & SQ_STEP_LEGATO) || MFX_LONG(ng)) ev[t].strum_held |= bit;
+            } else if (s->length > 100u || held || (s->flags & SQ_STEP_LEGATO) || MFX_LONG(ng)) held_note_on(t, ch, note, nv, now + ng);
             else {
+                held_same_off(t, ch, note, now + ng);
                 midi_send(0x90u | ch, note, nv);
                 ev[t].active_note[src] = note;
                 ev[t].active_ch[src] = ch;
@@ -1868,6 +1889,7 @@ static void strum_service(uint32_t t, uint32_t now)
             held_note_on(t, ev[t].strum_ch[n], ev[t].strum_note[n], ev[t].strum_vel[n], ev[t].strum_off[n]);
         } else {
             midi_note_off_track(t, n);
+            held_same_off(t, ev[t].strum_ch[n], ev[t].strum_note[n], ev[t].strum_off[n]);
             midi_send(0x90u | ev[t].strum_ch[n], ev[t].strum_note[n], ev[t].strum_vel[n]);
             ev[t].active_note[n] = ev[t].strum_note[n];
             ev[t].active_ch[n] = ev[t].strum_ch[n];
@@ -4768,8 +4790,10 @@ static void app_main(void)
         vg_service();                                  /* 0.9: a track key held = the dice */
         regia_service();                               /* 0.9: STATO, TOCCATA, REGIA TASTO to the Pi */
 
-        /* one piece of the screen per pass: the clock is served between pieces (see the screen, sagga_ui.c) */
-        if (ui_dirty) { if (!draw_screen_step()) { ui_dirty = 0u; grid_dirty = 1u; } }
+        /* one piece of the screen per pass: the clock is served between pieces (see the screen, sagga_ui.c). 0.22: and
+         * only when the panel has taken the piece before (lcd_idle): the loop never waits for pixels */
+        if (!lcd_idle()) { }
+        else if (ui_dirty) { if (!draw_screen_step()) { ui_dirty = 0u; grid_dirty = 1u; } }
         else if (grid_dirty) { if (!draw_grid_step()) grid_dirty = 0u; }
         if (msg_text && time_due(fm1_ms, msg_until)) { msg_text = 0; ui_dirty = 1u; }
         if (time_due(fm1_ms, led_next)) { update_leds(); led_next = fm1_ms + 30u; }

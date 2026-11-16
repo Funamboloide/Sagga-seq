@@ -37,7 +37,16 @@ static volatile uint32_t fm1_knob = 512;                     /* the MASTER knob,
 static volatile int32_t sq_batt_raw = 600;                   /* the battery divider, smoothed (ADC ch3): "T batt VALUE" */
 static uint32_t host_usb_power = 1u;                         /* a USB host powers the FM-1: "T usbpower 0|1" */
 static uint32_t host_tx_room = 64u;                          /* free slots of the USB MIDI output ring: "T txroom N" */
-static uint32_t midi_tx_room(void) { return host_tx_room; }
+/* 0.22: the ring itself, as the FM-1 has it ("T ring": on, USB_MIDI_OUT_RING events; "T ring N": N; 0 = off as before): what the app sends waits in it,
+ * the 2 kHz USB poll takes 16 events an IN packet (32 a millisecond when the host reads), the throttled senders see
+ * its room (midi_tx_room: 64 less what waits, as on the FM-1), and what does not fit is DROPPED and said - the FM-1
+ * only counts it (usb.tx_drop, DROPPED on the USB page). Without this no test could see a note lost in a burst */
+static uint32_t host_ring_cap, host_ring_used, host_ring_max, host_ring_drops;
+static uint32_t midi_tx_room(void)
+{
+    if (!host_ring_cap) return host_tx_room;
+    return host_ring_used >= 64u ? 0u : 64u - host_ring_used;
+}
 static uint8_t host_led[41];                                 /* 0.12: the key LEDs as the firmware set them: 0 off, 1 glow, 2 lit ("T leds") */
 static void fm1_led_key(uint32_t id, int on) { if (id < 41u) { if (on) host_led[id] = 2u; else if (host_led[id] == 2u) host_led[id] = 0u; } }
 static void fm1_led_key_dim(uint32_t id, int on) { if (id < 41u) { if (on) { if (host_led[id] != 2u) host_led[id] = 1u; } else if (host_led[id] == 1u) host_led[id] = 0u; } }
@@ -54,17 +63,36 @@ static void host_leds_print(void)
 /* the screen: 240 x 240 RGB565, as the ST7789 gets it (gfx.c sends the bytes swapped) */
 static uint16_t fb[240 * 240];
 static void lcd_sync(void) {}
+/* 0.22: a build for gcov (-DSAGGA_GCOV --coverage): a branch of a `fork` leaves through _exit, which writes no
+ * counters; without this the explorer's gestures, which all run in branches, counted for nothing */
+#ifdef SAGGA_GCOV
+extern void __gcov_dump(void);
+#define HOST_COV_DUMP() __gcov_dump()
+#else
+#define HOST_COV_DUMP() ((void)0)
+#endif
 /* "T lcdcost": from then on the screen costs what the SPI costs on the FM-1 (12 MHz, 16 bits a pixel, plus
  * ~60 us a transfer for the window commands): the time is added to the clock at the next platform_poll, as a
  * blocking redraw does on the real thing. Off by default, so the other tests keep their 1 ms per poll. */
 static uint32_t host_lcd_cost, host_lcd_us, host_lcd_worst_us, host_max_dt, host_max_dt_erase, host_erase_pass;
+/* 0.22: as the FM-1 does it: the pixels go out by themselves (DMA) while the loop goes on, and only the next access to
+ * the panel waits for them (lcd_sync). host_lcd_until: the simulated microsecond the transfer in flight ends;
+ * lcd_idle(): nothing in flight (the app starts a piece of the screen only then, so it never waits). A piece drawn
+ * while another is in flight (the app until 0.21) costs the loop the rest of that one, as on the FM-1 */
+static uint64_t host_lcd_until;
+static uint64_t host_now_us(void) { return (uint64_t)fm1_ms * 1000u + host_lcd_us; }
+static int lcd_idle(void) { return !host_lcd_cost || host_now_us() >= host_lcd_until; }
 static void host_lcd_charge(uint32_t px)
 {
     uint32_t us;
+    uint64_t now;
     if (!host_lcd_cost) return;
-    us = px * 4u / 3u + 60u;
-    host_lcd_us += us;
-    if (us > host_lcd_worst_us) host_lcd_worst_us = us;
+    us = px * 4u / 3u;
+    now = host_now_us();
+    if (now < host_lcd_until) host_lcd_us += (uint32_t)(host_lcd_until - now);   /* (lcd_sync: the loop waits) */
+    host_lcd_us += 60u;                                                          /* the window's commands, byte by byte */
+    host_lcd_until = host_now_us() + us;
+    if (us + 60u > host_lcd_worst_us) host_lcd_worst_us = us + 60u;
 }
 static void lcd_fill(uint32_t x, uint32_t y, uint32_t w, uint32_t h, uint16_t c)
 {
@@ -201,6 +229,14 @@ static void midi_send_c(uint32_t cable, uint32_t st, uint32_t d1, uint32_t d2)
 {
     sq_midi_out_n++;
     if (cable >= host_usb_ports) cable = 0u;
+    if (host_ring_cap) {
+        if (host_ring_used >= host_ring_cap) {
+            host_ring_drops++;
+            printf("%6u ms  MIDI DROP %02X %u %u%s\n", fm1_ms, st, d1, d2, cable ? " port 2" : "");
+            return;
+        }
+        if (++host_ring_used > host_ring_max) host_ring_max = host_ring_used;
+    }
     printf("%6u ms  MIDI out %02X %u %u%s\n", fm1_ms, st, d1, d2, cable ? " port 2" : "");
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { midi_send_c(0u, st, d1, d2); }
@@ -211,7 +247,8 @@ static void usb_stats(sq_usb_stats_t *s)
 {
     memset(s, 0, sizeof *s);
     s->up = 1; s->config = host_usb_power ? 1u : 0u;
-    s->queued = 64u - (host_tx_room > 64u ? 64u : host_tx_room);
+    s->queued = host_ring_cap ? host_ring_used : 64u - (host_tx_room > 64u ? 64u : host_tx_room);
+    s->dropped = host_ring_drops;
     s->resets = 1u + host_usb_reconnects;
 }
 static void usb_reconnect(void) { host_usb_reconnects++; printf("%6u ms  USB reconnect\n", fm1_ms); }
@@ -303,6 +340,7 @@ static void read_script(const char *path)
         else if (!strcmp(what, "ctl")) { c = 127u; sscanf(line, "%*u %*s %u %u", &a, &c); e.st = 0xBE; e.d1 = (uint8_t)a; e.d2 = (uint8_t)c; e.cab = 255u; }
         else if (!strcmp(what, "hb")) { e.st = 0xBF; e.d1 = 118; e.d2 = 64; e.cab = 255u; }                           /* the bridge's keep-alive */
         else if (!strcmp(what, "txroom")) { int v = 64; sscanf(line, "%*u %*s %d", &v); e.kind = 5; e.a = v; }
+        else if (!strcmp(what, "ring")) { int v = (int)USB_MIDI_OUT_RING; sscanf(line, "%*u %*s %d", &v); e.kind = 20; e.a = v; }   /* 0.22: the output ring: the FM-1's, or N events */
         else if (!strcmp(what, "lcdcost")) { e.kind = 7; }                                               /* charge the screen's SPI time */
         else if (!strcmp(what, "shot")) { e.kind = 6; }                                                  /* the screen, now */
         else if (!strcmp(what, "sx")) {                                                                  /* a SysEx frame for the app */
@@ -388,6 +426,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
     else if (dt > host_max_dt) host_max_dt = dt;
     host_erase_pass = 0u;
     fm1_ms += dt;
+    host_ring_used -= host_ring_used < 32u * dt ? host_ring_used : 32u * dt;   /* (the USB poll, while the loop was busy) */
     while (step < script_n && script[step].t <= fm1_ms) {
         const host_ev_t *e = &script[step];
         if (e->kind == 13) {                    /* the explorer: a copy of the machine for each branch, one after the other */
@@ -426,6 +465,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
         else if (e->kind == 3) host_enc[e->a & 7] += e->b;
         else if (e->kind == 4) fm1_knob = (uint32_t)e->a;
         else if (e->kind == 5) host_tx_room = (uint32_t)e->a;
+        else if (e->kind == 20) { host_ring_cap = (uint32_t)e->a; host_ring_used = 0u; }
         else if (e->kind == 6) write_ppm(fm1_ms);
         else if (e->kind == 7) host_lcd_cost = 1;
         else if (e->kind == 8) app_sysex(host_sx + e->a, (uint32_t)e->b);
@@ -447,7 +487,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
             fm1_in.notes = e->keys;
         step++;
     }
-    if (host_child && fm1_ms >= end_ms) { fflush(stdout); _exit(0); }   /* (a branch ends here: nothing written) */
+    if (host_child && fm1_ms >= end_ms) { fflush(stdout); HOST_COV_DUMP(); _exit(0); }   /* (a branch ends here: nothing written) */
     owed += FS * dt;                            /* the frames these milliseconds are worth, in blocks as the ISR renders */
     if (host_nowav) owed = 0u;                  /* (HOST_NOWAV: no sound kept, the explorer's speed) */
     while (owed >= 1000u * HALF_FRAMES) {
@@ -473,6 +513,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
     if (fm1_ms >= end_ms) {
         if (host_lcd_cost) printf("screen cost on: longest pass of the main loop %u ms, longest transfer %u us\n", host_max_dt, host_lcd_worst_us);
         if (host_erases) printf("flash: %u erases, %u writes, longest pass with an erase %u ms\n", host_erases, host_programs, host_max_dt_erase);
+        if (host_ring_cap) printf("output ring of %u: the fullest %u, dropped %u\n", host_ring_cap, host_ring_max, host_ring_drops);
         if (!host_nowav) write_wav();
         host_flash_save();
         exit(0);

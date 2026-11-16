@@ -1582,6 +1582,32 @@ def one_shot(a, mido, ins, outs):
         out.close()
 
 
+IDLE_S = 0.02                     # the loop's turn when nothing comes (0.22: it was 5 ms: 200 wakeups a second for nothing)
+LINGER_S = 0.001                  # ... and how long it waits for the rest of a frame of lights
+
+
+def pump(q, handle, lights_changing, idle=IDLE_S, linger=LINGER_S, limit=64):
+    """One turn of the bridge's loop: the next message off the queue (waiting `idle` for one) and, with it, the others
+    that are there already - or that come within a millisecond while the lights are changing. The FM-1 sends a frame
+    of lights as eight messages in one USB packet: taken one a turn (until 0.21) each became a SysEx of its own for the
+    Launchpad, eight of 13 bytes instead of one of 48. A pad pressed is never kept waiting: it is in the queue, it is
+    handled. Returns how many it handled (at most `limit`, so that the ticks run under a flood too)."""
+    try:
+        item = q.get(timeout=idle)
+    except queue.Empty:
+        return 0
+    n = 0
+    while True:
+        handle(item)
+        n += 1
+        if n >= limit:
+            return n
+        try:
+            item = q.get(timeout=linger) if lights_changing() else q.get_nowait()
+        except queue.Empty:
+            return n
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--list", action="store_true", help="show the MIDI ports and exit")
@@ -1721,11 +1747,8 @@ def main(argv=None):
         if a.identify:
             br.identify()
         print("bridge running (Ctrl-C to stop)")
-        while True:
-            try:
-                kind, idx, port, raw = q.get(timeout=0.005)
-            except queue.Empty:
-                kind = None
+        def handle(item):
+            kind, idx, port, raw = item
             now = time.monotonic()
             if kind == "lp":
                 ev = br.lp_in(idx, raw, port, now)
@@ -1739,6 +1762,10 @@ def main(argv=None):
                 keeper.synth_in(port, raw)
             elif kind == "fm1" and not a.identify:
                 br.fm1_in(raw)
+
+        while True:
+            pump(q, handle, lambda: bool(br.dirty))      # 0.22: a frame of lights at a time, then the ticks once
+            now = time.monotonic()
             br.tick(now)
             lib.tick(now)
             control.tick(now)

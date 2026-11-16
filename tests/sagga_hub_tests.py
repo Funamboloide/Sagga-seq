@@ -195,6 +195,21 @@ sys.exit(0 if "sagga" in sys.argv[-1] else 4)
           'the lists: only .fwsc and .sgq files (%s)' % [p['name'] for p in s['packages']])
     check(s['device'] == ['FM-1_992', 'running', 'Felucca MIDI 1'] and not s['busy'], 'the FM-1 probed through the installer (%s)' % (s['device'],))
     check(b'SAGGA HUB' in get('/').read(), 'the page')
+    # 0.22: with the page open the FM-1 is asked who it is when ALSA's clients change, not every 5 s
+    clients = [(('20', 'Felucca'), ('129', 'RaspiMIDIHub'))]
+    state.alsa_key = lambda: tuple(clients[0])
+    state.device_at, state.device_key, n0 = 0, None, state.probes
+    for _ in range(4):
+        state.device_at -= 6                                          # (6 s later, and again ...)
+        json.loads(get('/api/state').read())
+    check(state.probes == n0 + 1, 'the page open for half a minute: the installer asked once, not at every look (%d times)' % (state.probes - n0))
+    clients[0] = [('24', 'Felucca'), ('129', 'RaspiMIDIHub')]     # the FM-1 restarted: another client
+    s2 = json.loads(get('/api/state').read())
+    check(state.probes == n0 + 2 and s2['device'] == ['FM-1_992', 'running', 'Felucca MIDI 1'], 'the FM-1 came back as another ALSA client: asked again (%d)' % (state.probes - n0))
+    state.alsa_key = lambda: None                                  # (no /proc: the 5 s of before)
+    state.device_at -= 6
+    json.loads(get('/api/state').read()); json.loads(get('/api/state').read())
+    check(state.probes == n0 + 3, 'where ALSA cannot be read: every 5 s, as before (%d)' % (state.probes - n0))
     req = urllib.request.Request(base + '/api/install?file=sagga-seq-0.9.fwsc', method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['error'] is None, 'install accepted')
     req = urllib.request.Request(base + '/api/install?file=relitto-0.1.fwsc', method='POST')

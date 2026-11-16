@@ -164,6 +164,29 @@ def t_batching():
     check(all(b < 0x80 for m in r.lp[0] for b in m[1:-1]), "all SysEx bytes are 7-bit")
 
 
+def t_pump():
+    """0.22: one turn of the loop takes what is waiting: a frame of the FM-1's lights (eight messages in one USB packet)
+    is one SysEx for the Launchpad, not eight; a pad is handled at once; a flood ends at the limit (the ticks run)"""
+    import queue
+    import time
+    r = Rig()
+    q = queue.Queue()
+    for i in range(8):
+        q.put(("fm1", 0, "", [0x9F, i, 4]))
+    n = B.pump(q, lambda it: r.b.fm1_in(it[3]), lambda: bool(r.b.dirty), idle=0.01)
+    r.b.tick(0.0)
+    check(n == 8 and len(r.lp[0]) == 1 and len(r.leds(0)) == 8, "eight lights waiting: one turn, one SysEx with the eight (%d handled, %d messages)" % (n, len(r.lp[0])))
+    got = []
+    q.put(("lp", 0, "x", [0x90, 11, 100]))
+    check(B.pump(q, got.append, lambda: False, idle=0.01) == 1 and got[0][0] == "lp", "a pad pressed: handled in the turn it comes")
+    t0 = time.monotonic()
+    check(B.pump(q, got.append, lambda: False, idle=0.02) == 0 and time.monotonic() - t0 < 0.5, "nothing waiting: the turn ends by itself")
+    for i in range(200):
+        q.put(("fm1", 0, "", [0x9F, i % 64, 1 + i % 5]))
+    check(B.pump(q, lambda it: r.b.fm1_in(it[3]), lambda: bool(r.b.dirty), idle=0.01) == 64 and q.qsize() == 136, "a flood: 64 a turn, the rest at the next")
+    check(B.IDLE_S >= 0.01, "the idle turn is not a busy loop (%s s)" % B.IDLE_S)
+
+
 def t_blink():
     r = Rig()
     r.b.start(0.0)
@@ -1246,7 +1269,7 @@ def t_progressions():
           "the stock: a file a genre, 30 or more for TECHNO, EPIC ones for TRANCE (%s)" % summ["TRANCE"])
 
 
-TESTS = [t_roles_match_firmware, t_start_stop, t_pads_in, t_buttons_in, t_leds_out, t_batching, t_blink,
+TESTS = [t_roles_match_firmware, t_start_stop, t_pads_in, t_buttons_in, t_leds_out, t_batching, t_pump, t_blink,
          t_swap_and_guard, t_mk2, t_mini, t_heal, t_ports, t_portwatch, t_main, t_end_to_end,
          t_dump_codec, t_dump_receiver, t_dump_sender, t_dump_files, t_dump_cli, t_dump_firmware, t_bootwriter, t_library,
          t_library_firmware, t_fm1_port, t_patch_keeper, t_patch_firmware, t_regista, t_regista_firmware, t_patterns, t_progressions]

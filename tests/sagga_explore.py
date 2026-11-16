@@ -241,6 +241,7 @@ GRID_VIEWS = {                                             # from STEP: the view
     "TRACK2": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0)], "TRACK3": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0), (S.GC_VTRACK, 0)],
     "BEAT": [(S.GC_VTRACK, 1)], "EUCLID": [(S.GC_VTRACK, 1), (S.GC_VTRACK, 1)], "PROJ": [(S.GC_REC, 1)],
     "FX": [(S.GC_UNDO, 1)],
+    "VIAGGIO": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, VIAGGIO; no test tapped its pads)
 }
 
 
@@ -401,8 +402,10 @@ def catalogo(veloce=False, grid=False, tablet=False):
 
 
 def _band(s, t):
-    s.press(t, S.SEQ); s.press(t + 30, S.SEL); s.tap_key(t + 60, S.bk(6)); s.release(t + 130, S.SEL); s.release(t + 160, S.SEQ)
-    return t + 220
+    """BAND: SEQ + black 7 HELD (0.12; a tap is the KIT). Until 0.21 this was 0.11's gesture, SEQ + SEL + black 7, which
+    since 0.12 does something else: every situation "with a band" was an empty project (setup_check now says so)"""
+    s.press(t, S.SEQ); s.tap_key(t + 30, S.bk(6), hold=700); s.release(t + 800, S.SEQ)
+    return t + 900
 
 
 def _genre(s, t, k):
@@ -416,8 +419,9 @@ def _play(s, t):
 
 
 class Situazione:
-    def __init__(self, name, setup, grid=False, tablet=False, hw=True):
+    def __init__(self, name, setup, grid=False, tablet=False, hw=True, band=True):
         self.name, self.setup, self.grid, self.tablet = name, setup, grid, tablet
+        self.band = band                            # (0.22: it starts from a BAND: situazioni_vere checks that it is there)
         self.hw = hw                                # (False: never on the FM-1 by the PC: a USB reconnect in its set-up)
 
 
@@ -561,8 +565,8 @@ def sit_tablet2(s):                                         # ... with USB PORTS
 
 
 SITUAZIONI = [
-    Situazione("vuoto, fermo", sit_vuoto),
-    Situazione("vuoto, in play", sit_vuoto_play),
+    Situazione("vuoto, fermo", sit_vuoto, band=False),
+    Situazione("vuoto, in play", sit_vuoto_play, band=False),
     Situazione("TECHNO band in play", sit_techno),
     Situazione("HOUSE band, armonia LOCK, in play", sit_house_lock),
     Situazione("AMAPIANO band, fermo", sit_amapiano_fermo),
@@ -571,7 +575,7 @@ SITUAZIONI = [
     Situazione("BREAK sulla traccia 1, band in play", sit_break),
     Situazione("MOSSE in play", sit_viaggio),
     Situazione("PERF in play", sit_perf),
-    Situazione("note lunghe e loop fra due step, in play", sit_note_loop),
+    Situazione("note lunghe e loop fra due step, in play", sit_note_loop, band=False),
     Situazione("0.13 CHAIN LIST, MOTION, KEYBOARD, SLIDE, in play", sit_013_live),
     Situazione("0.13 LFO RATE SEQ e TRIG, band in play", sit_013_lfo),
     Situazione("0.20 MIDI FX nuovi in catena, ENV, MOD MATRIX, band in play", sit_020_fx),
@@ -603,10 +607,20 @@ def _lines(s):
     return [line for _, _, line in sorted(s.lines)]
 
 
+def _keep_grid(sit, sc, t_from, t_to):
+    """the bridge's keep-alive, every second, while a situation with the grid runs. Without it the FM-1 lets the grid
+    go after 3.5 s (GR_TIMEOUT_MS): until 0.21 the explorer's grid was there for the first seconds only, and what a
+    branch did after them it did without a grid (the plans for the FM-1 and for the banco always had it)"""
+    if sit.grid:
+        for t in range((int(t_from) // 1000 + 1) * 1000, int(t_to), 1000):
+            sc.raw(t, "hb")
+
+
 def script_for(sit, branches, settle=600):
     """the situation's setup, then a fork with each branch: (name, [gestures], playing?) -> the script text, the fork time"""
     s = S.Script()
     t0 = int(sit.setup(s)) + settle
+    _keep_grid(sit, s, 0, t0)
     out = _lines(s)
     out.append("%d probe" % t0)
     out.append("%d fork" % t0)
@@ -620,6 +634,7 @@ def script_for(sit, branches, settle=600):
             b.raw(t0 + when + off, "probe")
         if playing:
             b.tap_btn(t0 + T_STOP + off, S.PLAY)
+        _keep_grid(sit, b, t0, t0 + T_STILL + 20 + off)
         out.append("%d branch %s" % (t0, name))
         out += _lines(b)
         out.append("%d endbranch" % (t0 + T_STILL + 20 + off))
@@ -651,6 +666,21 @@ def run_script(text, timeout=900):
             f.write(text)
         p = subprocess.run([BIN, os.path.join(d, "o"), sp], capture_output=True, text=True, cwd=ROOT, env=env, timeout=timeout)
     return p.stdout, p.stderr
+
+
+def situazioni_vere(sits, empty_row):
+    """a situation is what it says: one that starts from a BAND has something written on five tracks at least. Until
+    0.21 the band's gesture here was 0.11's (SEQ + SEL + black 7), which 0.12 gave to something else: fourteen
+    situations out of seventeen explored an empty project, in the simulator and on the FM-1, and nothing said so"""
+    bad = []
+    for sit in sits:
+        if not sit.band:
+            continue
+        base, _ = parse_run(run_script(script_for(sit, [])[0])[0])
+        n = sum(1 for k, v in base.items() if k[:1] == "T" and isinstance(v, dict) and v.get("steps#") not in (None, empty_row))
+        if n < 5:
+            bad.append("%s: %d tracce con qualcosa di scritto (una band ne ha almeno 5)" % (sit.name, n))
+    return bad
 
 
 def parse_run(out):
@@ -1021,7 +1051,11 @@ def pass_coppie(sits, gestures, jobs, findings, rnd, n_pairs):
                 continue
             after_a = dict(alone["probes"][0], t=base["t"])          # (the machine as A left it: the flags the rules ask)
             yy = y
-            if re.match(r"^(finestra )?SEQ\+(SEL\+)?nero [1-5]$", x.name) and (y.kind == "sfoglia" or re.search(r"OCT|ALG", y.name) or
+            # 0.22: a dice waits after A (the probe says so: the dice of a pattern, of a break ...): OCT keeps it or puts
+            # it back and ALG goes through its rolls, whatever B's name says (a page turned with OCT is one of them)
+            if after_a.get("G", {}).get("dice") == "1" and (y.kind == "sfoglia" or re.search(r"OCT|ALG", y.name)):
+                yy = Gesto(y.name, "dado", y.do, y.tags)
+            elif re.match(r"^(finestra )?SEQ\+(SEL\+)?nero [1-5]$", x.name) and (y.kind == "sfoglia" or re.search(r"OCT|ALG", y.name) or
                                                                          (y.name.split(" ")[0] in ("SEQ", "HOME", "ARP", "LFO", "ENV", "SAVE", "GLO") and re.match(r"^\w+ \d", y.name))):   # (0.12: the window's DICE too; a page reached with OCT)
                 yy = Gesto(y.name, "dado", y.do, y.tags)                # (a dice waits: OCT keeps or puts it back, ALG goes through the rolls)
             check_branch(sit, yy, after_a, br, alone, local, label="%s, poi %s" % (x.name, y.name), off=T_AFTER)
@@ -1038,6 +1072,7 @@ def session_check(sit, gs, rnd_seed):
     """a session: the gestures one after the other, a probe after each; -> findings (rules that need no 'nothing' branch)"""
     s = S.Script()
     t0 = int(sit.setup(s)) + 600
+    _keep_grid(sit, s, 0, t0)
     lines = _lines(s)
     b = S.Script()
     t = t0 + 10
@@ -1048,6 +1083,7 @@ def session_check(sit, gs, rnd_seed):
     b.raw(tend, "probe")
     b.tap_btn(tend + 20, S.PLAY)
     b.raw(tend + 600, "probe")
+    _keep_grid(sit, b, t0, tend + 650)
     text = "\n".join(lines + ["%d probe" % t0, "%d fork" % t0, "%d branch sessione" % t0] + _lines(b) +
                      ["%d endbranch" % (tend + 650), "%d join" % t0, "%d end" % (t0 + 10)]) + "\n"
     out, _ = run_script(text)
@@ -1322,6 +1358,9 @@ def main(argv):
     EMPTY_ROW = base["T1"]["steps#"]
     rnd = random.Random(a.seme)
     findings, effects_map, stats = [], {}, []
+    false_sits = situazioni_vere(SITUAZIONI, EMPTY_ROW)       # (all of them, every time: the plans for the FM-1 use them all)
+    for x in false_sits:
+        print("SITUAZIONE FALSA: " + x)
     n, dt = pass_singoli(sits, gestures, a.jobs, findings, effects_map)
     stats.append(("gesti provati da soli", "%d (%d gesti x %d situazioni) in %.0f s" % (n, len(gestures) - 1, len(sits), dt)))
     pairs = a.coppie if a.coppie is not None else (0 if a.gesto else (40 if a.veloce else 400))
@@ -1346,7 +1385,7 @@ def main(argv):
         os.unlink(BIN)
     except OSError:
         pass
-    return 1 if errs else 0
+    return 1 if errs or false_sits else 0
 
 
 if __name__ == "__main__":

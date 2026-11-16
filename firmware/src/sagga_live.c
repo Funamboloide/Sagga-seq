@@ -245,7 +245,6 @@ static uint8_t learn_take_v(uint8_t ch, uint8_t cc, uint8_t v)
     ui_dirty = grid_dirty = 1u;
     return 1u;
 }
-static uint8_t learn_take(uint8_t ch, uint8_t cc) { return learn_take_v(ch, cc, 255u); }
 
 static void learn_service(void)
 {

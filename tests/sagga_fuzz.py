@@ -8,6 +8,8 @@ After every run the MIDI the firmware sent is checked:
     (SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -g"; 0.21: seed 85 found a line of the screen past its buffer)
   * every data byte is 7-bit; notes and CCs only on channels 1-14; grid traffic only on 9F / BE, roles 0..15
   * no hung notes after a final panic: every note-on has its note-off
+  * 0.22: the FM-1's real output ring in every run (its size, the USB's pace, the room the senders that wait see): no
+    message may be dropped; half of the runs start with a BAND in play
   * 0.21: half of the seeds play the hub's pages too (channels 12 and 13, the pads, any SysEx of the app; a quarter on
     USB PORTS 2), one in eight starts from a project image with bytes changed at random
   * odd seeds run with the screen's SPI time charged to the clock (the script verb "lcdcost"): no clock recovery and
@@ -44,6 +46,14 @@ def make_script(seed, length_ms=60000):
         if two:
             t = S.usb2(s, t)
     port = " 2" if two else ""
+    # 0.22: the FM-1's real output ring in every run (64 events and the USB's pace: tests/host.c "ring"): the grid's
+    # lights, the lanes and the values for the hub wait for room as they do on the FM-1, and a message that does not
+    # fit is DROPPED and said (check_log: none may be). And half of the runs (by sixteens of seeds) start with a BAND
+    # in play: ten tracks of notes under the random hands, not an empty project
+    s.raw(1, "ring %d" % RING if RING else "ring")
+    if (seed // 8) % 2 == 0:
+        s.press(t, S.SEQ); s.tap_key(t + 30, S.bk(6), hold=700); s.release(t + 800, S.SEQ); t += 900
+        s.tap_btn(t, S.PLAY); t += 100
     # 0.21: one seed in eight starts from a project with bytes changed at random, sent in as the Pi sends one (no
     # checksum in the image itself: what the FM-1 takes it must play and show, on every page, whatever it says)
     if seed % 8 == 4:
@@ -176,6 +186,9 @@ def make_script(seed, length_ms=60000):
 def check_log(log, seed, panic_t=1 << 30):
     bad = []
     on = {}
+    drops = re.findall(r"(\d+) ms  MIDI DROP (\w\w \d+ \d+)", log.text)   # 0.22: the output ring was full: a message lost
+    if drops:
+        bad.append("seed %d: %d messages DROPPED, the output ring was full (the first at %s ms: %s)" % (seed, len(drops), drops[0][0], drops[0][1]))
     def ports_at(t):                                              # 0.8: USB PORTS 2 from the moment the log says so
         n = 1
         for t2, k in log.usb_ports:
@@ -225,9 +238,13 @@ def check_log(log, seed, panic_t=1 << 30):
     return bad
 
 
+RING = int(os.environ.get("SAGGA_FUZZ_RING", "0"))                 # the output ring's size: 0 = the FM-1's (platform.c USB_MIDI_OUT_RING; until 0.21: 64)
+
 # seeds that found something, run whatever the count asked. 85 (0.21, with ASan): the screen's line of what is going on
 # (DICE? EVOLVE LOOP MACRO MORPH ECHO ALL STEP LOOP ... together) written past the 64 bytes it had on the stack
-FOUND = [85]
+# 182 (0.22, with the output ring as the FM-1 has it): 68 Control Changes in one pass (three keys at once, each a move
+# that sends every track's CC) into a ring of 64: four were dropped. The ring is 256 now
+FOUND = [85, 182]
 
 
 def main():

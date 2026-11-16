@@ -512,12 +512,6 @@ static void vg_seed(void)                                   /* SEL + PLAY, stopp
 }
 
 /* ---- LOOP: a track records the next phrase with the hands */
-static void vg_loop_arm(uint8_t t, uint8_t short4)
-{
-    if (t >= SQ_TRACKS) return;
-    vg_rec_arm = t; vg_rec_short = short4;
-    vg_msg_t("LOOP ARMED ", t, short4 ? ": 4 BARS REPEATED" : ": THE WHOLE PHRASE");
-}
 static void vg_loop_begin(uint8_t t)
 {
     uint8_t pat, k;

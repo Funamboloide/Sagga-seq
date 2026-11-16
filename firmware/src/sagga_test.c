@@ -129,7 +129,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_k("shift"); pr_d(project.key_shift); pr_k("mute"); pr_x(mute_mask, 4u); pr_k("solo"); pr_x(solo_mask, 4u);
     pr_ku("scene", scene_cursor); pr_k("snap"); pr_d(snap_cur == 255u ? -1 : (int32_t)snap_cur);
     pr_k("mac"); pr_d(mac_vel); pr_c('/'); pr_d(mac_gate); pr_c('/'); pr_d(mac_swing); pr_c('/'); pr_d(mac_filt);
-    pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos);
+    pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);
     pr_kh("song#", &project.song, sizeof project.song); pr_kh("snaps#", project.snap, sizeof project.snap);

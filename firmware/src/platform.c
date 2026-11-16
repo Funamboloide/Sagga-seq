@@ -36,6 +36,9 @@ typedef struct {
     uint32_t queued, wait_ms, wait_max_ms, dropped, resets, suspends, stalls, retries, rx_held, rx_bad;
 } sq_usb_stats_t;
 static uint32_t sq_midi_out_n;                  /* messages handed to midi_send since power-on */
+/* SAGGA SEQ 0.22: the USB MIDI output ring, in events (usb.c MOQ; the simulator's "ring" is this long too: tests/host.c).
+ * It was 64, the input ring's size: a pass that sent more than its room lost the rest (a dice's CCs on every track) */
+#define USB_MIDI_OUT_RING 256u
 /* SAGGA SEQ 0.11, the PC test (sagga_test.c): while it runs the slots and the settings are never written (fl_app_lock),
  * the MASTER knob is the PC's (tst_knob_on: fm1_knob = tst_knob_v), and what the test is lives across a reboot in
  * tst_noinit (RAM the start-up code does not clear; lost at a power-off). */
@@ -246,7 +249,9 @@ static void midi_send_c(uint32_t cable, uint32_t st, uint32_t d1, uint32_t d2)  
     midi_out_event(cin | (cable & 15u) << 4 | st << 8 | (d1 & 0x7Fu) << 16 | (d2 & 0x7Fu) << 24);
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { midi_send_c(0u, st, d1, d2); }
-static uint32_t midi_tx_room(void)                             /* free slots in the USB MIDI output ring */
+/* free slots in the USB MIDI output ring, as the senders that can wait see it: of its first 64 (0.22: the ring has 256;
+ * the rest is for what cannot wait - notes, the clock, a burst of CCs: usb.c MOQ) */
+static uint32_t midi_tx_room(void)
 {
     uint32_t used = mo_w - mo_r;
     return used >= MQ ? 0u : MQ - used;
@@ -302,6 +307,13 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
     in_audio = 1;
     p = fm1_audio_pending();
     fm1_audio_ack_aux(p);
+#ifdef APP_SILENT
+    /* SAGGA SEQ 0.22: an app that makes no sound. abuf is zero from the start (.bss) and nothing writes it, so the half
+     * the codec has played is only acknowledged. Until 0.21 it was cleared, scaled by the MASTER knob and shifted every
+     * 5.8 ms: 1536 turns of three loops for a silence, with the USB's poll put off meanwhile (in_audio) */
+    if (p & FM1_AUDIO_HALF)
+        fm1_audio_ack_half();
+#else
     if (p & FM1_AUDIO_HALF) {
         int32_t *o = &abuf[fm1_audio_free_half() * HALF_WORDS];
         uint32_t i, b;
@@ -325,6 +337,7 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
             o[i] <<= 7;
         fm1_audio_ack_half();
     }
+#endif
     in_audio = 0;
 }
 extern void isr_alnk0(void);

@@ -2,8 +2,29 @@
 
 The reference of the current version is [../SAGGA-SEQ.md](../SAGGA-SEQ.md); the Italian release notes of each version
 are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of their time (`SAGGA-SEQ-X-INSTALL.md`: for
-today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had until 0.20.9, newest
-first, as they were written.
+today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
+were written.
+
+## What is new in 0.21
+
+0.21 is 0.20.9 read again from end to end: no new feature to learn, the same project format (`SGQB`).
+
+* **A line of the screen could be written past its end.** The line of what is going on (DICE? EVOLVE SONG TEMP LOOP
+  STOP@BAR RESTART TR> MACRO MOTION MORPH LEARN RELOAD MUTES WAIT ECHO ALL STEP LOOP TOOL WAITS EVERY SNAP CAPTURE, the
+  chord) was put together in 64 bytes of the stack with nothing to stop it: seven or eight of those at once (a dice
+  waiting, TEMP held, a LOOP, RESTART, a macro, MORPH, ECHO ALL) went past them, into whatever the stack held next. A
+  random run with the memory checker found it (one in five hundred); seven controls of the hub's pages do it too. The
+  lines are now written in a buffer the text writers end, as the messages always were.
+* **What goes back to the hub's pages**: a value the tablet had moved looked "just moved" again 65.536 s later, for
+  0.4 s (the stamps are 16 bits of ms), and a change made on the panel in that moment reached the page late. The
+  stamps are kept young now. And SAGGA Break's knobs follow the tablet's track as the other pages do: SWAP, ROLLS and
+  SLICES go back on channel 13 CC 73-75.
+* The tests: the suite fails when a test fails (the pipes hid the exit codes), parses the FM-1's two builds with
+  this computer's clang (0.20.9's first push did not build), and runs the random test with ASan + UBSan; the random
+  test plays the hub's pages too (channels 12 and 13, the pads, every SysEx of the app, USB PORTS 2), and one run in
+  eight starts from a project image with bytes changed at random.
+* The documents: one installation sheet for today's set ([../INSTALLA.md](../INSTALLA.md)), the release notes and the
+  sheets of the past versions in this folder, this page without its 800 lines of history.
 
 ## What is new in 0.20.9
 

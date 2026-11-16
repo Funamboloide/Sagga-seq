@@ -2039,10 +2039,12 @@ def t_ui_stalls():
     m = re.search(r"longest pass of the main loop (\d+) ms", log.text)
     longest = int(m.group(1)) if m else 999
     check(rec == 0, "no clock recovery while the tempo is changed (%d)" % rec)
-    check(longest <= 12, "no pass of the main loop longer than 12 ms (%d ms)" % longest)
+    # 0.22: the loop does not wait for the panel any more (lcd_idle): 3 ms where 0.21 had 9, the gaps 7-10 where it had 3-14
+    check(longest <= 3, "no pass of the main loop longer than 3 ms (%d ms)" % longest)
     clk = [t for t in log.clock() if t > t0 + 4200]        # at 300 BPM: a tick every 8.33 ms
     gaps = [b - a for a, b in zip(clk, clk[1:])]
-    check(len(gaps) > 100 and max(gaps) <= 20, "the clock leaves evenly, no bursts (longest gap %s ms)" % (max(gaps) if gaps else None))
+    check(len(gaps) > 100 and max(gaps) <= 11 and min(gaps) >= 6, "the clock leaves evenly, no late ticks and no bursts (the gaps: %s to %s ms)" % (
+        min(gaps) if gaps else None, max(gaps) if gaps else None))
     check(len(log.clock()) > 500, "the clock keeps running (%d ticks)" % len(log.clock()))
 
 
@@ -6266,7 +6268,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.21", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.22", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -6473,7 +6475,7 @@ def t012_grid_pick():
     s.tap_btn(t, OCT_UP); s.tap_btn(t + 80, OCT_UP); t += 200        # (the window: OCT+ turns HOME's pages) HOME 3: KEY, ROOT, SCALE, SHIFT
     view(s, t, GC_VSTEP, alt=True); view(s, t + 100, GC_VSTEP, alt=True); t += 300
     log = run(s, t + 200)
-    pads, ctls = log.leds(after=t - 100)
+    pads, ctls = log.leds(after=t - 200)                             # (from the second tap: 0.22 paints a view in 100 ms, not 350)
     check(pads.get(5 * 16 + 0) in (GL_BLUE, GL_WHITE) and pads.get(5 * 16 + 4) in (GL_BLUE, GL_WHITE), "HOME 3: row 6 ROOT (no track's) has the black keys' notes (%s)" % [pads.get(80 + x) for x in range(5)])
     # FOLLOW: the window closed, the grid goes to the steps; PERF: the PERF view; a view by hand: FOLLOW off
     s = Script()
@@ -8202,6 +8204,290 @@ def t021_clean():
           "QUANTISE turned on the panel 65.6 s after the page moved it goes back at once, not 340 ms later (%s, the turn at %d)" % (q[:2], t + 65536 + 60))
 
 
+def t022_deep():
+    group("0.22: the output ring as the FM-1 has it (a pass of 90 messages: none dropped; in 0.21's ring of 64: dropped); knobs turned in play do not make the notes late; 76 minutes in play, across the counters' wraps")
+    # sixteen tracks, four notes on step 1 of each: PLAY sends them all in one pass, with the start's own messages
+    lines = []
+    for t in range(16):
+        lines.append("step %d,0,0 flags - 3" % t)             # (ON and SET: the step's own notes, not the PEN's)
+        for k in range(4):
+            lines.append("step %d,0,0 note %d %d" % (t, k, 36 + 3 * t + 4 * k))
+    img = sgq_image(lines)
+    res = {}
+    for ring in ("ring", "ring 64"):
+        s = Script()
+        s.raw(1, ring)
+        t = sx_import(s, 100, img)
+        s.tap_btn(t + 200, PLAY)
+        s.tap_btn(t + 2500, PLAY)
+        log = run(s, t + 3200)
+        m = re.search(r"output ring of (\d+): the fullest (\d+), dropped (\d+)", log.text)
+        ons = len([x for x in log.msgs if x[1] & 0xF0 == 0x90 and x[3] and x[0] < t + 300])
+        res[ring] = (int(m.group(1)), int(m.group(2)), int(m.group(3)), ons) if m else None
+    a, b = res["ring"], res["ring 64"]
+    check(a and a[0] == 256 and a[2] == 0 and a[3] == 64 and a[1] > 64, "the FM-1's ring (256): 64 notes and the start in one pass, nothing dropped (%s)" % (a,))
+    check(b and b[2] > 0 and b[3] < 64, "the same in a ring of 64, 0.21's: dropped (%s) - the simulator had no ring, no test could see it" % (b,))
+    # the screen: a band in play, the knobs of HOME turned (a big cell is 8 ms of pixels, a line 5): the notes on time
+    def knobs(cost):
+        s = Script()
+        if cost: s.raw(5, "lcdcost")
+        s.press(100, SEQ); s.tap_key(130, bk(6), hold=700); s.release(900, SEQ)      # BAND
+        s.tap_btn(1100, PLAY)
+        s.press(1500, HOME)
+        for i in range(120):
+            s.enc(1600 + i * 30, K1 + i % 4, 1 if (i // 4) % 2 else -1)
+        s.release(5300, HOME)
+        s.tap_btn(5600, PLAY)
+        return run(s, 6200)
+    plain, cost = knobs(False), knobs(True)
+    def ons(log): return [(x[0], x[1], x[2]) for x in log.msgs if x[1] & 0xF0 == 0x90 and x[3] and (x[1] & 15) < 14 and 1100 <= x[0] < 5600]
+    p, c = ons(plain), ons(cost)
+    late = [cc[0] - pp[0] for pp, cc in zip(p, c)] if len(p) == len(c) and [x[1:] for x in p] == [x[1:] for x in c] else None
+    m = re.search(r"longest pass of the main loop (\d+) ms", cost.text)
+    check(late is not None and len(p) > 80 and max(late) <= 2 and min(late) >= 0,
+          "%d notes while four knobs turn: with the screen's cost each leaves within 2 ms of where it leaves without (%s; 0.21: up to 9)" % (
+              len(p), (min(late), max(late)) if late else "not the same notes"))
+    check(m and int(m.group(1)) <= 3, "... and no pass of the loop over 3 ms (%s)" % (m.group(1) if m else None))
+    # 76 minutes: the 24 MHz counter wraps every 179 s, the microseconds at 71.6 minutes; the stamps of 16 bits every 65 s
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    s.raw(t, "attach"); t += 100
+    s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900
+    s.press(t, LFO); s.tap_key(t + 30, wk(0)); s.release(t + 100, LFO); t += 160      # an LFO on
+    s.tap_btn(t, PLAY); t0 = t
+    end = t0 + 76 * 60000
+    for k in range(1000, end + 1500, 1000): s.raw(k, "hb")
+    s.raw(t0 + 500, "midi 0xBB 3 1 2")                                                 # the tablet speaks: the values go back
+    s.tap_btn(end, PLAY)
+    log = run(s, end + 1500)
+    f8 = log.clock()
+    gaps = [y - x for x, y in zip(f8, f8[1:])]
+    per = {}
+    held = {}
+    for x, port in zip(log.msgs, log.port):
+        if port != 1 or (x[1] & 15) >= 14: continue
+        if x[1] & 0xF0 == 0x90 and x[3]:
+            per[(x[0] - t0) // 60000] = per.get((x[0] - t0) // 60000, 0) + 1
+            held[(x[1] & 15, x[2])] = held.get((x[1] & 15, x[2]), 0) + 1
+        elif x[1] & 0xF0 in (0x80, 0x90):
+            held[(x[1] & 15, x[2])] = max(0, held.get((x[1] & 15, x[2]), 0) - 1)
+    mins = [per.get(k, 0) for k in range(1, 76)]
+    fb = [x[0] for x, port in zip(log.msgs, log.port) if port == 2 and x[1] & 0xF0 == 0xB0 and (x[1] & 15) == 11 and x[0] > end - 60000]
+    check(len(f8) > 230000 and max(gaps) <= 21, "76 minutes: %d clock ticks, never a gap over 21 ms (the longest %s)" % (len(f8), max(gaps) if gaps else None))
+    check(max(mins) - min(mins) <= 8 and mins[0] > 500, "the band plays the same every minute, the 72nd too (%d to %d notes a minute)" % (min(mins), max(mins)))
+    check(not [k for k, v in held.items() if v] and log.text.count("clock recovery") == 0, "nothing hangs at the STOP, no clock recovery")
+    check(len(fb) > 20, "the values still go back to the hub in the last minute (%d messages)" % len(fb))
+
+
+def t022_unrun():
+    group("0.22: what no test had ever run (gcov): a TAPE track on the grid; every source and destination of the MOD MATRIX; the harmony's rhythms 3+5, 3+1, 2 BARS; the conditions 1:4, 4:4, NOT FILL")
+    # a TAPE track's STEP view: the loop on 64 pads; a pad erases what starts under it; row 5 the bars, row 6 TAPE QUANT,
+    # row 8 CLEAR / a 1/16 EARLIER / LATER / DOUBLE
+    beat = 4 * STEP_MS
+    s = Script()
+    s.at(50, "attach")
+    for k in range(1000, 16000, 1000): s.raw(k, "hb")
+    t = kp(s, 100, [(K4, 3)])                                   # TAPE
+    t = home_page(s, t, 6, [(K3, -3)])                          # TAPE BARS 4 -> 1
+    s.press(t, SEL); s.tap_btn(t + 30, REC); s.release(t + 80, SEL); t += 150    # REC FREE
+    s.tap_btn(t, REC); t += 100
+    t0 = t
+    s.tap_btn(t0, PLAY)
+    for b, n, vel, hold in ((0.3, 60, 100, 100), (1.1, 64, 120, 300), (2.8, 67, 100, 50)):
+        s.raw(t0 + int(b * beat), "midi 0x90 %d %d" % (n, vel))
+        s.raw(t0 + int(b * beat) + hold, "midi 0x80 %d 0" % n)
+    t = t0 + int(1.5 * BAR_MS)
+    tstop = t
+    s.tap_btn(t, REC); t += 100                                 # REC off
+    s.tap_btn(t, PLAY); t += 400                                # STOP
+    marks = {}
+    def mark(name, t):
+        s.at(t, "dump", 0); marks[name] = t
+        return t + 150
+    t = mark("recorded", t)
+    s.pad(t, 4, 0); t = mark("erased", t + 200)                 # the pad the first note starts under
+    s.pad(t, 1, 4); t = mark("bars", t + 200)                   # row 5 pad 2: 2 bars
+    s.pad(t, 15, 5); t = mark("quant", t + 200)                 # row 6 pad 16: TAPE QUANT 100
+    s.pad(t, 0, 5); t += 200                                    # ... pad 1: 0
+    s.pad(t, 2, 7); t = mark("later", t + 200)                  # row 8 pad 3: a 1/16 later
+    s.pad(t, 1, 7); t = mark("earlier", t + 200)                # pad 2: a 1/16 earlier
+    s.pad(t, 3, 7); t = mark("double", t + 200)                 # pad 4: DOUBLE
+    t1 = t
+    s.tap_btn(t1, PLAY); t += int(4 * BAR_MS) + 20
+    s.tap_btn(t, PLAY); t += 300
+    s.pad(t, 0, 7); t = mark("clear", t + 200)                  # pad 1: CLEAR
+    log = run(s, t + 300)
+    def tape(name): return ([x for x in log.tapes if x["t"] == marks[name]] or [dict(bars=0, quant=0, n=-1, ev=[])])[0]
+    def pads(name): return log.leds(until=marks[name])[0]
+    r, pd = tape("recorded"), pads("recorded")
+    check(r["n"] == 3 and [e[2] for e in r["ev"]] == [60, 64, 67] and all(near(e[0], x, 3) for e, x in zip(r["ev"], (115, 422, 1075))),
+          "three notes on a tape of a bar: at 0.3, 1.1 and 2.8 beats, 384 ticks a beat (%s)" % r["ev"])
+    check(pd.get(4) == GL_ON and pd.get(5) == GL_DIM and pd.get(17) == GL_ACCENT and pd.get(27) == GL_DIM and pd.get(28) == GL_FAINT and pd.get(44) == GL_ON,
+          "the grid shows the loop on 64 pads: a note where it starts (a loud one brighter), dim for as long as it lasts (%s)" % [pd.get(i) for i in (4, 5, 17, 27, 28, 44)])
+    check(pd.get(64) == GL_WHITE and pd.get(65) == GL_FAINT and [pd.get(112 + i) for i in range(5)] == [GL_ORANGE] * 4 + [GL_OFF],
+          "row 5: the bars (1); row 8: the four tools (%s)" % [pd.get(i) for i in (64, 65, 112, 113, 114, 115, 116)])
+    cur = sorted(set(d1 for tt, st, d1, d2 in log.msgs if st == 0x9F and d2 == GL_PLAY and t0 < tt < tstop))
+    check(len(cur) >= 60 and cur[0] == 0 and cur[-1] == 63, "in play the place runs over the 64 pads (%d of them)" % len(cur))
+    e, pd = tape("erased"), pads("erased")
+    check(e["n"] == 2 and [x[2] for x in e["ev"]] == [64, 67] and pd.get(4) == GL_FAINT, "a pad erases the note that starts under it (%s)" % e["ev"])
+    b, pd = tape("bars"), pads("bars")
+    check(b["bars"] == 2 and b["n"] == 2 and pd.get(65) == GL_WHITE and pd.get(8) == GL_ACCENT and pd.get(22) == GL_ON,
+          "row 5 pad 2: two bars, the notes where they were, on half the pads (%s, %s)" % (b["bars"], [pd.get(i) for i in (8, 22, 65)]))
+    q, pd = tape("quant"), pads("quant")
+    check(q["quant"] == 100 and pd.get(80) == GL_CYAN and pd.get(95) == GL_WHITE and tape("later")["quant"] == 0, "row 6: TAPE QUANT 100, then 0 (%s)" % q["quant"])
+    la, ea = tape("later"), tape("earlier")
+    check([x[0] for x in la["ev"]] == [x[0] + 96 for x in b["ev"]] and ea["ev"] == b["ev"], "LATER: every note a 1/16 (96 ticks) on; EARLIER: back (%s %s)" % (la["ev"], ea["ev"]))
+    d = tape("double")
+    check(d["bars"] == 4 and d["n"] == 4 and d["ev"][2:] == [(x[0] + 2 * 1536,) + x[1:] for x in b["ev"]] and d["ev"][:2] == b["ev"],
+          "DOUBLE: four bars, the two notes again two bars later (%s)" % d["ev"])
+    n = [(round((tt - t1) / beat, 1), nn, v) for tt, nn, v in log.notes(ch=0, after=t1)]
+    check(n == [(1.1, 64, 120), (2.8, 67, 100), (9.1, 64, 120), (10.8, 67, 100)], "... and it plays so (%s)" % n)
+    check(tape("clear")["n"] == 0 and tape("clear")["bars"] == 4, "CLEAR: the tape empty, its length kept (%s)" % tape("clear"))
+    # the MOD MATRIX (LFO page 6): each destination with CC IN 1 at 127 against CC IN 1 at 0, +100 % and -100 %
+    def gates(log, t0, ch=0):
+        offs = [(tt - t0, nn) for tt, nn in log.offs(ch=ch) if tt >= t0]
+        out = []
+        for tt, nn, v in log.notes(ch=ch, after=t0):
+            off = next((o for o, m in offs if m == nn and o > tt - t0), None)
+            out.append((tt - t0, v, None if off is None else off - (tt - t0)))
+        return out
+    def dst(d, amt, v, lfo=False):
+        s = Script()
+        t = s.steps(100, [0, 1, 4, 5])
+        t = pg(s, t, LFO, 5, [(K2, 6), (K3, d), (K4, amt)])                # MOD 1: CC IN, the destination (T1 / LFO 1), 50 % + 5 a click
+        t = pg(s, t, LFO, 5, [(K2, 1)], sel=True)                          # SEL + K2: CC 1
+        if lfo:
+            s.press(t, LFO); s.tap_key(t + 30, wk(0)); s.release(t + 100, LFO); t += 160     # LFO 1 on (CC 74 of T1)
+        s.raw(t, "midi 0xB0 1 %d" % v); t += 40
+        s.tap_btn(t + 100, PLAY)
+        log = run(s, t + 100 + int(8 * STEP_MS) - 10)
+        return gates(log, t + 100), [b for _, b in lfo_cc(log, after=t + 100)]
+    base = dst(3, 10, 0)[0]
+    up, dn = dst(3, 10, 127)[0], dst(3, -30, 127)[0]
+    check([x[1] for x in base] == [100] * 4 and [x[1] for x in up] == [127] * 4 and [x[1] for x in dn] == [37] * 4,
+          "VEL: +100 %% plays 127, -100 %% 37, the CC at 0 leaves 100 (%s %s)" % ([x[1] for x in up], [x[1] for x in dn]))
+    up, dn = dst(4, 10, 127)[0], dst(4, -30, 127)[0]
+    check(all(near(x[2], 94, 2) for x in base) and all(near(x[2], 117, 2) for x in up) and all(near(x[2], 35, 2) for x in dn),
+          "GATE: 50 points of the step more (to the next step) or less (%s %s)" % ([x[2] for x in up], [x[2] for x in dn]))
+    up, dn = dst(5, 10, 127)[0], dst(5, -30, 127)[0]
+    check(len(up) == 4 and 1 <= len(dn) <= 3, "CHANCE: -100 %% drops some of the four notes (50 points less), +100 %% none (%d, %d)" % (len(up), len(dn)))
+    up, dn = dst(6, 10, 127)[0], dst(6, -30, 127)[0]
+    check(all(near(u[0] - b[0], 29.3, 2) for u, b in zip(up, base)) and all(near(b[0] - x[0], 29.3, 2) for x, b in list(zip(dn, base))[1:]),
+          "TIMING: a quarter of a step late, or early (%s %s)" % ([round(x[0]) for x in up], [round(x[0]) for x in dn]))
+    up, dn = dst(7, 10, 127)[0], dst(7, -30, 127)[0]
+    check(near(up[1][0] - base[1][0], 58.6, 2) and near(up[0][0], base[0][0], 2) and [round(x[0]) for x in dn] == [round(x[0]) for x in base],
+          "SWING: the off 16ths half a step late; under 0 there is no swing (%s %s)" % ([round(x[0]) for x in up], [round(x[0]) for x in dn]))
+    b0, up, dn = dst(1, 10, 0, lfo=True)[1], dst(1, 10, 127, lfo=True)[1], dst(1, -30, 127, lfo=True)[1]
+    check(len(set(b0)) > 30 and len(set(dn)) == 1 and len(set(up)) > 10, "DEPTH: -100 %% stops LFO 1 (%d values without, %d with)" % (len(set(b0)), len(set(dn))))
+    up, dn = dst(2, 10, 127, lfo=True)[1], dst(2, -30, 127, lfo=True)[1]
+    check(min(b0) >= 60 and min(up) >= 120 and max(dn) <= 64, "CENTER: LFO 1 moved to the top, or to the bottom (%s-%s, %s-%s; alone %s-%s)" % (min(up), max(up), min(dn), max(dn), min(b0), max(b0)))
+    # ... and the sources onto T1's TIMING (+100 %: a quarter of a step, 29 ms, at full scale)
+    def src(k2, which=0, setup=None, steps=(0, 4)):
+        s = Script()
+        t = s.steps(100, list(steps))
+        t = pg(s, t, LFO, 5, [(K2, k2), (K3, 6), (K4, 10)])
+        if which: t = pg(s, t, LFO, 5, [(K2, which)], sel=True)
+        if setup: t = setup(s, t)
+        s.tap_btn(t + 100, PLAY)
+        return gates(run(s, t + 100 + int(8 * STEP_MS) - 10), t + 100)
+    plain = src(2)
+    late = [src(2, w, lambda s, t, e=e: held(s, t, FX, [(e, 20)]))[0][0] - plain[0][0] for w, e in ((0, K1), (1, K2), (2, K3), (3, K4))]
+    check(all(near(l, x, 2) for l, x in zip(late, (9.3, 29.3, 23.4, 18.3))),
+          "MACRO: INTENSITY 20 of 63, GATE 100 of 100, SWING 20 of 25, FILTER 40 of 64 (%s ms late)" % [round(l) for l in late])
+    def t2(s, t):
+        s.tap_key(t, bk(1)); s.tap_key(t + 80, wk(0)); s.tap_key(t + 160, bk(0))           # track 2: its step 1; track 1 again
+        return t + 240
+    a, b = src(5, 1, t2, steps=(1, 5)), src(5, 1, steps=(1, 5))
+    check(near(a[0][0] - b[0][0], 23, 2) and near(a[1][0] - b[1][0], 23, 2), "VEL of track 2 (100 of 127): track 1 is 23 ms late once track 2 has played (%s %s)" % ([round(x[0]) for x in a], [round(x[0]) for x in b]))
+    def energy(e):
+        s = Script()
+        t = vg_on(s, 100)
+        t = vg_track_in_now(s, t, 0)
+        t = vg_bars4(s, t)
+        s.enc(t, K1, e - 50); t += 60
+        t = pg(s, t, LFO, 5, [(K2, 3), (K3, 6), (K4, 10)])                 # MOD 1: ENERGY -> TIMING T1
+        s.tap_btn(t + 50, PLAY)
+        return gates(run(s, t + 50 + int(8 * STEP_MS)), t + 50)
+    hi, mid, lo = energy(100), energy(50), energy(0)
+    check(near(hi[0][0], 29.3, 2) and near(mid[0][0], 0, 2) and near(mid[1][0] - lo[1][0], 29.3, 2),
+          "ENERGY: 100 a quarter of a step late, 50 nothing, 0 early (%s %s %s)" % ([round(x[0]) for x in hi[:2]], [round(x[0]) for x in mid[:2]], [round(x[0]) for x in lo[:2]]))
+    # the harmony's rhythms 3+5, 3+1 and 2 BARS (ARP 4 K4), and the step conditions 1:4, 4:4 and NOT FILL (EDIT K2)
+    def chords(r):
+        s = Script()
+        t = kp(s, 100, [(K2, 1), (K4, 1)])                                 # C major, IN KEY
+        t = s.steps(t, list(range(16)))
+        t = home_page(s, t, 1, [(K4, 1)], cur=2)                           # FOLLOW
+        t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])                 # USER 1: I, V
+        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                           # HARMONY: USER 1, ON
+        t = harm2_knobs(s, t, [(K4, r)])
+        s.tap_btn(t + 20, PLAY)
+        n = run(s, t + 20 + int(4 * BAR_MS) - 30).notes(ch=0, after=t + 20)
+        runs = []
+        for k in range(64):
+            d1 = next((x[1] for x in n if near(x[0] - n[0][0], k * STEP_MS, 5)), None)
+            if runs and runs[-1][0] == d1: runs[-1][1] += 1
+            else: runs.append([d1, 1])
+        return runs
+    r35, r31, r2b = chords(6), chords(7), chords(8)
+    check(r35 == [[60, 6], [55, 10]] * 4 and r31 == [[60, 12], [55, 4]] * 4 and r2b == [[60, 32], [55, 32]],
+          "the chords of I V: 3+5 changes after 6 and 10 16ths, 3+1 after 12 and 4, 2 BARS after 32 (%s %s %s)" % (r35[:2], r31[:2], r2b))
+    def loops(cond):
+        s = Script()
+        t = s.steps(100, [0])
+        t = held(s, t + 30, EDIT, [(K2, cond)])
+        s.tap_btn(t + 200, PLAY)
+        return [int(round((x[0] - t - 200) / BAR_MS)) for x in run(s, t + 200 + int(8 * BAR_MS) - 30).notes(ch=0, after=t + 200)]
+    c14, c44, cnf = loops(3), loops(6), loops(8)
+    check(c14 == [0, 4] and c44 == [3, 7] and cnf == list(range(8)),
+          "a step of 1:4 plays in passes 1 and 5, of 4:4 in 4 and 8, of NOT FILL in all of them with no FILL held (%s %s %s)" % (c14, c44, cnf))
+    # the GATE effect (HOME 6): a FIXED length or a factor longer than the step. Until 0.21 the track's next step ended
+    # the note all the same: FIXED 1/8 .. 2 BARS and x3/2, x2, x4 gave a 1/16 whatever was asked
+    def gate_fx(encs, steps=(0, 8), n=16.0, stop=None, long1=False):
+        s = Script()
+        t = s.steps(100, steps)
+        if long1:                                                          # step 1 held, step 3 pressed: a note of three steps
+            s.keys(t, wk(0)); s.keys(t + 500, wk(0) | wk(2)); s.keys(t + 580, wk(0)); s.keys(t + 660, 0); t += 800
+        if encs:
+            t = home_page(s, t, 5, [(K1, FX_GATE)] + encs)
+            t = seq_page(s, t, 0, keys=[wk(5)])
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        end = p + int(n * STEP_MS) - 5
+        if stop is not None:
+            s.tap_btn(p + int(stop * STEP_MS), PLAY)
+        log = run(s, end)
+        seq = [("on" if st == 0x90 and d2 else "off", round((tm - p) / STEP_MS, 1)) for tm, st, d1, d2 in log.msgs if tm >= p and st in (0x90, 0x80)]
+        return [(round(a / STEP_MS, 1), None if b is None else round(b / STEP_MS, 1)) for a, v, b in gates(log, p)], seq
+    f8, f4 = gate_fx([(K3, 3)])[0], gate_fx([(K3, 4)])[0]
+    check(f8 == [(0.0, 2.0), (8.0, 2.0)] and f4 == [(0.0, 4.0), (8.0, 4.0)], "GATE FIXED 1/8: two steps long; 1/4: four (%s %s)" % (f8, f4))
+    x32, x2, x4 = gate_fx([(K2, 3)])[0], gate_fx([(K2, 4)])[0], gate_fx([(K2, 5)])[0]
+    check(x32 == [(0.0, 1.2), (8.0, 1.2)] and x2 == [(0.0, 1.6), (8.0, 1.6)] and x4 == [(0.0, 3.2), (8.0, 3.2)],
+          "GATE x3/2, x2, x4 of a gate of 80 %% of the step: 1.2, 1.6 and 3.2 steps (%s %s %s)" % (x32, x2, x4))
+    g, seq = gate_fx([(K3, 4)], steps=(0, 1, 2, 3), n=9.0)
+    check(g == [(0.0, 1.0), (1.0, 1.0), (2.0, 1.0), (3.0, 4.0)] and [k for k, _ in seq] == ["on", "off"] * 4,
+          "FIXED 1/4 on four 16ths of the same note: each ends as the next begins (off, then on), the last a quarter long (%s)" % g)
+    g, seq = gate_fx([(K3, 6)], steps=(0,), n=12.0, stop=5.0)
+    check(g == [(0.0, 5.0)] and len(seq) == 2, "FIXED 1 BAR: STOP after five steps ends the note there, nothing hangs (%s)" % seq)
+    g = gate_fx([(K2, 2), (K4, 20)], steps=tuple(range(16)))[0]
+    check(len(g) == 16 and max(x[1] for x in g) <= 1.0 and len(set(x[1] for x in g)) > 3,
+          "HUMAN +-50 %% alone: the lengths differ and none goes past its step, as before (%s)" % sorted(set(x[1] for x in g)))
+    g, seq = gate_fx([], steps=(1,), n=6.0, long1=True)
+    check(seq == [("on", 0.0), ("on", 1.0), ("off", 1.8), ("off", 3.0)],
+          "a note of three steps with the same note on step 2 inside it, which ends first: left as it was (%s)" % seq)
+    s = Script()                                                           # a TIE (EDIT + black 6) into the same note
+    t = s.steps(100, [0, 1])
+    s.tap_key(t, wk(0)); s.tap_key(t + 80, wk(0)); t += 200               # (the cursor back on step 1)
+    s.press(t, EDIT); s.tap_key(t + 30, bk(5)); s.release(t + 100, EDIT); t += 160
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(4 * STEP_MS))
+    seq = [("on" if st == 0x90 and d2 else "off", round((tm - p) / STEP_MS, 1)) for tm, st, d1, d2 in log.msgs if tm >= p and st in (0x90, 0x80)]
+    check(log.states and log.states[0]["msg"].startswith("TIE") and seq == [("on", 0.0), ("off", 1.0), ("on", 1.0), ("off", 1.8)],
+          "a TIE into the same note: the tied one ends as the next begins, which lasts its gate (0.21: the tied note's end, 15 ms later, cut it) (%s)" % seq)
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -8217,7 +8503,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

@@ -165,12 +165,22 @@ static volatile uint32_t so_w, so_r;
 
 /* MIDI rings: 4-byte USB-MIDI event packets */
 #define MQ 64u
-static uint32_t midi_in_q[MQ], midi_out_q[MQ];
+/* SAGGA SEQ 0.22: the output ring is four times the input's (the update loader keeps 64: it sends no music). The poll
+ * takes 16 events a packet, 32 a millisecond: what the app sends in one pass beyond the ring's room was DROPPED
+ * (tx_drop), and a pass can send more than 64 - a dice's CCs are 6 lanes on 16 tracks, a chord on every track with
+ * the notes of the step before going off. The senders that can wait (the grid's lights, the lanes, the LFOs, the
+ * values for the hub) still see the first 64 only (platform.c midi_tx_room), so the music never queues behind them */
+#if defined(FELUCCA_LOADER) || !defined(USB_MIDI_OUT_RING)
+#define MOQ MQ
+#else
+#define MOQ USB_MIDI_OUT_RING                       /* (platform.c: 256) */
+#endif
+static uint32_t midi_in_q[MQ], midi_out_q[MOQ];
 static volatile uint32_t mi_w, mi_r, mo_w, mo_r;
 static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
 {
-    if (usb.config && mo_w - mo_r < MQ) {
-        midi_out_q[mo_w % MQ] = pkt;
+    if (usb.config && mo_w - mo_r < MOQ) {
+        midi_out_q[mo_w % MOQ] = pkt;
         RING_PUBLISH();
         mo_w++;
     } else if (usb.config) {
@@ -1015,7 +1025,7 @@ static void ep1_tx(void)
 #endif
         uint32_t pkt;
         RING_PUBLISH();                                 /* the audio ISR (producer) can preempt us: */
-        pkt = midi_out_q[mo_r % MQ];                    /* slot read strictly between the index checks */
+        pkt = midi_out_q[mo_r % MOQ];                   /* slot read strictly between the index checks */
         ep1tx[n] = (uint8_t)pkt;
         ep1tx[n + 1] = (uint8_t)(pkt >> 8);
         ep1tx[n + 2] = (uint8_t)(pkt >> 16);

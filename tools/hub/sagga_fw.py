@@ -137,6 +137,17 @@ def sgqmid(cmd, src, dst, extra=None):
     except Exception as e:
         return False, str(e)
     return r.returncode == 0, (r.stderr or r.stdout).strip()
+def alsa_key(path='/proc/asound/seq/clients'):
+    """ALSA's sequencer clients now (numbers and names), or None where there is no such file. 0.22: probe() asks the
+    FM-1 who it is only when this has changed. Read from /proc on purpose: every question through the installer starts
+    a Python and makes an ALSA client, and RaspiMIDIHub scans its devices again whenever a client comes or goes"""
+    try:
+        with open(path) as f:
+            return tuple(re.findall(r'^Client\s+(\d+)\s*:\s*"(.*?)"', f.read(), re.M))
+    except OSError:
+        return None
+
+
 IDENT_RE = re.compile(r'^(FM-1_\S+)\s+\[(\w+)\]\s+port:\s*(.*)$', re.M)
 
 
@@ -238,6 +249,9 @@ class State:
         self.result = None                                  # 'ok' / 'failed N' of the last install
         self.device = None                                  # (identity, mode, port) of the FM-1 seen last
         self.device_at = 0
+        self.device_key = None                              # 0.22: ALSA's clients when the FM-1 was asked last (alsa_key)
+        self.alsa_key = alsa_key
+        self.probes = 0                                     # how many times the installer was asked (the tests count them)
 
     def packages(self):
         out = []
@@ -406,10 +420,18 @@ class State:
         return None
 
     def probe(self):
-        """fm1_install.py --info: the FM-1's identity (cached 5 s; never while an install runs)"""
+        """fm1_install.py --info: the FM-1's identity; never while an install runs. 0.22: asked again only when ALSA's
+        clients have changed (the FM-1 came, went, restarted) or after ten minutes. Until 0.21 it was asked every 5 s
+        while the page was open: a Python started, an ALSA client made (RaspiMIDIHub scans its devices again at each)
+        and a SysEx to the FM-1, twelve times a minute, also in the middle of a set. Where /proc has no ALSA (not a
+        Pi): every 5 s as before"""
         with self.lock:
-            if self.busy() or time.time() - self.device_at < 5:
+            if self.busy():
                 return self.device
+            key, now = self.alsa_key(), time.time()
+            if (key is not None and key == self.device_key and now - self.device_at < 600) or (key is None and now - self.device_at < 5):
+                return self.device
+            self.probes += 1
             try:
                 r = subprocess.run([sys.executable, INSTALLER, '--info'], capture_output=True, text=True, timeout=20)
                 m = IDENT_RE.search(r.stdout or '')
@@ -417,6 +439,7 @@ class State:
             except Exception:
                 self.device = None
             self.device_at = time.time()
+            self.device_key = self.alsa_key()                # (after it: the installer's own client has come and gone)
             return self.device
 
     def install(self, name):
@@ -447,7 +470,7 @@ class State:
         rc = proc.wait()
         self.result = 'ok' if rc == 0 else 'failed %d' % rc
         self.log.append('done: %s' % self.result)
-        self.device_at = 0
+        self.device_at, self.device_key = 0, None           # (the FM-1 has restarted: who is it now?)
 
     def delete_package(self, name):
         """0.20.1: a package of the library away -> None, or (message, HTTP code)"""
