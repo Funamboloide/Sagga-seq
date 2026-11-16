@@ -8,6 +8,7 @@
  *   fm1_lcd_send_cmd(c)        D/C low, CS low, one byte (then fm1_lcd_wait)
  *   fm1_lcd_send_data(p, n)    D/C high, CS low, DMA n bytes from RAM p
  *   fm1_lcd_wait()             SPI done (or timeout, counted), pending cleared
+ *   fm1_lcd_done()             1 when the SPI is done (what fm1_lcd_wait waits for), asked without waiting
  *   fm1_lcd_deselect()         CS high
  */
 #pragma once
@@ -55,6 +56,10 @@ static void fm1_lcd_wait(void)
         fm1_lcd_timeouts++;
     FM1_LCD_SPI_CON |= 0x4000u;
 }
+
+/* SAGGA SEQ 0.22: the same flag, read and left as it is: the app asks before it starts a piece of the screen, so that
+ * the piece's first access to the panel (which calls fm1_lcd_wait) has nothing to wait for */
+FM1_INLINE int fm1_lcd_done(void) { return (FM1_LCD_SPI_CON & 0x8000u) != 0u; }
 
 FM1_INLINE void fm1_lcd_deselect(void) { FM1_LCD_PC_OUT |= FM1_LCD_CS; }
 

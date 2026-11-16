@@ -31,6 +31,11 @@ if command -v clang >/dev/null 2>&1 && echo 'int x;' | clang --target=armv7m-non
         echo "firmware target builds: the app and the update loader parse (clang, no toolchain)"
     else echo "firmware target builds: FAIL"; exit 1; fi
 else echo "firmware target builds: skipped (no clang with an ARM target)"; fi
+# 0.22: the build's own rule that every hardware register is touched in firmware/hal only (tools/build.py checks it
+# after compiling, so on GitHub only: 0.22's first push failed there on a line of lcd.c nothing here had looked at)
+if python3 -c "import sys; sys.path.insert(0, 'tools'); import build; e = build.mmio_check(); print('\n'.join(e)) if e else None; sys.exit(1 if e else 0)"; then
+    echo "firmware registers: touched in hal/ only"
+else echo "firmware registers: FAIL (a register outside firmware/hal)"; exit 1; fi
 cc -O2 -w -Ifirmware/src -Ifirmware/hal tests/usb_desc_test.c -o build/usb_desc_test
 step "usb descriptors" tail 1 build/usb_desc_test
 if python3 tools/gen_progs.py --check; then echo "gen_progs: the stock progressions are up to date"; else echo "FAIL: gen_progs"; FAILED="$FAILED [gen_progs]"; fi

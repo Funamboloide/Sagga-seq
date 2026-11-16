@@ -31,7 +31,7 @@ static void lcd_sync(void)          /* finish the running transfer (before touch
 /* SAGGA SEQ 0.22: 1 when the panel is taking nothing. The app starts a piece of the screen only then (dinghy.c's main
  * loop), so the loop never waits for pixels: until 0.21 the piece after a line waited in lcd_sync for the line to go
  * out (5 ms at 12 MHz; a cell: 8), and the notes and the clock due in that time left late by as much */
-static int lcd_idle(void) { return !lcd_busy || (FM1_LCD_SPI_CON & 0x8000u) != 0u; }
+static int lcd_idle(void) { return !lcd_busy || fm1_lcd_done(); }
 
 static void lcd_cmd(uint8_t c)
 {
