@@ -105,6 +105,17 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   Il giro completo della 0.23, a errore corretto: 73.819 gesti da soli in 22 situazioni, 8.797 coppie, 200 sessioni
   da 60 gesti, nessun errore; la suite di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer, nessun errore.
 
+* **Il banco della 0.23 sull'FM-1 vero** (26 ottobre 2026: il banco, 4 sessioni; l'FM-1 completo, 28): i motori
+  THEORY sull'FM-1 fanno le stesse parti del simulatore (le otto sessioni con i motori, uguali sonda per sonda), e
+  nelle 28 sessioni le note sono le stesse, 28.068. Il rapporto segnava
+  cinque cose; guardate una per una, quattro erano tempo o la prova stessa: un dado dal grid preso 1 ms dopo, il
+  saluto del bridge mandato dopo la fine della sessione, il tasto di un loop letto 6 ms dopo a 300 BPM, un THROW
+  girato 9 ms dopo. La quinta era vera: **sei messaggi che l'FM-1 aveva mandato e il Pi non aveva sentito** (in s014
+  tre tick del clock, in s015 un tick e due note-off nello stesso istante), e una di queste due sessioni il rapporto
+  non la segnava nemmeno. Da lì viene la 0.23.1 del confronto: le due prove nuove sul tempo, la regola PERSI, e i
+  CONTI, con cui l'FM-1 dice quello che ha mandato e la prova dopo dirà da che lato un messaggio si perde. Rifatto
+  sulle stesse due raccolte: il banco 0 errori; l'FM-1 completo 2 errori, i due PERSI.
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -136,9 +147,11 @@ due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono 
 | SIMULATORE | l'FM-1 diverso dal simulatore, dalla sonda dove comincia: il campo, i due valori, gli ultimi gesti |
 | MORTO | il firmware piantato (vettore e PC del crash), un riavvio da solo, l'FM-1 che non risponde più |
 | FASE, NOTE APPESE | le stesse regole, sui dati dell'FM-1 |
+| PERSI | 0.23.1: un tick, una nota o un note-off che il simulatore manda e il computer non ha sentito dall'FM-1, **uno per uno, con il momento**. Le due liste sono messe una accanto all'altra, tipo per tipo e nota per nota; un messaggio arrivato in ritardo e quello che lo raggiunge si cancellano. Fino alla 0.23 le note si contavano dai note-on e i tick con due di margine: un note-off perso non si vedeva |
+| CONTI | 0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1: quello che l'FM-1 **dice di aver mandato** (lo conta lui, per porta e per tipo, e tiene i conti della sua coda USB) contro quello che il computer ha sentito e quello che ha ricevuto il suo driver USB. Dice dove un messaggio si è perso: dentro l'FM-1, per strada, o nel computer |
 | NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada (0.18: non le luci del grid sul canale 16, ne' gli interruttori degli LFO che tornano al tablet, note 100-115 sul canale 13) |
 | CICLO | il ciclo principale fermo più di 60 ms |
-| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo) |
+| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo). 0.23.1, due prove in più quando quelle non bastano: i messaggi che l'FM-1 ha **sentito dalle porte** prima di quella sonda (un pad del grid, un comando di una pagina) presi 1-3 ms prima o dopo; e **un solo evento di uno dei cinque gesti prima**, fino a 20 ms dopo, perché quello che un gesto mette in moto a volte si vede solo più tardi (il tasto di un loop tenuto a cavallo di un tick a 300 BPM, un THROW che finisce di scivolare una battuta dopo). Se una prova toglie una parte delle differenze senza farne di nuove, la tiene e cerca il resto da capo |
 
 Le note e il clock si contano solo fin dove il PC ha ascoltato (chiude le porte quando riavvia l'FM-1 per la sessione dopo).
 La prima volta sull'FM-1 vero (9 novembre 2026, 0.12): 20 sessioni, 0 errori; 19 di TEMPO, uno solo di un tasto letto 2 ms dopo.

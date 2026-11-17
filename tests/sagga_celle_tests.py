@@ -379,6 +379,46 @@ def t_usb():
               "the same device number, the card made again: another appearance (%s %s)" % (a, b))
 
 
+def t_alsa_counts():
+    group("0.23.1: what the Pi's USB MIDI driver received from the FM-1 (Rx bytes, port by port), the overruns, ALSA's pools")
+    MIDI0 = ("FM-1\n\nOutput 0\n  Tx bytes     : 310\nOutput 1\n  Tx bytes     : 9124\nInput 0\n  Rx bytes     : 48213\n"
+             "  Owner PID    : 812\n  Buffer size  : 4096\n  Avail        : 0\n  Overruns     : 0\nInput 1\n  Rx bytes     : 73501\n"
+             "  Owner PID    : 812\n  Buffer size  : 4096\n  Avail        : 0\n  Overruns     : 3\n")
+    CLIENTS = ("Client info\n  cur  clients : 4\n\nClient   0 : \"System\" [Kernel Legacy]\n  Port   0 : \"Timer\" (Rwe-)\n"
+               "Client  24 : \"FM-1\" [Kernel Legacy]\n  Port   0 : \"FM-1 MIDI 1\" (RWeX)\n    Connecting To: 128:0\n"
+               "Client 128 : \"RtMidi Input Client\" [User Legacy]\n  Port   0 : \"RtMidi Input\" (-We-)\n    Connected From: 24:0\n"
+               "  Output pool :\n    Pool size          : 500\n    Cells in use       : 0\n    Peak cells in use  : 0\n    Alloc success      : 0\n    Alloc failures     : 7\n"
+               "  Input pool :\n    Pool size          : 200\n    Cells in use       : 0\n    Peak cells in use  : 31\n    Alloc success      : 9000\n    Alloc failures     : 2\n"
+               "Client 129 : \"RtMidi Input Client\" [User Legacy]\n  Port   0 : \"RtMidi Input\" (-We-)\n"
+               "  Input pool :\n    Pool size          : 200\n    Cells in use       : 0\n    Peak cells in use  : 4\n    Alloc success      : 120\n    Alloc failures     : 1\n")
+    with tempfile.TemporaryDirectory() as d:
+        sysfs, proc = os.path.join(d, "sys"), os.path.join(d, "proc")
+        os.makedirs(os.path.join(sysfs, "1-1.2"))
+        with open(os.path.join(sysfs, "1-1.2", "devnum"), "w") as f:
+            f.write("12\n")
+        os.makedirs(os.path.join(sysfs, "1-1.2:1.0", "sound", "card2"))
+        os.makedirs(os.path.join(sysfs, "1-1.3:1.0", "sound", "card1"))     # (another device's card: not the FM-1's)
+        os.makedirs(os.path.join(proc, "card2"))
+        os.makedirs(os.path.join(proc, "card1"))
+        os.makedirs(os.path.join(proc, "seq"))
+        check(C.alsa_midi_counts("1-1.2", sysfs, proc) is None, "no midi0 to read: nothing said")
+        with open(os.path.join(proc, "card1", "midi0"), "w") as f:
+            f.write("Other\n\nInput 0\n  Rx bytes     : 5\n")
+        with open(os.path.join(proc, "card2", "midi0"), "w") as f:
+            f.write(MIDI0)
+        got = C.alsa_midi_counts("1-1.2", sysfs, proc)
+        check(got == {"rx": [48213, 73501], "over": [0, 3], "pool": None}, "the FM-1's card, its two ports: the bytes received, the overruns; no pools to read (%s)" % got)
+        with open(os.path.join(proc, "seq", "clients"), "w") as f:
+            f.write(CLIENTS)
+        got = C.alsa_midi_counts("1-1.2", sysfs, proc)
+        check(got == {"rx": [48213, 73501], "over": [0, 3], "pool": 3}, "... and the events the input pools could not keep: 2 + 1 (not the output pool's 7) (%s)" % got)
+        check(C.alsa_midi_counts(None, sysfs, proc) is None and C.alsa_midi_counts("1-1.9", sysfs, proc) is None, "no device, or one that is not there: nothing")
+        with open(os.path.join(proc, "card2", "midi0"), "w") as f:
+            f.write("FM-1\n\nInput 0\n  Rx bytes     : 17\n")                 # (a port nobody listens to: no overruns line)
+        got = C.alsa_midi_counts("1-1.2", sysfs, proc)
+        check(got and got["rx"] == [17] and got["over"] == [0], "one port, not open: its bytes, no overruns (%s)" % got)
+
+
 def t_thread():
     group("0.20.9: the keeper's thread - paused while the banco runs, every end new after it")
     calls = []
@@ -409,7 +449,7 @@ def t_thread():
 
 
 def main():
-    for t in (t_reboot, t_by_hand, t_synth_back, t_first_time, t_new_page, t_no_sysfs, t_same_number, t_usb, t_thread):
+    for t in (t_reboot, t_by_hand, t_synth_back, t_first_time, t_new_page, t_no_sysfs, t_same_number, t_usb, t_alsa_counts, t_thread):
         t()
     print("sagga celle: %d checks, %d failures" % (CHECKS[0], len(FAILS)))
     return 1 if FAILS else 0

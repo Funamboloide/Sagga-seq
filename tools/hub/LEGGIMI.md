@@ -80,7 +80,8 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
-  installato, con due Launchpad finti: il servizio del bridge è fermo durante la prova e riparte alla fine) e il
+  installato, con due Launchpad finti: il servizio del bridge è fermo durante la prova e riparte alla fine - **i
+  Launchpad veri in quel tempo restano accesi e fermi, nessuno li comanda: è giusto così**, tornano a fine prova) e il
   pannello dell'FM-1 con il test. Con **stacca i synth** (di solito sì) le celle fra l'FM-1 e tutto quello che non è
   una pagina SAGGA sono tolte dalla matrice per la prova: i synth tacciono e niente di estraneo entra nell'FM-1.
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
@@ -89,6 +90,14 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 28 sessioni, mezz'ora circa): le sessioni
   dell'esploratore dal PC (ogni situazione dell'FM-1, 60 gesti, il tablet e il grid come eventi del test), dal Pi,
   senza PC. Il resto uguale: SEL, le celle dei synth staccate, il progetto che torna in memoria.
+* **I conti** (0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1): l'FM-1 conta quello che manda sull'USB, porta per porta e
+  tipo per tipo (tick del clock, note, note-off, CC, il resto, i byte). Il Pi glielo chiede prima di ogni sessione e
+  dopo, quando l'FM-1 è fermo e zitto, e lo confronta con quello che ha sentito lui e con quello che ha ricevuto il
+  suo driver USB (`/proc/asound/cardN/midi0`). Se i numeri sono uguali non dice niente. Se un messaggio manca, la riga
+  della sessione nel log dice `CONTI:` con quanti, di che tipo e **dove si sono persi**: dentro l'FM-1 (i suoi stessi
+  conti non tornano, o dice di averne scartati), fra l'FM-1 e il Pi (al driver mancano dei byte), o nel Pi dopo il
+  driver (il driver li ha tutti, il programma no). Con ogni sessione restano nella raccolta anche le righe del kernel
+  sull'USB di quei secondi. La prova dura una ventina di secondi in più.
 * Il log sotto i bottoni; alla fine **raccolta-banco-...json**, **RAPPORTO-BANCO-...md** e il log si scaricano dalla
   pagina. Stanno in `/run/sagga-banco` e anche sulla SD (`/boot/firmware/sagga/banco`, le ultime tre prove). La
   raccolta si confronta con il simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json`.

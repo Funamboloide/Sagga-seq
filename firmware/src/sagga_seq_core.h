@@ -959,11 +959,17 @@ uint8_t sq_mfx_velocity(uint8_t vel, int8_t amount);
 void sq_euclid(uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *bits);
 uint8_t sq_euclid_hit(uint8_t pulses, uint8_t len, uint8_t rot, uint8_t i);   /* one step of it */
 /* 0.10 the rhythm families: EUCLID as above; TRESILLO: groups of 3 (3-3-2 over 8, 3-3-3-3-2-2 over 16 ...), `pulses`
- * of them kept from the start; NUMERIC: the binary of the pulses-th prime number laid over the steps (the Numeric
- * Repetitor idea: primes make rhythms that never feel even), `rot` turns them all. */
+ * of them kept from the start; NUMERIC (0.23.1): `pulses` picks one of SQ_NUMERIC_RHYTHMS base rhythms of 16 steps
+ * (1 = four on the floor ... the claves ... 16 = the busiest; past 16 they come round again), repeated over the
+ * steps; `rot` turns them all. (0.10-0.23: NUMERIC was the binary of the pulses-th prime number.) */
+#define SQ_NUMERIC_RHYTHMS 16u
 void sq_rhythm(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *bits);
 uint8_t sq_rhythm_hit(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t i);
 const char *sq_rhythm_name(uint8_t fam);
+uint8_t sq_numeric_index(uint8_t pulses);              /* the base rhythm the pulses knob picks: 0..15 */
+uint16_t sq_numeric_word(uint8_t pulses);              /* its 16 steps, step 1 = the top bit */
+/* its shape as the steps from each hit to the next ("3-3-4-2-4"): at most 13 characters and the 0; returns the end */
+char *sq_numeric_gaps(uint8_t pulses, char *out);
 
 /* ---- 0.8 the algorithms' pure parts (dinghy.c keeps their state) */
 /* TURING: the register moves one step: the bit that comes out goes back in at the top, flipped with `mutation` %
@@ -971,6 +977,16 @@ const char *sq_rhythm_name(uint8_t fam);
 uint32_t sq_turing_step(uint32_t reg, uint8_t len, uint8_t mutation, uint32_t rnd);
 /* CELL: the next generation of `cells` cells (a ring) under `rule` (Wolfram's numbering); never all empty */
 uint64_t sq_cell_next(uint64_t row, uint8_t cells, uint8_t rule);
+/* 0.23.1: the same, 0 when every cell died; and the row a track plays next: when every cell died the rhythm written on
+ * the track (`home`) again, a single cell in the middle when nothing is written */
+uint64_t sq_cell_raw(uint64_t row, uint8_t cells, uint8_t rule);
+uint64_t sq_cell_step(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home);
+/* 0.23.1: what the rule makes of a row from here on: `lead` rows that never come back, then a loop of `period` rows
+ * (1: it stays); `slide`: every row of the loop is the one before moved that many steps (+ later, - earlier);
+ * `full`: it stays with every cell on. sq_cell_story returns 0 when no loop shows in SQ_CELL_STORY_STEPS rows. */
+#define SQ_CELL_STORY_STEPS 192u
+typedef struct { uint8_t lead, period; int8_t slide; uint8_t full; } sq_cell_story_t;
+uint8_t sq_cell_story(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home, sq_cell_story_t *out);
 /* ACCENT: the velocity change of step i (amount 0..63) for a style; rnd for RANDOM */
 int32_t sq_accent(uint8_t style, uint8_t amount, uint8_t offset, uint32_t i, uint32_t rnd);
 /* DENSITY: does step i (written on or off) play in this loop? `h` a hash of (track, step, loop); density 0..200; *ghost

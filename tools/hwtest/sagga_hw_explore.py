@@ -254,6 +254,8 @@ def connect(backend, want, say, timeout=0.0, quiet=False):
         note("try %d: ports %s" % (tries, [p.label for p in ports]))
         if ports:
             hub = Hub(ports)
+            for p in ports:
+                p.tally = T.Tally()                   # (0.23.1: every message counted as it comes in, for the session's account)
             other = 0                                 # (0.20.9: what came in that was no answer, for the log)
             for p in ports:
                 other += len(hub.take())
@@ -292,13 +294,150 @@ class _Say:
     def __init__(self, say): self.say = say
 
 
-def run_session(hub, sess, say):
-    """one session of the plan on the FM-1 (already rebooted into the test) -> its record"""
+# ---- 0.23.1 the session's account: what the FM-1 says it sent against what the computer received and heard.
+# The FM-1 counts what its program hands to the USB by port and kind (DIAG); the test asks before GO, while nothing plays,
+# and after QUIET (the FM-1 stopped, every note off, the ports still): between the two both sides counted the same
+# messages. Where the numbers part says where a message was lost: inside the FM-1 (its own account does not add up),
+# between the FM-1 and the computer's USB driver (the driver's byte count, on a Pi), or in the computer (the driver
+# has every byte, the program heard less).
+def _tallies(hub):
+    """what each of the FM-1's ports has heard so far: [port 1, port 2] (with one port: the only one, then nothing)"""
+    zero = dict.fromkeys(T.OUT_KINDS, 0)
+    ports = list(hub.ports)
+    if len(ports) > 1 and hub.ctl is not None:        # (with two the test answers on port 2)
+        ports = [p for p in ports if p is not hub.ctl][:1] + [hub.ctl]
+    out = [p.tally.snapshot() if getattr(p, "tally", None) is not None else dict(zero) for p in ports[:2]]
+    return out + [dict(zero)] * (2 - len(out))
+
+
+def _still(hub, quiet_s=0.3, max_s=6.0, wait=time.sleep):
+    """wait until neither port has heard anything for quiet_s (at most max_s) -> ([port 1 still?, port 2 still?], s)"""
+    t0 = time.perf_counter()
+    last, last_t = _tallies(hub), [t0, t0]
+    while True:
+        wait(0.05)
+        now, cur = time.perf_counter(), _tallies(hub)
+        for i in range(2):
+            if cur[i] != last[i]:
+                last[i], last_t[i] = cur[i], now
+        still = [now - last_t[i] >= quiet_s for i in range(2)]
+        if all(still) or now - t0 >= max_s:
+            return still, round(now - t0, 2)
+
+
+def _ask(hub, frame, what, timeout=1.0):
+    try:
+        hub.send(frame)
+        return hub.wait(what, timeout)
+    except Exception:
+        return None
+
+
+def counts_begin(hub, alsa=None, wait=time.sleep):
+    """before GO -> the mark (the FM-1's counters, what the ports heard, the driver's counts), or None: an FM-1 before
+    0.23.1, which does not count what it sends"""
+    still, _ = _still(hub, 0.15, 1.5, wait)
+    d = _ask(hub, T.diag(), "diag")
+    if not d or "p1_ticks" not in d:
+        return None
+    return {"diag": d, "heard": _tallies(hub), "alsa": alsa() if alsa else None, "still": still}
+
+
+def counts_end(hub, mark, alsa=None, wait=time.sleep):
+    """after the session: QUIET, the ports still, DIAG again -> the session's account (None: no answer any more).
+    "fermo": port by port, whether it stood still at both ends - only then its two counts are of the same messages"""
+    if not mark:
+        return None
+    q = _ask(hub, T.quiet(), "quiet")
+    still, took = _still(hub, 0.3, 6.0, wait)
+    d = _ask(hub, T.diag(), "diag")
+    if not d or "p1_ticks" not in d:
+        return None
+    wait(0.25)                                         # (the answer itself and any straggler: counted on both sides)
+    heard, a1, d0 = _tallies(hub), (alsa() if alsa else None), mark["diag"]
+    out = {"fermo": [bool(still[i] and mark["still"][i] and q == 1) for i in range(2)], "attesa": took, "quiet": q,
+           "fm1": {"p%d" % (i + 1): {k: d["p%d_%s" % (i + 1, k)] - d0["p%d_%s" % (i + 1, k)] for k in T.OUT_KINDS} for i in range(2)},
+           "pi": {"p%d" % (i + 1): {k: heard[i][k] - mark["heard"][i][k] for k in T.OUT_KINDS} for i in range(2)},
+           "usb": dict({k: d[k] - d0[k] for k in ("tx_ev", "tx_drop", "tx_noconf", "tx_flush", "tx_pkts", "resets", "configs", "suspends")},
+                       tx_ring=d["tx_ring"], tx_ring_prima=d0["tx_ring"], tx_wait_max=d["tx_wait_max"]),
+           "alsa": None}
+    a0 = mark.get("alsa")
+    if a0 and a1 and len(a0.get("rx", [])) == len(a1.get("rx", [])):
+        out["alsa"] = {"rx": [b - a for a, b in zip(a0["rx"], a1["rx"])], "over": [b - a for a, b in zip(a0.get("over", []), a1.get("over", []))],
+                       "pool": (a1.get("pool") or 0) - (a0.get("pool") or 0) if a1.get("pool") is not None and a0.get("pool") is not None else None}
+    return out
+
+
+KIND_IT = {"ticks": "tick del clock", "on": "note", "off": "note-off", "cc": "CC", "other": "altri messaggi"}
+
+
+def counts_missing(c):
+    """how many messages the FM-1 says it sent and the program did not hear, on the ports that stood still"""
+    if not c:
+        return 0
+    return sum(max(0, c["fm1"][p][k] - c["pi"][p][k]) for i, p in enumerate(("p1", "p2")) if c["fermo"][i] for k in T.OUT_KINDS[:5])
+
+
+def counts_verdict(c):
+    """the account read: [] when what the FM-1 sent is what the computer heard, else the lines that say what is missing
+    and where it was lost (counts_missing: how many; lines of more heard than sent alone: nothing is missing)"""
+    if not c:
+        return []
+    out, missing = [], 0
+    for i, port in enumerate(("p1", "p2")):
+        if not c["fermo"][i]:
+            continue                                   # (that port never stood still: its two counts are not of the same messages)
+        f, h = c["fm1"][port], c["pi"][port]
+        diff = [(k, f[k] - h[k]) for k in T.OUT_KINDS[:5] if f[k] != h[k]]
+        if not diff:
+            continue
+        lost = [(k, n) for k, n in diff if n > 0]
+        more = [(k, -n) for k, n in diff if n < 0]
+        missing += sum(n for _, n in lost)
+        if lost:
+            out.append("porta %s: l'FM-1 ha mandato %s che il programma non ha sentito" % (port[1], ", ".join("%d %s" % (n, KIND_IT[k]) for k, n in lost)))
+        if more:
+            out.append("porta %s: il programma ha sentito %s in piu' di quelli che l'FM-1 dice di aver mandato" % (port[1], ", ".join("%d %s" % (n, KIND_IT[k]) for k, n in more)))
+    if not out or not missing:
+        return out                                     # (nothing to say, or only more heard than sent: no place to look for)
+    u = c["usb"]
+    sent = sum(c["fm1"][p][k] for p in ("p1", "p2") for k in T.OUT_KINDS[:5])
+    gone = u["tx_ev"] + u["tx_drop"] + u["tx_noconf"] + u["tx_flush"] + u["tx_ring"] - u.get("tx_ring_prima", 0)
+    thrown = u["tx_drop"] + u["tx_noconf"] + u["tx_flush"]
+    if thrown:
+        out.append("dentro l'FM-1: %d messaggi scartati prima dell'USB (%d con l'anello pieno, %d senza configurazione, %d a un reset del bus)"
+                   % (thrown, u["tx_drop"], u["tx_noconf"], u["tx_flush"]))
+    if sent != gone:
+        out.append("dentro l'FM-1 i conti non tornano: %d messaggi dati all'USB, %d messi nei pacchetti o scartati" % (sent, gone))
+    if u["resets"] or u["configs"] or u["suspends"]:
+        out.append("l'USB dell'FM-1 nella sessione: %d reset del bus, %d configurazioni, %d sospensioni" % (u["resets"], u["configs"], u["suspends"]))
+    a = c.get("alsa")
+    if a and len(a["rx"]) >= 1:
+        short = [(i + 1, c["fm1"]["p%d" % (i + 1)]["bytes"] - a["rx"][i]) for i in range(min(2, len(a["rx"]))) if c["fermo"][i]]
+        short = [(i, n) for i, n in short if n]
+        if not short and not thrown and sent == gone:
+            out.append("il driver USB del computer ha ricevuto tutti i byte che l'FM-1 ha mandato: persi DOPO, nel computer (ALSA o il programma)")
+        elif short:
+            out.append("al driver USB del computer mancano " + ", ".join("%d byte sulla porta %d" % (n, i) for i, n in short)
+                       + (": persi fra l'FM-1 e il computer (l'FM-1 li aveva messi nei pacchetti USB)" if not thrown and sent == gone else ""))
+        if any(a.get("over") or []):
+            out.append("il driver del computer ha perso byte per conto suo (overrun: %s)" % a["over"])
+        if a.get("pool"):
+            out.append("ALSA ha scartato %d eventi (il suo serbatoio era pieno)" % a["pool"])
+    elif not thrown and sent == gone:
+        out.append("l'FM-1 li ha messi tutti nei pacchetti USB: persi dopo l'FM-1 (il cavo, o il computer)")
+    return out
+
+
+def run_session(hub, sess, say, counts=False):
+    """one session of the plan on the FM-1 (already rebooted into the test) -> its record (counts: an FM-1 from 0.23.1,
+    which counts what it sends: the session's account in "conti")"""
     events = [tuple(e) for e in sess["eventi"]]
     probes_at = [i for i, e in enumerate(events) if e[1] == T.PROBE]
     rec = {"go_ms": None, "presi": {}, "sonde": {}, "midi": [], "done": None, "abort": None, "errore": None,
            "rimandati": 0, "di_nuovo": 0}
     hub.take()
+    mark = counts_begin(hub) if counts else None      # (0.23.1: what the FM-1 says it sent against what was heard)
     hub.send(T.go())
     go = hub.wait("go", 2.0)
     if go is None:
@@ -391,6 +530,8 @@ def run_session(hub, sess, say):
         time.sleep(0.003)
     rec.pop("_taken_asked", None)
     rec["sonde"] = {str(k): v for k, v in pr.done.items()}
+    if mark and not rec["errore"] and rec["abort"] is None:
+        rec["conti"] = counts_end(hub, mark)
     return rec
 
 
@@ -542,7 +683,7 @@ def main(argv=None, backend=None, wait=time.sleep):
                 break
             print("%s  ci siamo: %s, circa %.0f s" % (sess["nome"], sess["situazione"], sess["eventi"][-1][0] / 1000.0 + 2), flush=True)
             t0 = time.perf_counter()
-            rec = run_session(hub, sess, say)
+            rec = run_session(hub, sess, say, counts=vkey(hello.get("version")) >= (0, 23, 1))
             rec["hello_prima"] = hello
             if rec.get("errore") or rec.get("abort") is not None:      # it may be rebooting by itself: wait for it
                 hub.close()
@@ -554,6 +695,8 @@ def main(argv=None, backend=None, wait=time.sleep):
             out["sessioni"].append(s2)
             T.save(path, out)
             probs, got, want, lag = quick(sess, rec)
+            if counts_missing(rec.get("conti")):
+                probs += ["CONTI: " + x for x in counts_verdict(rec.get("conti"))[:2]]
             say("%s  %-46s %3d gesti, %2d/%2d sonde, %4.0f s, ciclo max %3d ms  %s" % (
                 sess["nome"], sess["situazione"][:46], len(sess["gesti"]), got, want, time.perf_counter() - t0, lag,
                 "; ".join(probs) if probs else "ok"))

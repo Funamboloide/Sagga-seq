@@ -17,7 +17,9 @@
  *   70 sub ...  PC -> FM-1: 0 HELLO; 1 OPEN; 2 BOOT; 3 GO; 4 EV idx*2 n (t*4 kind a*2 b*2 gc*4)*n; 5 CLOSE;
  *               6 AGAIN idx*2 (a probe whose pieces did not all arrive: the last two are kept); 7 TAKEN idx*2 n (where
  *               those events were taken, again: every one of the session is kept); 8 DIAG (0.20.9: the counters since
- *               the boot, to tell where a HELLO with no answer was lost)
+ *               the boot, to tell where a HELLO with no answer was lost); 9 QUIET (0.23.1: the session is over: the
+ *               FM-1 stops, every note off, and takes no more events - so that what DIAG counts stands still while
+ *               the PC compares it with what it heard)
  *   71 sub ...  FM-1 -> PC: 0 state booted playing boots*2 fault_vec*5 fault_pc*5 ms*4 usb_ports profile "version"; 1 state (OPEN:
  *               1 asking, then 2 yes / 3 no / 4 no answer / 5 playing: stop first); 2 ok (BOOT); 3 ms*4 (GO: the
  *               test's zero); 4 ok next*2 free (EV); 5 ok (CLOSE); 6 applied*2 late*2 lag*2 lost (DONE: the END event);
@@ -26,7 +28,10 @@
  *               longest it stood still (ms); the USB's: bus resets, SET_CONFIGURATIONs, the ms of the last, suspends,
  *               starts tried again, OUT packets taken, held back, malformed events, SysEx packets lost to the other
  *               port's, SysEx frames lost because the one before still waited, IN packets sent, the most polls (2 kHz)
- *               one waited for the host, MIDI events dropped with the ring full; the ms now
+ *               one waited for the host, MIDI events dropped with the ring full; the ms now; 0.23.1, 16 more: what
+ *               the app sent on port 1 and on port 2 (each: clock ticks, note-ons, note-offs, control changes, the
+ *               rest, the bytes of them all and of the SysEx frames), then the output ring's account (events put
+ *               into IN packets, dropped unconfigured, thrown away by a bus reset, waiting now); 9 ok (QUIET)
  *   72 idx*2 k last text  the probe event idx asked for, in pieces of 150 characters ("PROBE G ...\n PROBE T1 ...")
  *   73 n (idx*2 ms*4 gc*4)*n  where the events were taken: the FM-1's ms and global_clock
  *   74 seq*2 n (ms*4 gc*4 st d1 d2 cable)*n  0.20.3: the MIDI that came in from the ports, when GO asked to hear them
@@ -457,9 +462,22 @@ static void tst_sysex_in(const uint8_t *p, uint32_t n)
         sx_put7(&q, tst_first_ms, 4u); sx_put7(&q, tst_gap_max, 4u);
         for (i = 0u; i < USB_DIAG_N; i++) sx_put7(&q, d[i], 4u);
         sx_put7(&q, fm1_ms, 4u);
+        {   /* 0.23.1: what the app sent, by port and kind, and the output ring's own account (the tools before it stop reading at the ms) */
+            uint32_t d2[USB_DIAG2_N], k;
+            usb_diag2(d2);
+            for (i = 0u; i < 2u; i++) for (k = 0u; k < SQ_OUT_KINDS; k++) sx_put7(&q, sq_out_cnt[i][k], 4u);
+            for (i = 0u; i < USB_DIAG2_N; i++) sx_put7(&q, d2[i], 4u);
+        }
         tst_send(q);
         break;
     }
+    case 9:                                             /* 0.23.1 QUIET: the session is over - stopped, every note off, no event taken any more: DIAG's counts stand still */
+        if (!tst_booted || !tst_on) { tst_answer(9u, 0u); break; }
+        tst_go = 0u; tst_qn = 0u;
+        if (playing) transport_stop();
+        panic_all();
+        tst_answer(9u, 1u);
+        break;
     case TQ_CLOSE:
         if (!tst_booted) { tst_state = 0u; tst_answer(TQ_CLOSE, 0u); break; }   /* (only a test boot is ended by a reboot) */
         if (playing) transport_stop();

@@ -32,6 +32,7 @@ import sagga_explore as E  # noqa: E402
 S = E.S
 sys.path.insert(0, os.path.join(E.ROOT, "tools", "hwtest"))
 import sagga_testport as T  # noqa: E402
+import bisect  # noqa: E402
 
 OFF = 400                         # the plan's first event, after GO (the PC has sent its first frames by then)
 GO_SIM = 3000                     # the stand-in's GO: as an FM-1 a few seconds after its reboot
@@ -336,6 +337,73 @@ def remap(rec, orig):
     return rec
 
 
+def _unpaired(st_, ht, end):
+    """two lists of the times of one kind of message - the simulator's (already on the computer's clock) and the heard
+    ones - walked together: each of the simulator's takes the next heard one if it is nearer to it than to its
+    neighbours, and the two clocks are kept together as they go (they drift a few ms a minute). -> (the simulator's
+    with no partner, the heard ones with none). A message that came late and the one that catches up after it (the
+    FM-1's main loop stood still for a screen) cancel each other; nothing is said of the last quarter of a second"""
+    miss, extra, j, off = [], [], 0, 0.0
+    for i, t in enumerate(st_):
+        if t + off > end - 250:
+            break
+        gaps = [g for g in ((st_[i + 1] - t) if i + 1 < len(st_) else 0, (t - st_[i - 1]) if i else 0) if g > 0]
+        tol = max(0.6 * (min(gaps) if gaps else 200.0), 5.0)
+        while j < len(ht) and ht[j] - (t + off) < -tol:
+            extra.append(ht[j])
+            j += 1
+        if j >= len(ht) or ht[j] - (t + off) > tol:
+            miss.append(t + off)
+            continue
+        off += 0.3 * (ht[j] - (t + off))
+        j += 1
+    extra += [x for x in ht[j:] if x <= end - 250]
+    lost = []
+    for m in miss:
+        k = next((k for k, e in enumerate(extra) if abs(e - m) <= 150), None)
+        if k is None:
+            lost.append(m)
+        else:
+            extra.pop(k)
+    return lost, extra
+
+
+def lost_messages(hw_midi, sim_midi, music):
+    """0.23.1: what the simulator sends and the computer did not hear from the FM-1 - clock ticks, note-ons, note-offs,
+    each kind (and each note) by itself: -> (lost, extra), each [(what, n, [when, ms on the computer's clock])]. The
+    two clocks are set against each other by the first messages of the two; nothing is said of a session too short"""
+    ports = bool(hw_midi) and len(hw_midi[0]) > 4
+
+    def kind(m):
+        st, port = m[1], (m[4] if ports and len(m) > 4 else 1)
+        if st == 0xF8:
+            return ("tick", port)
+        hi = st & 0xF0
+        if hi in (0x80, 0x90) and music(m):
+            return ("on" if hi == 0x90 and m[3] else "off", port, st & 15, m[2])
+        return None
+    hw = [(m[0], kind(m)) for m in hw_midi if kind(m)]
+    sm = [(m[0], kind(m)) for m in sim_midi if kind(m)]
+    n = min(50, len(hw), len(sm))
+    if n < 20 or hw[-1][0] - hw[0][0] < 3000:
+        return [], []
+    off = sorted(hw[k][0] - sm[k][0] for k in range(n))[n // 2]
+    end = hw[-1][0]
+    lost, extra = [], []
+    for key in sorted(set(k for _, k in hw) | set(k for _, k in sm)):
+        ht = [t for t, k in hw if k == key]
+        st_ = [t + off for t, k in sm if k == key]
+        what = "tick di clock" if key[0] == "tick" else "%s canale %d nota %d" % ("note" if key[0] == "on" else "note-off", key[2] + 1, key[3])
+        if ports and key[1] == 2:
+            what += " (porta 2)"
+        miss, more = _unpaired(st_, ht, end)
+        if miss:
+            lost.append((what, len(miss), [int(t) for t in miss]))
+        if more:
+            extra.append((what, len(more), [int(t) for t in more]))
+    return lost, extra
+
+
 def compare(session, heard=None):
     """-> (findings [(rule, level, what)], the replay's record). 0.20.3 heard: [[ms, gc, st, d1, d2, cable]], what the FM-1
     heard from its ports (the banco), replayed where it heard it"""
@@ -355,9 +423,12 @@ def compare(session, heard=None):
     hp = hw.get("hello_prima") or {}
     settings = (hp.get("usb_ports", 1), hp.get("profile", 0)) if "usb_ports" in hp else None
 
-    def replay_sim(rp):
-        if heard:
-            evs, orig = with_heard(session["eventi"], rp, heard, hw["go_ms"])
+    budget = [260]                                     # (0.23.1: the replays the two new searches may spend on a session)
+
+    def replay_sim(rp, hd=None):
+        hd = heard if hd is None else hd
+        if hd:
+            evs, orig = with_heard(session["eventi"], rp, hd, hw["go_ms"])
             text, _ = sim_script(evs, hw["go_ms"])
             return remap(collect(run_sim(text, settings=settings)), orig), sum(1 for o in orig if o is not None)
         text, n = sim_script(session["eventi"], hw["go_ms"], replay=rp)
@@ -448,6 +519,73 @@ def compare(session, heard=None):
                     hit = (ms if ms is not None else 0, rp, sim2, sp2)
                     role = "%s (tutto fin qui%s)" % (role, " senza i tick" if ms is None else "")
                     break
+        def left_at(sp2):
+            """what still differs at this probe after a try - None when the try made a probe BEFORE it different (the
+            steps alone do not count)"""
+            for j, _ in common:
+                if j > i:
+                    break
+                if j not in sp2:
+                    return None
+                dj = [x for x in pdiff(sp2[j], hw_p[j]) if x[0] not in systematic and not msg_expiry(x)]
+                if j == i:
+                    return dj
+                if dj and not (steps_only(dj) or edge_fields(dj)):
+                    return None
+            return None
+
+        def clean_upto(sp2):
+            return left_at(sp2) == []
+        if not hit and heard and len(shifted) < 8:
+            # 0.23.1: what the FM-1 heard from its ports before this probe (a pad of the grid, a page's command) taken a
+            # ms or two later or earlier: the FM-1 says the ms it took each, and the same ms can be before or after the
+            # sequencer's own work in that pass (the banco's b004: DICE ALL from the grid, a ms later = the same dice)
+            t_prev, t_this = (replay[prev][0] if prev in replay else hw["go_ms"]), replay[i][0]
+            mine = [k for k, h in enumerate(heard) if t_prev < h[0] <= t_this]
+            for ms in ((1, -1, 2, -2, 3, -3) if mine else ()):
+                hd = [list(h) for h in heard]
+                for k in mine:
+                    hd[k][0] += ms
+                budget[0] -= 1
+                sim2, _ = replay_sim(replay, hd)
+                sp2 = {int(k): T.probe_dict(v) for k, v in sim2["sonde"].items()}
+                if clean_upto(sp2):
+                    hit = (ms, replay, sim2, sp2)
+                    heard = hd
+                    role = "%s (i messaggi sentiti dalle porte)" % role
+                    break
+        if not hit and len(shifted) < 8:
+            # 0.23.1: ONE event of an earlier gesture read later or earlier: what it started shows only now (a loop's
+            # key held across a clock tick at 300 BPM, a THROW's glide that ends a bar later - the FM-1 completo's s010
+            # and s018). The five gestures before this probe, the nearest first, each event up to 20 ms later
+            before = [j for j, _ in probes if j < i][-6:]
+            spans = [(a, b) for a, b in zip([-1] + before, before + [i])][-5:]
+            for ms in (1, 3, 6, 9, 12, 16, 20, -1, -3, -6):
+                for a, b in reversed(spans):
+                    for j in range(a + 1, b):
+                        if j not in replay or budget[0] <= 0:
+                            continue
+                        nxt = replay.get(j + 1, (1 << 60,))[0]
+                        if ms > 0 and replay[j][0] + ms >= nxt:
+                            continue                   # (it would pass the event after it: events are taken in order)
+                        rp = dict(replay)
+                        rp[j] = (rp[j][0] + ms,) + tuple(rp[j][1:])
+                        budget[0] -= 1
+                        sim2, _ = replay_sim(rp)
+                        sp2 = {int(k): T.probe_dict(v) for k, v in sim2["sonde"].items()}
+                        rest = left_at(sp2)
+                        # equal, or some of the differences gone and none new: the rest is another matter, looked
+                        # for from the top with this one kept (s010: a loop's key 6 ms later puts the track's step
+                        # right, the pattern still differs - by the last gesture's own ms)
+                        if rest is not None and {x[0] for x in rest} < {x[0] for x in d}:
+                            hit = (ms, rp, sim2, sp2)
+                            g = next((r for q, r in probes if q >= j), "?")
+                            role = "%s (un evento del %s)" % (role, g)
+                            break
+                    if hit:
+                        break
+                if hit:
+                    break
         if hit:
             ms, replay, sim, sim_p = hit
             shifted.append((role, ms))
@@ -490,12 +628,25 @@ def compare(session, heard=None):
         # GO): the simulator's MIDI only up to there counts (it plays on 1.5 s after the last event)
         upto = hw["midi"][-1][0] + hw["go_ms"] + 30
         smidi = [m for m in sim["midi"] if m[0] <= upto]
+        # 0.23.1: first what is MISSING, said message by message: the 0.23 banco had a session three ticks short (said
+        # as a number) and one with a tick and two note-offs gone that no rule saw (the notes were counted by their
+        # note-ons, the ticks with two to spare)
+        lost, extra = lost_messages(hw["midi"], sim["midi"], music) if not first else ([], [])
+        if lost and not extra:
+            found.append(("PERSI", "ERRORE", "il computer non ha sentito dall'FM-1 %s che il simulatore manda" % "; ".join(
+                "%d %s%s" % (n_, what, " (verso %s ms)" % ", ".join(str(t) for t in when[:6]) if when else "") for what, n_, when in lost[:8])))
+        gone = lambda word: sum(n_ for what, n_, _ in lost if what.startswith(word)) if lost and not extra else 0
         nh, ns = notes(hw["midi"]), notes(smidi)
-        if abs(nh - ns) > 1:                           # (one note on the edge of the window)
+        if abs(nh - ns) > 1 and not gone("note canale"):   # (one note on the edge of the window)
             found.append(("NOTE", "ERRORE", "%d note dall'FM-1, %d dal simulatore" % (nh, ns)))
         ch, cs = clocks(hw["midi"]), clocks(smidi)
-        if abs(ch - cs) > 2:
+        if abs(ch - cs) > 2 and not gone("tick"):
             found.append(("CLOCK", "ERRORE", "%d tick di clock dall'FM-1, %d dal simulatore" % (ch, cs)))
+    if hw.get("conti"):                                # 0.23.1: what the FM-1 says it sent against what was heard
+        import sagga_hw_explore as XR
+        cv = XR.counts_verdict(hw["conti"])
+        if cv:                                         # (more heard than sent alone: to look at, nothing is missing)
+            found.append(("CONTI", "ERRORE" if XR.counts_missing(hw["conti"]) else "DA GUARDARE", "; ".join(cv)))
     lags = [int(p.get("H", {}).get("lag", 0)) for p in hw_p.values()]
     if lags and max(lags) > 60:
         found.append(("CICLO", "DA GUARDARE", "il ciclo principale si e' fermato fino a %d ms" % max(lags)))
@@ -513,6 +664,10 @@ REGOLE_HW = {
     "NOTE APPESE": "dopo lo STOP ogni nota accesa e' spenta",
     "NOTE": "le note che escono dall'USB sono quelle del simulatore (nessuna persa per strada)",
     "CLOCK": "i tick di clock sono quelli del simulatore",
+    "PERSI": "0.23.1: ogni tick, ogni nota e ogni note-off che il simulatore manda il computer lo sente dall'FM-1 (uno "
+             "che manca fino alla fine e' perso per strada: dentro l'FM-1, sull'USB o nel computer)",
+    "CONTI": "0.23.1: quello che l'FM-1 dice di aver mandato (lo conta lui, per porta e per tipo) e' quello che il computer "
+             "ha sentito; se no, i conti dicono dove si e' perso",
     "CICLO": "il ciclo principale non si ferma piu' di 60 ms (lo schermo, il salvataggio ...)",
     "SONDE": "ogni sonda arriva",
     "COSTRUZIONE": "le due macchine partono uguali",
@@ -521,6 +676,22 @@ REGOLE_HW = {
              "(i tasti si leggono a ogni giro di scansione, REC e TAKE scrivono al millisecondo): con quei ms il simulatore "
              "fa la stessa cosa",
 }
+
+
+def versions(fm1_version):
+    """0.23.1: the line a report opens with when the collection and the simulator are not of the same version (the
+    differences can then be the version's: SAGGA_EXPLORE_ROOT= a checkout of the FM-1's version) - "" when they are"""
+    fw = os.environ.get("SAGGA_EXPLORE_ROOT", E.ROOT)
+    try:
+        with open(os.path.join(fw, "firmware", "src", "dinghy.c")) as f:
+            m = re.search(r'#define SQ_VERSION "([0-9.]+)"', f.read())
+    except OSError:
+        m = None
+    mine = m.group(1) if m else "?"
+    if not fm1_version or fm1_version in (mine, "simulatore"):
+        return ""
+    return ("**ATTENZIONE: la raccolta e' di SAGGA SEQ %s, il simulatore e' la %s.** Quello che la %s ha cambiato esce qui "
+            "come differenza: per un confronto giusto, SAGGA_EXPLORE_ROOT=<un checkout della %s>." % (fm1_version, mine, mine, fm1_version))
 
 
 def confronta(path, out_md, only=None, show=False):
@@ -551,6 +722,9 @@ def confronta(path, out_md, only=None, show=False):
     hello = data.get("fm1") or {}
     if hello:
         lines += ["FM-1: SAGGA SEQ %s, %s." % (hello.get("version", "?"), data.get("quando", "")), ""]
+    if versions(hello.get("version")):
+        lines += [versions(hello.get("version")), ""]
+        print(versions(hello.get("version")).replace("**", ""))
     lines += ["| regola | casi |", "| --- | --- |"]
     for r in REGOLE_HW:
         lines.append("| %s | %d |" % (r, sum(1 for _, x in allf if x[0] == r)))

@@ -4955,7 +4955,7 @@ def t010_tools():
     gaps = [b - a for a, b in zip([i for i, c in enumerate(out[0][0]) if c == "x"], [i for i, c in enumerate(out[0][0]) if c == "x"][1:])]
     check(out[0][0].count("x") == 5 and out[0][1] == 0 and min(gaps) >= 2 and max(gaps) <= 4, "EUCLID E(5,16): five hits, spread (%s)" % out[0][0])
     check(out[1][0].startswith("x..x..x.") and out[1][0].count("x") == 5 and out[1][1] == 1, "TRESILLO: 3-3-2 cells (%s)" % out[1][0])
-    check(out[2][0].count("x") >= 3 and out[2][1] == 2 and out[2][0] != out[0][0], "NUMERIC: another rhythm from the same pulses (%s)" % out[2][0])
+    check(out[2][0] == "x...x...x...x.x." and out[2][1] == 2, "NUMERIC (0.23.1): K1 on 5 picks the fifth base rhythm, four and a pickup (%s)" % out[2][0])
     # a USER progression (SEQ 8): i v (one bar each), HARMONY on it: a FOLLOW track moves C -> G
     s = Script()
     t = kp(s, 100, [(K2, 1), (K4, 1)])                             # C major, IN KEY
@@ -6268,7 +6268,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23", "HELLO: nothing asked yet, a normal boot, 0.20.9 (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23.1", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -6280,7 +6280,7 @@ def t011_pc_test():
     d0 = dg[0][1] if dg else {}
     check(d0.get("hellos") == 2 and d0.get("frames") == 4 and d0.get("unsent") == 0 and d0.get("resets") == 1 and
           d0.get("configs") == 1 and d0.get("ms") == 700 and 0 < d0.get("first_ms", 0) <= 2 and d0.get("gap_max", 99) <= 2 and
-          len(d0) == len(TP.DIAG_FIELDS), "DIAG: 2 HELLOs, 4 frames, nothing unsent, one enumeration, the main loop never still, at 700 ms (%s)" % dg)
+          len(d0) == len(TP.DIAG_FIELDS) + len(TP.DIAG_MORE), "DIAG: 2 HELLOs, 4 frames, nothing unsent, one enumeration, the main loop never still, at 700 ms (%s)" % dg)
     # another key says no, and does nothing else; BOOT without a yes: no
     s = Script()
     sx(s, 600, TP.open_()); s.tap_btn(900, PLAY); sx(s, 1200, TP.boot()); s.raw(1500, "probe")
@@ -9209,6 +9209,291 @@ def t023_snapshot_direction():
             "".join(ok), dirs[-1:], "PING-PONG" if back else "BACKWARD"))
 
 
+NUMERIC_16 = ["x...x...x...x...", "x...x...x.....x.", "x..x....x...x...", "x..x....x..x....", "x...x...x...x.x.", "x..x..x.x...x...",
+              "x..x..x...x.x...", "x..x...x..x.x...", "x..x..x...x..x..", "x.x.x...x.x.x...", "x..x..x.x...x.x.", "x..x..x.x..x..x.",
+              "x..x..x..x..x.x.", "x.x.x.x.x.x.x...", "x.x.x.x.x.x..x..", "x..x.x.x..x.x.x."]
+
+
+def t0231_numeric():
+    group("0.23.1: NUMERIC is sixteen base rhythms (K1 picks one, K2 turns it), not the binary of a prime number")
+    BAR = 16 * STEP_MS
+    gaps = lambda r: "-".join(str(b - a) for a, b in zip([i for i, c in enumerate(r) if c == "x"], [i for i, c in enumerate(r) if c == "x"][1:] + [16]))
+    # K3 on NUMERIC says what the knobs do; K1 on 7: READY, the screen names the rhythm and the message its shape
+    s = Script()
+    t = seq_page(s, 100, 0, encs=[(K3, 2)])
+    s.at(t, "dump", 0)
+    t = seq_page(s, t + 60, 0, encs=[(K1, 3)])
+    s.press(t, SEQ); s.at(t + 700, "ui"); s.release(t + 760, SEQ); t += 820
+    s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    ts = p + int(BAR) + 30
+    t = seq_page(s, ts, 0, keys=[wk(5)])                                 # SEQ + white 6: it plays
+    s.at(t, "dump", 0)
+    t3 = p + int(3 * BAR) + 30
+    t = seq_page(s, t3, 0, encs=[(K2, 2)])                               # turned two steps later, live
+    s.at(t, "dump", 0)
+    log = run(s, p + int(5 * BAR) - 40)
+    st, v = log.states, v16s(log)
+    check(len(st) == 4 and st[0]["msg"] == "NUMERIC: K1 PICKS 1 OF 16 RHYTHMS, K2 TURNS IT" and cfgs(log)[0]["fam"] == 2,
+          "K3 on NUMERIC: the message says what K1 and K2 do (%s)" % (st[0]["msg"] if st else st))
+    check(len(st) == 4 and st[1]["msg"] == "NUMERIC READY T1: 7 = 3-3-4-2-4 SEQ + WHITE 6" and v[1]["euc"] == 0 and v[1]["pulses"] == 7,
+          "K1 on 7: READY, the message gives the rhythm's shape (%s)" % (st[1]["msg"] if len(st) > 1 else st))
+    sc = [x for x in log.screens() if x["cells"][0] and x["cells"][0][0].endswith("NUMERIC READY")]
+    check(sc and sc[0]["cells"][0][1] == "7 OF 16" and sc[0]["cells"][1][0].endswith("ROTATE") and "EUC" not in sc[0]["cells"][1][0] and sc[0]["cells"][2][1] == "NUMERIC",
+          "the screen: NUMERIC READY 7 OF 16, ROTATE, FAMILY NUMERIC (%s)" % ([x["cells"][:3] for x in log.screens()][:1],))
+    n1 = [round((tm - p) / STEP_MS) - 32 for tm, d1, v_ in log.notes(ch=0, after=p + int(2 * BAR) - 20, before=p + int(3 * BAR) - 20)]
+    n2 = [round((tm - p) / STEP_MS) - 64 for tm, d1, v_ in log.notes(ch=0, after=p + int(4 * BAR) - 20, before=p + int(5 * BAR) - 20)]
+    check(not log.notes(ch=0, after=p, before=ts) and n1 == [0, 3, 6, 10, 12] and len(st) == 4 and st[2]["msg"] == "NUMERIC LIVE T1: 7 = 3-3-4-2-4",
+          "silent until SEQ + white 6, then the son clave: steps 1 4 7 11 13 (%s, %s)" % (n1, st[2]["msg"] if len(st) > 2 else st))
+    check(n2 == [2, 5, 8, 12, 14] and len(st) == 4 and st[3]["msg"] == "NUMERIC LIVE T1: 7 = 3-3-4-2-4 ROT 2" and st[3]["heard"].replace(" ", "") == "..x..x..x...x.x.",
+          "K2 +2: the same rhythm two steps later (%s, %s)" % (n2, st[3]["msg"] if len(st) > 3 else st))
+    # every value of K1: the sixteen rhythms in their order, each one's shape in the message; past the track's steps it stops
+    s = Script()
+    t = seq_page(s, 100, 0, encs=[(K3, 2), (K1, -5)], keys=[wk(5)])     # NUMERIC, K1 down to 1, live
+    s.at(t, "dump", 0)
+    for k in range(1, 17):
+        t = seq_page(s, t + 60, 0, encs=[(K1, 1)])
+        s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    st, v = log.states, v16s(log)
+    heard = [x["heard"].replace(" ", "") for x in st]
+    check(len(st) == 17 and heard[:16] == NUMERIC_16, "K1 from 1 to 16: the sixteen base rhythms (%s)" % [i + 1 for i in range(min(len(heard), 16)) if heard[i] != NUMERIC_16[i]])
+    check(len(st) == 17 and all(st[i]["msg"] == "NUMERIC LIVE T1: %d = %s" % (i + 1, gaps(NUMERIC_16[i])) for i in range(16)),
+          "... each with its number and its shape in the message (%s)" % [x["msg"] for x in st[:17] if not x["msg"].startswith("NUMERIC LIVE T1: ")][:3])
+    check(len(v) == 17 and v[16]["pulses"] == 16 and heard[16] == NUMERIC_16[15], "K1 stops at the track's 16 steps (%s)" % (v[16]["pulses"] if len(v) > 16 else v))
+    check(all(4 <= r.count("x") <= 7 and r[0] == "x" and "xx" not in r + r[0] for r in heard), "each: a hit on the first step, 4 to 7 hits, never two in a row")
+    # a track of 32 steps: the rhythm comes twice; K1 past 16 comes round to the first ones; WRITE LIVE puts it in the pattern
+    s = Script()
+    t = home_page(s, 100, 0, [(K2, 16)])                                 # LENGTH 32
+    t = seq_page(s, t, 0, encs=[(K3, 2), (K1, 8)], keys=[wk(5)])        # NUMERIC 12: the tresillo twice
+    s.at(t, "dump", 0)
+    t = seq_page(s, t + 60, 0, encs=[(K1, 7)])                           # 19 = 16 + 3
+    s.at(t, "dump", 0)
+    t = seq_page(s, t + 60, 0, keys=[wk(6)])                             # WRITE LIVE
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    st, v, d = log.states, v16s(log), log.dumps
+    check(len(st) == 3 and len(d) == 3 and d[0]["length"] == 32 and st[0]["heard"].replace(" ", "")[:32] == NUMERIC_16[11] * 2,
+          "32 steps: the sixteen steps come twice (%s)" % (st[0]["heard"] if st else st))
+    check(len(st) == 3 and v[1]["pulses"] == 19 and st[1]["heard"].replace(" ", "")[:32] == NUMERIC_16[2] * 2 and st[1]["msg"] == "NUMERIC LIVE T1: 3 = 3-5-4-4",
+          "K1 on 19: the third rhythm again (%s, %s)" % (st[1]["heard"] if len(st) > 1 else st, st[1]["msg"] if len(st) > 1 else ""))
+    check(len(d) == 3 and d[2]["on"].replace(" ", "")[:32] == NUMERIC_16[2] * 2 and v[2]["euc"] == 0,
+          "WRITE LIVE: the rhythm is in the pattern, EUCLID LIVE off (%s)" % (d[2]["on"] if len(d) > 2 else d))
+
+
+def cell_row(text): return [1 if c == "x" else 0 for c in text.replace(" ", "")]
+def cell_text(row): return "".join("x" if b else "." for b in row)
+def cell_step(row, rule, home):
+    """a CELL's next row (0.23.1): the rule on a ring; every cell dead: the written rhythm again (a single cell if none)"""
+    n = len(row)
+    out = [(rule >> ((row[(i - 1) % n] << 2) | (row[i] << 1) | row[(i + 1) % n])) & 1 for i in range(n)]
+    if not any(out): out = list(home[:n])
+    if not any(out): out = [1 if i == n // 2 else 0 for i in range(n)]
+    return out
+def cell_hint(rule, row, home, track=1):
+    """what the screen says of a rule: the story the long way (every row kept until one comes back)"""
+    n, seen, hist, cur = len(row), {}, [], list(row)
+    while tuple(cur) not in seen and len(hist) < 400:
+        seen[tuple(cur)] = len(hist); hist.append(cur); cur = cell_step(cur, rule, home)
+    head = "T%d CELL RULE %d: " % (track, rule)
+    if tuple(cur) not in seen: return head + "KEEPS CHANGING FOR A LONG TIME"
+    lead = seen[tuple(cur)]; loop = hist[lead:]; period = len(loop)
+    after = "AFTER %d %s " % (lead, "ROW" if lead == 1 else "ROWS") if lead else ""
+    if period == 1: return head + after + ("EVERY STEP PLAYS" if all(loop[0]) else "IT STAYS" if lead else "THE RHYTHM STAYS AS IT IS")
+    for k in range(1, n // 2 + 1):
+        for sign, word in ((1, "LATER"), (-1, "EARLIER")):
+            if all(loop[(j + 1) % period] == [loop[j][(i - sign * k) % n] for i in range(n)] for j in range(period)):
+                return head + after + "SLIDES %d %s %s" % (k, "STEP" if k == 1 else "STEPS", word) + ("" if lead else " EVERY ROW")
+    return head + after + "A LOOP OF %d" % period + ("" if lead else " ROWS")
+
+
+def t0231_cell():
+    group("0.23.1 CELL: a dead row goes back to the written rhythm (not to a single cell); the screen says what a rule makes of the rhythm")
+    BAR = 16 * STEP_MS
+    TRES = "x..x..x...x.x..."
+    def knob_to(s, t, knob, now, want):
+        return seq_page(s, t, 1, encs=[(knob, want - now)]) if want != now else t
+    # rule 0 kills every row at once: the written rhythm plays on, bar after bar (0.23: one hit on step 9 for ever)
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    t = seq_page(s, t + 30, 1, encs=[(K1, 2), (K2, -90)])               # CELL READY, rule 90 -> 0
+    s.at(t, "dump", 0)
+    t = seq_page(s, t + 30, 1, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    s.at(p + int(3.5 * BAR), "dump", 0)
+    log = run(s, p + int(5 * BAR) - 40)
+    st = states(log)
+    n4 = [round((tm - p) / STEP_MS) - 64 for tm, d1, v_ in log.notes(ch=0, after=p + int(4 * BAR) - 20)]
+    check(len(st) == 2 and st[0]["algo"] == 0 and st[0]["msg"] == "T1 CELL RULE 0: THE RHYTHM STAYS AS IT IS",
+          "READY, rule 0: the screen says the rhythm stays (%s)" % (st[0]["msg"] if st else st))
+    check(len(st) == 2 and st[1]["algo"] == 2 and st[1]["a"] == 0 and st[1]["heard"].replace(" ", "") == "x...x...x...x..." and n4 == [0, 4, 8, 12],
+          "rule 0 playing: in bar 4 and 5 still the four written hits (%s, %s)" % (st[1]["heard"] if len(st) > 1 else st, n4))
+    # rule 90 on 16 cells from the tresillo: the rows of the rule, a new one every bar; the eighth dies and the tresillo is back
+    s = Script()
+    t = s.steps(100, [0, 3, 6, 10, 12])
+    t = seq_page(s, t + 30, 1, encs=[(K1, 2), (K2, 1), (K2, -1)])       # CELL READY; the rule touched: its story on the screen
+    s.at(t, "dump", 0)
+    t = seq_page(s, t + 30, 1, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    for b in range(18): s.at(p + int((b + 0.5) * BAR), "dump", 0)
+    log = run(s, p + int(18 * BAR) + 100)
+    st = states(log)
+    rows = [x["heard"].replace(" ", "") for x in st[1:]]
+    want, cur = [], cell_row(TRES)
+    for b in range(len(rows) + 2): want.append(cell_text(cur)); cur = cell_step(cur, 90, cell_row(TRES))
+    k0 = next((k for k in range(2) if rows[:1] == want[k:k + 1]), 0)    # (the first bar plays the written row, or the one after it)
+    check(st and st[0]["msg"] == "T1 CELL RULE 90: A LOOP OF 8 ROWS" == cell_hint(90, cell_row(TRES), cell_row(TRES)),
+          "READY, rule 90 on the tresillo: A LOOP OF 8 ROWS (%s)" % (st[0]["msg"] if st else st))
+    check(len(rows) == 18 and rows == want[k0:k0 + 18], "playing: every bar the rule's next row (%s)" % [(i, r) for i, r in enumerate(rows) if r != want[k0 + i]][:3])
+    check(len(rows) == 18 and rows.count(TRES) >= 2 and all(rows[i + 8] == rows[i] for i in range(10)) and len(set(rows[:8])) == 8 and "........x......." not in rows,
+          "... eight different rows, then the tresillo again - not the single cell of 0.23 (%s)" % [i for i, r in enumerate(rows) if r == TRES])
+    # what the screen says, rule by rule, of a READY CELL on the tresillo: as the long way works it out
+    RULES = [204, 170, 240, 184, 226, 51, 150, 105, 60, 54, 18, 22, 126, 122, 110, 30, 13, 255, 77, 232, 0, 90]
+    s = Script()
+    t = s.steps(100, [0, 3, 6, 10, 12])
+    t = seq_page(s, t + 30, 1, encs=[(K1, 2)])
+    now = 90
+    for r in RULES:
+        t = knob_to(s, t + 30, K2, now, r); now = r
+        s.at(t, "dump", 0)
+    t = seq_page(s, t + 30, 1, encs=[(K3, -8)])                          # 8 cells: the row is the first half of the tresillo, twice
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    st, v = states(log), v16s(log)
+    got = [x["msg"] for x in st]
+    want = [cell_hint(r, cell_row(TRES), cell_row(TRES)) for r in RULES] + [cell_hint(90, cell_row(TRES[:8]), cell_row(TRES[:8]))]
+    check(len(st) == len(RULES) + 1 and [x["edit"][1] for x in v[:-1]] == RULES and v[-1]["edit"][1:3] == (90, 8) and got == want,
+          "22 rules and a width: the message is the rule's story (%s)" % [(g, w) for g, w in zip(got, want) if g != w][:3])
+    check("T1 CELL RULE 170: SLIDES 1 STEP EARLIER EVERY ROW" in got and "T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW" in got
+          and "T1 CELL RULE 204: THE RHYTHM STAYS AS IT IS" in got and "T1 CELL RULE 255: AFTER 1 ROW EVERY STEP PLAYS" in got
+          and "T1 CELL RULE 30: KEEPS CHANGING FOR A LONG TIME" in got and "T1 CELL RULE 51: A LOOP OF 2 ROWS" in got,
+          "... the ones one can name: 170 and 240 slide, 204 stays, 255 fills, 51 swaps, 30 has no loop in sight (%s)" % got[:3])
+    check(all(len(g) <= 58 for g in got), "every message fits the screen's two lines (%s)" % max(len(g) for g in got))
+    # while it plays the story starts from the row that plays: rule 204 holds it; rule 0 then kills it: after that row the tresillo, for good
+    s = Script()
+    t = s.steps(100, [0, 3, 6, 10, 12])
+    t = seq_page(s, t + 30, 1, encs=[(K1, 2)], keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    t = knob_to(s, p + int(3.3 * BAR), K2, 90, 204)
+    s.at(t, "dump", 0)
+    s.at(p + int(5.5 * BAR), "dump", 0)
+    t = knob_to(s, p + int(6.3 * BAR), K2, 204, 0)
+    s.at(t, "dump", 0)
+    s.at(p + int(7.5 * BAR), "dump", 0)
+    log = run(s, p + int(8 * BAR))
+    st = states(log)
+    held = st[0]["heard"].replace(" ", "") if st else ""
+    check(len(st) == 4 and held != TRES and st[0]["msg"] == "T1 CELL RULE 204: THE RHYTHM STAYS AS IT IS" and st[1]["heard"].replace(" ", "") == held,
+          "rule 204 while it plays: the row of that bar is held (%s, %s)" % (held, st[0]["msg"] if st else st))
+    check(len(st) == 4 and st[2]["msg"] == "T1 CELL RULE 0: AFTER 1 ROW IT STAYS" and st[3]["heard"].replace(" ", "") == TRES,
+          "rule 0 then: AFTER 1 ROW IT STAYS, and the next bar is the tresillo (%s, %s)" % (st[2]["msg"] if len(st) > 2 else st, st[3]["heard"] if len(st) > 3 else ""))
+    # nothing written: the single cell in the middle, as before (and after a death again)
+    s = Script()
+    t = seq_page(s, 100, 1, encs=[(K1, 2), (K2, -90)], keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    s.at(p + int(2.5 * BAR), "dump", 0)
+    log = run(s, p + int(3 * BAR))
+    st = states(log)
+    check(len(st) == 1 and st[0]["heard"].replace(" ", "") == "........x.......", "an empty track, rule 0: the single cell in the middle, as it was (%s)" % (st[0]["heard"] if st else st))
+    # the grid (TRACK 3): row 5 the rules from the calm to the wild, row 6 the widths - each tap says the story
+    s = Script()
+    t = s.steps(100, [0, 3, 6, 10, 12])
+    s.raw(t, "attach"); view(s, t + 100, GC_VTRACK); view(s, t + 200, GC_VTRACK); view(s, t + 300, GC_VTRACK); t += 400
+    s.pad(t, 2, 3); t += 100                                             # CELL READY
+    for x in (0, 1, 2, 4, 15):
+        s.pad(t, x, 4); t += 100; s.at(t, "dump", 0); t += 20
+    s.pad(t, 2, 5); t += 100; s.at(t, "dump", 0)                         # 8 cells
+    log = run(s, t + 100)
+    st, v = states(log), v16s(log)
+    want = [cell_hint(r, cell_row(TRES), cell_row(TRES)) for r in (204, 170, 240, 51, 30)] + [cell_hint(30, cell_row(TRES[:8]), cell_row(TRES[:8]))]
+    check(len(st) == 6 and [x["edit"][1] for x in v] == [204, 170, 240, 51, 30, 30] and v[5]["edit"][2] == 8 and [x["msg"] for x in st] == want,
+          "the grid's rule pads 1 2 3 5 16: 204 170 240 51 30, then 8 cells; each says its story (%s)" % [(x["edit"], y["msg"]) for x, y in zip(v, st)][:2])
+    # the tablet's A on a CELL: the rule and its story, said as the tablet's
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t = s.steps(t, [0, 3, 6, 10, 12])
+    s.raw(t, "midi 0xBB 12 2 2"); t += 40                                # ALGO: CELL READY
+    s.raw(t, "midi 0xBB 13 120 2"); t += 40                              # A = 120 of 127: rule 241
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    st, v = states(log), v16s(log)
+    check(len(st) == 1 and v[0]["edit"][:2] == (2, 241) and st[0]["rawmsg"] == "TAB " + cell_hint(241, cell_row(TRES), cell_row(TRES)) and "SLIDES 1 STEP LATER" in st[0]["msg"],
+          "the tablet's A on 120: rule 241, TAB T1 CELL RULE 241: SLIDES 1 STEP LATER EVERY ROW (%s)" % (st[0]["rawmsg"] if st else st))
+
+
+def t0231_counts():
+    group("0.23.1 the PC test's account: DIAG says what the FM-1 sent by port and kind, QUIET stops it and leaves it silent - the numbers are the simulator's own log's")
+    sys.path.insert(0, os.path.join(ROOT, "tools", "hwtest"))
+    import sagga_testport as TP
+
+    def sx(s, t, b): s.at(t, "sx", " ".join("%02X" % x for x in b[1:-1]))
+
+    def answers(log, what):
+        return [(t, a[1]) for t, a in ((t, TP.parse(bytes(b))) for t, b in log.sysex) if a and a[0] == what]
+
+    def counted(log, t0, t1):
+        """what the log says went out in [t0, t1): by port the kinds, the bytes of the messages and of the SysEx frames"""
+        out = [dict.fromkeys(TP.OUT_KINDS, 0), dict.fromkeys(TP.OUT_KINDS, 0)]
+        for (t, st, d1, d2), port in zip(log.msgs, log.port):
+            if t0 <= t < t1:
+                d = [st, d1, d2][:1 if st >= 0xF8 else 2 if (st & 0xE0) == 0xC0 else 3]
+                out[port - 1][TP.out_kind(d)] += 1
+                out[port - 1]["bytes"] += len(d)
+        return out
+
+    def session(ring=None):
+        evs = [(100, TP.KEYS, wk(0), 0), (140, TP.KEYS, 0, 0), (200, TP.KEYS, wk(2), 0), (240, TP.KEYS, 0, 0), (300, TP.KEYS, wk(4), 0),
+               (340, TP.KEYS, 0, 0), (400, TP.KEYS, wk(7), 0), (440, TP.KEYS, 0, 0), (600, TP.PRESS, PLAY, 0), (630, TP.RELEASE, PLAY, 0),
+               (1500, TP.KNOB, 300, 0), (2500, TP.PROBE, 0, 0), (4300, TP.PROBE, 0, 0), (4400, TP.END, 0, 0)]
+        s = Script()
+        if ring is not None: s.raw(500, "ring %d" % ring)
+        sx(s, 900, TP.diag()); sx(s, 1000, TP.go()); sx(s, 1010, TP.ev_frame(0, evs))
+        sx(s, 6000, TP.quiet()); sx(s, 6400, TP.diag())
+        return run(s, 7000, testboot=True)
+
+    log = session()
+    dg, qt = answers(log, "diag"), answers(log, "quiet")
+    check(len(dg) == 2 and [a for _, a in qt] == [1] and "p1_ticks" in dg[0][1] and len(dg[0][1]) == len(TP.DIAG_FIELDS) + len(TP.DIAG_MORE),
+          "DIAG before GO and after QUIET, QUIET says yes (%s %s)" % (len(dg), qt))
+    if len(dg) == 2:
+        d0, d1 = dg[0][1], dg[1][1]
+        got = [{k: d1["p%d_%s" % (p, k)] - d0["p%d_%s" % (p, k)] for k in TP.OUT_KINDS} for p in (1, 2)]
+        want = counted(log, 900, 6400)
+        frames = sum(len(b) for t, b in log.sysex if 900 <= t < 6400)     # (the first DIAG's answer is in, the second's not yet)
+        want[0]["bytes"] += frames                                        # (one USB port: the SysEx goes out of it too)
+        check(all(d0["p%d_%s" % (p, k)] == 0 for p in (1, 2) for k in TP.OUT_KINDS), "before GO nothing had been sent (%s)" % {k: v for k, v in d0.items() if k.startswith("p") and v})
+        check(got == want and want[0]["ticks"] > 150 and want[0]["on"] >= 8 and want[0]["on"] == want[0]["off"] and want[0]["other"] >= 2,
+              "between the two: the clock's ticks, the notes on and off, the START and the STOP, the bytes - as the log counts them (%s, the log %s)" % (got, want))
+        sent = sum(got[p][k] for p in (0, 1) for k in TP.OUT_KINDS[:5])
+        check(d1["tx_ev"] - d0["tx_ev"] == sent and d1["tx_ring"] == 0 and d1["tx_drop"] == 0 and d1["tx_noconf"] == 0 and d1["tx_flush"] == 0,
+              "the ring's account: every one of the %d left for the host (%s)" % (sent, {k: d1[k] for k in ("tx_ev", "tx_ring", "tx_drop")}))
+        stop = [m for m in log.msgs if m[0] >= 6000]
+        check(any(st == 0xFC for _, st, _, _ in stop) and not [m for m in log.msgs if m[0] > 6050] and " PROBE" not in log.text.split("6400 ms")[-1],
+              "QUIET: the STOP and the notes off at once, then not a message more (%s)" % [m for m in log.msgs if m[0] > 6050][:3])
+    # a ring of 8 events: what does not fit is dropped and SAID - sent = left + dropped + waiting
+    log = session(ring=8)
+    dg = answers(log, "diag")
+    if len(dg) == 2:
+        d0, d1 = dg[0][1], dg[1][1]
+        sent = sum(d1["p%d_%s" % (p, k)] - d0["p%d_%s" % (p, k)] for p in (1, 2) for k in TP.OUT_KINDS[:5])
+        drops = len(re.findall(r"MIDI DROP", log.text))
+        check(drops > 0 and d1["tx_drop"] - d0["tx_drop"] == drops and sent == (d1["tx_ev"] - d0["tx_ev"]) + drops + d1["tx_ring"] - d0["tx_ring"],
+              "a ring of 8: %d dropped, and the account still adds up (sent %d, left %d, waiting %d)" % (drops, sent, d1["tx_ev"] - d0["tx_ev"], d1["tx_ring"]))
+    else:
+        check(False, "a ring of 8: two DIAGs (%d)" % len(dg))
+    # QUIET outside a test boot: no
+    s = Script()
+    sx(s, 500, TP.quiet())
+    log = run(s, 800)
+    check([a for _, a in answers(log, "quiet")] == [0], "QUIET outside the test: no (%s)" % answers(log, "quiet"))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -9224,7 +9509,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

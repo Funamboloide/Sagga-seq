@@ -196,6 +196,58 @@ class FakeFM1:
                 self.out(bytes([0x80, 60, 0]))
 
 
+class CountMixin:
+    """0.23.1 on a fake FM-1: it counts what it sends by port and kind and says it (DIAG, its 16 more numbers); QUIET
+    stops it for good. eat = {(port index, kind): n}: messages it counts as sent that never reach the computer"""
+    def count_init(self, eat=None):
+        self.version = "0.23.1"
+        self.sent = [T.Tally(), T.Tally()]
+        self.eat = dict(eat or {})
+        self.quiets = 0
+
+    def _deliver(self, cable, data):
+        link = self.links.get(cable)
+        if not (link and link.on_message and self.connected()):
+            return
+        self.sent[cable].add(bytes(data))
+        k = T.out_kind(bytes(data))
+        if k and self.eat.get((cable, k), 0) > 0:
+            self.eat[(cable, k)] -= 1                 # (counted, and never there)
+            return
+        link.on_message(bytes(data), time.perf_counter())
+
+    def out(self, data):
+        self._deliver(1 if self.two and data[0] == 0xF0 else 0, data)
+
+    def out2(self, data):
+        self._deliver(1, data)
+
+    def rx(self, data):
+        m = list(data)
+        test = m[:4] == T.HEAD and len(m) > 6 and m[4] == T.SX_TST and not getattr(self, "deaf_now", False)
+        if test and m[5] == T.DIAG:
+            v = dict.fromkeys(T.DIAG_FIELDS + T.DIAG_MORE, 0)
+            v.update(hellos=getattr(self, "hellos", 1), frames=getattr(self, "hellos", 1) + 1, first_ms=40, resets=1, configs=1, cfg_ms=350, ms=self.ms())
+            for i in (0, 1):
+                for k in T.OUT_KINDS:
+                    v["p%d_%s" % (i + 1, k)] = self.sent[i].n[k]
+            v["tx_ev"] = sum(self.sent[i].n[k] for i in (0, 1) for k in T.OUT_KINDS[:5])
+            self.ans(T.DIAG, sum((T.put7(v[k], 4) for k in T.DIAG_FIELDS + T.DIAG_MORE), []))
+            return
+        if test and m[5] == T.QUIET:
+            self.quiets += 1
+            self.go_t = None                          # (stopped: not a note more)
+            self.ans(T.QUIET, [1])
+            return
+        super().rx(data)
+
+
+class CountFM1(CountMixin, FakeFM1):
+    def __init__(self, eat=None, **kw):
+        super().__init__(**kw)
+        self.count_init(eat)
+
+
 class FakeEnd:
     """an input or output of the Windows driver (WinMM), as the user's PC showed it: one opener at a time ("error
     creating Windows MM MIDI ... port" while another handle is open, a handle to the FM-1 from before its reboot too,
@@ -436,8 +488,77 @@ def rules_of_the_comparison():
           "the boot message at the first probe: no COSTRUZIONE, and a later message still compared (%s / %s)" % (f1[:1], f2[:1]))
 
 
+def counts_account():
+    """0.23.1: the session's account - DIAG's 16 more numbers, the tally of a port, the verdict that says where"""
+    base = [0] * len(T.DIAG_FIELDS)
+    more = list(range(1, len(T.DIAG_MORE) + 1))
+    frame = lambda nums: bytes(T.HEAD + [T.SX_TST_ANS, T.DIAG] + sum((T.put7(x, 4) for x in nums), []) + [0xF7])
+    old, new = T.parse(frame(base)), T.parse(frame(base + more))
+    check(old[0] == "diag" and len(old[1]) == len(T.DIAG_FIELDS) and "p1_ticks" not in old[1], "DIAG of an FM-1 before 0.23.1: its 19 numbers")
+    check(new[1]["p1_ticks"] == 1 and new[1]["p1_bytes"] == 6 and new[1]["p2_ticks"] == 7 and new[1]["tx_ev"] == 13 and new[1]["tx_ring"] == 16,
+          "DIAG from 0.23.1: 16 more, by name (%s)" % {k: new[1][k] for k in T.DIAG_MORE})
+    check(T.parse(bytes(T.HEAD + [T.SX_TST_ANS, T.QUIET, 1, 0xF7])) == ("quiet", 1) and list(T.quiet()) == T.HEAD + [T.SX_TST, T.QUIET, 0xF7], "QUIET and its answer")
+    tl = T.Tally()
+    for m in ([0xF8], [0x90, 60, 100], [0x90, 60, 0], [0x80, 61, 0], [0xB3, 7, 1], [0xE0, 0, 64], [0xC1, 5], [0xFA], [0xF0, 0x7D, 1, 2, 0xF7]):
+        tl.add(bytes(m))
+    check(tl.snapshot() == {"ticks": 1, "on": 1, "off": 2, "cc": 1, "other": 3, "bytes": 1 + 3 + 3 + 3 + 3 + 3 + 2 + 1 + 5},
+          "a port's tally: a note-on of velocity 0 is a note-off, START and the rest are 'other', a SysEx only its bytes (%s)" % tl.snapshot())
+    k0 = dict(ticks=2414, on=1200, off=1200, cc=300, other=4, bytes=2414 + 3 * 2700 + 4)
+    z = dict.fromkeys(T.OUT_KINDS, 0)
+    usb = dict(tx_ev=5118, tx_drop=0, tx_noconf=0, tx_flush=0, tx_pkts=4000, resets=0, configs=0, suspends=0, tx_ring=0, tx_ring_prima=0, tx_wait_max=3)
+
+    def acc(heard, fermo=(True, True), usb_=None, alsa=None):
+        return {"fermo": list(fermo), "attesa": 0.4, "quiet": 1, "fm1": {"p1": dict(k0), "p2": dict(z)}, "pi": {"p1": dict(k0, **heard), "p2": dict(z)},
+                "usb": dict(usb, **(usb_ or {})), "alsa": alsa}
+    V = R.counts_verdict
+    check(V(None) == [] and V(acc({})) == [], "nothing asked, or the same numbers: nothing said")
+    v = V(acc({"ticks": 2411}))
+    check(len(v) == 2 and v[0] == "porta 1: l'FM-1 ha mandato 3 tick del clock che il programma non ha sentito" and "persi dopo l'FM-1" in v[1],
+          "three ticks sent and not heard, no driver counts: after the FM-1 (%s)" % v)
+    v = V(acc({"ticks": 2411, "off": 1198}, alsa={"rx": [k0["bytes"], 0], "over": [0, 0], "pool": 0}))
+    check(len(v) == 2 and "3 tick del clock, 2 note-off" in v[0] and "ha ricevuto tutti i byte" in v[1] and "nel computer" in v[1],
+          "the driver has every byte: lost in the computer, after the driver (%s)" % v)
+    v = V(acc({"ticks": 2411}, alsa={"rx": [k0["bytes"] - 3, 0], "over": [0, 0], "pool": None}))
+    check(len(v) == 2 and "mancano 3 byte sulla porta 1" in v[1] and "fra l'FM-1 e il computer" in v[1], "the driver is three bytes short: lost on the way (%s)" % v)
+    v = V(acc({"ticks": 2411}, alsa={"rx": [k0["bytes"], 0], "over": [0, 0], "pool": 3}))
+    check(any("ALSA ha scartato 3 eventi" in x for x in v), "ALSA's pool was full: said (%s)" % v)
+    v = V(acc({"on": 1198}, usb_={"tx_ev": 5116, "tx_drop": 2}))
+    check(any("dentro l'FM-1: 2 messaggi scartati" in x and "2 con l'anello pieno" in x for x in v) and not any("persi dopo" in x for x in v),
+          "two dropped with the ring full: inside the FM-1 (%s)" % v)
+    v = V(acc({"on": 1198}, usb_={"tx_ev": 5116}))
+    check(any("i conti non tornano" in x for x in v), "the FM-1's own account does not add up: said (%s)" % v)
+    v = V(acc({"ticks": 2411}, usb_={"resets": 1, "configs": 1}))
+    check(any("1 reset del bus, 1 configurazioni" in x for x in v), "a bus reset in the session: said (%s)" % v)
+    check(V(acc({"ticks": 2411}, fermo=(False, True))) == [], "a port that never stood still: its counts are not compared")
+    v = V(acc({"cc": 303}))
+    check(len(v) == 1 and "il programma ha sentito 3 CC in piu'" in v[0] and R.counts_missing(acc({"cc": 303})) == 0,
+          "heard more than sent: said as it is, and nothing is missing (%s)" % v)
+    check(R.counts_missing(acc({"ticks": 2411, "off": 1198})) == 5 and R.counts_missing(acc({"ticks": 2411}, fermo=(False, True))) == 0 and R.counts_missing(None) == 0,
+          "how many are missing: on the ports that stood still")
+    # the runner with an FM-1 that counts: every session has its account, equal on both sides; two notes lost: said
+    for two in (False, True):
+        dev = CountFM1(two_ports=two)
+        rc, data, log, backups = run(dev)
+        c = [x["fm1"].get("conti") for x in (data or {}).get("sessioni", [])]
+        check(rc == 0 and len(c) == 2 and all(c) and all(x["fm1"] == x["pi"] and x["fermo"] == [True, True] and x["fm1"]["p1"]["on"] > 0 for x in c)
+              and dev.quiets == 2 and "CONTI" not in log,
+              "%s: both sessions with their account, sent = heard, QUIET asked (%s)" % ("two ports" if two else "one port", [(x["fm1"], x["pi"]) for x in c if x and x["fm1"] != x["pi"]][:1]))
+        if c and c[0]:
+            check((c[0]["fm1"]["p2"]["bytes"] > 500) == two and (c[0]["fm1"]["p1"]["bytes"] > 500), "... the test's SysEx bytes on port %d" % (2 if two else 1))
+    dev = CountFM1(two_ports=True, eat={(0, "on"): 2})
+    rc, data, log, backups = run(dev)
+    c = [x["fm1"].get("conti") for x in (data or {}).get("sessioni", [])]
+    lost = sum(x["fm1"]["p1"]["on"] - x["pi"]["p1"]["on"] for x in c if x)
+    check(rc == 0 and lost == 2 and "CONTI: porta 1: l'FM-1 ha mandato" in log and "note che il programma non ha sentito" in log,
+          "two note-ons counted by the FM-1 and never arrived: in the account and in the log (%s)" % [ln for ln in log.splitlines() if "CONTI" in ln][:1])
+    dev = FakeFM1()                                      # (an FM-1 before 0.23.1: nothing asked)
+    rc, data, log, backups = run(dev)
+    check(rc == 0 and data and all("conti" not in x["fm1"] for x in data["sessioni"]), "an old FM-1: no account")
+
+
 def main():
     print("sagga hw explore: the runner against a fake FM-1")
+    counts_account()
     dev = FakeFM1()
     rc, data, log, backups = run(dev)
     check(rc == 0, "a clean run: 0 (%s)" % rc)

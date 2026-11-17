@@ -1194,21 +1194,81 @@ uint32_t sq_turing_step(uint32_t reg, uint8_t len, uint8_t mutation, uint32_t rn
     return ((reg >> 1) | (out << (len - 1u))) & mask;
 }
 
+/* CELL. One generation of a ring of `cells` cells: cell i of the new row is bit (left << 2 | itself << 1 | right) of
+ * the rule (Wolfram's numbering), its left the cell before it (i - 1), its right the cell after it. 0.23.1: all the
+ * cells at once - each of the eight neighbourhoods the rule answers 1 to is three masks ANDed (0.8-0.23 went cell by
+ * cell; the core's tests compare this with that definition, every rule, every width). 0 when every cell died. */
+static uint64_t cell_mask(uint8_t cells) { return cells >= 64u ? ~(uint64_t)0 : (((uint64_t)1u << cells) - 1u); }
+static uint8_t cell_width(uint8_t cells) { return cells < 3u ? 3u : cells > 64u ? 64u : cells; }
+uint64_t sq_cell_raw(uint64_t row, uint8_t cells, uint8_t rule)
+{
+    uint64_t mask, l, r, neu = 0u;
+    uint32_t n;
+    cells = cell_width(cells);
+    mask = cell_mask(cells);
+    row &= mask;
+    l = ((row << 1) | (row >> (cells - 1u))) & mask;    /* bit i: the cell before cell i */
+    r = ((row >> 1) | (row << (cells - 1u))) & mask;    /* bit i: the cell after it */
+    for (n = 0; n < 8u; n++)
+        if ((rule >> n) & 1u) neu |= ((n & 4u) ? l : ~l) & ((n & 2u) ? row : ~row) & ((n & 1u) ? r : ~r);
+    return neu & mask;
+}
+
 uint64_t sq_cell_next(uint64_t row, uint8_t cells, uint8_t rule)
 {
-    uint64_t neu = 0u, mask;
-    uint32_t i;
-    if (cells < 3u) cells = 3u;
-    if (cells > 64u) cells = 64u;
-    mask = cells == 64u ? ~(uint64_t)0 : (((uint64_t)1u << cells) - 1u);
-    row &= mask;
-    for (i = 0; i < cells; i++) {
-        uint32_t l = (uint32_t)((row >> ((i + cells - 1u) % cells)) & 1u), c = (uint32_t)((row >> i) & 1u);
-        uint32_t r = (uint32_t)((row >> ((i + 1u) % cells)) & 1u);
-        if ((rule >> ((l << 2) | (c << 1) | r)) & 1u) neu |= (uint64_t)1u << i;
-    }
-    if (!neu) neu = (uint64_t)1u << (cells / 2u);      /* never silent: a single cell starts it again */
+    uint64_t neu = sq_cell_raw(row, cells, rule);
+    if (!neu) neu = (uint64_t)1u << (cell_width(cells) / 2u);   /* never silent: a single cell starts it again */
     return neu;
+}
+
+/* 0.23.1: the row a track plays next. When every cell died the rhythm written on the track (`home`) comes back -
+ * 0.8-0.23 started again from a single cell in the middle and the written rhythm never returned, with the hundred
+ * and more rules that die on an ordinary rhythm; nothing written: the single cell, as before. */
+uint64_t sq_cell_step(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home)
+{
+    uint64_t neu = sq_cell_raw(row, cells, rule);
+    if (!neu) neu = home & cell_mask(cell_width(cells));
+    if (!neu) neu = (uint64_t)1u << (cell_width(cells) / 2u);
+    return neu;
+}
+
+/* 0.23.1: what the rule makes of `row` from here on (the rows as sq_cell_step gives them): `lead` rows that never
+ * come back, then a loop of `period` rows (1: it stays as it is); `slide`: in the loop every row is the one before
+ * moved that many steps (+ later, - earlier; 0: it is not); `full`: it stays with every cell on. Found without a
+ * list of the rows (Brent's way: a row that waits at the powers of two for the one that runs). Returns 0 when no loop
+ * shows in SQ_CELL_STORY_STEPS rows (a loop and a lead of 64 rows or fewer are always found). */
+uint8_t sq_cell_story(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home, sq_cell_story_t *out)
+{
+    uint64_t mask, wait, run, nxt;
+    uint32_t power = 1u, lam = 1u, mu = 0u, steps = 0u, k;
+    cells = cell_width(cells);
+    mask = cell_mask(cells);
+    row &= mask;
+    if (!row) row = sq_cell_step(0u, cells, 0u, home);    /* (nothing in it: what the track would play, home or the single cell) */
+    out->lead = 0u; out->period = 0u; out->slide = 0; out->full = 0u;
+    wait = row;
+    run = sq_cell_step(row, cells, rule, home);
+    while (wait != run) {
+        if (power == lam) { wait = run; power <<= 1; lam = 0u; }
+        run = sq_cell_step(run, cells, rule, home);
+        lam++;
+        if (++steps > SQ_CELL_STORY_STEPS) return 0u;
+    }
+    wait = run = row;                                    /* the lead: both walk, one a loop ahead, until they meet */
+    for (k = 0; k < lam; k++) run = sq_cell_step(run, cells, rule, home);
+    while (wait != run) {
+        wait = sq_cell_step(wait, cells, rule, home);
+        run = sq_cell_step(run, cells, rule, home);
+        if (++mu > SQ_CELL_STORY_STEPS) return 0u;
+    }
+    out->lead = (uint8_t)mu; out->period = (uint8_t)lam;
+    if (lam == 1u) { out->full = (uint8_t)(wait == mask); return 1u; }
+    nxt = sq_cell_step(wait, cells, rule, home);         /* (the automaton does the same to a row and to the row moved: one look is enough) */
+    for (k = 1u; k <= (uint32_t)cells / 2u; k++) {
+        if (nxt == (((wait << k) | (wait >> (cells - k))) & mask)) { out->slide = (int8_t)k; break; }
+        if (nxt == (((wait >> k) | (wait << (cells - k))) & mask)) { out->slide = (int8_t)-(int32_t)k; break; }
+    }
+    return 1u;
 }
 
 int32_t sq_accent(uint8_t style, uint8_t amount, uint8_t offset, uint32_t i, uint32_t rnd)
@@ -3446,17 +3506,46 @@ const char *sq_rhythm_name(uint8_t fam)
     return N[fam < SQ_RF_COUNT ? fam : 0u];
 }
 
-static uint32_t prime_nth(uint32_t n)                     /* the n-th prime, n >= 1 (1: 2) */
+/* 0.23.1 NUMERIC: sixteen base rhythms of 16 steps (step 1 = the top bit), from the straight ones to the syncopated
+ * ones; each has a hit on the first step, never two hits in a row, 4 to 7 hits and no hole longer than 6 steps, and
+ * none is another one turned. The pulses knob picks one, the rotation turns it (the Numeric Repetitor's idea: a
+ * "prime rhythm" chosen by hand, and a multiplication by a power of two, which is a rotation). 0.10-0.23 laid the
+ * binary digits of the n-th prime NUMBER over the steps - a misreading of that idea: most values gave nearly every
+ * step, none a rhythm one would write. */
+static const uint16_t NUMERIC_BASE[SQ_NUMERIC_RHYTHMS] = {
+    0x8888u,                     /*  1  x...x...x...x...  4-4-4-4        four on the floor */
+    0x8882u,                     /*  2  x...x...x.....x.  4-4-6-2        the last beat late */
+    0x9088u,                     /*  3  x..x....x...x...  3-5-4-4 */
+    0x9090u,                     /*  4  x..x....x..x....  3-5-3-5 */
+    0x888Au,                     /*  5  x...x...x...x.x.  4-4-4-2-2      four and a pickup */
+    0x9288u,                     /*  6  x..x..x.x...x...  3-3-2-4-4      a tresillo, then two beats */
+    0x9228u,                     /*  7  x..x..x...x.x...  3-3-4-2-4      the son clave */
+    0x9128u,                     /*  8  x..x...x..x.x...  3-4-3-2-4      the rumba clave */
+    0x9224u,                     /*  9  x..x..x...x..x..  3-3-4-3-3      the bossa nova */
+    0xA8A8u,                     /* 10  x.x.x...x.x.x...  2-2-4-2-2-4 */
+    0x928Au,                     /* 11  x..x..x.x...x.x.  3-3-2-4-2-2    a tresillo, a beat and a pickup */
+    0x9292u,                     /* 12  x..x..x.x..x..x.  3-3-2-3-3-2    the tresillo, twice */
+    0x924Au,                     /* 13  x..x..x..x..x.x.  3-3-3-3-2-2 */
+    0xAAA8u,                     /* 14  x.x.x.x.x.x.x...  2-2-2-2-2-2-4 */
+    0xAAA4u,                     /* 15  x.x.x.x.x.x..x..  2-2-2-2-2-3-3 */
+    0x952Au,                     /* 16  x..x.x.x..x.x.x.  3-2-2-3-2-2-2 */
+};
+
+uint8_t sq_numeric_index(uint8_t pulses) { return (uint8_t)((pulses ? pulses - 1u : 0u) % SQ_NUMERIC_RHYTHMS); }
+uint16_t sq_numeric_word(uint8_t pulses) { return NUMERIC_BASE[sq_numeric_index(pulses)]; }
+
+char *sq_numeric_gaps(uint8_t pulses, char *out)
 {
-    uint32_t c = 0u, v = 1u;
-    if (!n) n = 1u;
-    while (c < n) {
-        uint32_t d, p = 1u;
-        v++;
-        for (d = 2u; d * d <= v; d++) if (v % d == 0u) { p = 0u; break; }
-        if (p) c++;
+    uint16_t w = sq_numeric_word(pulses);
+    uint8_t i, last = 0u, any = 0u;
+    for (i = 1u; i <= 16u; i++) {                         /* (step 16 = the first step again) */
+        if (!((w >> (15u - i % 16u)) & 1u)) continue;
+        if (any) *out++ = '-';
+        *out++ = (char)('0' + (i - last));
+        last = i; any = 1u;
     }
-    return v;
+    *out = 0;
+    return out;
 }
 
 void sq_rhythm(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *bits)
@@ -3474,10 +3563,9 @@ void sq_rhythm(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *b
             pos = (uint8_t)(pos + g);
         }
         for (i = 0; i < len; i++) bits[(i + rot) % len] = tmp[i];
-    } else if (fam == SQ_RF_NUMERIC) {                    /* the pulses-th prime in binary, the low bit first */
-        uint32_t p = prime_nth(pulses), nb = 0u, v = p;
-        while (v) { nb++; v >>= 1; }
-        for (i = 0; i < len; i++) bits[(i + rot) % len] = (uint8_t)((p >> (i % nb)) & 1u);
+    } else if (fam == SQ_RF_NUMERIC) {                    /* 0.23.1: one of the sixteen base rhythms, repeated over the steps */
+        uint16_t w = sq_numeric_word(pulses);
+        for (i = 0; i < len; i++) bits[(i + rot) % len] = (uint8_t)((w >> (15u - i % 16u)) & 1u);
     } else sq_euclid(pulses, len, rot, bits);
 }
 
@@ -3485,7 +3573,10 @@ uint8_t sq_rhythm_hit(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uin
 {
     uint8_t bits[SQ_STEPS];
     if (fam == SQ_RF_EUCLID) return sq_euclid_hit(pulses, len, rot, i);
+    if (len > SQ_STEPS) len = SQ_STEPS;                     /* (as sq_rhythm does: bits[] has SQ_STEPS places) */
     if (!len || i >= len) return 0u;
+    if (fam == SQ_RF_NUMERIC)                               /* (step i plays step i - rot of the rhythm) */
+        return (uint8_t)((sq_numeric_word(pulses) >> (15u - ((uint32_t)i + len - rot % len) % len % 16u)) & 1u);
     sq_rhythm(fam, pulses, len, rot, bits);
     return bits[i];
 }

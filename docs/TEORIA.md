@@ -59,7 +59,11 @@ sposti un pattern, i motori lo dimenticano: da quel momento è un pattern scritt
 Tre cose da sapere:
 
 * L'energia **aggiunge soltanto**: salendo, i colpi che c'erano restano dove sono e le note tengono la loro altezza.
-* Uno step che scrivi a mano in un pattern dei motori **resta**, anche quando l'energia cambia.
+* Uno step che scrivi a mano in un pattern dei motori **resta**, anche quando l'energia cambia. Fanno eccezione le
+  parti che seguono la cassa: il RUMBLE (TECHNO, HARDTECHNO) e il SUB (DRUM+BASS, DUBSTEP, JUNGLE, GRIME, BASSLINE,
+  FOOTWORK, PHONK, UK DRILL, BAILE FUNK). Quelle, quando l'energia cambia, vengono rifatte tutte intorno alla cassa, e
+  lo step scritto a mano si perde. Se ci tieni, incolla il pattern su se stesso (non è più dei motori) o scrivilo
+  dopo aver scelto l'energia.
 * Se incolli, raddoppi o svuoti un pattern, non è più dei motori: l'energia non lo tocca più. BEAT ne fa uno nuovo.
 
 ## Liberi dal genere (FREE)

@@ -107,11 +107,14 @@ class Port:
         self.link, self.label = link, label
         self.events = []                                                           # (t, bytes)
         self.lock = threading.Lock()
+        self.tally = None                    # 0.23.1: counts everything that comes in, if one is given (.add(bytes))
         link.on_message = self._rx
 
     def _rx(self, data, t):
         with self.lock:
             self.events.append((t, data))
+            if self.tally is not None:
+                self.tally.add(data)
 
     def take(self):
         with self.lock:

@@ -70,6 +70,13 @@ loro comandi come se arrivassero dal Pi), e dopo ogni gesto l'FM-1 manda tutto i
    ```
    scrive `build/explore/RAPPORTO-HW.md`. Mandami quello, o la raccolta.
 
+**I conti (0.23.1).** Con SAGGA SEQ 0.23.1 sull'FM-1, ogni sessione ha anche i suoi conti: l'FM-1 conta quello che
+manda sull'USB, porta per porta e tipo per tipo (tick, note, note-off, CC, il resto, i byte), il PC glielo chiede prima
+della sessione e dopo (quando l'FM-1 è fermo e zitto: il comando QUIET del test) e lo confronta con quello che ha
+sentito. Se manca qualcosa la riga della sessione dice `CONTI:`, quanti messaggi, di che tipo, e se l'FM-1 li aveva
+messi tutti nei suoi pacchetti USB (allora si sono persi dopo: il cavo o il PC) o no (allora dentro l'FM-1). Sul Pi
+(il banco) c'è in più il conto del driver USB, che separa il cavo dal computer.
+
 **Sicuro.** Durante il test l'FM-1 non legge e non scrive nessuno slot e nessuna impostazione: il blocco è nel punto più
 basso, dove la flash viene scritta (`fl_app_lock`), e in più il salvataggio è spento (`PC TEST: SLOTS OFF`). Il
 progetto che avevi in memoria resta sul PC (`backup-<data>.sgq`) e torna alla fine. Una mano su qualunque tasto o

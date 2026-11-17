@@ -1371,7 +1371,12 @@ def main(argv):
                 print("sagga banco, le pagine perse: %s" % ("trovate" if rc2 else "NON TROVATE"))
                 rc3 = BC.prova(1, ln, a.seme + 1, os.path.join(a.uscita, "RAPPORTO-BANCO-SORDO.md"), lose=True)
                 print("sagga banco, quello che l'FM-1 ha sentito perso per strada: %s" % ("trovato" if rc3 else "NON TROVATO"))
-                return rc or (0 if rc2 and rc3 else 1)
+                tempo = BC.prova_tempo(a.seme)             # 0.23.1: the ms of what was heard, what was lost, the end
+                for what, ok in tempo:
+                    if not ok:
+                        print("  FAIL: " + what)
+                print("sagga banco, il tempo e i persi (0.23.1): %d prove, %s" % (len(tempo), "a posto" if all(ok for _, ok in tempo) else "NON A POSTO"))
+                return rc or (0 if rc2 and rc3 and all(ok for _, ok in tempo) else 1)
             return BC.confronta(a.banco, os.path.join(a.uscita, "RAPPORTO-BANCO.md"))
         finally:
             try:

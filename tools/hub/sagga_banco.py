@@ -536,9 +536,10 @@ def take_tagged(hub):
     return out
 
 
-def run_session(hub, sess, pages, grid, say, clock_box):
+def run_session(hub, sess, pages, grid, say, clock_box, conti=None):
     """one session: the panel and the probes through the FM-1's test, the pages through the hub, the grid through the
-    bridge -> its record (the Windows runner's, plus reali, luci, ponte)"""
+    bridge -> its record (the Windows runner's, plus reali, luci, ponte). conti (0.23.1, an FM-1 that counts what it
+    sends): {"alsa": a function that reads the Pi's driver counts, or None} - the session's account goes in conti"""
     events = [tuple(e) for e in sess["eventi"]]
     reali = sorted((list(r) for r in sess.get("reali", [])), key=lambda r: r[1])
     probes_at = [i for i, e in enumerate(events) if e[1] == T.PROBE]
@@ -546,6 +547,7 @@ def run_session(hub, sess, pages, grid, say, clock_box):
     rec = {"go_ms": None, "presi": {}, "sonde": {}, "midi": [], "done": None, "abort": None, "errore": None,
            "rimandati": 0, "di_nuovo": 0, "luci": {}, "feedback": {}}
     hub.take()
+    mark = X.counts_begin(hub, conti.get("alsa")) if conti is not None else None
     hub.send(T.go(listen=True))                         # (0.20.3: the FM-1 hears its ports too, and says where)
     go = hub.wait("go", 2.0)
     if go is None:
@@ -661,6 +663,8 @@ def run_session(hub, sess, pages, grid, say, clock_box):
         time.sleep(0.002)
     rec.pop("_taken_asked", None)
     pages.idle()
+    if mark and not rec["errore"] and rec["abort"] is None:
+        rec["conti"] = X.counts_end(hub, mark, conti.get("alsa"))
     rec["sonde"] = {str(k): v for k, v in pr.done.items()}
     rec["sentiti"] = heard.rows()
     rec["reali_fatti"] = pages.take() + [[t, "grid", m] for t, m in grid.sent]
@@ -978,8 +982,12 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
             pages = Pages(api, clock, lambda m, h=hub: h.ctl.send(bytes(m)))
             insts = pages.find()
             grid = Grid(lambda m, h=hub: h.ctl.send(m), clock)
-            t0 = time.perf_counter()
-            rec = run_session(hub, sess, pages, grid, say, clock_box)
+            t0, t_wall = time.perf_counter(), time.time()
+            conti = None
+            if X.vkey(hello.get("version")) >= (0, 23, 1):   # (0.23.1: the FM-1 counts what it sends)
+                conti = {"alsa": lambda: K.alsa_midi_counts(K.fm1_usb_path(sysfs), sysfs)}
+            rec = run_session(hub, sess, pages, grid, say, clock_box, conti)
+            rec["kernel"] = kernel_lines(system, t_wall, 12)  # (0.23.1: what the kernel said of the USB during the session)
             pages.stop()
             if not a.non_staccare:                      # (RaspiMIDIHub's own rescan may have put some back meanwhile)
                 try:
@@ -1018,6 +1026,14 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
                 probs.append("PONTE: %d pad tradotti male dal bridge" % len(grid.wrong))
             if pages.errors:
                 probs.append("PAGINE: %s" % pages.errors[0])
+            verdict = X.counts_verdict(rec.get("conti"))    # (0.23.1: what the FM-1 sent against what the Pi heard)
+            if X.counts_missing(rec.get("conti")):
+                probs.append("CONTI: " + verdict[0])
+            for ln in verdict:
+                X.note("conti %s: %s" % (sess["nome"], ln))
+            if rec.get("kernel"):
+                for ln in rec["kernel"]:
+                    X.note("kernel %s: %s" % (sess["nome"], ln))
             via = {}
             for r in rec["reali_fatti"]:
                 via[r[1]] = via.get(r[1], 0) + 1

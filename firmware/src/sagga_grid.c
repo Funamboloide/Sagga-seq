@@ -75,7 +75,11 @@ static int32_t gr_spread_pad(int32_t lo, int32_t hi, int32_t v, uint32_t n)   /*
     return ((v - lo) * (int32_t)(n - 1u) + (hi - lo) / 2) / (hi - lo);
 }
 static const uint8_t GR_MUT[16]   = {0, 2, 5, 10, 15, 20, 30, 40, 50, 60, 70, 80, 90, 95, 98, 100};  /* TURING mutation */
-static const uint8_t GR_RULE[16]  = {30, 45, 54, 60, 73, 90, 105, 110, 122, 126, 150, 18, 22, 57, 62, 184};   /* CELL rules */
+/* CELL rules, 0.23.1 from the calm to the wild: 204 the row stays as it is (a tap while one plays holds it), 170 / 240
+ * it slides a step earlier / later, 184 it slides and the hits in a row open up, 51 hits and rests swap, 90 150 105 60
+ * loops of a few rows through the written rhythm, 54 thin and thick in turn, 18 22 126 122 110 longer stories, 30 no
+ * loop in sight. (0.8-0.23: 30 45 54 60 73 90 105 110 122 126 150 18 22 57 62 184, the famous ones in no order.) */
+static const uint8_t GR_RULE[16]  = {204, 170, 240, 184, 51, 90, 150, 105, 60, 54, 18, 22, 126, 122, 110, 30};
 static const uint8_t GR_CELLS[16] = {4, 6, 8, 10, 12, 14, 16, 20, 24, 28, 32, 40, 48, 56, 60, 64};
 static const uint8_t GR_DENSA[16] = {0, 15, 30, 45, 60, 75, 90, 100, 110, 120, 135, 150, 165, 180, 190, 200};   /* DENSITY */
 
@@ -720,7 +724,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         else if (al->algo == SQ_ALGO_CELL) al->a = GR_RULE[x];
         else if (al->algo == SQ_ALGO_ACCENT) { if (x < 5u) al->a = x; }
         else if (al->algo == SQ_ALGO_DENSITY) al->a = GR_DENSA[x];
-        algo_status(t);
+        if (al->algo == SQ_ALGO_CELL) cell_hint(t); else algo_status(t);   /* 0.23.1: a CELL says what the rule makes of the rhythm */
         break;
     }
     case 5: {
@@ -729,7 +733,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
         else if (al->algo == SQ_ALGO_CELL) al->b = GR_CELLS[x];
         else if (al->algo == SQ_ALGO_ACCENT) al->b = (uint8_t)(x * 4u + 3u);
         else if (al->algo == SQ_ALGO_DENSITY) al->b = (uint8_t)(10u + x * 6u);
-        algo_status(t);
+        if (al->algo == SQ_ALGO_CELL) cell_hint(t); else algo_status(t);
         break;
     }
     case 6: {

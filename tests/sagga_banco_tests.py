@@ -102,6 +102,13 @@ class BancoFM1(HX.FakeFM1):
         super().reboot(test)
 
 
+class CountFM1(HX.CountMixin, BancoFM1):
+    """the fake FM-1, 0.23.1: it counts what it sends by port and kind and says it (DIAG); QUIET stops it for good"""
+    def __init__(self, eat=None, **kw):
+        super().__init__(**kw)
+        self.count_init(eat)
+
+
 FM1, SYNTH, LP = 24, 28, 32
 PAGE_CLIENT = {"sagga_remote": 130, "sagga_mutes": 131, "sagga_motori": 132, "sagga_break": 133, "sagga_mod": 134, "sagga_live": 135}
 
@@ -486,6 +493,42 @@ def t_deaf_reboot():
     check("kernel: [ 812.1] usb 1-1.2: USB disconnect" in log and "something else" not in log, "the kernel's USB lines in the log, only those")
 
 
+def t_conti():
+    group("0.23.1: the session's account - what the FM-1 says it sent against what the Pi heard: equal, nothing said; two note-offs lost on the way: said, and where")
+    dev = CountFM1()
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), FakeSystem(kernel="[ 55.0] usb 1-1.2: reset full-speed USB device number 9\n[ 55.1] systemd[1]: x\n"))
+    c = [x["fm1"].get("conti") for x in (data or {}).get("sessioni", [])]
+    check(rc == 0 and len(c) == 2 and all(c) and dev.quiets == 2, "two sessions, each with its account, QUIET asked twice (%s %s)\n%s" % (rc, dev.quiets, log[-600:]))
+    if len(c) == 2 and all(c):
+        check(all(x["fermo"] == [True, True] and x["quiet"] == 1 for x in c), "the ports stood still at both ends (%s)" % [x["fermo"] for x in c])
+        check(all(x["fm1"] == x["pi"] and x["fm1"]["p1"]["on"] > 0 and x["fm1"]["p1"]["off"] > 0 and x["fm1"]["p2"]["bytes"] > 1000 for x in c),
+              "sent and heard are the same numbers, port by port and kind by kind: the notes, the lights, the bytes of the SysEx (%s)" % [(x["fm1"], x["pi"]) for x in c if x["fm1"] != x["pi"]][:1])
+        check(all(x["usb"]["tx_ev"] == sum(x["fm1"][p][k] for p in ("p1", "p2") for k in T.OUT_KINDS[:5]) for x in c) and all(x["alsa"] is None for x in c),
+              "the ring's account goes with them; no driver counts on this computer (%s)" % (c[0]["usb"],))
+        check("CONTI" not in log and all(R.X.counts_verdict(x) == [] for x in c), "nothing to say in the log")
+    k = [x["fm1"].get("kernel") for x in (data or {}).get("sessioni", [])]
+    check(k and k[0] == ["[ 55.0] usb 1-1.2: reset full-speed USB device number 9"], "the kernel's USB lines of each session kept with it (%s)" % k[:1])
+    # two note-offs of port 1 counted by the FM-1 and never arrived
+    dev = CountFM1(eat={(0, "off"): 2})
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), FakeSystem())
+    c = [x["fm1"].get("conti") for x in (data or {}).get("sessioni", [])]
+    lost = [x["fm1"]["p1"]["off"] - x["pi"]["p1"]["off"] for x in c if x]
+    check(rc == 0 and sum(lost) == 2 and lost[0] in (1, 2), "the account shows them: %s note-offs of port 1 sent and not heard" % lost)
+    v = R.X.counts_verdict(c[0]) if c and c[0] else []
+    check(v and "porta 1: l'FM-1 ha mandato %d note-off che il programma non ha sentito" % lost[0] in v[0] and "persi dopo l'FM-1" in v[-1],
+          "the verdict: which, how many, and that the FM-1 had put them in its USB packets (%s)" % v)
+    check("CONTI: porta 1: l'FM-1 ha mandato" in log and "b001" in log, "said in the log, on the session's line (%s)" % [ln for ln in log.splitlines() if "CONTI" in ln][:1])
+    # an FM-1 before 0.23.1: no account, no QUIET sent, everything else as before
+    dev = BancoFM1()
+    dev.version = "0.23"
+    seen = []
+    orig = dev.rx
+    dev.rx = lambda data: (seen.append(list(data)[5]) if list(data)[:5] == T.HEAD + [T.SX_TST] else None, orig(data))[1]
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), FakeSystem())
+    check(rc == 0 and data and all("conti" not in x["fm1"] for x in data["sessioni"]) and T.QUIET not in seen and "CONTI" not in log,
+          "an FM-1 0.23: no account asked (%s)" % sorted(set(seen)))
+
+
 def t_lost_fm1():
     group("0.20.9: the FM-1 does not come back: the project of before the prova into the hub's library, what to do said")
     dev = BancoFM1()
@@ -506,7 +549,7 @@ def t_lost_fm1():
 
 
 def main():
-    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes, t_lost_cells, t_deaf_reboot, t_lost_fm1):
+    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes, t_lost_cells, t_deaf_reboot, t_conti, t_lost_fm1):
         try:
             t()
         except Exception as e:

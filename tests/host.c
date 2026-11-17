@@ -42,6 +42,7 @@ static uint32_t host_tx_room = 64u;                          /* free slots of th
  * its room (midi_tx_room: 64 less what waits, as on the FM-1), and what does not fit is DROPPED and said - the FM-1
  * only counts it (usb.tx_drop, DROPPED on the USB page). Without this no test could see a note lost in a burst */
 static uint32_t host_ring_cap, host_ring_used, host_ring_max, host_ring_drops;
+static uint32_t host_tx_ev;                                  /* 0.23.1 (DIAG): events that left for the host */
 static uint32_t midi_tx_room(void)
 {
     if (!host_ring_cap) return host_tx_room;
@@ -229,6 +230,7 @@ static void midi_send_c(uint32_t cable, uint32_t st, uint32_t d1, uint32_t d2)
 {
     sq_midi_out_n++;
     if (cable >= host_usb_ports) cable = 0u;
+    sq_out_count(cable, st, d2);
     if (host_ring_cap) {
         if (host_ring_used >= host_ring_cap) {
             host_ring_drops++;
@@ -236,7 +238,7 @@ static void midi_send_c(uint32_t cable, uint32_t st, uint32_t d1, uint32_t d2)
             return;
         }
         if (++host_ring_used > host_ring_max) host_ring_max = host_ring_used;
-    }
+    } else host_tx_ev++;
     printf("%6u ms  MIDI out %02X %u %u%s\n", fm1_ms, st, d1, d2, cable ? " port 2" : "");
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { midi_send_c(0u, st, d1, d2); }
@@ -258,6 +260,12 @@ static void usb_diag(uint32_t d[USB_DIAG_N])         /* (0.20.9: the simulator's
 {
     memset(d, 0, USB_DIAG_N * sizeof d[0]);
     d[0] = 1u; d[1] = 1u;
+    d[12] = host_ring_drops;                            /* (0.23.1: the ring's drops, as the FM-1 counts them) */
+}
+#define USB_DIAG2_N 4u
+static void usb_diag2(uint32_t d[USB_DIAG2_N])       /* 0.23.1: the ring's account (none unconfigured, no bus reset here) */
+{
+    d[0] = host_tx_ev; d[1] = 0u; d[2] = 0u; d[3] = host_ring_cap ? host_ring_used : 0u;
 }
 
 static void app_audio(int32_t *out, uint32_t n);
@@ -281,6 +289,7 @@ static int sysex_send(const uint8_t *p, uint32_t n)
     printf("%6u ms  SYSEX out", fm1_ms);
     for (i = 0; i < n; i++) printf(" %02X", p[i]);
     printf("%s\n", host_usb_ports > 1u ? " port 2" : "");
+    sq_out_cnt[host_usb_ports > 1u ? 1u : 0u][5] += n;       /* 0.23.1 (DIAG) */
     return 0;
 }
 static int sysex_try_send(const uint8_t *p, uint32_t n) { return host_sx_dead ? -1 : sysex_send(p, n); }   /* (0.9: never waits) */
@@ -440,6 +449,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
     else if (dt > host_max_dt) host_max_dt = dt;
     host_erase_pass = 0u;
     fm1_ms += dt;
+    host_tx_ev += host_ring_used < 32u * dt ? host_ring_used : 32u * dt;
     host_ring_used -= host_ring_used < 32u * dt ? host_ring_used : 32u * dt;   /* (the USB poll, while the loop was busy) */
     while (step < script_n && script[step].t <= fm1_ms) {
         const host_ev_t *e = &script[step];

@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.23"
+#define SQ_VERSION "0.23.1"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
 #include "platform.c"
 #include "sagga_seq_core.c"
@@ -4169,7 +4169,12 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
         if (seq_page == 0u) {                                             /* EUCLID (live, this track): pulses, rotation, family; HEAT */
             if (d1) { cfg->euc_pulses = (uint8_t)clamp_i32((int32_t)cfg->euc_pulses + d1, 1, cfg->length - cfg->start); euclid_touch(t); }
             if (d2) { cfg->euc_rot = (uint8_t)clamp_i32((int32_t)cfg->euc_rot + d2, 0, cfg->length - cfg->start - 1); euclid_touch(t); }
-            if (d3) { cfg->euc_fam = change_u8(cfg->euc_fam, d3, 0u, SQ_RF_COUNT - 1u); euclid_touch(t); status_msg(sq_rhythm_name(cfg->euc_fam)); }
+            if (d3) {                                             /* 0.23.1: the family says what its knobs do */
+                static const char *const FAM[SQ_RF_COUNT] = {"EUCLID: K1 HITS SPREAD EVENLY, K2 TURNS THEM", "TRESILLO: K1 HITS IN 3-3-2, K2 TURNS THEM",
+                                                             "NUMERIC: K1 PICKS 1 OF 16 RHYTHMS, K2 TURNS IT"};
+                cfg->euc_fam = change_u8(cfg->euc_fam, d3, 0u, SQ_RF_COUNT - 1u); euclid_touch(t);
+                status_msg(FAM[cfg->euc_fam < SQ_RF_COUNT ? cfg->euc_fam : 0u]);
+            }
             if (d4) g->heat = (uint8_t)kstep(g->heat, d4, 5 * f4, 1, 100);
         } else if (seq_page == 1u) {                                      /* the ALGORITHMS of this track: 0.11 four slots, SEL + K1 picks one */
             if (d1 && (held & (1u << BTN_SEL))) algo_slot_select(t, change_u8(algo_cur[t], d1, 0u, SQ_ALGO_SLOTS - 1u));

@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.23
+# SAGGA SEQ 0.23.1
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,11 +8,70 @@ steps), the **THEORY engines** that make a band from a seed in each of them (0.2
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.23` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.23.1` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.22.
+
+## What is new in 0.23.1
+
+Two things that were there and could not be used, put right; and the PC test counts what the FM-1 sends.
+
+* **NUMERIC is sixteen rhythms.** The third rhythm family of EUCLID LIVE (SEQ 1 K3) laid the binary digits of the n-th
+  prime number over the steps: most values of K1 gave nearly every step, none a rhythm one would write (a misreading
+  of the Numeric Repetitor, whose "prime rhythms" are rhythms chosen by hand). Now **K1 picks one of sixteen base
+  rhythms** of 16 steps, from the straight to the syncopated, and **K2 turns it** a step at a time, as in the other
+  families. Each has a hit on the first step, 4 to 7 hits, never two in a row; none is another one turned. Over 32 or
+  64 steps the sixteen come round again; past 16, K1 comes round too. The screen says `NUMERIC READY 7 OF 16`, the
+  message gives the rhythm's shape as the steps from each hit to the next: `NUMERIC LIVE T1: 7 = 3-3-4-2-4 ROT 2`.
+  Turning K3 says what K1 and K2 do in the family chosen. **A project that plays a NUMERIC rhythm sounds different
+  from 0.23**: choose the rhythm again.
+
+  | K1 | the rhythm | its shape | |
+  |---|---|---|---|
+  | 1 | `x...x...x...x...` | 4-4-4-4 | four on the floor |
+  | 2 | `x...x...x.....x.` | 4-4-6-2 | the last beat late |
+  | 3 | `x..x....x...x...` | 3-5-4-4 | |
+  | 4 | `x..x....x..x....` | 3-5-3-5 | |
+  | 5 | `x...x...x...x.x.` | 4-4-4-2-2 | four and a pickup |
+  | 6 | `x..x..x.x...x...` | 3-3-2-4-4 | a tresillo, then two beats |
+  | 7 | `x..x..x...x.x...` | 3-3-4-2-4 | the son clave |
+  | 8 | `x..x...x..x.x...` | 3-4-3-2-4 | the rumba clave |
+  | 9 | `x..x..x...x..x..` | 3-3-4-3-3 | the bossa nova |
+  | 10 | `x.x.x...x.x.x...` | 2-2-4-2-2-4 | |
+  | 11 | `x..x..x.x...x.x.` | 3-3-2-4-2-2 | a tresillo, a beat and a pickup |
+  | 12 | `x..x..x.x..x..x.` | 3-3-2-3-3-2 | the tresillo, twice |
+  | 13 | `x..x..x..x..x.x.` | 3-3-3-3-2-2 | |
+  | 14 | `x.x.x.x.x.x.x...` | 2-2-2-2-2-2-4 | |
+  | 15 | `x.x.x.x.x.x..x..` | 2-2-2-2-2-3-3 | |
+  | 16 | `x..x.x.x..x.x.x.` | 3-2-2-3-2-2-2 | |
+
+* **CELL comes back to what you wrote.** CELL (SEQ 2) turns the track's rhythm into a new row every bar by a fixed
+  rule. When a row came out empty - it does with more than a hundred of the 256 rules - it started again from a single
+  hit in the middle of the bar, and the rhythm you wrote never returned. Now **an empty row is the written rhythm
+  again**: many rules become a phrase of a few bars that always comes home (rule 90 on 16 cells: eight rows, then
+  yours). Nothing written: the single hit, as before.
+* **The screen says what a rule does.** Turning RULE or CELLS (K2, K3; the grid's pads; the tablet's A and B) says
+  what the rule makes of this track's rhythm from here on - from the row that plays, or from the written rhythm while
+  it is READY: `T1 CELL RULE 204: THE RHYTHM STAYS AS IT IS`, `... SLIDES 1 STEP LATER EVERY ROW`,
+  `... A LOOP OF 8 ROWS`, `... AFTER 4 ROWS A LOOP OF 4`, `... AFTER 1 ROW EVERY STEP PLAYS`,
+  `... KEEPS CHANGING FOR A LONG TIME`. The 256 numbers have no names; the screen reads them for you.
+* **The grid's sixteen rule pads go from the calm to the wild** (TRACK 3, row 5): 204 the row stays as it is (a tap
+  while a CELL plays holds the row of that bar), 170 and 240 it slides a step earlier / later, 184 it slides and the
+  hits in a row open up, 51 hits and rests swap, 90 150 105 60 loops of a few rows through the written rhythm, 54 thin
+  and thick in turn, 18 22 126 122 110 longer stories, 30 no loop in sight. (They were 30 45 54 60 73 90 105 110 122
+  126 150 18 22 57 62 184, in no order.) From the tablet the A knob reaches one rule in two (128 places for 256
+  rules): 170, 240, 184, 204, 51 and 150 are the panel's and the grid's; 171 and 241 slide as 170 and 240 do.
+* **The PC test counts.** The FM-1 counts what its program hands to the USB, by port and kind (clock ticks, note-ons,
+  note-offs, control changes, the rest, the bytes), and the output ring keeps its own account; the test's DIAG says
+  them, a new **QUIET** stops the FM-1 and leaves it silent. The Pi's banco asks before each session and after it and
+  compares with what it heard, and with what the Pi's USB driver received: when a message the FM-1 sent is not heard,
+  the log says so and **where it was lost** (inside the FM-1, on the way, or in the Pi). The 0.23 banco had six such
+  messages in 28 sessions and could not tell.
+* **Corrected in the sheets**: "a step written by hand in an engine's pattern stays when the energy changes" is true
+  of every part but the ones that follow the kick - RUMBLE in TECHNO and HARDTECHNO, SUB in DRUM+BASS, DUBSTEP,
+  JUNGLE, GRIME, BASSLINE, FOOTWORK, PHONK, UK DRILL and BAILE FUNK: those are made again around the kicks, whole.
 
 ## What is new in 0.23
 
@@ -38,7 +97,8 @@ like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted 
   another part at once), K4 its VARIATION.
 * **The ENERGY is the engines' own.** The machine's ENERGY (GLO 3 K1, the grid, RISER, DROP, the remote) fills and
   empties what the engines made: a service makes one pattern a pass again at the new energy, the kicks first, and
-  writes only the steps that differ - a step written by hand stays. A higher energy only ADDS: the hits of a lower one
+  writes only the steps that differ - a step written by hand stays (not in a part that follows the kick, a RUMBLE or
+  a SUB: that one is made again around the kicks, whole). A higher energy only ADDS: the hits of a lower one
   are all there, and a note that stays keeps its pitch. The journey's own thinning leaves these patterns alone.
 * **The rules.** TECHNO, HOUSE, DRUM+BASS, DUBSTEP and FREE are written by hand (`sagga_theory.c`). The other 21 genres
   are **counted from the library itself** (`tools/theory/gen_rules.py` -> `sagga_theory_data.h`, the way of GESMI): the
@@ -125,7 +185,7 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC | heat (COOK, the dice) |
+| 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**; **0.23.1, NUMERIC: one of sixteen rhythms**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC (turned: the screen says what K1 and K2 do in it) | heat (COOK, the dice) |
 | 2 ALGORITHM | OFF TURING CELL ACCENT DENSITY (the slot shown; **SEL + K1: the slot 1-4**; **0.16: READY, SEQ + white 6 starts / stops it**) | A (of the READY one, else the one playing) | B | C |
 | 3 EVOLVE | targets RHYTHM .. ALL | amount | every 1 2 4 8 16 bars | scope |
 | 4 EXPO | HITS 2-64 (SETTLE: RATE a beat) | CURVE -8 .. +8 (SETTLE: DEPTH) | SPAN STEP, BEAT, 2 BEATS, BAR, 2 BARS, 4 BARS | SHAPE OFF, RAMP, BOUNCE, SETTLE (**0.16: the one that starts it**; K1-K3 set it up while OFF) |
@@ -139,15 +199,29 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 | algorithm | A | B | C |
 |---|---|---|---|
 | TURING | mutation 0-100 % (0: a locked loop) | length 2-16 steps | moves the RHYTHM, the NOTES (0-7 steps up the key), or BOTH |
-| CELL | rule 0-255 (90, 30, 110 ...) | cells 4-64 (the row repeats every so many steps) | a new generation every 1, 2, 4 bars, or every loop |
+| CELL | rule 0-255 (**0.23.1**: turned, the screen says what it makes of the track's rhythm; the ones to start from are below) | cells 4-64 (the row repeats every so many steps) | a new generation every 1, 2, 4 bars, or every loop |
 | ACCENT | BEAT, OFFBEAT, POLY3, SYNC 3+3+2, RANDOM | amount 0-63 | offset 0-15 steps |
 | DENSITY | 0-200 % (100: as written; under: fewer, the beat last; over: ghost notes added) | the ghosts' velocity 10-100 % | |
 
 Turning EUCLID's knobs while EUCLID LIVE is off sets it up (0.16: READY; until 0.15 it switched it on); SEQ + white 6
 switches it on / off (on the scope). On SEQ 2 K1 makes an algorithm READY, K2-K4 set it, SEQ + white 6 starts it with
 those values (and stops it). A new algorithm starts from the written rhythm; its knobs never restart it. The families: EUCLID spreads the pulses as evenly
-as they go (E(5,16) = x..x..x..x..x...); TRESILLO fills 3-3-2 cells, half a bar at a time; NUMERIC writes the binary
-digits of the n-th prime number (n = the pulses): a rhythm that is neither even nor random.
+as they go (E(5,16) = x..x..x..x..x...); TRESILLO fills 3-3-2 cells, half a bar at a time; NUMERIC (0.23.1) is sixteen
+base rhythms of 16 steps: K1 picks one (1 four on the floor ... 7 the son clave, 8 the rumba, 9 the bossa ... 12 the
+tresillo twice ... 16 the busiest; the table is in "What is new in 0.23.1"), K2 turns it. NUMERIC is made for
+tracks of 16 steps (32 and 64: the rhythm repeats); a shorter track plays the start of the rhythm, and K1 reaches as many
+rhythms as the track has steps.
+
+**CELL** is a row of cells on a ring, one a step: a cell of the next row is on or off by what itself and its two
+neighbours are now, and the RULE (0-255) is the table of the eight cases. Its first row is the rhythm written on the
+track (nothing written: one hit in the middle); the same rhythm and the same rule always tell the same story - there
+is no chance in it. 0.23.1: a row that comes out empty is the written rhythm again. Rules to start from, on 16 cells:
+**204** the row stays as it is; **170** it slides a step earlier every row, **240** a step later; **184** and **226**
+slide too, and hits in a row open up; **51** swaps hits and rests; **90** and **150** open the rhythm up and come back
+to it in at most 8 rows; **60** and **102** longer phrases (up to 16 rows); **54** thin and thick in turn; **18**,
+**22** sparse stories; **110**, **30** long ones, 30 with no loop in sight. Most of the other rules freeze, fill
+every step or do nothing: the screen says which as you turn. With fewer CELLS than steps the row repeats inside the
+loop (8 cells: half a bar, twice).
 
 WHEN and EVERY apply to the tools that change a pattern (CLEAR, REVERSE, SHIFT, RANDOM, COOK, BEAT, PROG, PASTE,
 DOUBLE, INVERT, HUMANIZE; not UNDO, WRITE LIVE, EUCLID LIVE, COPY). With WHEN on BAR a tool pressed while playing waits
@@ -543,8 +617,8 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **69** | `G M i*2 n mood (semi shape dur push)*n` | (from the Pi) it: semi 0-11 the root above the key's, shape 6-36 a chord shape (5 + SQ_CH_*), dur 0-64 16ths, push 0-4; n 0: none |
 | **6A** | `G mood n (semi shape dur push)*n` | (to the Pi) keep this one (SEQ + SAVE on SEQ 4 / SEQ 8) |
 | **6B** | `G mood code i*2` | (from the Pi) kept as the i-th of its mood (0), could not write it (1), not a progression (2) |
-| **70** | `sub ...` | (from the PC, 0.11: the PC test, `firmware/src/sagga_test.c`) 0 HELLO; 1 OPEN (the screen asks, SEL on the FM-1 = yes); 2 BOOT (a reboot into the test: no project, no slot read or written, a hand on any key stops it); 3 GO; 4 EV `idx*2 n (t*4 kind a*2 b*2 gc*4)*n` (presses at t ms after GO: 1 press, 2 release, 3 knob `b` = detents + 8192, 4 MASTER, 5 keys `a \| b<<14`, 6 probe, 7 end); 5 CLOSE (a normal reboot); 6 AGAIN `idx*2`; 7 TAKEN `idx*2 n`; 8 DIAG (0.20.9) |
-| **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT; 8 DIAG (0.20.9) 19 numbers of 4 bytes, since the boot: the HELLOs and the test's frames that came in, the answers the USB had no room for, the ms of the main loop's first pass, the longest it stood still (ms); the USB's bus resets, SET_CONFIGURATIONs, the ms of the last, suspends, starts tried again, OUT packets taken, held back, malformed events, SysEx packets lost to the other port's SysEx, SysEx frames lost because the one before still waited for the main loop, IN packets sent, the most polls (2 kHz) one waited for the host, MIDI events dropped with the ring full; the ms now |
+| **70** | `sub ...` | (from the PC, 0.11: the PC test, `firmware/src/sagga_test.c`) 0 HELLO; 1 OPEN (the screen asks, SEL on the FM-1 = yes); 2 BOOT (a reboot into the test: no project, no slot read or written, a hand on any key stops it); 3 GO; 4 EV `idx*2 n (t*4 kind a*2 b*2 gc*4)*n` (presses at t ms after GO: 1 press, 2 release, 3 knob `b` = detents + 8192, 4 MASTER, 5 keys `a \| b<<14`, 6 probe, 7 end); 5 CLOSE (a normal reboot); 6 AGAIN `idx*2`; 7 TAKEN `idx*2 n`; 8 DIAG (0.20.9); 9 QUIET (0.23.1: the session is over - the FM-1 stops, every note off, takes no more events and sends nothing more, so that DIAG's counts stand still) |
+| **71** | `sub ...` | (to the PC) the answers: 0 `state booted playing boots*2 vec*5 pc*5 ms*4 usb_ports profile version`; 1 `state` (1 asking, 2 yes, 3 no, 4 no answer, 5 playing); 2 `ok`; 3 `ms*4`; 4 `ok next*2 free`; 5 `ok`; 6 DONE `applied*2 late*2 lag*2 lost`; 7 ABORT; 8 DIAG (0.20.9) 19 numbers of 4 bytes, since the boot: the HELLOs and the test's frames that came in, the answers the USB had no room for, the ms of the main loop's first pass, the longest it stood still (ms); the USB's bus resets, SET_CONFIGURATIONs, the ms of the last, suspends, starts tried again, OUT packets taken, held back, malformed events, SysEx packets lost to the other port's SysEx, SysEx frames lost because the one before still waited for the main loop, IN packets sent, the most polls (2 kHz) one waited for the host, MIDI events dropped with the ring full; the ms now; **0.23.1, 16 more**: what the program handed to the USB on port 1, then on port 2 (each: clock ticks, note-ons, note-offs - a note-on of velocity 0 too -, control changes, the rest, the bytes of them all and of the SysEx frames), then the output ring's account (events put into IN packets, dropped unconfigured, thrown away by a bus reset, waiting now); 9 `ok` (QUIET) |
 | **72** | `idx*2 k last text...` | (to the PC) the probe event idx asked for, in pieces of 150 characters: the explorer's `PROBE G`, `PROBE T1..16`, `PROBE H` lines |
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
 | **74** | `seq*2 n (ms*4 gc*4 st d1 d2 cable)*n` | (to the PC, 0.20.3, when GO's byte 1 bit 0 asked to hear the ports) every MIDI message that came in from the ports and was played: the ms, the clock tick before it, the status without bit 7, the cable (0 port 1, 1 port 2); seq = the number of the first in the session. DONE then also carries `heard*2 lost` |

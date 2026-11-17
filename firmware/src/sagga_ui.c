@@ -515,9 +515,14 @@ static void ui_build(void)
         const sq_gen_t *g = &project.gen;
         uint8_t nv = sq_beat_variants(beat_genre, beat_func), euc = (cfg->flags & SQ_TF_EUC) ? 1u : 0u;
         if (seq_page == 0u) {
-            p = b; p = put_u(p, cfg->euc_pulses); p = put_s(p, "/"); p = put_u(p, (uint32_t)(cfg->length - cfg->start)); finish(p);
-            ui_cell(0, euc ? "EUCLID LIVE" : "EUCLID READY", b, euc ? C_ACCENT : C_WHITE);   /* 0.16: off, the knobs set it up */
-            ui_cell(1, cfg->euc_fam == SQ_RF_NUMERIC ? "ROTATE (PRIME)" : "EUC ROTATE", f_u(cfg->euc_rot), euc ? C_WHITE : SQ_C_DIM);
+            if (cfg->euc_fam == SQ_RF_NUMERIC) {                     /* 0.23.1: K1 picks one of the sixteen base rhythms */
+                p = b; p = put_u(p, (uint32_t)sq_numeric_index(cfg->euc_pulses) + 1u); p = put_s(p, " OF 16"); finish(p);
+                ui_cell(0, euc ? "NUMERIC LIVE" : "NUMERIC READY", b, euc ? C_ACCENT : C_WHITE);
+            } else {
+                p = b; p = put_u(p, cfg->euc_pulses); p = put_s(p, "/"); p = put_u(p, (uint32_t)(cfg->length - cfg->start)); finish(p);
+                ui_cell(0, euc ? "EUCLID LIVE" : "EUCLID READY", b, euc ? C_ACCENT : C_WHITE);   /* 0.16: off, the knobs set it up */
+            }
+            ui_cell(1, cfg->euc_fam == SQ_RF_NUMERIC ? "ROTATE" : "EUC ROTATE", f_u(cfg->euc_rot), euc ? C_WHITE : SQ_C_DIM);
             ui_cell(2, "FAMILY", sq_rhythm_name(cfg->euc_fam), cfg->euc_fam ? C_ACCENT : C_WHITE);
             ui_cell(3, "HEAT", f_pct(tool_heat), C_WHITE);
         } else if (seq_page == 1u) {

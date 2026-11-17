@@ -49,11 +49,45 @@ def close(): return frame(CLOSE)
 def again(idx): return frame(6, put7(idx, 2))                     # a probe again (the FM-1 keeps the last two)
 def taken(idx, n): return frame(7, put7(idx, 2) + [min(n, 127)])  # where events idx.. were taken, again
 def diag(): return frame(DIAG)                                     # 0.20.9: the FM-1's counters since its boot
+def quiet(): return frame(QUIET)                                   # 0.23.1: the session is over: the FM-1 stops and sends no more
 
 
 DIAG = 8
+QUIET = 9
 DIAG_FIELDS = ("hellos", "frames", "unsent", "first_ms", "gap_max", "resets", "configs", "cfg_ms", "suspends", "retries",
                "rx_pkts", "held", "bad", "xport", "sx_missed", "tx_pkts", "tx_wait_max", "tx_drop", "ms")   # 4 bytes each
+# 0.23.1, after them: what the app sent on each port by kind (the bytes: of every message and of the SysEx frames), then
+# the output ring's account - events put into USB packets, dropped unconfigured, thrown away by a bus reset, waiting now
+OUT_KINDS = ("ticks", "on", "off", "cc", "other", "bytes")
+DIAG_MORE = tuple("p%d_%s" % (p, k) for p in (1, 2) for k in OUT_KINDS) + ("tx_ev", "tx_noconf", "tx_flush", "tx_ring")
+
+
+def out_kind(d):
+    """the kind of a message as the FM-1 counts what it sends (platform.c sq_out_count); None: a SysEx frame"""
+    st = d[0]
+    if st == 0xF0:
+        return None
+    if st == 0xF8:
+        return "ticks"
+    hi = st & 0xF0
+    if hi == 0x90:
+        return "on" if len(d) > 2 and d[2] else "off"
+    return "off" if hi == 0x80 else "cc" if hi == 0xB0 else "other"
+
+
+class Tally:
+    """0.23.1: what one port heard since it was opened, counted as the FM-1 counts what it sends"""
+    def __init__(self):
+        self.n = dict.fromkeys(OUT_KINDS, 0)
+
+    def add(self, d):
+        k = out_kind(d)
+        if k:
+            self.n[k] += 1
+        self.n["bytes"] += len(d)
+
+    def snapshot(self):
+        return dict(self.n)
 
 
 def ev_frame(idx, events):
@@ -98,7 +132,13 @@ def parse(msg):
         if sub == ABORT:
             return "abort", q[0] if q else 0
         if sub == DIAG and len(q) >= 4 * len(DIAG_FIELDS):
-            return "diag", {name: get7(q[4 * k:4 * k + 4]) for k, name in enumerate(DIAG_FIELDS)}
+            d = {name: get7(q[4 * k:4 * k + 4]) for k, name in enumerate(DIAG_FIELDS)}
+            base = 4 * len(DIAG_FIELDS)
+            if len(q) >= base + 4 * len(DIAG_MORE):    # (0.23.1: what it sent, by port and kind)
+                d.update({name: get7(q[base + 4 * k:base + 4 * k + 4]) for k, name in enumerate(DIAG_MORE)})
+            return "diag", d
+        if sub == QUIET and q:
+            return "quiet", q[0]
         return "?", p
     if cmd == SX_TST_PROBE and len(p) >= 4:
         return "probe", (get7(p[0:2]), p[2], p[3], bytes(p[4:]).decode("ascii", "replace"))

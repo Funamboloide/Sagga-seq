@@ -120,6 +120,53 @@ def usb_instance(usb_path, sysfs=SYSFS_USB):
     return (num, tuple(cards))
 
 
+def alsa_midi_counts(usb_path, sysfs=SYSFS_USB, proc="/proc/asound"):
+    """0.23.1: what the Pi's USB MIDI driver has received from the device, port by port - "Rx bytes" of
+    /proc/asound/cardN/midi0: every MIDI byte the driver took out of the USB packets, counted before ALSA's sequencer
+    and before any program - and the bytes it had no room for (overruns); then the events ALSA's sequencer could not
+    keep for the programs that listen (the "Alloc failures" of the input pools, all clients together).
+    -> {"rx": [port 1, port 2 ...], "over": [...], "pool": n or None}, or None when it cannot be read"""
+    inst = usb_instance(usb_path, sysfs)
+    if not inst:
+        return None
+    for card, _ in inst[1]:
+        try:
+            with open(os.path.join(proc, card, "midi0")) as f:
+                text = f.read()
+        except OSError:
+            continue
+        rx, over, cur = {}, {}, None
+        for ln in text.splitlines():
+            w = ln.split()
+            if len(w) == 2 and w[0] in ("Input", "Output") and w[1].isdigit():
+                cur = int(w[1]) if w[0] == "Input" else None
+            elif cur is not None and ":" in ln:
+                k, v = [x.strip() for x in ln.split(":", 1)]
+                if k == "Rx bytes" and v.isdigit():
+                    rx[cur] = int(v)
+                elif k == "Overruns" and v.isdigit():
+                    over[cur] = int(v)
+        if not rx:
+            continue
+        n = max(rx) + 1
+        pool = None
+        try:
+            with open(os.path.join(proc, "seq", "clients")) as f:
+                inp = False
+                for ln in f.read().splitlines():
+                    t = ln.strip()
+                    if t.endswith("pool :") or t.endswith("pool:"):
+                        inp = t.lower().startswith("input")
+                    elif t.startswith("Client ") or t.startswith("Port "):
+                        inp = False
+                    elif inp and t.startswith("Alloc failures") and t.split(":")[-1].strip().isdigit():
+                        pool = (pool or 0) + int(t.split(":")[-1].strip())
+        except OSError:
+            pool = None
+        return {"rx": [rx.get(i, 0) for i in range(n)], "over": [over.get(i, 0) for i in range(n)], "pool": pool}
+    return None
+
+
 def fm1_usb_path(sysfs=SYSFS_USB):
     """the FM-1's USB path ("1-1.2"), by its product name, or None"""
     try:

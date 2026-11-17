@@ -468,6 +468,8 @@ static uint64_t row_bits(uint32_t t, uint8_t n)     /* the written hits from the
     return b;
 }
 
+static uint8_t cell_cells(const sq_algo_t *s) { return s->b < 4u ? 4u : s->b > 64u ? 64u : s->b; }   /* a CELL's width */
+
 /* 0.11: the state of slot k is made when the slot's algorithm changes (algo_seen), from the written pattern */
 static void live_sync_slot(uint32_t t, uint8_t k)
 {
@@ -482,10 +484,17 @@ static void live_sync_slot(uint32_t t, uint8_t k)
         if (!tm_reg[t][k]) tm_reg[t][k] = sq_hash3(t + 16u * k, s->b, project.id) & ((1u << len) - 1u);
         if (!tm_reg[t][k]) tm_reg[t][k] = 1u;
     } else if (s->algo == SQ_ALGO_CELL) {
-        uint8_t cells = s->b < 4u ? 4u : s->b > 64u ? 64u : s->b;
+        uint8_t cells = cell_cells(s);
         ca_row[t][k] = row_bits(t, cells);
         if (!ca_row[t][k]) ca_row[t][k] = (uint64_t)1u << (cells / 2u);
     }
+}
+/* 0.23.1: a CELL's next row; when every cell died, the rhythm written on the track again (0.8-0.23: a single cell in
+ * the middle, and the written rhythm never came back) */
+static void cell_advance(uint32_t t, uint8_t k, const sq_algo_t *s)
+{
+    uint8_t cells = cell_cells(s);
+    ca_row[t][k] = sq_cell_step(ca_row[t][k], cells, s->a, row_bits(t, cells));
 }
 static void live_sync(uint32_t t)
 {
@@ -511,7 +520,7 @@ static uint8_t live_hit(uint32_t t, uint8_t step, uint8_t written, uint8_t *ghos
             if (s->c != SQ_TM_NOTES) { on = (uint8_t)(tm_reg[t][k] & 1u); *ghost = 0u; }
             break;
         case SQ_ALGO_CELL: {
-            uint8_t cells = s->b < 4u ? 4u : s->b;
+            uint8_t cells = cell_cells(s);
             on = (uint8_t)((ca_row[t][k] >> (rel % cells)) & 1u); *ghost = 0u;
             break;
         }
@@ -576,7 +585,7 @@ static void live_loop_done(uint32_t t)             /* the loop came round: the C
         const sq_algo_t *s = SQ_ALGO_AT((sq_track_cfg_t *)c, k);
         if (s->algo != SQ_ALGO_CELL || s->c != 3u) continue;
         live_sync_slot(t, k);
-        ca_row[t][k] = sq_cell_next(ca_row[t][k], s->b, s->a);
+        cell_advance(t, k, s);
     }
 }
 
@@ -593,7 +602,7 @@ static void live_bar(void)                         /* every bar: the CELLs that 
             live_sync_slot(t, k);
             if (++ca_bars[t][k] < EVERY[s->c]) continue;
             ca_bars[t][k] = 0u;
-            ca_row[t][k] = sq_cell_next(ca_row[t][k], s->b, s->a);
+            cell_advance(t, k, s);
             if (t == selected_track) grid_dirty = 1u;
         }
     }
@@ -622,7 +631,7 @@ static uint8_t live_preview(uint32_t t, uint8_t step)
             }
             break;
         case SQ_ALGO_CELL: {
-            uint8_t cells = s->b < 4u ? 4u : s->b;
+            uint8_t cells = cell_cells(s);
             on = (uint8_t)((ca_row[t][k] >> (rel % cells)) & 1u);
             break;
         }
@@ -680,13 +689,24 @@ static uint8_t live_active(uint32_t t)
     return (uint8_t)((c->flags & SQ_TF_EUC) || live_algos(t));
 }
 
+/* 0.23.1: what the track's EUCLID knobs say, after "<what> T<n>: ": "5/16", or in NUMERIC the rhythm K1 picked and its
+ * shape, "7 = 3-3-4-2-4" (the steps from each hit to the next); the rotation after it when `rot` */
+static char *euclid_what(char *p, uint32_t t, uint8_t rot)
+{
+    const sq_track_cfg_t *c = &project.track[t];
+    if (c->euc_fam == SQ_RF_NUMERIC) {
+        p = put_u(p, (uint32_t)sq_numeric_index(c->euc_pulses) + 1u); p = put_s(p, " = "); p = sq_numeric_gaps(c->euc_pulses, p);
+    } else { p = put_u(p, c->euc_pulses); p = put_s(p, "/"); p = put_u(p, live_span(t)); }
+    if (rot && c->euc_rot) { p = put_s(p, " ROT "); p = put_u(p, c->euc_rot); }
+    return p;
+}
 static void euclid_status(uint32_t t)
 {
     const sq_track_cfg_t *c = &project.track[t];
+    uint8_t num = (uint8_t)(c->euc_fam == SQ_RF_NUMERIC);
     char *p = msg_buf;
-    p = put_s(p, (c->flags & SQ_TF_EUC) ? "EUCLID LIVE T" : "EUCLID OFF T"); p = put_u(p, t + 1u);
-    p = put_s(p, ": "); p = put_u(p, c->euc_pulses); p = put_s(p, "/"); p = put_u(p, live_span(t));
-    if (c->euc_rot) { p = put_s(p, " ROT "); p = put_u(p, c->euc_rot); }
+    p = put_s(p, num ? "NUMERIC" : "EUCLID"); p = put_s(p, (c->flags & SQ_TF_EUC) ? " LIVE T" : " OFF T"); p = put_u(p, t + 1u);
+    p = put_s(p, ": "); p = euclid_what(p, t, 1u);
     finish(p);
     status_msg(msg_buf);
 }
@@ -698,11 +718,10 @@ static void euclid_touch(uint8_t t)
     const sq_track_cfg_t *c = &project.track[t];
     if (c->flags & SQ_TF_EUC) euclid_status(t);
     else {
+        uint8_t num = (uint8_t)(c->euc_fam == SQ_RF_NUMERIC);   /* (NUMERIC: the shape takes the room of the rotation, which the cell shows) */
         char *p = msg_buf;
-        p = put_s(p, "EUCLID READY T"); p = put_u(p, t + 1u); p = put_s(p, ": "); p = put_u(p, c->euc_pulses); p = put_s(p, "/");
-        p = put_u(p, live_span(t));
-        if (c->euc_rot) { p = put_s(p, " ROT "); p = put_u(p, c->euc_rot); }
-        p = put_s(p, " SEQ + WHITE 6 STARTS IT"); finish(p);
+        p = put_s(p, num ? "NUMERIC READY T" : "EUCLID READY T"); p = put_u(p, t + 1u); p = put_s(p, ": "); p = euclid_what(p, t, (uint8_t)!num);
+        p = put_s(p, num ? " SEQ + WHITE 6" : " SEQ + WHITE 6 STARTS IT"); finish(p);
         status_msg(msg_buf);
     }
     ui_dirty = grid_dirty = 1u;
@@ -838,6 +857,33 @@ static void algo_pad(uint8_t t, uint8_t a)
     else algo_choose(t, a);
 }
 
+/* 0.23.1: the rule or the width of the CELL shown changed: the screen says what it makes of this track's rhythm from
+ * here on - from the row that plays if it is the one playing, from the written rhythm if it is READY:
+ * "T1 CELL RULE 90: A LOOP OF 8 ROWS", "... SLIDES 1 STEP LATER EVERY ROW", "... AFTER 3 ROWS IT STAYS" */
+static void cell_hint(uint8_t t)
+{
+    const sq_algo_t *s = algo_edit(t);
+    uint8_t cells = cell_cells(s), k = algo_k(t);
+    uint64_t home = row_bits(t, cells), row = home;
+    sq_cell_story_t st;
+    char *p = msg_buf;
+    if (s->algo != SQ_ALGO_CELL) return;
+    if (s == algo_slot(t)) { live_sync_slot(t, k); row = ca_row[t][k]; }
+    p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " CELL RULE "); p = put_u(p, s->a); p = put_s(p, ": ");
+    if (!sq_cell_story(row, cells, s->a, home, &st)) p = put_s(p, "KEEPS CHANGING FOR A LONG TIME");
+    else {
+        if (st.lead) { p = put_s(p, "AFTER "); p = put_u(p, st.lead); p = put_s(p, st.lead == 1u ? " ROW " : " ROWS "); }
+        if (st.period == 1u) p = put_s(p, st.full ? "EVERY STEP PLAYS" : st.lead ? "IT STAYS" : "THE RHYTHM STAYS AS IT IS");
+        else if (st.slide) {
+            uint32_t n = (uint32_t)(st.slide < 0 ? -st.slide : st.slide);
+            p = put_s(p, "SLIDES "); p = put_u(p, n); p = put_s(p, n == 1u ? " STEP " : " STEPS "); p = put_s(p, st.slide < 0 ? "EARLIER" : "LATER");
+            if (!st.lead) p = put_s(p, " EVERY ROW");
+        } else { p = put_s(p, "A LOOP OF "); p = put_u(p, st.period); if (!st.lead) p = put_s(p, " ROWS"); }
+    }
+    finish(p);
+    status_msg(msg_buf);
+}
+
 /* SEQ page 2, K2-K4: the algorithm's A, B, C (each its range; the state stays); 0.16: of the READY one if there is one */
 static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2, int32_t f3, int32_t f4)
 {
@@ -852,6 +898,7 @@ static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2,
         if (d2) s->a = (uint8_t)kstep(s->a, d2, f2, 0, 255);
         if (d3) s->b = (uint8_t)kstep(s->b, d3, f3, 4, 64);
         if (d4) { s->c = change_u8(s->c, d4, 0u, 3u); if (s == algo_slot(t)) ca_bars[t][algo_k(t)] = 0u; }
+        if (d2 || d3) cell_hint(t);                      /* 0.23.1: what this rule makes of the rhythm */
         break;
     case SQ_ALGO_ACCENT:
         if (d2) s->a = change_u8(s->a, d2, 0u, 4u);

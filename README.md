@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.23
+# SAGGA SEQ 0.23.1
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
@@ -29,14 +29,14 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23 is `FM-1_973`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23 and 0.23.1 are `FM-1_973`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.23.md](RELEASE-NOTES-0.23.md): what changed in this version (Italian).
+* [RELEASE-NOTES-0.23.1.md](RELEASE-NOTES-0.23.1.md): what changed in this version (Italian); 0.23's, the THEORY engines: [docs/storia/RELEASE-NOTES-0.23.md](docs/storia/RELEASE-NOTES-0.23.md).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 21 genres, counted from the library (Italian).
 * [docs/SAGGA-ESPLORATORE.md](docs/SAGGA-ESPLORATORE.md): the explorer, on a computer, on the FM-1 and on the banco (Italian).
@@ -65,7 +65,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.23         # identity FM-1_973
+./build.sh --release 0.23.1       # identity FM-1_973
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with

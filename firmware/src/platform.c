@@ -36,6 +36,17 @@ typedef struct {
     uint32_t queued, wait_ms, wait_max_ms, dropped, resets, suspends, stalls, retries, rx_held, rx_bad;
 } sq_usb_stats_t;
 static uint32_t sq_midi_out_n;                  /* messages handed to midi_send since power-on */
+/* SAGGA SEQ 0.23.1: the same by port (0: port 1, 1: port 2) and kind - 0 clock ticks, 1 note-ons, 2 note-offs (a
+ * note-on of velocity 0 too), 3 control changes, 4 the rest, 5 the BYTES of them all and of the SysEx frames - for the
+ * PC test: what the FM-1 sent against what the computer's driver received and what the program heard (DIAG) */
+#define SQ_OUT_KINDS 6u
+static uint32_t sq_out_cnt[2][SQ_OUT_KINDS];
+static void sq_out_count(uint32_t port, uint32_t st, uint32_t d2)
+{
+    uint32_t hi = st & 0xF0u, *c = sq_out_cnt[port ? 1u : 0u];
+    c[st == 0xF8u ? 0u : hi == 0x90u ? ((d2 & 0x7Fu) ? 1u : 2u) : hi == 0x80u ? 2u : hi == 0xB0u ? 3u : 4u]++;
+    c[5] += st < 0xF0u ? ((st & 0xE0u) == 0xC0u ? 2u : 3u) : st == 0xF2u ? 3u : (st == 0xF1u || st == 0xF3u) ? 2u : 1u;
+}
 /* SAGGA SEQ 0.22: the USB MIDI output ring, in events (usb.c MOQ; the simulator's "ring" is this long too: tests/host.c).
  * It was 64, the input ring's size: a pass that sent more than its room lost the rest (a dice's CCs on every track) */
 #define USB_MIDI_OUT_RING 256u
@@ -130,6 +141,7 @@ static int sysex_send(const uint8_t *p, uint32_t n)   /* SAGGA SEQ 0.8: the app'
     sx_tx_force = usb_midi_ports > 1u ? 1u : 0u;
     rc = ota_wire_send(p, n);
     sx_tx_force = 0xFFu;
+    if (rc == 0) sq_out_cnt[usb_midi_ports > 1u ? 1u : 0u][5] += n;   /* 0.23.1 (DIAG) */
     return rc;
 }
 /* 0.9: the same without waiting: -1 if the SysEx ring has no room for the whole frame now (the sequencer must never
@@ -246,6 +258,7 @@ static void midi_send_c(uint32_t cable, uint32_t st, uint32_t d1, uint32_t d2)  
     if (cin == 0xFu) d1 = d2 = 0u;
     else if (cin == 2u) d2 = 0u;
     if (cable >= usb_midi_ports) cable = 0u;
+    sq_out_count(cable, st, d2);
     midi_out_event(cin | (cable & 15u) << 4 | st << 8 | (d1 & 0x7Fu) << 16 | (d2 & 0x7Fu) << 24);
 }
 static void midi_send(uint32_t st, uint32_t d1, uint32_t d2) { midi_send_c(0u, st, d1, d2); }
@@ -363,6 +376,13 @@ static void usb_diag(uint32_t d[USB_DIAG_N])
     d[0] = usb.resets; d[1] = usb.configs; d[2] = usb.cfg_ms; d[3] = usb.suspends; d[4] = usb.retries;
     d[5] = usb.rx_pkts; d[6] = usb.rx_held; d[7] = usb.rx_bad; d[8] = usb.rx_xport; d[9] = usb.sx_missed;
     d[10] = usb.tx_pkts; d[11] = usb.tx_wait_max; d[12] = usb.tx_drop;
+}
+/* 0.23.1: the output ring's own account: events put into IN packets, dropped unconfigured, thrown away by a bus reset,
+ * waiting now (what the app sent = these four and tx_drop) */
+#define USB_DIAG2_N 4u
+static void usb_diag2(uint32_t d[USB_DIAG2_N])
+{
+    d[0] = usb.tx_ev; d[1] = usb.tx_noconf; d[2] = usb.tx_flush; d[3] = mo_w - mo_r;
 }
 static void usb_reconnect(void)                     /* off now, on again in 0.4 s (platform_poll) */
 {

@@ -145,6 +145,9 @@ static struct {
     uint32_t rx_xport;           /* SysEx packets of a port dropped while the other port's SysEx was coming in */
     uint32_t sx_missed;          /* SysEx frames not taken: the one before was still waiting for the main loop */
     uint32_t tx_drop;            /* MIDI events dropped: the output ring was full (the host did not read) */
+    /* SAGGA SEQ 0.23.1 (the test's DIAG: where a message the PC did not hear was lost): events of the output ring put
+     * into IN packets; dropped because the host had not configured the device; thrown away by a bus reset */
+    uint32_t tx_ev, tx_noconf, tx_flush;
     uint32_t tx_wait, tx_wait_max;   /* polls (2 kHz) the EP1 IN packet has waited for the host, now / the most */
 } usb;
 
@@ -185,6 +188,8 @@ static void midi_out_event(uint32_t pkt)            /* from the audio ISR */
         mo_w++;
     } else if (usb.config) {
         usb.tx_drop++;
+    } else {
+        usb.tx_noconf++;
     }
 }
 
@@ -1033,6 +1038,7 @@ static void ep1_tx(void)
         n += 4u;
         RING_PUBLISH();
         mo_r++;
+        usb.tx_ev++;
     }
     if (!n)
         return;
@@ -1345,6 +1351,7 @@ static void usb_poll(void)                              /* TIMER5 ISR, 2 kHz */
         sie_wr(S_FADDR, 0);
         usb.config = 0;
         usb.suspended = 0;
+        usb.tx_flush += mo_w - mo_r;
         mo_r = mo_w;                                    /* nothing stale for the next host */
         usb.tx_wait = 0;
         usb.sx_on = 0;

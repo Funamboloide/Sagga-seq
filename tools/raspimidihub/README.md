@@ -36,7 +36,10 @@ changes them.
   and the dice load a pattern; THEORY: they MAKE it from a seed and the genre's rules; FREE: from the rules of no
   genre - the FM-1's SEQ 8 K1), NEXT SEED, SEED and VARIATION of the
   pattern the track plays (seeds 1-128 from here; channel 12 CC 56-59); MUTE 1-16. The hub's PANIC leaves it alone (its
-  switches are the FM-1's mutes).
+  switches are the FM-1's mutes). 0.23.1: A and B on a CELL say on the FM-1's screen what the rule makes of the track's
+  rhythm (`TAB T1 CELL RULE 241: SLIDES 1 STEP LATER EVERY ROW`); A's 128 places reach one of the 256 rules in two
+  (the even ones up to 126, the odd ones from 129): 170, 240, 184, 204, 51, 150 are the panel's and the grid's - 171
+  and 241 slide as 170 and 240 do; with EUCLID's family on NUMERIC, PULSES picks one of sixteen rhythms.
 
 To update from an older SAGGA: copy the folders again (the same commands as below) and restart the hub; the plugins
 keep their place in the matrix.

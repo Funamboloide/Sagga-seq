@@ -2236,12 +2236,64 @@ static void test_v010(void)
     CHECK(bits[1] && bits[4] && !bits[0]);                                    /* turned */
     sq_rhythm(SQ_RF_TRESILLO, 3u, 8u, 0u, bits);
     CHECK(bits[0] && bits[3] && bits[6] && !bits[7]);
-    sq_rhythm(SQ_RF_NUMERIC, 1u, 16u, 0u, bits);                              /* the first prime, 2 = 10b: every other step */
+    /* 0.23.1 NUMERIC: the pulses knob picks one of sixteen base rhythms (0.10-0.23: the binary of the n-th prime) */
+    sq_rhythm(SQ_RF_NUMERIC, 1u, 16u, 0u, bits);                              /* 1: four on the floor */
     for (hits = 0u, i = 0; i < 16u; i++) hits += bits[i];
-    CHECK(hits == 8u && !bits[0] && bits[1]);
-    sq_rhythm(SQ_RF_NUMERIC, 5u, 16u, 0u, bits);                              /* 11 = 1011b: 1 1 0 1 repeated */
-    CHECK(bits[0] && bits[1] && !bits[2] && bits[3] && bits[4] && bits[5] && !bits[6]);
-    for (k = 1; k <= 64u; k++) { sq_rhythm(SQ_RF_NUMERIC, k, 16u, 3u, bits); for (hits = 0u, i = 0; i < 16u; i++) hits += bits[i]; CHECK(hits >= 1u); }
+    CHECK(hits == 4u && bits[0] && bits[4] && bits[8] && bits[12]);
+    sq_rhythm(SQ_RF_NUMERIC, 7u, 16u, 0u, bits);                              /* 7: the son clave, x..x..x...x.x... */
+    for (hits = 0u, i = 0; i < 16u; i++) hits += bits[i];
+    CHECK(hits == 5u && bits[0] && bits[3] && bits[6] && bits[10] && bits[12]);
+    sq_rhythm(SQ_RF_NUMERIC, 7u, 16u, 2u, bits);                              /* turned: two steps later */
+    for (hits = 0u, i = 0; i < 16u; i++) hits += bits[i];
+    CHECK(hits == 5u && bits[2] && bits[5] && bits[8] && bits[12] && bits[14]);
+    sq_rhythm(SQ_RF_NUMERIC, 12u, 32u, 0u, bits);                             /* (12: the tresillo twice) over 32 steps the 16 come twice */
+    for (hits = 0u, i = 0; i < 16u; i++) hits += (uint8_t)(bits[i] == bits[i + 16u]);
+    CHECK(hits == 16u && bits[0] && bits[3] && bits[6] && bits[8] && bits[11] && bits[14]);
+    sq_rhythm(SQ_RF_NUMERIC, 7u, 12u, 0u, bits);                              /* a shorter loop: its first 12 steps */
+    CHECK(bits[0] && bits[3] && bits[6] && bits[10] && !bits[11]);
+    {
+        uint16_t seen[SQ_NUMERIC_RHYTHMS];
+        uint8_t n, r, len, last_hits = 0u;
+        char g[24];
+        for (k = 1; k <= SQ_NUMERIC_RHYTHMS; k++) {
+            uint16_t w = sq_numeric_word((uint8_t)k);
+            uint8_t gap = 0u, maxgap = 0u, sum = 0u, twice = 0u;
+            char *e;
+            sq_rhythm(SQ_RF_NUMERIC, (uint8_t)k, 16u, 0u, bits);
+            for (hits = 0u, i = 0; i < 16u; i++) {
+                hits += bits[i];
+                CHECK(bits[i] == ((w >> (15u - i)) & 1u));                    /* step 1 = the top bit of the word */
+                if (bits[i] && bits[(i + 1u) % 16u]) twice = 1u;
+            }
+            for (i = 1; i <= 16u; i++) { gap++; if (bits[i % 16u]) { if (gap > maxgap) maxgap = gap; gap = 0u; } }
+            CHECK(bits[0] && hits >= 4u && hits <= 7u && !twice && maxgap <= 6u);   /* a rhythm one would write */
+            CHECK(hits >= last_hits);                                         /* the knob goes from the sparse to the busy */
+            last_hits = hits;
+            CHECK(sq_numeric_index((uint8_t)k) == k - 1u);
+            for (n = 0u; n + 1u < k; n++)                                     /* none is another one, or another one turned */
+                for (r = 0u; r < 16u; r++) CHECK((uint16_t)((seen[n] << r) | (seen[n] >> ((16u - r) & 15u))) != w);
+            seen[k - 1u] = w;
+            e = sq_numeric_gaps((uint8_t)k, g);                               /* the shape: the gaps add up to the 16 steps */
+            CHECK(*e == 0 && (size_t)(e - g) == strlen(g) && strlen(g) == 2u * hits - 1u && strlen(g) <= 13u);
+            for (i = 0; g[i]; i++) { if (i % 2u) CHECK(g[i] == '-'); else { CHECK(g[i] >= '2' && g[i] <= '6'); sum = (uint8_t)(sum + (g[i] - '0')); } }
+            CHECK(sum == 16u);
+        }
+        CHECK(sq_numeric_gaps(1u, g) == g + 7 && !strcmp(g, "4-4-4-4"));
+        sq_numeric_gaps(7u, g);  CHECK(!strcmp(g, "3-3-4-2-4"));
+        sq_numeric_gaps(16u, g); CHECK(!strcmp(g, "3-2-2-3-2-2-2"));
+        CHECK(sq_numeric_word(17u) == sq_numeric_word(1u) && sq_numeric_word(64u) == sq_numeric_word(16u) && sq_numeric_word(0u) == sq_numeric_word(1u));
+        CHECK(sq_numeric_index(0u) == 0u && sq_numeric_index(17u) == 0u && sq_numeric_index(255u) == 14u);
+        for (len = 1u; len <= SQ_STEPS; len++)                                /* one step asked = the whole rhythm made, any length and turning */
+            for (k = 1; k <= 20u; k += 3u)
+                for (r = 0u; r < len; r = (uint8_t)(r + 1u + len / 7u)) {
+                    sq_rhythm(SQ_RF_NUMERIC, (uint8_t)k, len, r, bits);
+                    for (i = 0; i < len; i++) CHECK(sq_rhythm_hit(SQ_RF_NUMERIC, (uint8_t)k, len, r, (uint8_t)i) == bits[i]);
+                    for (hits = 0u, i = 0; i < len; i++) hits += bits[i];
+                    CHECK(hits >= 1u);                                        /* never silent: the first step of the rhythm is a hit */
+                }
+        CHECK(sq_rhythm_hit(SQ_RF_NUMERIC, 7u, 16u, 0u, 16u) == 0u && sq_rhythm_hit(SQ_RF_NUMERIC, 7u, 0u, 0u, 0u) == 0u);
+        CHECK(sq_rhythm_hit(SQ_RF_NUMERIC, 7u, 16u, 18u, 2u) == 1u);         /* (a rotation past the length wraps, as sq_rhythm's) */
+    }
     CHECK(sq_rhythm_hit(SQ_RF_TRESILLO, 8u, 16u, 0u, 3u) == 1u && sq_rhythm_hit(SQ_RF_TRESILLO, 8u, 16u, 0u, 4u) == 0u && sq_rhythm_hit(SQ_RF_EUCLID, 4u, 16u, 0u, 4u) == 1u);
     CHECK(!strcmp(sq_rhythm_name(SQ_RF_NUMERIC), "NUMERIC") && !strcmp(sq_rhythm_name(9u), "EUCLID"));
     for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
@@ -2674,6 +2726,127 @@ static void test_v023_theory_chunk(void)
     CHECK(b.th.pat[15][7].style == a.th.pat[15][7].style && b.th.pat[15][7].seed == 999u);
 }
 
+/* ---- 0.23.1 CELL: a dead row goes back to the written rhythm; what a rule makes of a row */
+/* the textbook definition, cell by cell (what sq_cell_next was until 0.23) */
+static uint64_t cell_ref(uint64_t row, uint8_t cells, uint8_t rule)
+{
+    uint64_t neu = 0u, mask = cells == 64u ? ~(uint64_t)0 : (((uint64_t)1u << cells) - 1u);
+    uint32_t i;
+    row &= mask;
+    for (i = 0; i < cells; i++) {
+        uint32_t l = (uint32_t)((row >> ((i + cells - 1u) % cells)) & 1u), c = (uint32_t)((row >> i) & 1u);
+        uint32_t r = (uint32_t)((row >> ((i + 1u) % cells)) & 1u);
+        if ((rule >> ((l << 2) | (c << 1) | r)) & 1u) neu |= (uint64_t)1u << i;
+    }
+    return neu;
+}
+static uint64_t step_ref(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home)
+{
+    uint64_t mask = cells == 64u ? ~(uint64_t)0 : (((uint64_t)1u << cells) - 1u), n = cell_ref(row, cells, rule);
+    if (!n) n = home & mask;
+    if (!n) n = (uint64_t)1u << (cells / 2u);
+    return n;
+}
+/* the story the long way: every row kept until one comes back; 0 when none does in STORY_ROWS rows */
+#define STORY_ROWS 420u
+static uint32_t ref_lead, ref_period;                    /* (as they are: a loop can be longer than the story's byte) */
+static int story_ref(uint64_t row, uint8_t cells, uint8_t rule, uint64_t home, sq_cell_story_t *o)
+{
+    static uint64_t h[STORY_ROWS];
+    uint64_t mask = cells == 64u ? ~(uint64_t)0 : (((uint64_t)1u << cells) - 1u), cur = row & mask;
+    uint32_t n = 0u, j, k;
+    if (!cur) cur = step_ref(0u, cells, 0u, home);
+    for (;;) {
+        for (j = 0; j < n; j++) if (h[j] == cur) break;
+        if (j < n) break;
+        if (n == STORY_ROWS) return 0;
+        h[n++] = cur;
+        cur = step_ref(cur, cells, rule, home);
+    }
+    ref_lead = j; ref_period = n - j;
+    o->lead = (uint8_t)j; o->period = (uint8_t)(n - j); o->slide = 0; o->full = (uint8_t)(n - j == 1u && h[j] == mask);
+    if (n - j > 1u)                                       /* every row of the loop the one before, moved k steps: the nearest k, later first */
+        for (k = 1u; k <= (uint32_t)cells / 2u && !o->slide; k++) {
+            uint32_t later = 1u, earlier = 1u, q;
+            for (q = j; q < n; q++) {
+                uint64_t a = h[q], b = h[q + 1u < n ? q + 1u : j];
+                if (b != (((a << k) | (a >> (cells - k))) & mask)) later = 0u;
+                if (b != (((a >> k) | (a << (cells - k))) & mask)) earlier = 0u;
+            }
+            if (later) o->slide = (int8_t)k; else if (earlier) o->slide = (int8_t)-(int32_t)k;
+        }
+    return 1;
+}
+static void test_v0231_cell(void)
+{
+    static const uint8_t WIDTHS[9] = {4u, 5u, 7u, 8u, 12u, 16u, 24u, 32u, 64u};
+    static const uint64_t HOMES[5] = {0x1111u, 0x1449u, 0x0001u, 0x5555u, 0x2D6Bu};   /* four on the floor, the tresillo x..x..x...x.x..., one hit, the 8ths, a busy one (step 1 = bit 0) */
+    uint32_t rng = 0x0231CE11u, rule, c, k, found = 0u, lost = 0u;
+    sq_cell_story_t st, rf;
+    /* one generation: all the cells at once = the definition, every rule; every row of the narrow rings, rows by chance of the wide ones */
+    for (c = 3u; c <= 64u; c++) {
+        uint64_t mask = c == 64u ? ~(uint64_t)0 : (((uint64_t)1u << c) - 1u);
+        uint32_t rows = c <= 8u ? (1u << c) : 16u;
+        for (k = 0; k < rows; k++) {
+            uint64_t row = c <= 8u ? k : k == 0u ? 0u : k == 1u ? mask : k == 2u ? (uint64_t)1u << (c - 1u) : k == 3u ? 1u
+                         : (((uint64_t)sq_rng_next(&rng) << 32) | sq_rng_next(&rng));
+            for (rule = 0; rule < 256u; rule++) {
+                uint64_t want = cell_ref(row, (uint8_t)c, (uint8_t)rule);
+                CHECK(sq_cell_raw(row, (uint8_t)c, (uint8_t)rule) == want);
+                CHECK(sq_cell_next(row, (uint8_t)c, (uint8_t)rule) == (want ? want : (uint64_t)1u << (c / 2u)));
+                CHECK(sq_cell_step(row, (uint8_t)c, (uint8_t)rule, 0x1449u) == step_ref(row, (uint8_t)c, (uint8_t)rule, 0x1449u));
+            }
+        }
+    }
+    CHECK(sq_cell_raw(0xFFFFu, 16u, 0u) == 0u && sq_cell_raw(1u, 2u, 204u) == 1u && sq_cell_raw(~(uint64_t)0, 99u, 204u) == ~(uint64_t)0);   /* (the width: 3..64) */
+    /* a dead row: the written rhythm again; nothing written: a single cell in the middle; the home counts as wide as the ring */
+    CHECK(sq_cell_step(0xFFFFu, 16u, 0u, 0x1449u) == 0x1449u && sq_cell_step(0x0101u, 16u, 0u, 0u) == 0x0100u);
+    CHECK(sq_cell_step(0xFFu, 8u, 0u, 0x1449u) == 0x49u && sq_cell_step(0xFFu, 8u, 0u, 0x1400u) == 0x10u);
+    CHECK(sq_cell_step(0x1449u, 16u, 204u, 0x1111u) == 0x1449u);              /* (alive: the home has no say) */
+    {
+        uint64_t row = 0x1449u;                                               /* rule 90 on 16 cells: eight rows from the tresillo, then the tresillo again */
+        for (k = 0; k < 7u; k++) { row = sq_cell_step(row, 16u, 90u, 0x1449u); CHECK(row != 0x1449u && row != 0u); }
+        CHECK(sq_cell_raw(row, 16u, 90u) == 0u && sq_cell_step(row, 16u, 90u, 0x1449u) == 0x1449u && sq_cell_next(row, 16u, 90u) == 0x0100u);
+    }
+    /* the stories one can name */
+    CHECK(sq_cell_story(0x1449u, 16u, 204u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 1u && st.slide == 0 && st.full == 0u);   /* 204: it stays */
+    CHECK(sq_cell_story(0x1449u, 16u, 0u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 1u && st.full == 0u);    /* 0: dead at once, the rhythm again: it stays */
+    CHECK(sq_cell_story(0x1449u, 16u, 240u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 16u && st.slide == 1);  /* 240: a step later every row */
+    CHECK(sq_cell_story(0x1449u, 16u, 170u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 16u && st.slide == -1); /* 170: a step earlier */
+    CHECK(sq_cell_story(0x1111u, 16u, 240u, 0x1111u, &st) == 1u && st.period == 4u && st.slide == 1);                    /* (four on the floor is back after four) */
+    CHECK(sq_cell_story(0x1449u, 16u, 90u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 8u && st.slide == 0);    /* 90: a loop of 8 rows through the rhythm */
+    CHECK(sq_cell_story(0x1449u, 16u, 51u, 0x1449u, &st) == 1u && st.lead == 0u && st.period == 2u && st.slide == 0);    /* 51: hits and rests swap */
+    CHECK(sq_cell_story(0x5555u, 16u, 51u, 0x5555u, &st) == 1u && st.period == 2u && st.slide == 1);                     /* (the 8ths swapped are the 8ths a step later) */
+    CHECK(sq_cell_story(0x1449u, 16u, 255u, 0x1449u, &st) == 1u && st.lead == 1u && st.period == 1u && st.full == 1u);   /* 255: after a row every step plays */
+    CHECK(sq_cell_story(0x1449u, 16u, 30u, 0x1449u, &st) == 0u);                                                         /* 30: no loop in sight */
+    CHECK(sq_cell_story(0xCE7Du, 16u, 110u, 0xCE7Du, &st) == 1u && st.lead == 64u && st.period == 32u);                  /* the corner of what is always found: */
+    CHECK(sq_cell_story(0xCA86643Bu, 32u, 137u, 0xCA86643Bu, &st) == 1u && st.lead == 64u && st.period == 64u);          /* a lead of 64 rows, a loop of 64 */
+    CHECK(sq_cell_story(0u, 16u, 204u, 0x1449u, &st) == 1u && st.period == 1u);                                          /* (an empty row: what the track would play) */
+    CHECK(sq_cell_story(0u, 16u, 240u, 0u, &st) == 1u && st.period == 16u && st.slide == 1);                             /* (nothing written: the single cell) */
+    /* every rule, nine widths, five rhythms, from the rhythm itself and from a row on the way: the story is the long way's */
+    for (c = 0; c < 9u; c++) {
+        uint8_t w = WIDTHS[c];
+        uint32_t homes = w <= 16u ? 5u : 2u, hm, from;
+        for (hm = 0; hm < homes; hm++)
+            for (from = 0; from < (w <= 16u ? 2u : 1u); from++)
+                for (rule = 0; rule < 256u; rule++) {
+                    uint64_t home = HOMES[hm], row = home;
+                    int got, want;
+                    if (from) { row = sq_cell_step(sq_cell_step(sq_cell_step(home, w, (uint8_t)(rule ^ 0x5Au), home), w, 30u, home), w, 90u, home); }
+                    got = sq_cell_story(row, w, (uint8_t)rule, home, &st);
+                    want = story_ref(row, w, (uint8_t)rule, home, &rf);
+                    if (got) {
+                        CHECK(want && st.lead == ref_lead && st.period == ref_period && st.slide == rf.slide && st.full == rf.full);
+                        found++;
+                    } else {
+                        CHECK(!want || ref_lead > 64u || ref_period > 64u);   /* a lead and a loop of 64 rows or fewer are always found */
+                        lost++;
+                    }
+                }
+    }
+    CHECK(found > 12000u && lost > 100u && lost < found / 8u);                /* (most stories are short; the long ones are there too) */
+}
+
 int main(void)
 {
     test_v012_break();
@@ -2712,6 +2885,7 @@ int main(void)
     test_generators();
     test_v019_mfx_chain();
     test_v023_theory_chunk();
+    test_v0231_cell();
     printf("sagga core: %d checks, %d failures\n", checks, failures);
     return failures ? 1 : 0;
 }

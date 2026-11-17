@@ -21,6 +21,7 @@ uguale; poi con le pagine perse dal hub e con un pezzo di quello che l'FM-1 ha s
 """
 import os
 import random
+import re
 import sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -313,12 +314,18 @@ def roads(session):
     heard = [list(h) for h in hw.get("sentiti") or []]
     used = [False] * len(heard)
     lost = []
+    # 0.23.1: the FM-1 says what it heard up to its last event (the END): what the Pi sent after it - the bridge's
+    # keep-alive, a second later - it never says, and that is no message lost (the 0.23 banco's b001)
+    taken = [v[0] for v in (hw.get("presi") or {}).values()]
+    end = (max(taken) - go) if taken else None
     for r in sorted(hw.get("reali_fatti") or [], key=lambda r: r[0]):
         t, via, m = r[0], r[1], list(r[2])
         call = r[6] if len(r) > 6 and r[6] else 0
         lo, hi = go + t - 15 - call / 2.0, go + t + 120 + call / 2.0
         k = next((k for k, h in enumerate(heard) if not used[k] and lo <= h[0] <= hi and h[2:5] == m), None)
         if k is None:
+            if end is not None and t > end - 20:
+                continue                               # (sent after the FM-1's last event: it could not say it)
             what = "%s %s=%s" % (r[3], r[4], r[5]) if via == "pagina" and len(r) > 5 else ""
             lost.append((via, t, m, what))
         else:
@@ -431,8 +438,11 @@ def confronta(path, out_md):
     lines = ["# Il banco (FM-1, Pi, grid): cosa ha trovato", "",
              "%s: %d sessioni confrontate con il simulatore in %.0f s. FM-1 %s, hub %s, RaspiMIDIHub %s." % (
                  os.path.basename(path), len(rows), time.time() - t0, facts.get("fm1_version", "?"), facts.get("hub", "?"),
-                 facts.get("raspimidihub", "?")), "",
-             "| regola | casi |", "| --- | --- |"]
+                 facts.get("raspimidihub", "?")), ""]
+    if H.versions(facts.get("fm1_version")):           # (0.23.1)
+        lines += [H.versions(facts.get("fm1_version")), ""]
+        print(H.versions(facts.get("fm1_version")).replace("**", ""))
+    lines += ["| regola | casi |", "| --- | --- |"]
     for r in REGOLE:
         lines.append("| %s | %d |" % (r, sum(1 for _, x in allf if x[0] == r)))
     lines.append("")
@@ -516,6 +526,70 @@ def run_like_banco(sess, rnd, settings=(2, 0), drop_pages=False, lose_heard=Fals
     rec["valori"] = {"sbagliati": [], "controllati": 0}
     out = dict(sess)
     out["fm1"] = rec
+    return out
+
+
+def prova_tempo(seed):
+    """0.23.1, with the simulator as the FM-1 - what the comparison learnt from the 0.23 banco of the real one:
+    (1) a dice thrown from the grid that the FM-1 says it heard a ms off (the dice takes its seed from the ms: another
+    dice) is TEMPO, found by moving what was heard from the ports; (2) two clock ticks and a note-off taken out of what
+    the Pi heard are PERSI, each with its place, and a tick that came 30 ms late is nothing; (3) the bridge's keep-alive
+    sent after the FM-1's last event is not a message lost, one sent before it and never heard is. -> [(what, ok)]"""
+    import copy
+    sit = next(x for x in banco_situazioni() if x.name == "TECHNO band in play, con tablet e grid")
+    by = {g.name: g for g in E.catalogo(grid=True, tablet=False)}
+    # (each of these presses the view's button first: BEAT, EUCLID, BEAT ... - the third is on the BEAT view, where
+    #  pad 5 of row 4 throws all the dice)
+    gs = [by[n] for n in ("grid BEAT pad 1,2", "grid BEAT pad 2,2", "grid BEAT pad 5,4", "grid BEAT pad 3,2", "grid BEAT pad 4,2")]
+    rec = run_like_banco(session_plan(sit, gs, "t001"), random.Random(seed))
+    errs = lambda f: [x for x in f if x[1] == "ERRORE"]
+    out = []
+    f0, _ = compare(rec)
+    out.append(("the session as it is: no error, nothing lost", not errs(f0) and not [x for x in f0 if x[0] in ("PERSI", "GRID")]))
+    # (1) the dice's pad, heard a ms later than the FM-1 really took it
+    hw = rec["fm1"]
+    probes = dict((r, i) for i, r in H.probe_events(rec))
+    t1, t2 = hw["presi"][str(probes["gesto 2"])][0], hw["presi"][str(probes["gesto 3"])][0]
+    r1 = copy.deepcopy(rec)
+    mine = [h for h in r1["fm1"]["sentiti"] if t1 < h[0] <= t2 and h[2] == 0x9F]
+    for h in mine:
+        h[0] += 1
+    f1, _ = compare(r1)
+    out.append(("a dice from the grid heard a ms off (%d messages): TEMPO, by what was heard from the ports" % len(mine),
+                bool(mine) and not errs(f1) and any(x[0] == "TEMPO" and "i messaggi sentiti dalle porte" in x[2] for x in f1)))
+    # (2) two ticks and a note-off never heard; a tick 30 ms late
+    r2 = copy.deepcopy(rec)
+    midi = r2["fm1"]["midi"]
+    mid = midi[len(midi) // 3][0]
+    ticks = [k for k, m in enumerate(midi) if m[1] == 0xF8 and m[0] > mid]
+    offs = [k for k, m in enumerate(midi) if m[0] > mid and ((m[1] & 0xF0) == 0x80 or ((m[1] & 0xF0) == 0x90 and not m[3])) and (m[1] & 15) < 14]
+    gone = sorted([ticks[10], ticks[40]] + offs[2:3], reverse=True)
+    want = sorted(int(midi[k][0]) for k in gone if midi[k][1] == 0xF8)
+    for k in gone:
+        del midi[k]
+    f2, _ = compare(r2)
+    lost = [x[2] for x in f2 if x[0] == "PERSI"]
+    said = [int(v) for v in re.findall(r"\d+", lost[0].split("tick di clock")[1].split(")")[0])] if lost and "tick di clock" in lost[0] else []
+    out.append(("two clock ticks%s taken out of what the Pi heard: PERSI, each where it was (%s)" % (" and a note-off" if offs[2:3] else "", lost[:1]),
+                len(lost) == 1 and "2 tick di clock" in lost[0] and len(said) == 2 and all(abs(a - b) <= 25 for a, b in zip(said, want))
+                and (not offs[2:3] or "1 note-off canale" in lost[0])))
+    r3 = copy.deepcopy(rec)
+    midi = r3["fm1"]["midi"]
+    k = [k for k, m in enumerate(midi) if m[1] == 0xF8 and m[0] > mid][10]
+    midi[k][0] += 30
+    midi.sort(key=lambda m: m[0])
+    f3, _ = compare(r3)
+    out.append(("a tick that came 30 ms late: nothing lost", not [x for x in f3 if x[0] in ("PERSI", "CLOCK")]))
+    # (3) the bridge's messages around the end
+    r4 = copy.deepcopy(rec)
+    end = max(v[0] for v in r4["fm1"]["presi"].values()) - r4["fm1"]["go_ms"]
+    r4["fm1"]["reali_fatti"].append([end + 138, "grid", [0xBF, 118, 64]])
+    f4, _ = compare(r4)
+    r5 = copy.deepcopy(rec)
+    r5["fm1"]["reali_fatti"].append([end - 900, "grid", [0x9F, 0x11, 100]])
+    f5, _ = compare(r5)
+    out.append(("the keep-alive after the FM-1's last event: not lost; a pad sent before it and never heard: GRID",
+                not [x for x in f4 if x[0] == "GRID"] and len([x for x in f5 if x[0] == "GRID"]) == 1))
     return out
 
 

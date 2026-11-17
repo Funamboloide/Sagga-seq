@@ -71,7 +71,8 @@ static void tab_algo_abc(uint8_t t, uint8_t k, uint8_t v)
     if (k == 0u) s->a = (uint8_t)x; else if (k == 1u) s->b = (uint8_t)x;
     else { s->c = (uint8_t)x; if (s->algo == SQ_ALGO_CELL && s == algo_slot(t)) ca_bars[t][algo_k(t)] = 0u; }
     p = put_s(p, ALGO_NAME[s->algo]); p = put_s(p, " "); p = put_s(p, N[s->algo][k]); p = put_u(p, (uint32_t)x); finish(p);
-    status_msg(msg_buf);
+    if (s->algo == SQ_ALGO_CELL && k < 2u) cell_hint(t);  /* 0.23.1: the rule, the width: what they make of the rhythm */
+    else status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
 }
 
