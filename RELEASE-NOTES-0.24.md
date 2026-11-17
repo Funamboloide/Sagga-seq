@@ -254,4 +254,5 @@ Cinque minuti, con una traccia sola che suona un pattern da 16:
 * **Un pattern caricato è fatto per la lunghezza che la traccia ha in quel momento.** Se carichi su una traccia da 16 e
   poi la porti a 32, hai il pattern due volte. Per avere una frase di due battute: prima porta la traccia a 32, poi
   carica (o tira il dado).
-* **Il firmware**: le dimensioni le misura GitHub quando lo compila: le scrivo qui appena le ha.
+* **Il firmware** cresce di 4.672 byte: 448.616 su 581.564 (la 0.23.2: 443.944). La RAM cresce di 2.000 byte: 70.816
+  su 98.304 (la 0.23.2: 68.816): è la memoria che serve a seguire le copie di ogni traccia. C'è posto.
