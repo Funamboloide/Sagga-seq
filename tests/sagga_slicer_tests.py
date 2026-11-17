@@ -134,6 +134,7 @@ def t_tempo_start_cuts():
     loop = z.read('Amen-Brother-loop.wav')
     lw = sl.read_wav(loop)
     check(sum(sl_frames) == lw.frames and abs(lw.frames - length) <= 2, 'the slices add up to the loop, a bar long (%d %d %d)' % (sum(sl_frames), lw.frames, length))
+    check(min(sl_frames) > 0, 'no slice is empty (%s)' % min(sl_frames))
     s1 = sl.read_wav(z.read('01.wav'))
     check(s1.chans == 2 and s1.bits == 16 and s1.rate == rate and s1.fmt == 1, 'the slices keep the format: 16-bit stereo 44.1 kHz')
     cue = chunks(loop).get(b'cue ')
@@ -204,6 +205,59 @@ def t_errors():
     check(err(wav_bytes(d, 44100), n=32, pen=100) is not None, 'PEN 100 with 32 slices: no room')
 
 
+def slice_frames(zipb, n):
+    """the frames of each slice of a zip, read from its WAV header (read_wav refuses a WAV under 50 ms: a slice may be)"""
+    z = zipfile.ZipFile(io.BytesIO(zipb))
+    out = []
+    for i in range(n):
+        ch = chunks(z.read('%02d.wav' % (i + 1)))
+        align = struct.unpack_from('<H', ch[b'fmt '], 12)[0]
+        out.append(len(ch[b'data']) // align)
+    return out
+
+
+def t_loop_in_the_file():
+    group('0.23.2 a loop longer than the file (a BPM too slow, too many bars): said, not a zip with empty slices; bars that cannot be: said')
+    rate = 44100
+    data, at, lead, length = make_break(rate)                        # a bar at 136 BPM: 1.76 s
+    raw = wav_bytes(data, rate)
+    def err(**kw):
+        try:
+            sl.slice_break(raw, 'x.wav', **kw)
+        except sl.SliceError as e:
+            return str(e)
+        return None
+    e = err(bpm=100)
+    check(e is not None and '100 BPM' in e and '136.0 BPM' in e and '1 battuta' in e, 'BPM 100 for a bar at 136: the file is too short, and what it would be (%s)' % e)
+    e = err(bpm=136, bars=2)
+    check(e is not None and '2 battute durano' in e and '272.0 BPM' in e, 'two bars said of one: the same (%s)' % e)
+    check(err(bpm=60) is not None and err(bpm=40, bars=64) is not None, 'BPM 60; 64 bars at 40: no')
+    e = err(bars=4)
+    check(e is not None and '544 BPM' in e and 'non torna' in e, 'four bars said of one, no BPM: 544 BPM cannot be (%s)' % e)
+    check(err(bars=64) is not None, '64 bars of it: no')
+    check(err(bpm=-120) is not None and err(bars=-1) is not None, 'a number under zero: no')
+    # a tempo a hair slow (135 for 136: the loop 13 ms longer than the file) is let through, the last slice that much shorter
+    zb, info = sl.slice_break(raw, 'x.wav', bpm=135)
+    fr = slice_frames(zb, 16)
+    step = 240.0 / 135 * rate / 16
+    check(info['bars'] == 1 and min(fr) > 0 and step * 0.7 < fr[-1] < step, 'BPM 135: cut, no slice empty, the last one a little short (%s of %.0f)' % (fr[-1], step))
+    # two bars said of a two-bar file, a tempo given with room after it, 32 slices of a bar: every slice has sound in it
+    for kw, what in ((dict(bars=1), 'bars 1'), (dict(bpm=136, bars=1), 'BPM and bars'), (dict(n=32), '32 slices'), (dict(n=8, bpm=272), '8 slices at 272: two bars of it')):
+        zb, info = sl.slice_break(raw, 'x.wav', **kw)
+        fr = slice_frames(zb, kw.get('n', 16))
+        check(min(fr) > 0, '%s: no slice empty (%s)' % (what, min(fr)))
+    # the one that made empty slices before: half the slices had nothing in them
+    d2, _, _, _ = make_break(rate, bpm=170.0, bars=2, lead_ms=10.0)
+    e = None
+    try:
+        sl.slice_break(wav_bytes(d2, rate), 'j.wav', 16, bpm=170, bars=4)
+    except sl.SliceError as x:
+        e = str(x)
+    check(e is not None and '4 battute durano' in e, 'four bars at 170 said of two: no (%s)' % e)
+    _, info = sl.slice_break(wav_bytes(d2, rate), 'j.wav', 16, bars=2)
+    check(abs(info['bpm'] - 170) < 0.5, 'two bars of two: 170 BPM (%s)' % info['bpm'])
+
+
 def t_hub_form():
     group('the hub: the BREAK form posts the WAV, the zip comes back; a bad one says why')
     import sagga_fw
@@ -254,12 +308,14 @@ def t_hub_form():
         check(code == 400 and 'non riesco' in body.decode(), 'not a WAV: 400 and why (%s %s)' % (code, body[:60]))
         code, _, body = post({'slices': '16', 'bpm': 'fast'}, 'amen.wav', wav_bytes(data, 44100))
         check(code == 400 and 'bpm' in body.decode(), 'a BPM that is not a number: 400 (%s)' % body[:60])
+        code, _, body = post({'slices': '16', 'bpm': '100'}, 'amen.wav', wav_bytes(data, 44100))
+        check(code == 400 and 'non riesco a tagliarlo' in body.decode() and '136.0 BPM' in body.decode(), '0.23.2 a BPM too slow for the file: 400 and why, no zip with empty slices (%s)' % body.decode()[:90])
     finally:
         srv.shutdown()
 
 
 def main():
-    for t in (t_tempo_start_cuts, t_bars_and_formats, t_errors, t_hub_form):
+    for t in (t_tempo_start_cuts, t_bars_and_formats, t_errors, t_loop_in_the_file, t_hub_form):
         try:
             t()
         except Exception as e:

@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.23.1
+# SAGGA SEQ 0.23.2
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,11 +8,56 @@ steps), the **THEORY engines** that make a band from a seed in each of them (0.2
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.23.1` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.23.2` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.22.
+
+## What is new in 0.23.2
+
+The Pi and the grid, read again from end to end; one change in the FM-1.
+
+* **The tablet's A on a CELL picks the even rules.** On SAGGA Live, A set a CELL's rule spread over 0-255: the knob's
+  128 places gave the even rules up to 126 and the odd ones from 129, and the rules to start from - 170 and 240 (the
+  rhythm slides), 204 (it stays), 184 and 226, 150 - could not be had from the tablet. Now the rule is twice the
+  knob (85 is 170, 102 is 204, 120 is 240): every one of the grid's sixteen rule pads but 51 and 105, which stay the
+  panel's and the grid's. The knob's place the FM-1 says back was already the rule halved.
+* **The Pi keeps out of the music.** RaspiMIDIHub takes its whole matrix down and up again whenever an ALSA client
+  comes or goes on the Pi (its hotplug scan: the notes that sound are ended, every road is away for a moment), and a
+  program that looks at the list of MIDI ports makes two such clients. Three things of SAGGA did that while you
+  played: the hub's page asked the FM-1 who it was the first time it was opened and every ten minutes after; the
+  bridge without its two Launchpads looked at the ports every 3 s; the bridge without the FM-1 ended and was started
+  again every 2 s, with a look each time. Now the page's service asks the FM-1 only when the FM-1 itself came back
+  (its USB appearance changed), from a thread of its own, and the bridge waits on `/proc` - a look only when a device
+  came or went. A fourth, for who keeps the synths' patches with the snapshots (`patches.json`): a snapshot that
+  brought its patches back opened and closed a port for every synth, in the music; the synths' ports are now opened
+  when the bridge starts (or when a synth is plugged in) and stay open. Nothing of SAGGA makes an ALSA client while
+  you play.
+* **The bridge notices an FM-1 that restarted in half a second.** It watched the ALSA clients once a second, by number
+  and name; the user's own log shows the FM-1 gone and back in 0.44 s under the same number: the bridge sat there
+  with connections that were not there any more, the grid dead until something restarted it. It now watches its own
+  connections too (in `/proc/asound/seq/clients`). And a bridge that is stopped (the banco does it, and a shutdown)
+  switches the Launchpads off and tells the FM-1: the grid no longer stays lit and still, looking alive.
+* **The Pi's clock is not trusted.** A Pi has no clock of its own: with no internet it falls behind (the user's bench
+  files of 17 November are dated 26 October), and it can start at a moment already past. The editor's versions and the
+  bench runs kept on the SD were ordered by their time: a new one could count as the oldest. A version's name is now always later than the newest there; the run just made always stays.
+* **The piano roll of 0.11 is gone; the editor's Tape tab is the piano roll.** The old page (the "piano roll" link by
+  each project) saved through a MIDI file, and what came back was not the project: a TAPE track on another MIDI
+  channel was written onto the track of that channel's number (a step track there became an emptied TAPE, and the
+  TAPE track itself kept its old notes); a transposed TAPE track was transposed once more; a loop of one bar came
+  back four bars long, its notes repeated (a note changed stayed the old one in the other three). Save alone did it,
+  with nothing touched. The editor's Tape tab (0.15) writes the events as they are kept, track by track. The link is
+  away; an old `/roll/...` address opens the editor on its Tape tab.
+* **BREAK IN SLICE says when the loop is not in the file.** A BPM too slow for the file, or too many bars, made a
+  loop longer than the file: the zip came back with its last slices empty (WAV files with no sound, keys that played
+  nothing) and not a word. Now the page says how long the file is and what tempo it would be. Bars that give a tempo
+  that cannot be (four bars said of a one-bar file: 544 BPM) are refused too.
+* Smaller things: the hub's page refuses a POST that comes from a page of another site; `install_hub.sh` checks that
+  the root is writable before every block of writes; a light role the bridge does not know is DIM, not dark; the
+  editor's note on a THEORY pattern names the parts whose hand-written steps do not stay (a RUMBLE or a SUB that
+  follows the kick); the banco's log (and the matrix check's) carries the bridge's own last lines, and what it says
+  when it starts again.
 
 ## What is new in 0.23.1
 
@@ -61,9 +106,9 @@ Two things that were there and could not be used, put right; and the PC test cou
   while a CELL plays holds the row of that bar), 170 and 240 it slides a step earlier / later, 184 it slides and the
   hits in a row open up, 51 hits and rests swap, 90 150 105 60 loops of a few rows through the written rhythm, 54 thin
   and thick in turn, 18 22 126 122 110 longer stories, 30 no loop in sight. (They were 30 45 54 60 73 90 105 110 122
-  126 150 18 22 57 62 184, in no order.) From the tablet the A knob reaches one rule in two (128 places for 256
-  rules): 170, 240, 184, 204, 51 and 150 are the panel's and the grid's; 171 and 241 slide too, but first they fill
-  the holes of three steps or more: what slides is a rhythm thicker than the written one.
+  126 150 18 22 57 62 184, in no order.) From the tablet the A knob reached one rule in two (128 places for 256
+  rules: not 170, 240, 184, 204, 51, 150 - and 171 and 241, its nearest, fill the holes of three steps or more before
+  they slide); 0.23.2: the tablet's A is the even rule, twice the knob.
 * **The PC test counts.** The FM-1 counts what its program hands to the USB, by port and kind (clock ticks, note-ons,
   note-offs, control changes, the rest, the bytes), and the output ring keeps its own account; the test's DIAG says
   them, a new **QUIET** stops the FM-1 and leaves it silent. The Pi's banco asks before each session and after it and

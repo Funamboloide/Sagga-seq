@@ -138,7 +138,7 @@ def t_leds_out():
     r.b.fm1_in([0x9F, 0, 0]); r.b.tick(0.02)
     check(r.leds(0)[81] == (0, 0, 0), "role 0 switches the LED off")
     r.b.fm1_in([0x9F, 0, 99]); r.b.tick(0.03)
-    check(r.leds(0)[81] == (0, 0, 0), "an unknown role is dark")
+    check(r.leds(0)[81] == B.RGB[2], "a role the bridge does not know (a newer firmware's) is DIM, not dark (0.23.2: what 0.12 meant) (%s)" % (r.leds(0)[81],))
     for junk in ([0x91, 0, 3], [0x9F, 8 * 16, 3], [0xBE, 32, 3], [0xBF, 118, 127], [0xF8]):
         r.b.fm1_in(junk)
     r.b.tick(0.04)
@@ -393,7 +393,7 @@ def t_main():
         sys.modules["mido"] = fake
         real, real_clients = real_time.monotonic, B.alsa_clients
         real_time.monotonic = monotonic
-        B.alsa_clients = clients or (lambda *a, **k: None)         # not the /proc of the machine the test runs on
+        B.alsa_clients = (lambda *a, **k: clients(clock[0])) if clients else (lambda *a, **k: None)   # not the /proc of the machine the test runs on (clients: by the fake time)
         out, err = io.StringIO(), io.StringIO()
         try:
             with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
@@ -454,12 +454,9 @@ def t_main():
     except SystemExit as e:
         check("NoSuchDevice" in str(e), "--fm1 that matches nothing is refused, naming the pattern")
     # a Launchpad is unplugged while the bridge runs: ALSA gives no error, the bridge must notice and end
-    seen = []
-
-    def clients():
-        seen.append(1)
+    def clients(t):
         c = {20: "Launchpad Mini MK3", 24: "Launchpad Mini MK3", 36: "M-VAVE FM-1", 14: "Midi Through"}
-        if len(seen) > 1:
+        if t > 1.5:
             del c[24]
         return c
     rc, log, closed, out, err = run(0, clients=clients)
@@ -472,6 +469,392 @@ def t_main():
         check(rc == 0 and "no grid (found 1" in err and not [p for p, _ in log if p in lp], "one Launchpad is not a grid: it runs without (%s %r)" % (rc, err))
     finally:
         names[:] = lp + [fm]
+
+
+def t_quiet_wait():
+    """0.23.2: the bridge makes no ALSA client while it waits - RaspiMIDIHub takes its whole matrix down and up again at
+    every client that comes or goes. It waits for the FM-1 and for the Launchpads on /proc; and it watches its own
+    connections (a device the kernel made again in less than a second)."""
+    raw = {0: "System", 14: "Midi Through", 20: "Launchpad Mini MK3", 36: "Felucca 2", 128: "RaspiMIDIHub", 129: "RtMidiIn Client",
+           130: "RtMidiOut Client", 131: "RtMidi Input Client", 132: "RtMidi Output Client"}
+    check(B.device_clients(lambda: dict(raw)) == {0: "System", 14: "Midi Through", 20: "Launchpad Mini MK3", 36: "Felucca 2", 128: "RaspiMIDIHub"}
+          and B.device_clients(lambda: None) is None, "the devices: ALSA's clients without RtMidi's own (the bridge's ports, a look at the names)")
+    # wait_ports: a look only when the devices changed
+    state = {"clients": {14: "Midi Through"}, "names": ["Midi Through:Midi Through Port-0 14:0"]}
+    looks, sleeps, turns = [], [], [0]
+
+    def read():
+        turns[0] += 1
+        if turns[0] == 4:                                       # an RtMidi client (another program's look): not a device
+            c = dict(state["clients"]); c[129] = "RtMidiIn Client"
+            return B.device_clients(lambda: c)
+        if turns[0] == 6:                                       # a synth is plugged in: a device, not the FM-1
+            state["clients"][40] = "MicroFreak"
+            state["names"].append("MicroFreak:MicroFreak MIDI 1 40:0")
+        if turns[0] == 11:                                      # the FM-1 comes
+            state["clients"][36] = "Felucca 2"
+            state["names"].append("Felucca 2:Felucca 2 MIDI 1 36:0")
+        return B.device_clients(lambda: dict(state["clients"]))
+
+    def look():
+        looks.append(turns[0])
+        return list(state["names"]), list(state["names"])
+    have = lambda i, o: bool(B.split_ports(i, B.FM1_PATTERN, None) and B.split_ports(o, B.FM1_PATTERN, None))
+    got = B.wait_ports(have, look, {14: "Midi Through"}, read=read, sleep=sleeps.append, every=1.0, settle=0.5)
+    check(len(looks) == 2 and have(got[0], got[1]) and got[2] == {14: "Midi Through", 40: "MicroFreak", 36: "Felucca 2"},
+          "waiting for the FM-1: the ports are looked at twice in all - when the synth came, when the FM-1 came - never in between (%s looks, at reads %s)" % (len(looks), looks))
+    check(sleeps.count(0.5) == 2 and sleeps.count(1.0) >= 8, "a read of /proc every second, half a second for a device to settle before a look (%s)" % sleeps[:6])
+    got = B.wait_ports(lambda i, o: True, lambda: (["x"], ["y"]), None, read=lambda: None, sleep=lambda s: None, every=0, settle=0)
+    check(got[:2] == (["x"], ["y"]), "no /proc: a look every turn, as before")
+    # ALSA's connections as /proc shows them
+    import tempfile
+    sample = ('Client info\n  cur  clients : 6\n  peak clients : 9\n  max  clients : 192\n\n'
+              'Client   0 : "System" [Kernel Legacy]\n  Port   0 : "Timer" (Rwe-) [In/Out]\n  Port   1 : "Announce" (R-e-) [In/Out]\n    Connecting To: 128:1\n'
+              'Client  20 : "Launchpad Mini" [Kernel Legacy]\n  Port   0 : "Launchpad Mini MIDI 1" (RWeX) [In/Out]\n    Connecting To: 129:0[r:0]\n    Connected From: 130:0\n'
+              'Client  36 : "Felucca 2" [Kernel Legacy]\n  Port   0 : "Felucca 2 MIDI 1" (RWeX) [In/Out]\n    Connecting To: 128:0, 140:0\n'
+              '  Port   1 : "Felucca 2 MIDI 2" (RWeX) [In/Out]\n    Connecting To: 131:0[r:1], 128:0[ex]\n    Connected From: 132:0, 128:3\n'
+              'Client 128 : "RaspiMIDIHub" [User Legacy]\n  Port   0 : "monitor" (-We-) [In]\n    Connected From: 36:0, 36:1\n  Input pool :\n    Pool size          : 2000\n'
+              'Client 131 : "RtMidiIn Client" [User Legacy]\n  Port   0 : "RtMidi input" (-We-) [In]\n    Connected From: 36:1\n')
+    with tempfile.NamedTemporaryFile("w", suffix=".txt") as f:
+        f.write(sample); f.flush()
+        to, frm = B.alsa_links(f.name)
+    check(to.get((36, 1)) == {(131, 0), (128, 0)} and frm.get((36, 1)) == {(132, 0), (128, 3)} and to.get((20, 0)) == {(129, 0)} and frm.get((20, 0)) == {(130, 0)}
+          and to.get((36, 0)) == {(128, 0), (140, 0)} and (36, 0) not in frm and to.get((0, 1)) == {(128, 1)},
+          "/proc/asound/seq/clients: who each port sends to and hears, the [r:0] and [ex] marks left out (%s)" % sorted(to.items()))
+    check(B.alsa_links("/nonexistent/clients") is None, "a missing file is None")
+    # PortWatch: the bridge's own connections
+    clients = {20: "Launchpad Mini", 36: "Felucca 2", 128: "RaspiMIDIHub", 129: "RtMidiIn Client", 130: "RtMidiOut Client", 131: "RtMidiIn Client", 132: "RtMidiOut Client"}
+    links = [dict((k, set(v)) for k, v in to.items()), dict((k, set(v)) for k, v in frm.items())]
+    ports = ["Launchpad Mini:Launchpad Mini MIDI 1 20:0", "Felucca 2:Felucca 2 MIDI 2 36:1"]
+    w = B.PortWatch(ports, read=lambda: clients, links=lambda: tuple(links), mine={129, 130, 131, 132})
+    check(sorted(w.armed) == [(0, 20, 0), (0, 36, 1), (1, 20, 0), (1, 36, 1)], "the four connections of the bridge's own are watched (%s)" % sorted(w.armed))
+    check(w.check(0.0) is None and w.check(1.1) is None, "all there: quiet")
+    links[0][(128, 9)] = {(20, 0)}                              # RaspiMIDIHub rebuilding its matrix: not the bridge's business
+    links[0][(36, 0)] = set()
+    check(w.check(2.2) is None, "RaspiMIDIHub's own connections come and go: nothing said")
+    links[0][(36, 1)] = {(128, 0)}                              # the FM-1 made again by the kernel: same number, same name, the bridge's connections gone
+    links[1][(36, 1)] = {(128, 3)}
+    msg = w.check(3.3)
+    check(msg and "36:1" in msg and "Felucca 2" in msg and "made again" in msg, "the FM-1 made again in less than a second (same client, same name): the bridge's connection is gone, said (%s)" % msg)
+    links[0][(36, 1)], links[1][(36, 1)] = {(131, 0), (128, 0)}, {(132, 0)}
+    links[1][(20, 0)] = set()
+    msg = w.check(4.4)
+    check(msg and "to ALSA port 20:0" in msg, "a Launchpad's light road gone: said (%s)" % msg)
+    w = B.PortWatch(ports, read=lambda: clients, links=lambda: tuple(links), mine=set())
+    check(not w.armed and w.check(9.0) is None, "the bridge's clients not known (no /proc at the start, a mido that makes none): only the devices are watched")
+    w = B.PortWatch(ports, read=lambda: clients, links=lambda: None, mine={131})
+    check(not w.armed and w.check(9.0) is None, "connections that cannot be read: only the devices are watched")
+    w = B.PortWatch(ports, read=lambda: clients, links=lambda: ({}, {}), mine={131, 132})
+    check(not w.armed, "connections /proc does not show at the start are never asked for later (no restart for a file read wrong)")
+    # main(): no FM-1 at the start - it waits (it ended, and the service started it again every two seconds); no Launchpads -
+    # the ports are looked at again only when a device comes
+    import contextlib
+    import io
+    import types
+    import time as real_time
+    lp = ["Launchpad Mini MK3:Launchpad Mini MK3 LPMiniMK3 MIDI In 20:1", "Launchpad Mini MK3:Launchpad Mini MK3 LPMiniMK3 MIDI In 24:1"]
+    fm = "Felucca 2:Felucca 2 MIDI 1 36:0"
+
+    class Msg:
+        def __init__(self, b): self.b = list(b)
+        def bytes(self): return self.b
+        @classmethod
+        def from_bytes(cls, b): return cls(b)
+
+    def run_main(world, stop_at):
+        """world(reads of /proc so far, fake time) -> (ALSA clients, port names); Ctrl-C at the FM-1's stop_at-th message"""
+        log, looks, reads, clock = [], [0], [0], [0.0]
+
+        class Port:
+            def __init__(self, name): self.name = name
+            def send(self, m):
+                log.append((self.name, m.bytes()))
+                if self.name == fm and sum(1 for q, _ in log if q == fm) == stop_at:
+                    raise KeyboardInterrupt()
+            def close(self): pass
+
+        def names():
+            looks[0] += 1
+            return list(world(reads[0], clock[0])[1])
+
+        def clients(*a, **k):
+            reads[0] += 1
+            return dict(world(reads[0], clock[0])[0])
+
+        def monotonic():
+            clock[0] += 0.3
+            return clock[0]
+        fake = types.SimpleNamespace(get_input_names=names, get_output_names=lambda: list(world(reads[0], clock[0])[1]),
+                                     open_input=lambda name, callback=None, virtual=False: Port(name),
+                                     open_output=lambda name, virtual=False: Port(name), Message=Msg)
+        sys.modules["mido"] = fake
+        keep = (real_time.monotonic, B.alsa_clients, B.WAIT_EVERY_S, B.WAIT_SETTLE_S)
+        real_time.monotonic, B.alsa_clients, B.WAIT_EVERY_S, B.WAIT_SETTLE_S = monotonic, clients, 0.0, 0.0
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                rc = B.main([])
+        finally:
+            real_time.monotonic, B.alsa_clients, B.WAIT_EVERY_S, B.WAIT_SETTLE_S = keep
+            del sys.modules["mido"]
+        return rc, log, looks[0], reads[0], err.getvalue()
+
+    base = {14: "Midi Through", 20: "Launchpad Mini MK3", 24: "Launchpad Mini MK3"}
+
+    def fm1_later(n, t):
+        if n < 40:
+            return base, lp
+        return {**base, 36: "Felucca 2"}, lp + [fm]
+    rc, log, looks, reads, err = run_main(fm1_later, 3)
+    check(rc == 0 and "the bridge waits for it" in err and looks == 2 and reads >= 40,
+          "no FM-1: the bridge waits on /proc (%d reads) and looks at the ports twice in all - at the start, when the FM-1 came (%d looks; rc %s)" % (reads, looks, rc))
+    check([m for q, m in log if q == fm][:1] == [[0xBF, 118, 127]] and {q for q, _ in log} == set(lp + [fm]), "then it runs with the grid: the FM-1 gets its attach (%s)" % sorted({q for q, _ in log}))
+
+    def no_grid(n, t):
+        return {14: "Midi Through", 36: "Felucca 2"}, [fm]
+    rc, log, looks, reads, err = run_main(no_grid, 12)          # (attach + eleven keep-alives: more than eleven fake seconds)
+    check(rc == 0 and "no grid" in err and looks == 1 and reads > 4,
+          "no Launchpads, nothing changing: the ports are looked at once, at the start - not every 3 s (%d looks in %d reads of /proc)" % (looks, reads))
+
+    def grid_later(n, t):
+        if t < 8.0:
+            return {14: "Midi Through", 36: "Felucca 2"}, [fm]
+        if t < 16.0:                                            # a synth first: a look, no grid yet
+            return {14: "Midi Through", 36: "Felucca 2", 40: "MicroFreak"}, [fm, "MicroFreak:MicroFreak MIDI 1 40:0"]
+        return {14: "Midi Through", 36: "Felucca 2", 40: "MicroFreak", 20: "Launchpad Mini MK3", 24: "Launchpad Mini MK3"}, [fm, "MicroFreak:MicroFreak MIDI 1 40:0"] + lp
+    rc, log, looks, reads, err = run_main(grid_later, 99)
+    check(rc == 1 and "two Launchpads are here now" in err and looks == 3,
+          "a synth comes: one look; the Launchpads come: one look, and the bridge ends for a restart with them (%d looks; %r)" % (looks, err[-90:]))
+    # stopped by the service (systemctl stop: the banco does it, a shutdown): the Launchpads dark, the FM-1 told - as Ctrl-C
+    import signal
+    import threading
+
+    def all_there(n, t):
+        return {**base, 36: "Felucca 2"}, lp + [fm]
+    before = signal.getsignal(signal.SIGTERM)
+
+    def stopper():                                              # (once main() has its own handler, a moment in its loop)
+        t0 = real_time.time()
+        while signal.getsignal(signal.SIGTERM) is before and real_time.time() - t0 < 20.0:
+            real_time.sleep(0.01)
+        real_time.sleep(0.3)
+        os.kill(os.getpid(), signal.SIGTERM)
+    threading.Thread(target=stopper, daemon=True).start()
+    try:
+        rc, log, looks, reads, err = run_main(all_there, 10 ** 9)
+    finally:
+        signal.signal(signal.SIGTERM, before)
+    last = {q: [m for qq, m in log if qq == q][-1] for q in lp + [fm]}
+    check(rc == 0 and last[fm] == [0xBF, 118, 0] and all(last[q] == B.MK3.HEADER + [0x0E, 0x00, 0xF7] for q in lp) and "bridge stopped" not in err,
+          "SIGTERM: the bridge ends as with Ctrl-C - the FM-1 gets the detach, the Launchpads are blanked and back in live mode (rc %s, %s)" % (rc, last[fm]))
+    blank = [m for q, m in log if q == lp[0] and m[:7] == B.MK3.HEADER + [0x03]][-1]
+    check(len(blank) > 100 and all(v == 0 for i in range(7, len(blank) - 1, 5) for v in blank[i + 2:i + 5]), "... every light of a Launchpad off before it goes (%d bytes)" % len(blank))
+
+
+def t_synth_ports():
+    """0.23.2: the snapshot patches' synth ports are opened once and kept - a port opened or closed at every snapshot
+    was an ALSA client that came and went in the music (RaspiMIDIHub takes its matrix down and up again at each)."""
+    import contextlib
+    import io
+    import json
+    import tempfile
+    import types
+    import time as real_time
+    check(B.links_touch(({(36, 1): {(131, 0)}}, {}), {131}) and B.links_touch(({}, {(131, 0): {(36, 1)}}), {131})
+          and not B.links_touch(({(36, 1): {(128, 0)}}, {(128, 3): {(36, 1)}}), {131}) and not B.links_touch(({}, {}), {131}),
+          "a client is in ALSA's connections when it is at either end of one")
+
+    class World:
+        """a fake ALSA: the synth ports there, the clients (a port opened makes one), the connections of those"""
+        def __init__(self, proc=True):
+            self.names, self.proc = ["MicroFreak:MicroFreak MIDI 1 40:0", "Felucca 2:Felucca 2 MIDI 2 36:1"], proc
+            self.looks, self.opened, self.closed, self.sent, self.cb, self.next, self.live = 0, [], [], [], {}, 140, {}
+
+        def look(self):
+            self.looks += 1
+            return list(self.names), list(self.names)
+
+        def _port(self, name):
+            if name not in self.names:
+                raise IOError("no such port")
+            cid, self.next = self.next, self.next + 1
+            self.opened.append(name)
+            self.live[cid] = name
+            return cid
+
+        def open_out(self, name):
+            cid = self._port(name)
+            return (lambda m: self.sent.append((cid, list(m)))), (lambda: (self.closed.append(cid), self.live.pop(cid, None)))
+
+        def open_in(self, name, on_bytes):
+            cid = self._port(name)
+            self.cb[cid] = on_bytes
+            return lambda: (self.closed.append(cid), self.live.pop(cid, None))
+
+        def clients(self):
+            if not self.proc:
+                return None
+            out = {40: "MicroFreak", 36: "Felucca 2"}
+            out.update({c: "RtMidiOut Client" for c in self.live})
+            return out
+
+        def links(self):
+            return ({(c, 0): {(40, 0)} for c in self.live}, {}) if self.proc else None
+    got = []
+    w = World()
+    sp = B.SynthPorts(w.look, w.open_out, w.open_in, B.FM1_PATTERN, lambda nm, raw: got.append((nm, raw)), clients=w.clients, links=w.links)
+    a = sp.open("MicroFreak", "MF")
+    check(a is not None and w.looks == 1 and w.opened == [w.names[0]] * 2, "a synth's port opened: one look, its output and its input (%s)" % w.opened)
+    a[0]([0xF0, 1, 0xF7]); a[1]()
+    b = sp.open("MicroFreak", "MF"); b[0]([0xF0, 2, 0xF7]); b[1]()
+    c = sp.open("MicroFreak", "MF"); c[0]([0xF0, 3, 0xF7]); c[1]()
+    check(w.looks == 1 and len(w.opened) == 2 and not w.closed and [m for _, m in w.sent] == [[0xF0, 1, 0xF7], [0xF0, 2, 0xF7], [0xF0, 3, 0xF7]],
+          "asked for again and again (a snapshot, another): no look, nothing opened, nothing closed - the same port carries them (%d looks, %d opened, %d closed)"
+          % (w.looks, len(w.opened), len(w.closed)))
+    cid_in = [k for k in w.cb][0]
+    w.cb[cid_in]([0xF0, 0x41, 0xF7]); w.cb[cid_in]([0xF8]); w.cb[cid_in]([0x90, 60, 100]); w.cb[cid_in]([])
+    check(got == [("MF", [0xF0, 0x41, 0xF7])], "the kept input hands on the synth's SysEx only - not its clock or its notes (%s)" % got)
+    check(sp.open("Nothing here", "Absent") is None and "Absent" not in sp.kept and w.looks == 2, "a synth that is not there: None, nothing kept")
+    check(sp.open("Felucca", "FM") is None, "the FM-1's own port is never a synth's")
+    # the synth unplugged and back under the same number: ALSA no longer shows the kept port's connections
+    old = dict(w.live)
+    w.live.clear()                                              # (the kernel dropped them; the port objects are still held)
+    looks0 = w.looks
+    d2 = sp.open("MicroFreak", "MF")
+    check(d2 is not None and w.looks == looks0 + 1 and len(w.opened) == 4 and sorted(w.closed) == sorted(old),
+          "a kept port whose connections are gone: closed, and opened again when it is asked for (%d opened, closed %s)" % (len(w.opened), w.closed))
+    d2[0]([0xF0, 9, 0xF7])
+    check(w.sent[-1][1] == [0xF0, 9, 0xF7] and w.sent[-1][0] not in old, "... and the patch goes out of the new one")
+    # open_all / drop: what main() does at its start and when a device comes or goes
+    sp.drop()
+    check(not sp.kept and not w.live, "drop: every kept port closed")
+    two = [dict(name="MF", port="MicroFreak"), dict(name="TD3", port="TD-3")]
+    looks0 = w.looks
+    here = sp.open_all(two)
+    check(here == ["MF"] and list(sp.kept) == ["MF"] and w.looks == looks0 + 1, "open_all: the synths that are there, one look for all of them (%s)" % here)
+    opened0, closed0 = len(w.opened), len(w.closed)
+    w.names.append("TD-3:TD-3 MIDI 1 44:0")                     # another synth plugged in: a device came
+    here = sp.open_all(two)
+    check(here == ["MF", "TD3"] and w.looks == looks0 + 2 and len(w.opened) == opened0 + 2 and len(w.closed) == closed0,
+          "a device came: the synth not open yet is opened; the port that was good is not touched (%s, %d opened, %d closed)" % (here, len(w.opened) - opened0, len(w.closed) - closed0))
+    here = sp.open_all(two)
+    check(here == ["MF", "TD3"] and w.looks == looks0 + 2 and len(w.opened) == opened0 + 2, "a device came and every synth's port is open: no look, nothing opened")
+    td = [c for c, nm in w.live.items() if nm.startswith("TD-3")]
+    for c in td:
+        del w.live[c]                                           # the TD-3 unplugged: its connections gone
+    w.names.pop()
+    here = sp.open_all(two)
+    check(here == ["MF"] and sorted(w.closed[closed0:]) == sorted(td) and w.looks == looks0 + 3,
+          "a synth went: its kept port is closed, it is looked for (not there); the other stays (%s)" % here)
+    # an input that cannot be opened: the output opened before it is closed, nothing kept
+    w2 = World()
+    def bad_in(name, on_bytes):
+        raise IOError("busy")
+    sp2 = B.SynthPorts(w2.look, w2.open_out, bad_in, B.FM1_PATTERN, lambda nm, raw: None, clients=w2.clients, links=w2.links)
+    check(sp2.open("MicroFreak", "MF") is None and not sp2.kept and not w2.live and len(w2.closed) == 1, "a port that fails to open: None, what was opened is closed")
+    # not a Pi (no /proc to watch a kept port with): opened and closed each time, as before
+    w3 = World(proc=False)
+    sp3 = B.SynthPorts(w3.look, w3.open_out, w3.open_in, B.FM1_PATTERN, lambda nm, raw: None, clients=w3.clients, links=w3.links)
+    for k in range(2):
+        e = sp3.open("MicroFreak", "MF"); e[0]([0xF0, k, 0xF7]); e[1]()
+    check(w3.looks == 2 and len(w3.opened) == 4 and len(w3.closed) == 4 and not sp3.kept and sp3.open_all([dict(name="MF", port="MicroFreak")]) == [],
+          "no /proc: nothing kept - a look, the ports opened and closed, every time (%d looks, %d closed)" % (w3.looks, len(w3.closed)))
+    # the PatchKeeper on kept ports: KEEP listens and its finish closes nothing; PLAY after PLAY, not a look
+    d = tempfile.mkdtemp()
+    w4 = World()
+    to_fm1 = []
+    wr = lambda folder: B.BootWriter(folder, run=lambda cmd: None, mounts=lambda: [("/", ["rw"])])
+    synths = [dict(name="MF", port="MicroFreak", request=[0xF0, 0x7E, 0xF7], wait=3.0)]
+    holder = {}
+    sp4 = B.SynthPorts(w4.look, w4.open_out, w4.open_in, B.FM1_PATTERN, lambda nm, raw: holder["k"].synth_in(nm, raw), clients=w4.clients, links=w4.links)
+    k = holder["k"] = B.PatchKeeper(d, synths, to_fm1.append, sp4.open, writer=wr, log=lambda x: None)
+    sp4.open_all(synths)
+    looks0, opened0 = w4.looks, len(w4.opened)
+    pid = 0x00ABCDEF
+    k.fm1_sysex(B.SX_HEAD + [0x41, 0] + B.put7(pid, 5) + [1, 0xF7], 10.0)
+    check([m for _, m in w4.sent] == [[0xF0, 0x7E, 0xF7]], "KEEP: the request goes out of the kept port")
+    w4.cb[[c for c in w4.cb][0]]([0xF0, 0x00, 0x20, 0x6B, 0x55, 0xF7])   # the synth answers
+    k.tick(14.0)
+    check(to_fm1 == [B.SX_HEAD + [0x42, 0, 1, 0xF7]] and not w4.closed, "its answer is kept; the KEEP's end closes no port (%s, closed %s)" % (to_fm1, w4.closed))
+    for n in range(3):
+        k.fm1_sysex(B.SX_HEAD + [0x40, 0] + B.put7(pid, 5) + [1, 0xF7], 20.0 + n)
+    check([m for _, m in w4.sent][1:] == [[0xF0, 0x00, 0x20, 0x6B, 0x55, 0xF7]] * 3 and w4.looks == looks0 and len(w4.opened) == opened0 and not w4.closed,
+          "the snapshot back three times while playing: the patch sent three times, no look, no port opened or closed (%d looks, %d opened)" % (w4.looks - looks0, len(w4.opened) - opened0))
+    # main(): with a patches.json the synth's port is opened at the start, and again when a device comes - no look in between
+    fm = "Felucca 2:Felucca 2 MIDI 1 36:0"
+    mf = "MicroFreak:MicroFreak MIDI 1 40:0"
+    cfg = os.path.join(d, "patches.json")
+    json.dump({"synths": [{"name": "MF", "port": "MicroFreak"}]}, open(cfg, "w"))
+    sdir = os.path.join(d, "patches", "%08x" % pid, "s1")
+    os.makedirs(sdir, exist_ok=True)
+    open(os.path.join(sdir, "MF.syx"), "wb").write(bytes([0xF0, 0x00, 0x20, 0x6B, 0x66, 0xF7]))
+
+    class Msg:
+        def __init__(self, b): self.b = list(b)
+        def bytes(self): return self.b
+        @classmethod
+        def from_bytes(cls, b): return cls(b)
+
+    def run_main(world, stop_at, plays):
+        """world(fake time) -> (ALSA devices, port names); a PLAY of snapshot 1 from the FM-1 after each of its
+        `plays`-th messages; Ctrl-C at the FM-1's stop_at-th message"""
+        log, looks, opened, clock, cbs = [], [0], [], [0.0], {}
+
+        class Port:
+            def __init__(self, name, callback=None):
+                self.name = name
+                opened.append(name)
+                if callback is not None:
+                    cbs[name] = callback
+            def send(self, m):
+                log.append((self.name, m.bytes(), looks[0]))
+                if self.name == fm:
+                    n = sum(1 for q, _, _ in log if q == fm)
+                    if n in plays:
+                        cbs[fm](Msg(B.SX_HEAD + [0x40, 0] + B.put7(pid, 5) + [1, 0xF7]))
+                    if n == stop_at:
+                        raise KeyboardInterrupt()
+            def close(self): pass
+
+        def names():
+            looks[0] += 1
+            return list(world(clock[0])[1])
+
+        def monotonic():
+            clock[0] += 0.3
+            return clock[0]
+        fake = types.SimpleNamespace(get_input_names=names, get_output_names=lambda: list(world(clock[0])[1]),
+                                     open_input=lambda name, callback=None, virtual=False: Port(name, callback),
+                                     open_output=lambda name, virtual=False: Port(name), Message=Msg)
+        sys.modules["mido"] = fake
+        keep = (real_time.monotonic, B.alsa_clients, B.alsa_links)
+        real_time.monotonic, B.alsa_clients, B.alsa_links = monotonic, (lambda *a, **k: dict(world(clock[0])[0])), (lambda *a, **k: None)
+        out, err = io.StringIO(), io.StringIO()
+        try:
+            with contextlib.redirect_stdout(out), contextlib.redirect_stderr(err):
+                rc = B.main(["--dump-dir", d, "--patches", cfg])
+        finally:
+            real_time.monotonic, B.alsa_clients, B.alsa_links = keep
+            del sys.modules["mido"]
+        return rc, log, looks[0], opened, out.getvalue(), err.getvalue()
+
+    rc, log, looks, opened, out, err = run_main(lambda t: ({14: "Midi Through", 36: "Felucca 2", 40: "MicroFreak"}, [fm, mf]), 14, {3, 6, 9})
+    patches = [(m, lk) for q, m, lk in log if q == mf]
+    check(rc == 0 and "snapshot patches: MF (ports open: MF)" in out and [m for m, _ in patches] == [[0xF0, 0x00, 0x20, 0x6B, 0x66, 0xF7]] * 3,
+          "main() with a patches.json: the synth's port opened at the start, the snapshot's patch sent at each of three PLAYs (%s; %r)" % (len(patches), err[-120:]))
+    check(looks == 2 and opened.count(mf) == 2 and all(lk == 2 for _, lk in patches),
+          "... two looks at the ports in all (the bridge's start, the synth's port), none at a PLAY; the synth's port opened once (%d looks, %s)" % (looks, opened))
+
+    def synth_later(t):
+        if t < 9.0:
+            return {14: "Midi Through", 36: "Felucca 2"}, [fm]
+        return {14: "Midi Through", 36: "Felucca 2", 40: "MicroFreak"}, [fm, mf]
+    rc, log, looks, opened, out, err = run_main(synth_later, 30, {25, 27})
+    patches = [(m, lk) for q, m, lk in log if q == mf]
+    check(rc == 0 and "snapshot patches: MF (ports open: none)" in out and "snapshot patches: ports open: MF" in out and len(patches) == 2,
+          "a synth plugged in later: its port is opened when it comes (said), and the patches go (%d; %r)" % (len(patches), out[-160:]))
+    check(len({lk for _, lk in patches}) == 1 and opened.count(mf) == 2,
+          "... opened then, once - not at the snapshots (%s looks at the two PLAYs, %s)" % ([lk for _, lk in patches], opened))
 
 
 def t_end_to_end():
@@ -1270,7 +1653,7 @@ def t_progressions():
 
 
 TESTS = [t_roles_match_firmware, t_start_stop, t_pads_in, t_buttons_in, t_leds_out, t_batching, t_pump, t_blink,
-         t_swap_and_guard, t_mk2, t_mini, t_heal, t_ports, t_portwatch, t_main, t_end_to_end,
+         t_swap_and_guard, t_mk2, t_mini, t_heal, t_ports, t_portwatch, t_main, t_quiet_wait, t_synth_ports, t_end_to_end,
          t_dump_codec, t_dump_receiver, t_dump_sender, t_dump_files, t_dump_cli, t_dump_firmware, t_bootwriter, t_library,
          t_library_firmware, t_fm1_port, t_patch_keeper, t_patch_firmware, t_regista, t_regista_firmware, t_patterns, t_progressions]
 

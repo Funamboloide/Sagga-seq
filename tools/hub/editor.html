@@ -117,6 +117,7 @@ let changes = new Map(), undo = [];
 let V = {tab: 'tracce', pat: 0, t: 0, s: 0, toggle: true, scene: 0, lane: 0, erase: false, follow: false, listen: true, tt: 0, zoom: 14, snap: true, tsel: -1};
 let TP = {}, OTP = {};                                // 0.15: the TAPE events, track -> [[on, dur, note, vel], ...] (OTP: as read)
 try { const v = JSON.parse(localStorage.getItem('sagga-ed-view') || '{}'); Object.assign(V, v); } catch (e) {}
+const HASH_TAPE = location.hash === '#tape';          // 0.23.2: /edit/NAME#tape (where the old piano roll's links land) opens the Tape tab
 
 const $ = id => document.getElementById(id);
 const h = s => String(s).replace(/[&<>"']/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'}[c]));
@@ -315,7 +316,7 @@ function rTracce() {
   for (let t = 0; t < 16; t++) {
     const c = P.track[t], m = thOf(t, V.pat);            // 0.23: a pattern the THEORY engines made says so, with its seed
     o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="' +
-      (m ? 'fatto dai motori THEORY' + ((m.style & 31) === 26 ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano.' : 'impostazioni della traccia') +
+      (m ? 'fatto dai motori THEORY' + ((m.style & 31) === 26 ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano (non in un RUMBLE o in un SUB che segue la cassa: quelli vengono rifatti interi).' : 'impostazioni della traccia') +
       '">' + h(trackLabel(t)) + (m ? ' <b class="thb">◆' + (m.seed + 1) + '</b>' : '') + '<i class="pp" id="pp' + t + '"></i></span>';
     if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + (TP[t] || []).length + ' note · <a href="#" onclick="V.tt=' + t + ';V.tab=\'tape\';keepView();render();return false">apri nella scheda Tape</a></span></div>'; continue; }
     for (let s = 0; s < 64; s++) {
@@ -701,5 +702,11 @@ window.addEventListener('keydown', ev => {
 window.addEventListener('beforeunload', ev => { if (changes.size) { ev.preventDefault(); ev.returnValue = ''; } });
 $('follow').checked = !!V.follow; $('listen').checked = !!V.listen;
 render();
-if (NAME) reload(false).then(followSet); else $('main').innerHTML = 'Apri un progetto dalla <a href="/">libreria</a>.';
+function openTape() {                                 // the Tape tab, on a TAPE track if the one shown is not (and there is one)
+  if (!HASH_TAPE || !P) return;
+  V.tab = 'tape'; V.tsel = -1;
+  if (!(P.track[V.tt].flags & 0x20)) { const k = P.track.findIndex(c => c.flags & 0x20); if (k >= 0) V.tt = k; }
+  keepView(); render();
+}
+if (NAME) reload(false).then(openTape).then(followSet); else $('main').innerHTML = 'Apri un progetto dalla <a href="/">libreria</a>.';
 </script></body></html>

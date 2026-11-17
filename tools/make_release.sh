@@ -38,7 +38,7 @@ HUB="sagga-hub-$VER"
 H="$T/$HUB"
 mkdir -p "$H/hub" "$H/sgqmid" "$H/raspimidihub" "$H/rp2040"
 cp tools/hub/install_hub.sh tools/hub/LEGGIMI.md "$H/"
-cp tools/hub/sagga_fw.py tools/hub/sagga_pc_host.py tools/hub/usbmidi_pkt.py tools/hub/roll.html tools/hub/sagga_patterns.py tools/hub/sagga_progs.py tools/hub/sagga_slicer.py \
+cp tools/hub/sagga_fw.py tools/hub/sagga_pc_host.py tools/hub/usbmidi_pkt.py tools/hub/sagga_patterns.py tools/hub/sagga_progs.py tools/hub/sagga_slicer.py \
    tools/hub/sagga_editor.py tools/hub/editor.html tools/hub/sagga_celle.py tools/hub/sagga-fw.service tools/hub/sagga-pc-link.service tools/hub/sagga-virmidi.service "$H/hub/"
 cp tools/hub/sagga_banco.py tools/hwtest/sagga_testport.py tools/hwtest/sagga_hw_test.py tools/hwtest/sagga_hw_explore.py "$H/hub/"   # 0.20.3: the banco's explorer
 python3 tests/sagga_explore.py --banco-piano "$H/hub/banco_piano.json"            # ... and its plan (made now, from the explorer)

@@ -34,7 +34,6 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 HERE = os.path.dirname(os.path.abspath(__file__))
 INSTALLER = os.environ.get('FM1_INSTALL', os.path.join(HERE, 'fm1_install.py'))
 SGQMID = os.environ.get('SAGGA_SGQMID', os.path.join(HERE, 'sagga_sgqmid'))    # 0.11: .sgq <-> .mid (tools/sgqmid, built on the Pi)
-ROLL = os.path.join(HERE, 'roll.html')                                           # 0.11: the piano roll page
 sys.path.insert(0, HERE)
 import sagga_patterns                                                            # noqa: E402  (0.11: the Pi's patterns)
 import sagga_progs                                                               # noqa: E402  (0.11: the Pi's progressions)
@@ -148,7 +147,22 @@ def alsa_key(path='/proc/asound/seq/clients'):
         return None
 
 
-IDENT_RE = re.compile(r'^(FM-1_\S+)\s+\[(\w+)\]\s+port:\s*(.*)$', re.M)
+IDENT_RE = re.compile(r'^((?:ota-)?FM-1_\S+)\s+\[([^\]]+)\]\s+port:\s*(.*)$', re.M)   # (0.23.2: also an FM-1 left in its
+#                                                  update loader - "ota-FM-1_973  [update loader (update not finished)]": the page said no FM-1)
+PROBE_RE = re.compile(r'fm-1|felucca|ota|composite|sinco|usb-midi', re.I)   # the ports fm1_install.py asks (its PORT_RE)
+PROBE_RETRY = (6.0, 20.0, 60.0)        # 0.23.2: an FM-1 that is there and does not answer is asked again after so long, then left
+
+
+def fm1_usb():
+    """0.23.2: which appearance of the FM-1 on the USB this is (the keeper's: its number on the bus and its sound card
+    as the kernel made them - new ones whenever the FM-1 restarted, also when its ALSA client came back with the same
+    number and name), or None"""
+    if sagga_celle is None:
+        return None
+    try:
+        return sagga_celle.usb_instance(sagga_celle.fm1_usb_path())
+    except Exception:
+        return None
 
 
 def read_mounts(path='/proc/mounts'):
@@ -249,8 +263,11 @@ class State:
         self.result = None                                  # 'ok' / 'failed N' of the last install
         self.device = None                                  # (identity, mode, port) of the FM-1 seen last
         self.device_at = 0
-        self.device_key = None                              # 0.22: ALSA's clients when the FM-1 was asked last (alsa_key)
+        self.device_key = None                              # 0.22: ALSA's clients when the FM-1 was asked last (0.23.2: fm1_key)
         self.alsa_key = alsa_key
+        self.usb_key = fm1_usb                              # 0.23.2
+        self.retries = 0                                    # 0.23.2: an FM-1 there and silent: how many times asked again
+        self.watched = False                                # 0.23.2: watch_fm1 runs (main starts it): the page only shows what it found
         self.probes = 0                                     # how many times the installer was asked (the tests count them)
 
     def packages(self):
@@ -362,8 +379,10 @@ class State:
                 if os.path.isfile(src):
                     with open(src, 'rb') as f:
                         self.writer.write(os.path.join(keep, n), f.read())
-            runs = sorted({re.sub(r'^.*?([0-9]{8}-[0-9]{6}).*$', r'\1', n) for n in os.listdir(keep) if BANCO_FILE_RE.match(n)})
-            for old in runs[:-3]:
+            # (0.23.2: the two newest of the others stay - never the run just kept away: a Pi without the internet has
+            # no clock to trust, and today's run can bear an earlier time than the three kept before)
+            runs = sorted({re.sub(r'^.*?([0-9]{8}-[0-9]{6}).*$', r'\1', n) for n in os.listdir(keep) if BANCO_FILE_RE.match(n)} - {q})
+            for old in runs[:-2]:
                 for n in os.listdir(keep):
                     if old in n and BANCO_FILE_RE.match(n):
                         self.writer.remove(os.path.join(keep, n))
@@ -419,18 +438,41 @@ class State:
                                  stderr=subprocess.DEVNULL, start_new_session=True, close_fds=True)
         return None
 
+    def fm1_key(self):
+        """0.23.2: the FM-1 as the kernel has it now - the ALSA clients the installer would ask (their numbers and
+        names) and the FM-1's appearance on the USB; None where /proc has no ALSA"""
+        key = self.alsa_key()
+        if key is None:
+            return None
+        return (tuple(c for c in key if PROBE_RE.search(c[1])), self.usb_key())
+
     def probe(self):
-        """fm1_install.py --info: the FM-1's identity; never while an install runs. 0.22: asked again only when ALSA's
-        clients have changed (the FM-1 came, went, restarted) or after ten minutes. Until 0.21 it was asked every 5 s
-        while the page was open: a Python started, an ALSA client made (RaspiMIDIHub scans its devices again at each)
-        and a SysEx to the FM-1, twelve times a minute, also in the middle of a set. Where /proc has no ALSA (not a
-        Pi): every 5 s as before"""
+        """fm1_install.py --info: the FM-1's identity; never while an install runs. Every question starts a Python,
+        makes half a dozen ALSA clients (two looks at the port names, each port of the FM-1 opened) and sends the FM-1
+        a SysEx - and RaspiMIDIHub takes its whole matrix down and up again at every ALSA client that comes or goes:
+        the notes that sound are cut, the roads are away for a moment. Until 0.21 the question was asked every 5 s
+        while the page was open; 0.22: when any ALSA client had changed, and every ten minutes. 0.23.2: only when the
+        FM-1 itself has changed (fm1_key: it came, went, restarted; an install ended) - never on a timer, never for
+        another device; no FM-1 among ALSA's clients: nobody is asked. One that is there and does not answer (still
+        starting) is asked again after 6, 20 and 60 s, then left. Where /proc has no ALSA (not a Pi): every 5 s as
+        before"""
         with self.lock:
             if self.busy():
                 return self.device
-            key, now = self.alsa_key(), time.time()
-            if (key is not None and key == self.device_key and now - self.device_at < 600) or (key is None and now - self.device_at < 5):
-                return self.device
+            key, now = self.fm1_key(), time.time()
+            if key is None:
+                if now - self.device_at < 5:
+                    return self.device
+            elif key == self.device_key:
+                if (self.device is not None or not key[0] or self.retries >= len(PROBE_RETRY)
+                        or now - self.device_at < PROBE_RETRY[self.retries]):
+                    return self.device
+                self.retries += 1
+            else:
+                self.retries = 0
+                if not key[0]:
+                    self.device, self.device_at, self.device_key = None, now, key
+                    return None
             self.probes += 1
             try:
                 r = subprocess.run([sys.executable, INSTALLER, '--info'], capture_output=True, text=True, timeout=20)
@@ -439,7 +481,7 @@ class State:
             except Exception:
                 self.device = None
             self.device_at = time.time()
-            self.device_key = self.alsa_key()                # (after it: the installer's own client has come and gone)
+            self.device_key = self.fm1_key()                 # (after it: what came and went while it asked is not news)
             return self.device
 
     def install(self, name):
@@ -568,8 +610,21 @@ class State:
 
     def snapshot(self):
         return dict(packages=self.packages(), projects=self.projects(), busy=self.busy(), job=self.job,
-                    result=self.result, log=self.log[-60:], device=self.probe(), version=hub_version(),
+                    result=self.result, log=self.log[-60:], device=self.device if self.watched else self.probe(), version=hub_version(),
                     update=self.update_status(), banco=self.banco_status(), celle=self.keeper_status())
+
+
+def watch_fm1(state, period=2.0, sleep=time.sleep):
+    """0.23.2: the FM-1 is asked who it is when it comes (State.probe: only when fm1_key has changed), by this thread -
+    not when somebody opens the page. Until now the first look at the page after the Pi started asked it, in the middle
+    of a set too: half a dozen ALSA clients, RaspiMIDIHub's matrix down and up again. A look at /proc and at sysfs
+    every two seconds costs nothing and makes no client"""
+    while True:
+        try:
+            state.probe()
+        except Exception as e:                              # (never the page's service down for this)
+            print('watch_fm1: %s' % e, file=sys.stderr, flush=True)
+        sleep(period)
 
 
 PAGE = r'''<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
@@ -635,7 +690,7 @@ document.getElementById('log').textContent=(s.job?`[${s.job}] `:'')+s.log.join('
 function npost(u){const n=document.getElementById('np').value.trim(),m=document.getElementById('npm');if(!n){m.textContent='scrivi un nome';return null;}m.textContent='...';return fetch(u+'?file='+encodeURIComponent(n),{method:'POST'}).then(async r=>{if(!r.ok){m.textContent=await r.text();return null;}const d=await r.json();location.href='/edit/'+encodeURIComponent(d.name);});}
 function newp(){npost('/api/project/new');}
 function recv(){npost('/api/fm1/receive');}
-document.getElementById('pr').innerHTML=s.projects.map(p=>`<div class="row"><a class="mono" href="/projects/${encodeURIComponent(p.name)}">${h(p.name)}</a><span><a href="/projects/${encodeURIComponent(p.name.replace(/\.sgq$/i,''))}.mid"><small>.mid</small></a> <a href="/edit/${encodeURIComponent(p.name)}"><small><b>editor</b></small></a> <a href="/roll/${encodeURIComponent(p.name)}"><small>piano roll</small></a> <small>${new Date(p.mtime*1000).toLocaleString()}</small></span></div>`).join('')||'<small>nessun progetto esportato</small>';}
+document.getElementById('pr').innerHTML=s.projects.map(p=>`<div class="row"><a class="mono" href="/projects/${encodeURIComponent(p.name)}">${h(p.name)}</a><span><a href="/projects/${encodeURIComponent(p.name.replace(/\.sgq$/i,''))}.mid"><small>.mid</small></a> <a href="/edit/${encodeURIComponent(p.name)}"><small><b>editor</b></small></a> <small>${new Date(p.mtime*1000).toLocaleString()}</small></span></div>`).join('')||'<small>nessun progetto esportato</small>';}
 async function inst(n){if(!confirm('Installare '+n+' sull\'FM-1? Non spegnere durante la scrittura.'))return;const r=await fetch('/api/install?file='+encodeURIComponent(n),{method:'POST'});if(!r.ok){const d=await r.json().catch(()=>({}));alert(d.error||'non parte');}tick();}
 async function pkdel(n){if(!confirm('Cancellare '+n+' dalla libreria del Pi? (Il firmware che l\'FM-1 ha adesso non cambia.)'))return;const r=await fetch('/api/package/delete?file='+encodeURIComponent(n),{method:'POST',headers:{'X-Sagga-Hub':'1'}});if(!r.ok)alert(await r.text());tick();}
 async function upd(){const f=document.getElementById('hz').files[0],m=document.getElementById('um');if(!f){m.textContent='scegli lo zip sagga-hub-...';return;}
@@ -776,12 +831,13 @@ def make_handler(state):
                     return self.send(200, json.dumps(state.editor.read(q.get('file', [''])[0])), 'application/json')
                 except sagga_editor.EditorError as e:
                     return self.send(e.code, str(e), 'text/plain; charset=utf-8')
-            if u.path.startswith('/roll/'):                       # 0.11: the piano roll of a project of the library
+            if u.path.startswith('/roll/'):
+                # 0.23.2: the piano roll of 0.11 is gone (the editor's Tape tab is the piano roll since 0.15). Its Save
+                # went through a MIDI file, and what came back was not the project: a TAPE track on another MIDI channel
+                # was written onto the track of that number (which became a TAPE, emptied), a transposed one was
+                # transposed again, a loop shorter than the longest came back repeated. An old link opens the editor
                 name = os.path.basename(urllib.parse.unquote(u.path[len('/roll/'):]))
-                if name.lower().endswith('.sgq') and os.path.isfile(os.path.join(state.proj_dir, name)) and os.path.isfile(ROLL):
-                    with open(ROLL, 'rb') as f:
-                        return self.send(200, f.read())
-                return self.send(404, 'no such project', 'text/plain')
+                return self.send(302, '', 'text/plain', {'Location': '/edit/%s#tape' % urllib.parse.quote(name)})
             if u.path.startswith('/projects/'):
                 name = os.path.basename(urllib.parse.unquote(u.path[len('/projects/'):]))
                 p = os.path.join(state.proj_dir, name)
@@ -807,6 +863,14 @@ def make_handler(state):
 
         def do_POST(self):
             u = urllib.parse.urlparse(self.path)
+            # 0.23.2: a POST that comes from a page of another site is refused, whatever it asks (a browser says where
+            # the page that sends it lives: Origin). Until now only the update, a package's delete and the banco were
+            # kept from other sites (the header below); a page of another site, open on a device of the same network,
+            # could upload a file as a firmware and ask for its install. The hub's own pages, curl, the tests: no
+            # Origin, or this address
+            origin = self.headers.get('Origin')
+            if origin is not None and urllib.parse.urlparse(origin).netloc != self.headers.get('Host', ''):
+                return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
             if u.path in ('/api/update', '/api/package/delete', '/api/banco') and self.headers.get(GUARD) != '1':
                 return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
             if u.path == '/api/banco':                            # 0.20.3: the banco's explorer starts
@@ -873,30 +937,8 @@ def make_handler(state):
                 except OSError as e:
                     return self.send(500, 'non riesco: %s' % e, 'text/plain; charset=utf-8')
                 return self.send(200, json.dumps(dict(ok=True, i=k)), 'application/json')
-            if u.path == '/api/roll':                              # 0.11: the piano roll saves: a MIDI body of the TAPE tracks over the project
-                q = urllib.parse.parse_qs(u.query)
-                name = os.path.basename(q.get('file', [''])[0])
-                dst = os.path.join(state.proj_dir, name)
-                n = int(self.headers.get('Content-Length', '0') or 0)
-                if not name.lower().endswith('.sgq') or not os.path.isfile(dst):
-                    return self.send(404, 'no such project', 'text/plain; charset=utf-8')
-                if n <= 0 or n > 2 * 1024 * 1024:
-                    return self.send(400, 'empty or too big', 'text/plain; charset=utf-8')
-                data = self.rfile.read(n)
-                with tempfile.NamedTemporaryFile(suffix='.mid', delete=False) as tf:
-                    tf.write(data); src = tf.name
-                out = src[:-4] + '.sgq'
-                ok, msg = sgqmid('mid2sgq', src, out, dst)
-                try:
-                    if ok:
-                        with open(dst, 'rb') as f:
-                            state.writer.write(dst + '.bak', f.read())        # the project as it was, once
-                        state.writer.write(dst, open(out, 'rb').read())
-                finally:
-                    for p in (src, out):
-                        try: os.unlink(p)
-                        except OSError: pass
-                return self.send(200 if ok else 400, msg.replace(out, name), 'text/plain; charset=utf-8')
+            if u.path == '/api/roll':                              # (0.23.2: gone with the page - see /roll/ above)
+                return self.send(410, 'il piano roll è nell\'editor, scheda Tape: ricarica la pagina del Pi', 'text/plain; charset=utf-8')
             if u.path.startswith('/api/project') or u.path.startswith('/api/fm1/'):   # 0.14: the editor writes, the FM-1 in / out
                 q = urllib.parse.parse_qs(u.query)
                 name = q.get('file', [''])[0]
@@ -997,6 +1039,9 @@ def main(argv=None):
         state.keeper = sagga_celle.Keeper(sagga_celle.HubAPI(a.hub), path=os.path.join(a.projects, 'celle-fm1.json'),
                                           write=state.writer.write, say=lambda t: print('celle:', t, file=sys.stderr, flush=True))
         threading.Thread(target=sagga_celle.run_forever, args=(state.keeper, state.banco_running), daemon=True).start()
+    if state.fm1_key() is not None:                        # 0.23.2 (a Pi: /proc has ALSA; elsewhere the page asks, every 5 s)
+        state.watched = True
+        threading.Thread(target=watch_fm1, args=(state,), daemon=True).start()
     try:
         with state.writer.writable():
             pass                                            # (the folder exists from now on)

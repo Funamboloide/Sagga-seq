@@ -54,7 +54,6 @@ step "m8 link" tail 1 python3 tools/m8link/test_link.py
 step "hub" tail 1 python3 tests/sagga_hub_tests.py
 step "hwtest" tail 1 python3 tests/sagga_hwtest_tests.py
 step "sgqmid" tail 1 python3 tests/sagga_sgqmid_tests.py
-step "roll" tail 1 python3 tests/sagga_roll_tests.py
 step "slicer" tail 1 python3 tests/sagga_slicer_tests.py               # 0.13 a break into slices (the hub page)
 step "editor" tail 1 python3 tests/sagga_editor_tests.py               # 0.14 the projects' web editor (converter, hub, bridge, page)
 # the live effects of the set: FIGO on norns (a fake norns, softcut modelled), SCENA on the Ksoloti Gills

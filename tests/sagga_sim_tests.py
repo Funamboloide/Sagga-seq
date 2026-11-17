@@ -6268,7 +6268,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23.1", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23.2", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -9419,12 +9419,69 @@ def t0231_cell():
     t = usb2(s, t)
     t = s.steps(t, [0, 3, 6, 10, 12])
     s.raw(t, "midi 0xBB 12 2 2"); t += 40                                # ALGO: CELL READY
-    s.raw(t, "midi 0xBB 13 120 2"); t += 40                              # A = 120 of 127: rule 241
+    s.raw(t, "midi 0xBB 13 120 2"); t += 40                              # A = 120 of 127: rule 240 (0.23.2: the even rules; it was 241)
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     st, v = states(log), v16s(log)
-    check(len(st) == 1 and v[0]["edit"][:2] == (2, 241) and st[0]["rawmsg"] == "TAB " + cell_hint(241, cell_row(TRES), cell_row(TRES)) and st[0]["msg"] == "T1 CELL RULE 241: AFTER 1 ROW SLIDES 1 STEP LATER",
-          "the tablet's A on 120: rule 241, TAB T1 CELL RULE 241: AFTER 1 ROW SLIDES 1 STEP LATER - the clave's holes of three steps filled first (%s)" % (st[0]["rawmsg"] if st else st))
+    check(len(st) == 1 and v[0]["edit"][:2] == (2, 240) and st[0]["rawmsg"] == "TAB " + cell_hint(240, cell_row(TRES), cell_row(TRES)) and st[0]["msg"] == "T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW",
+          "the tablet's A on 120: rule 240, TAB T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW (%s)" % (st[0]["rawmsg"] if st else st))
+
+
+def t0232_tablet_rule():
+    group("0.23.2 the tablet's A on a CELL picks the EVEN rules (2 x the knob): the ones that slide, stay, open are within its reach; the other knobs are spread as they were")
+    TRES = "x..x..x...x.x..."
+    PICKS = [(85, 170), (102, 204), (92, 184), (113, 226), (75, 150), (45, 90), (15, 30), (0, 0), (127, 254), (64, 128), (63, 126), (120, 240)]
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t = s.steps(t, [0, 3, 6, 10, 12])
+    s.raw(t, "midi 0xBB 12 2 2"); t += 40                                # ALGO: CELL READY
+    for cc, rule in PICKS:
+        s.raw(t, "midi 0xBB 13 %d 2" % cc); t += 40
+        s.at(t, "dump", 0); t += 20
+    t2 = t
+    log = run(s, t + 6000)
+    st, v = states(log), v16s(log)
+    got = [x["rawmsg"] for x in st]
+    want = ["TAB " + cell_hint(r, cell_row(TRES), cell_row(TRES)) for c, r in PICKS]
+    check(len(st) == len(PICKS) and [x["edit"][:2] for x in v] == [(2, r) for c, r in PICKS] and got == want,
+          "twelve places of A: the rule is twice the knob, and the screen says its story (%s)" % [(x["edit"][:2], g) for x, g in zip(v, got) if (x["edit"][1], g) not in [(r, w) for (c, r), w in zip(PICKS, want)]][:3])
+    check("TAB T1 CELL RULE 170: SLIDES 1 STEP EARLIER EVERY ROW" in got and "TAB T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW" in got
+          and "TAB T1 CELL RULE 204: THE RHYTHM STAYS AS IT IS" in got and "TAB T1 CELL RULE 150: A LOOP OF 8 ROWS" in got,
+          "... 170 and 240 slide the written rhythm itself, 204 holds it, 150 comes home in 8 rows: none of them could be had before (%s)" % got[:2])
+    out = [(m[0], m[1], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and (m[1] & 0xF0) == 0xB0]
+    back = {(st_ & 15, c): val for tt, st_, c, val in out if tt > t2 + 500}
+    check(back.get((11, 13)) == 120, "the FM-1 says the knob's place back: 120 for rule 240 (%s)" % back.get((11, 13)))
+    # a rule the panel chose that the knob has not (51): the knob shows the place under it, and moves on from there
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t = s.steps(t, [0, 3, 6, 10, 12])
+    s.raw(t, "midi 0xBB 12 2 2"); t += 40                                # the tablet: CELL READY (and the FM-1 knows a tablet listens)
+    t = seq_page(s, t + 30, 1, encs=[(K2, -39)])                        # the panel: rule 90 -> 51
+    s.at(t, "dump", 0)
+    t2 = t
+    log = run(s, t + 6000)
+    v = v16s(log)
+    out = [(m[0], m[1], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and (m[1] & 0xF0) == 0xB0]
+    back = {(st_ & 15, c): val for tt, st_, c, val in out if tt > t2 + 500}
+    check(len(v) == 1 and v[0]["edit"][:2] == (2, 51) and back.get((11, 13)) == 25, "the panel's rule 51: the tablet's A stands on 25 (%s, %s)" % (v[0]["edit"][:2] if v else v, back.get((11, 13))))
+    # CELL's other knob and another algorithm's: spread over their range, as before
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    s.raw(t, "midi 0xBB 12 2 2"); t += 40                                # CELL READY
+    s.raw(t, "midi 0xBB 14 25 2"); t += 40; s.at(t, "dump", 0); t += 20  # B = 25: 16 cells
+    s.raw(t, "midi 0xBB 14 127 2"); t += 40; s.at(t, "dump", 0); t += 20 # B = 127: 64 cells
+    s.raw(t, "midi 0xBB 15 127 2"); t += 40; s.at(t, "dump", 0); t += 20 # C = 127: a new row every loop (3)
+    s.raw(t, "midi 0xBB 12 1 2"); t += 40                                # TURING READY
+    s.raw(t, "midi 0xBB 13 127 2"); t += 40; s.at(t, "dump", 0); t += 20 # A = 127: mutation 100 %
+    s.raw(t, "midi 0xBB 13 64 2"); t += 40; s.at(t, "dump", 0); t += 20  # A = 64: 50 %
+    log = run(s, t + 100)
+    v = v16s(log)
+    check(len(v) == 5 and [x["edit"][0] for x in v] == [2, 2, 2, 1, 1] and v[0]["edit"][2] == 16 and v[1]["edit"][2] == 64 and v[2]["edit"][3] == 3
+          and v[3]["edit"][1] == 100 and v[4]["edit"][1] == 50,
+          "CELLS 25 -> 16, 127 -> 64, NEW ROW 127 -> 3; TURING's MUTATION 127 -> 100, 64 -> 50 (%s)" % [x["edit"] for x in v])
 
 
 def t0231_counts():
@@ -9509,7 +9566,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

@@ -206,10 +206,83 @@ sys.exit(0 if "sagga" in sys.argv[-1] else 4)
     clients[0] = [('24', 'Felucca'), ('129', 'RaspiMIDIHub')]     # the FM-1 restarted: another client
     s2 = json.loads(get('/api/state').read())
     check(state.probes == n0 + 2 and s2['device'] == ['FM-1_992', 'running', 'Felucca MIDI 1'], 'the FM-1 came back as another ALSA client: asked again (%d)' % (state.probes - n0))
+    m = FW.IDENT_RE.search('ota-FM-1_973  [update loader (update not finished)]  port: USB-MIDI MIDI 1 52:0\n')
+    check(m and m.groups() == ('ota-FM-1_973', 'update loader (update not finished)', 'USB-MIDI MIDI 1 52:0') and FW.IDENT_RE.search('FM-1_973  [running]  port: Felucca MIDI 1').group(2) == 'running',
+          '0.23.2: an FM-1 left in its update loader is on the page too (it said: no FM-1) (%s)' % (m and m.groups(),))
+    # 0.23.2: asked only when the FM-1 itself has changed - every question makes ALSA clients, and RaspiMIDIHub takes its
+    # matrix down and up again at each one that comes or goes
+    usb = [(7, (('card1', 501),))]
+    state.usb_key = lambda: usb[0]
+    json.loads(get('/api/state').read())
+    n1 = state.probes                                              # (the FM-1's USB appearance is part of what is watched now: asked once more)
+    clients[0] = [('24', 'Felucca'), ('129', 'RaspiMIDIHub'), ('28', 'MicroFreak'), ('130', 'RtMidiIn Client')]
+    json.loads(get('/api/state').read())
+    check(state.probes == n1, 'a synth plugged in, a program opening a port: the FM-1 is not asked (%d)' % (state.probes - n1))
+    state.device_at -= 3600
+    json.loads(get('/api/state').read())
+    check(state.probes == n1, 'an hour with the page open: not asked again (0.22 asked every ten minutes) (%d)' % (state.probes - n1))
+    usb[0] = (7, (('card1', 502),))                                # the kernel made the FM-1's sound card again: same client number, same name
+    s3 = json.loads(get('/api/state').read())
+    check(state.probes == n1 + 1 and s3['device'][0] == 'FM-1_992', 'the FM-1 made again under the same ALSA number: asked (%d)' % (state.probes - n1))
+    clients[0] = [('129', 'RaspiMIDIHub'), ('28', 'MicroFreak')]
+    usb[0] = None
+    s3 = json.loads(get('/api/state').read())
+    check(state.probes == n1 + 1 and s3['device'] is None, 'the FM-1 away: no FM-1 on the page, and nobody asked (%d, %s)' % (state.probes - n1, s3['device']))
+    silent = os.path.join(d, 'silent')
+    open(silent, 'w').write('1')                                   # an FM-1 that is there and does not answer yet
+    code = open(fake).read()
+    open(fake, 'w').write(code.replace('if "--info" in sys.argv:', 'import os\nif "--info" in sys.argv and os.path.exists(%r):\n    sys.exit(1)\nif "--info" in sys.argv:' % silent))
+    clients[0] = [('24', 'Felucca'), ('129', 'RaspiMIDIHub')]
+    usb[0] = (8, (('card1', 600),))
+    s3 = json.loads(get('/api/state').read())
+    n2 = state.probes
+    check(n2 == n1 + 2 and s3['device'] is None, 'the FM-1 back, still starting: asked, no answer (%d)' % (n2 - n1))
+    asked = []
+    for wait in (3, 4, 10, 11, 30, 31, 600, 3600):                # seconds going by with the page open
+        state.device_at -= wait
+        json.loads(get('/api/state').read())
+        asked.append(state.probes - n2)
+    check(asked == [0, 1, 1, 2, 2, 3, 3, 3], 'one that does not answer is asked again after 6, 20 and 60 s, then left alone (%s)' % asked)
+    os.unlink(silent)
+    usb[0] = (9, (('card1', 700),))
+    s3 = json.loads(get('/api/state').read())
+    check(state.probes == n2 + 4 and s3['device'][0] == 'FM-1_992', 'it restarts and answers: on the page again (%s)' % (s3['device'],))
+    # ... and never because somebody opened the page: a thread of the service asks when the FM-1 comes (watch_fm1)
+    state.watched, state.device_key, n3 = True, None, state.probes
+    for _ in range(3):
+        s3 = json.loads(get('/api/state').read())
+    check(state.probes == n3 and s3['device'][0] == 'FM-1_992', 'with the watch on, the page only shows the FM-1 found last: opening it asks nobody (%d)' % (state.probes - n3))
+    turns = []
+
+    def nap(sec):
+        turns.append(sec)
+        if len(turns) == 2:
+            usb[0] = (10, (('card1', 800),))                       # the FM-1 restarts while nobody looks at the page
+        if len(turns) >= 5:
+            raise KeyboardInterrupt
+    try:
+        FW.watch_fm1(state, sleep=nap)
+    except KeyboardInterrupt:
+        pass
+    check(state.probes == n3 + 2 and turns == [2.0] * 5, 'the watch: a look every 2 s; asked once at its start (nothing known yet) and once when the FM-1 restarted (%d in %d turns)' % (state.probes - n3, len(turns)))
+    state.watched = False
     state.alsa_key = lambda: None                                  # (no /proc: the 5 s of before)
+    n0 = state.probes - 2
     state.device_at -= 6
     json.loads(get('/api/state').read()); json.loads(get('/api/state').read())
     check(state.probes == n0 + 3, 'where ALSA cannot be read: every 5 s, as before (%d)' % (state.probes - n0))
+    # 0.23.2: a POST from a page of another site (its Origin is not this address) is refused, whatever it asks
+    def post_from(origin, path='/api/install?file=sagga-seq-0.9.fwsc'):
+        req = urllib.request.Request(base + path, data=b'', method='POST', headers={} if origin is None else {'Origin': origin})
+        try:
+            return urllib.request.urlopen(req, timeout=5).status
+        except urllib.error.HTTPError as e:
+            return e.code
+    check(post_from('http://evil.example') == 403 and post_from('null') == 403 and post_from('http://127.0.0.1:1') == 403 and not state.busy(),
+          'a POST from another site (or from a file, or from another port of this machine): 403, nothing installed')
+    check(post_from('http://evil.example', '/api/upload') == 403 and post_from('http://evil.example', '/api/project/new?file=x.sgq') == 403,
+          '... an upload, a new project: 403 too')
+    check(post_from(base, '/api/project/new?file=da-qui.sgq') in (200, 500), 'from the hub\'s own address it is taken (%s)' % post_from(base, '/api/patterns/delete?genre=TECHNO&part=KICK&i=999'))
     req = urllib.request.Request(base + '/api/install?file=sagga-seq-0.9.fwsc', method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['error'] is None, 'install accepted')
     req = urllib.request.Request(base + '/api/install?file=relitto-0.1.fwsc', method='POST')
@@ -287,28 +360,24 @@ sys.exit(0 if "sagga" in sys.argv[-1] else 4)
     except urllib.error.HTTPError as e:
         check(e.code == 303, 'a .sgq upload answers with the redirect')
     check(open(os.path.join(pr, 'mine.sgq'), 'rb').read() == hw, 'the .sgq is in the projects folder, whole')
-    FW.ROLL = os.path.join(ROOT, 'tools', 'hub', 'roll.html') if os.path.isdir(os.path.join(ROOT, 'tools', 'hub')) else os.path.join(HERE, 'hub', 'roll.html')
-    page = get('/roll/song.sgq').read()
-    check(b'SAGGA PIANO ROLL' in page and b'parseSMF' in page, 'the piano roll page serves for a project')
+    # 0.23.2: the piano roll of 0.11 is gone (its Save put a TAPE track on another MIDI channel onto the wrong track,
+    # transposed a transposed one again, repeated a short loop): an old link opens the editor's Tape tab, a Save from a
+    # page still open is refused and the project is not touched
     try:
-        get('/roll/nothing.sgq'); check(False, 'no roll for a project that is not there')
+        urllib.request.build_opener(NoRedirect).open(base + '/roll/song.sgq', timeout=10); check(False, 'the old piano roll link redirects')
     except urllib.error.HTTPError as e:
-        check(e.code == 404, 'no roll for a project that is not there')
-    # a save: the MIDI of track 3 only (one note) over hw.sgq -> track 3 becomes a TAPE of one note, tracks 1-2 stay steps
-    import struct as _st
-    def var(v):
-        b = [v & 0x7F]; v >>= 7
-        while v: b.append((v & 0x7F) | 0x80); v >>= 7
-        return bytes(reversed(b))
-    t3 = b'\x00\xff\x03\x0bT3 ch3 TAPE' + var(0) + bytes([0x92, 72, 100]) + var(300) + bytes([0x82, 72, 0]) + b'\x00\xff\x2f\x00'
-    tempo = b'\x00\xff\x51\x03' + (468750).to_bytes(3, 'big') + b'\x00\xff\x2f\x00'
-    smf = b'MThd' + _st.pack('>IHHH', 6, 1, 2, 384) + b'MTrk' + _st.pack('>I', len(tempo)) + tempo + b'MTrk' + _st.pack('>I', len(t3)) + t3
-    req = urllib.request.Request(base + '/api/roll?file=hw.sgq', data=smf, method='POST', headers={'Content-Type': 'audio/midi'})
-    r = urllib.request.urlopen(req, timeout=10)
-    check(r.status == 200 and b'1 notes on 1 tapes' in r.read(), 'the roll saves over the project')
-    check(os.path.isfile(os.path.join(pr, 'hw.sgq.bak')) and open(os.path.join(pr, 'hw.sgq.bak'), 'rb').read() == hw, 'the project as it was is kept in .bak')
-    r = subprocess.run([tool, 'sgq2mid', os.path.join(pr, 'hw.sgq'), os.path.join(d, 'after.mid')], capture_output=True, text=True)
-    check('4 tracks' in r.stderr, 'the saved project still has its four tracks with notes (%s)' % r.stderr.strip())
+        check(e.code == 302 and e.headers.get('Location') == '/edit/song.sgq#tape', 'the old piano roll link opens the editor\'s Tape tab (%s %s)' % (e.code, e.headers.get('Location')))
+    try:
+        urllib.request.build_opener(NoRedirect).open(base + '/roll/due%20parole.sgq', timeout=10)
+    except urllib.error.HTTPError as e:
+        check(e.headers.get('Location') == '/edit/due%20parole.sgq#tape', 'a name with a space: quoted in the redirect (%s)' % e.headers.get('Location'))
+    check(b'/roll/' not in get('/').read() and b'piano roll' not in get('/').read(), 'the library no longer links the piano roll')
+    req = urllib.request.Request(base + '/api/roll?file=hw.sgq', data=b'MThd' + bytes(10), method='POST', headers={'Content-Type': 'audio/midi'})
+    try:
+        urllib.request.urlopen(req, timeout=10); check(False, 'the old piano roll\'s Save is refused')
+    except urllib.error.HTTPError as e:
+        check(e.code == 410 and 'Tape' in e.read().decode(), 'the old piano roll\'s Save is refused, and says where it is now (%s)' % e.code)
+    check(open(os.path.join(pr, 'hw.sgq'), 'rb').read() == hw and not os.path.isfile(os.path.join(pr, 'hw.sgq.bak')), 'the project is not touched')
     body = (b'--B\r\nContent-Disposition: form-data; name="f"; filename="x.mid"\r\nContent-Type: audio/midi\r\n\r\nnot a midi file\r\n--B--\r\n')
     req = urllib.request.Request(base + '/api/upload', data=body, method='POST', headers={'Content-Type': 'multipart/form-data; boundary=B'})
     try:
@@ -592,6 +661,8 @@ def t_update_delete():
     check(len(rmh) == 1 and rmh[0] > last_write, 'install_hub.sh restarts RaspiMIDIHub once, after its last write (%s > %s)' % (rmh, last_write))
     check('rwroot\ninstall -m 644 "$HERE/hub/sagga-virmidi.service"' in sh and 'rwroot\nsystemctl daemon-reload' in sh,
           'install_hub.sh makes the root writable again before the services')
+    check('rwroot\ninstall -d /opt/sagga/hub' in sh and sh.count('    rwroot\n    cc -std=c11') == 2 and '    rwroot\n    for d in "$HERE"/raspimidihub/sagga_*/' in sh,
+          '0.23.2: ... and before what follows apt and the compilers: /opt/sagga, the two converters, the SAGGA pages')
     check('systemd-run --unit="$UNIT"' in sh and 'SAGGA_INSTALL_EXIT=' in sh and 'exit "${RC:-1}"' in sh,
           'install_hub.sh runs in a unit of its own and gives back its exit code (a dropped SSH does not stop it)')
     check('SAGGA_DETACHED=1 sh ./install_hub.sh' in open(os.path.join(HUB, 'sagga_fw.py')).read(),
@@ -723,6 +794,19 @@ json.dump(st, open(os.path.join(out, "banco.json"), "w"))
     b = banco()
     check([f['where'] for f in b['files']] == ['sd'] * 3 and get('/banco/RAPPORTO-BANCO-20260101-000000.md')[0] == 200,
           'after a reboot (/run empty) they are still there, from the SD (%s)' % b['files'])
+    # 0.23.2: a Pi without the internet has no clock to trust: today's run can bear an EARLIER time than the three kept
+    # from other days - it is the one that must stay
+    for old in ('20260105-101010', '20260106-111111', '20260107-121212'):
+        for pat in ('raccolta-banco-%s.json', 'RAPPORTO-BANCO-%s.md', 'banco-%s.log'):
+            open(os.path.join(keep, pat % old), 'w').write('x')
+    os.makedirs(bd, exist_ok=True)
+    for pat in ('raccolta-banco-%s.json', 'RAPPORTO-BANCO-%s.md', 'banco-%s.log'):
+        open(os.path.join(bd, pat % '20260102-000000'), 'w').write('oggi')
+    state._banco_keep(dict(quando='20260102-000000', rc=0))
+    left = sorted({n.split('.')[0][-15:] for n in os.listdir(keep) if FW.BANCO_FILE_RE.match(n)})
+    check(left == ['20260102-000000', '20260106-111111', '20260107-121212'] and open(os.path.join(keep, 'banco-20260102-000000.log')).read() == 'oggi',
+          'three runs stay on the SD: the one just made, whatever its time says, and the two newest of the others (%s)' % left)
+    shutil_rm(bd)
     open(os.path.join(keep, 'celle-staccate.json'), 'w').write('{"celle": [1]}')
     check(banco()['celle'], 'the cells of an interrupted prova: the page offers to put them back')
     code, _ = post('/api/banco?modo=rimetti')

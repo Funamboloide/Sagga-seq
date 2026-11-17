@@ -18,7 +18,9 @@ Wants=raspimidihub.service
 # your Launchpads: two red / green Launchpad Minis, the left one turned (--frame). A Mini MK3: remove "--model mini".
 # With USB PORTS 2 on the FM-1 the bridge takes its port 2 by itself (--port auto).
 ExecStart=/usr/bin/python3 -u /opt/sagga/sagga_grid_bridge.py --model mini --frame
-# the bridge ends with an error when a Launchpad or the FM-1 goes away (or is not there yet): try again
+# the bridge ends with an error when a Launchpad or the FM-1 goes away: try again. (0.23.2: an FM-1 that is not there
+# yet does not end it - it waits, making no ALSA client: every client that comes or goes makes RaspiMIDIHub build
+# its whole matrix again, with the notes that sound cut)
 Restart=always
 RestartSec=2
 

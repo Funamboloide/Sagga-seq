@@ -121,7 +121,9 @@ MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWIN
 harmony); ARP, OCTAVES, RATE (1/4 and 1/2: a note every 4 / 2 steps), RUN; CHORD (one note becomes a chord); MIDI FX
 (one of the nine with FM-1 0.20: HARM, OCTAVE, ECHO, VEL CURVE, CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH), FX AMOUNT (the
 four of 0.19: -12..+12; the new five: their whole range, the FM-1's screen says the value), FX GO (the effect shown
-joins the track's chain - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO; EUCLID's PULSES and ROTATION, EUCLID
+joins the track's chain - again: it leaves; on OFF: they all stop); ALGO (READY), A B C, ALGO GO (on a CELL, with FM-1
+0.23.2, A is the rule: twice the knob - 85 is rule 170, 102 is 204, 120 is 240 - and the FM-1's screen says what the
+rule makes of the track's rhythm); EUCLID's PULSES and ROTATION, EUCLID
 on / off. COOK, BEAT, DICE (KEEP / BACK), UNDO on this track only; PROPOSAL writes a variation on a free pattern, QUEUE
 sends it in. With FM-1 0.23, SOURCE (SEQ 8 K1 on the FM-1): on THEORY, BEAT and the dice do not load a pattern of the
 library, they MAKE one from the rules of the genre and a seed (NEXT SEED: the seed of the next one, 1-128 from here);

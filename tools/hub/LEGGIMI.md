@@ -81,7 +81,8 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
   installato, con due Launchpad finti: il servizio del bridge è fermo durante la prova e riparte alla fine - **i
-  Launchpad veri in quel tempo restano accesi e fermi, nessuno li comanda: è giusto così**, tornano a fine prova) e il
+  Launchpad veri in quel tempo sono spenti (dalla 0.23.2; prima restavano accesi e fermi) e l'FM-1 dice GRID LOST: è
+  giusto così**, tornano a fine prova) e il
   pannello dell'FM-1 con il test. Con **stacca i synth** (di solito sì) le celle fra l'FM-1 e tutto quello che non è
   una pagina SAGGA sono tolte dalla matrice per la prova: i synth tacciono e niente di estraneo entra nell'FM-1.
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
@@ -125,6 +126,49 @@ Il banco, dalla 0.20.9, fa lo stesso a ogni riavvio dell'FM-1; se l'FM-1 non ris
 all'USB; scrive nel log le righe del kernel e i contatori dell'FM-1; e se l'FM-1 non torna mette il progetto di prima
 della prova nella libreria (`prima-del-banco-<data>.sgq`: PROGETTI, editor, Manda all'FM-1).
 
+## IL PI NON DISTURBA LA MUSICA (0.23.2)
+
+RaspiMIDIHub rifà tutta la sua matrice ogni volta che sul Pi un programma apre o chiude una porta MIDI (per ALSA: un
+client che arriva o se ne va). Chiude le note che stanno suonando, stacca ogni collegamento, guarda i dispositivi e
+ricollega: per un momento niente passa. E un programma che chiede l'elenco delle porte MIDI ne apre e chiude due.
+Fino alla 0.23.1 tre cose di SAGGA lo facevano anche mentre suonavi:
+
+* **la pagina del Pi** chiedeva all'FM-1 chi è (per scrivere `FM-1_973` in alto) la prima volta che la aprivi, e poi
+  ogni dieci minuti finché restava aperta: ogni volta una mezza dozzina di client. Adesso lo chiede un pezzo del
+  servizio per conto suo, **solo quando l'FM-1 è appena tornato** (acceso, riavviato, aggiornato: lo vede dal suo
+  numero USB, senza aprire niente). Aprire la pagina non chiede più niente a nessuno. Un FM-1 che c'è e non risponde
+  ancora viene richiamato dopo 6, 20 e 60 secondi, poi basta;
+* **il bridge senza i due Launchpad** guardava le porte ogni 3 secondi, per vedere se erano arrivati: la matrice
+  rifatta ogni 3 secondi. Adesso guarda `/proc` (non apre niente) e chiede le porte solo quando un dispositivo è
+  arrivato o se n'è andato;
+* **il bridge senza l'FM-1** finiva, e il servizio lo faceva ripartire ogni 2 secondi, ogni volta con uno sguardo alle
+  porte. Adesso aspetta lì, fermo (`no FM-1 ...: the bridge waits for it`).
+
+E una quarta, solo per chi tiene le patch dei synth con gli snapshot (`patches.json`): a ogni snapshot che tornava con
+le sue patch il bridge apriva e chiudeva la porta di ogni synth, in mezzo alla musica. Adesso le porte dei synth le
+apre quando parte (o quando attacchi il synth) e le tiene aperte.
+
+In più il bridge **si accorge di un FM-1 che si riavvia in mezzo secondo**. Guardava i client ALSA una volta al
+secondo, per numero e nome; l'FM-1 torna in 0,44 secondi con lo stesso numero e lo stesso nome (lo dice il log della
+tua prova): il bridge restava lì collegato a niente, il grid morto finché qualcosa non lo faceva ripartire. Adesso
+guarda anche i suoi collegamenti (`/proc/asound/seq/clients` li elenca porta per porta) e riparte se non ci sono più.
+E un bridge che viene fermato (lo fa la prova del banco, e lo spegnimento del Pi) **spegne i Launchpad** e avvisa
+l'FM-1: prima il grid restava acceso e fermo, e sembrava vivo.
+
+Quello che resta: quando attacchi o stacchi un dispositivo USB (un Launchpad, un synth, l'FM-1), RaspiMIDIHub rifà la
+matrice, e il bridge riparte. È di RaspiMIDIHub, e succede in un momento in cui hai le mani sui cavi.
+
+**Come sta il bridge.** *Controlla la matrice* (qualche secondo) e la prova del banco scrivono nel loro file anche le
+ultime righe del bridge: le porte che ha preso, se aspetta l'FM-1, se gira senza i Launchpad, perché si è fermato. Alla
+fine della prova, anche quello che dice quando riparte. Se il grid fa qualcosa di strano, quel file dice cosa.
+
+**L'orologio del Pi.** Un Pi non ha orologio: senza internet resta indietro (i file della prova del 17 novembre 2026
+portano la data del 26 ottobre), e dopo uno spegnimento può ripartire da un'ora già passata. I file della prova e le
+versioni dell'editor prendono il nome dall'ora, e venivano ordinati per nome: una versione salvata "adesso" poteva
+contare come la più vecchia ed essere buttata. Dalla 0.23.2 il nome di una versione è sempre dopo quello della più nuova che c'è, e della
+prova appena fatta i file sulla SD restano sempre (con le due più nuove delle altre). Le date che leggi restano quelle
+dell'orologio del Pi: sbagliate, ma in ordine.
+
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
@@ -141,7 +185,8 @@ prende. Con il bridge del grid acceso l'hub chiede a lui (ha la porta dell'FM-1,
 (`◆8`: seme 8), e in alto leggi `sorgente THEORY (prossimo seme N)`, oppure `sorgente FREE` quando i motori sono
 liberi dal genere (SEQ 8 K1 su FREE). Il fumetto del segno dice se il pattern è di nessun genere. L'editor tiene quello che i motori sanno di ogni
 pattern (da quale seme, a che variazione): un passo che cambi resta, e l'ENERGIA dell'FM-1 continua a riempire e
-svuotare il resto. Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
+svuotare il resto (non in un RUMBLE o in un SUB che segue la cassa: quelli, quando l'energia cambia, vengono rifatti
+interi). Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
 **Copia in...** su un altro pattern della stessa traccia porta con sé il seme; su un'altra traccia no.
 
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
@@ -152,6 +197,14 @@ battute e quantize del loop sulla stessa riga. Nella scheda **Traccia** il **GRO
 **ascolta** (lo step che accendi, la nota del roll che tocchi la suona l'FM-1 su quella traccia; nello step c'è anche
 **♪ ascolta**). Segui e ascolta passano dal bridge del grid: deve essere acceso, con l'FM-1 collegato. Dalla 0.15 il
 bridge gira anche senza i Launchpad (per la libreria e l'editor) e riparte da solo, col grid, quando li attacchi.
+
+**0.23.2: il vecchio piano roll non c'è più.** Accanto a ogni progetto c'era anche il link *piano roll* (la pagina
+della 0.11). Il suo *Salva* passava da un file MIDI, e il progetto che tornava non era lo stesso: una traccia TAPE su
+un canale MIDI diverso dal suo numero finiva sulla traccia con quel numero (che diventava una TAPE, svuotata, mentre
+la traccia giusta restava com'era); una traccia TAPE trasposta veniva trasposta un'altra volta; un loop di una battuta
+tornava di quattro, con le note ripetute (e una nota che cambiavi restava quella di prima nelle altre tre). Bastava
+premere *Salva*, anche senza toccare niente. La scheda **Tape** dell'editor fa le stesse cose e scrive le note così
+come l'FM-1 le tiene, traccia per traccia. Un vecchio indirizzo `/roll/...` apre l'editor sulla scheda Tape.
 
 ## BREAK IN SLICE (0.13)
 
@@ -167,6 +220,11 @@ vicino, a un passaggio per lo zero, con una dissolvenza di 3 ms in coda. Torna u
   quella che suona. sfizz (lo Zynthian), Sforzando e gli altri lettori SFZ lo caricano così com'è;
 - `LEGGIMI.txt`: tempo, battute, dove comincia ogni slice e cosa impostare sull'FM-1 (una traccia BREAK, la sua PEN = la
   prima nota, SEQ 7 SLICES).
+
+0.23.2: se scrivi un BPM troppo lento per il file, o troppe battute, il loop sarebbe più lungo del file. Prima
+tornava uno zip con le ultime slice vuote (tasti che non suonano niente), senza una parola; adesso la pagina dice
+quanto dura il file e a che tempo starebbe (`a 100 BPM 1 battuta dura 2.40 s, ma il file dal primo colpo dura 1.76 s
+(che per 1 battuta sono 136.0 BPM)`). Anche le battute che danno un tempo impossibile vengono rifiutate.
 
 Lo stesso da un terminale, anche sul PC: `python3 sagga_slicer.py amen.wav --slices 16 [--bpm 136] [--pen 36]`.
 

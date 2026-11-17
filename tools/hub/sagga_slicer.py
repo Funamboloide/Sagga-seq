@@ -29,6 +29,7 @@ import zipfile
 
 SLICES = (8, 16, 32)
 BPM_LO, BPM_HI = 90.0, 180.0           # the tempo found is a power of two of bars inside this (one octave: one answer)
+FM1_BPM_LO = 30.0                      # the FM-1's slowest tempo: the bars given must not say a slower one
 MAX_SECONDS = 64.0
 
 
@@ -220,12 +221,19 @@ def refine(mono, a, b, mini=32):
     return best
 
 
+def _battute(n):
+    return 'battuta' if n == 1 else 'battute'
+
+
 def tempo(length_s, bpm=None, bars=None):
     """(bpm, bars) of a loop length_s long: what is given, else the power of two of bars that falls in BPM_LO..BPM_HI"""
     if bpm and bars:
         return float(bpm), int(bars)
     if bars:
-        return 240.0 * bars / length_s, int(bars)
+        bp = 240.0 * bars / length_s
+        if not (FM1_BPM_LO <= bp <= BPM_HI * 2):                # 0.23.2: 4 bars said of a 1-bar file made a zip that said 544 BPM
+            raise SliceError('%d %s in %.2f s sono %.0f BPM: non torna (le battute sono giuste?)' % (bars, _battute(bars), length_s, bp))
+        return bp, int(bars)
     if bpm:
         b = max(1, int(round(length_s * bpm / 240.0)))
         return float(bpm), b
@@ -236,7 +244,7 @@ def tempo(length_s, bpm=None, bars=None):
         b //= 2
     bp = 240.0 * b / length_s
     if not (BPM_LO * 0.5 <= bp <= BPM_HI * 2):
-        raise SliceError('non trovo un tempo sensato (%.1f BPM per %d battute): dimmi BPM o battute' % (bp, b))
+        raise SliceError('non trovo un tempo sensato (%.1f BPM per %d %s): dimmi BPM o battute' % (bp, b, _battute(b)))
     return bp, b
 
 
@@ -244,19 +252,30 @@ def slice_points(w, n=16, bpm=None, bars=None):
     """-> dict(start, end, bpm, bars, cuts=[frames], snapped=[bool]): the cuts of the loop, the first one its start"""
     if n not in SLICES:
         raise SliceError('le slice sono 8, 16 o 32')
+    if (bpm is not None and bpm < 0) or (bars is not None and bars < 0):
+        raise SliceError('BPM e battute: numeri sopra lo zero, o vuoti (li trovo io)')
     mono = _mono(w)
     rate = w.rate
     start, hit = find_start(mono, rate)
+    have = w.frames - hit                                        # what the file has from its first hit
     if bpm or bars:
         b0 = bars
         if bpm and not bars:
-            b0 = max(1, int(round((w.frames - hit) / rate * bpm / 240.0)))
-        length = int(round(240.0 * b0 / bpm * rate)) if bpm else w.frames - hit
+            b0 = max(1, int(round(have / rate * bpm / 240.0)))
+        length = int(round(240.0 * b0 / bpm * rate)) if bpm else have
         bp, b = tempo(length / float(rate), bpm, b0)
         length = int(round(240.0 * b / bp * rate))
     else:
-        length = w.frames - hit
+        length = have
         bp, b = tempo(length / float(rate))
+    # 0.23.2: a loop longer than the file (a BPM too slow for it, too many bars) left the last slices empty - WAV
+    # files with no sound in them, on keys that then play nothing - without a word. Half a slice short is let through
+    # (a loop trimmed tight, a tempo a hair off): the last slice is that much shorter
+    if length - have > length / float(n) / 2.0:
+        raise SliceError('a %g BPM %d %s %s %.2f s, ma il file dal primo colpo dura %.2f s (che per %d %s sono %.1f BPM): '
+                         'cambia BPM o battute, o lasciali vuoti (li trovo io)'
+                         % (bp, b, _battute(b), 'dura' if b == 1 else 'durano', length / float(rate), have / float(rate),
+                            b, _battute(b), 240.0 * b * rate / have))
     end = min(w.frames, start + length)
     hop = max(64, rate // 200)                                   # 5 ms
     env = envelope(mono, hop)
@@ -283,6 +302,8 @@ def slice_points(w, n=16, bpm=None, bars=None):
             c = min(g, end - 1)
         cuts.append(c)
         snapped.append(best is not None)
+    if any(c2 <= c1 for c1, c2 in zip(cuts, cuts[1:] + [end])):   # (0.23.2: never a slice with nothing in it)
+        raise SliceError('il file è troppo corto per %d slice' % n)
     return dict(start=start, end=end, bpm=bp, bars=b, cuts=cuts, snapped=snapped, rate=rate)
 
 
@@ -327,14 +348,14 @@ def slice_break(raw, name='break.wav', n=16, bpm=None, bars=None, pen=36):
                                                     cues=[a - p['start'] for a, _ in bounds],
                                                     labels=['SLICE %d' % (i + 1) for i in range(len(bounds))]))
         sfz = ['// SAGGA SEQ break: %s, %.1f BPM, %d %s, %d slices from %s (%d)' % (base, p['bpm'], p['bars'],
-               'battuta' if p['bars'] == 1 else 'battute', n, note_name(pen), pen),
+               _battute(p['bars']), n, note_name(pen), pen),
                '<group> group=1 off_by=1 off_mode=fast loop_mode=one_shot amp_veltrack=60']
         for i in range(len(bounds)):
             sfz.append('<region> sample=%02d.wav key=%d' % (i + 1, pen + i))
         zf.writestr('%s.sfz' % base, '\n'.join(sfz) + '\n')
         ms = lambda f: f * 1000.0 / rate
         txt = ['SAGGA SLICER - %s' % base, '',
-               'tempo: %.1f BPM, %d %s (%.3f s dal primo colpo)' % (p['bpm'], p['bars'], 'battuta' if p['bars'] == 1 else 'battute', (end - p['start']) / float(rate)),
+               'tempo: %.1f BPM, %d %s (%.3f s dal primo colpo)' % (p['bpm'], p['bars'], _battute(p['bars']), (end - p['start']) / float(rate)),
                'inizio: %.1f ms nel file (il silenzio prima e\' tolto)' % ms(p['start']),
                'slice: %d, una ogni %s' % (n, slice_len_name(16.0 * p['bars'] / n)), '',
                'SULL\'FM-1',

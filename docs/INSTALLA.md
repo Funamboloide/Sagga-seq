@@ -72,6 +72,8 @@ Dopo il primo avvio, due impostazioni (tieni SAVE):
 Due Launchpad nelle USB del Pi: il bridge (`sagga-grid-bridge`, installato con lo zip) li trova da solo, li mette uno
 accanto all'altro (16 x 8) e li collega alla porta 2 dell'FM-1. Niente da collegare nella matrice di RaspiMIDIHub: i
 Launchpad parlano solo con il bridge. Quali Launchpad, come si accendono, tutte le viste: [SAGGA-GRID.md](SAGGA-GRID.md).
+Se l'FM-1 o un Launchpad non c'è, il bridge aspetta in silenzio e riparte da solo quando torna. Se i Launchpad sono
+spenti, il bridge è fermo: succede durante la prova del banco (alla fine riparte) e quando spegni il Pi.
 
 ## Controllare che sia tutto a posto
 
@@ -89,6 +91,8 @@ Launchpad parlano solo con il bridge. Quali Launchpad, come si accendono, tutte 
 * `AGGIORNA IL PI` rifiuta lo zip: dice perché (deve essere un `sagga-hub-X.zip`, non il sorgente).
 * Le pagine non comandano l'FM-1, o l'FM-1 non muove le pagine: **LE CELLE DELL'FM-1** sulla pagina del Pi dice quali
   collegamenti ci sono e quali ha rimesso; sull'FM-1 controlla USB PORTS 2 e REMOTE 13 + 14.
+* Il grid non si accende, o fa cose strane: sulla pagina del Pi premi **Controlla la matrice** (qualche secondo). Il
+  suo file dice anche cosa ha detto il bridge: le porte che ha preso, se aspetta l'FM-1, perché si è fermato.
 * Un'installazione dell'FM-1 interrotta (il cavo staccato, il Pi spento): l'FM-1 resta in modalità di aggiornamento
   finché non è finita. Ricollega il cavo e premi di nuovo **Installa**: riprende da capo e finisce.
 * L'FM-1 non parte più: spegnilo, tieni **OCT-** mentre lo accendi. È il soccorso USB: prende sempre un firmware nuovo

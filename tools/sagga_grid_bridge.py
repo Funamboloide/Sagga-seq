@@ -49,6 +49,7 @@ import contextlib
 import os
 import queue
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -379,7 +380,8 @@ class Bridge:
 
     def _set(self, fm_half, led, role):
         idx = self._side(fm_half)
-        role = role if role < len(RGB) else 0
+        if role >= len(RGB):
+            role = 2                                 # (a role of a newer firmware this bridge does not know: DIM, not dark)
         if self.role.get((idx, led)) != role:
             self.role[(idx, led)] = role
             self.dirty.add((idx, led))
@@ -404,7 +406,7 @@ class Bridge:
         todo = {0: [], 1: []}
         for idx, led in sorted(self.dirty):
             role = self.role[(idx, led)]
-            rgb = (RGB[role] if role < len(RGB) else RGB[2]) if (role != ROLE_PEND or self.phase) else (0, 0, 0)   # (a role this bridge does not know: DIM)
+            rgb = RGB[role] if (role != ROLE_PEND or self.phase) else (0, 0, 0)
             if self.shown.get((idx, led)) != rgb:
                 self.shown[(idx, led)] = rgb
                 todo[idx].append((led, rgb))
@@ -1312,6 +1314,109 @@ class PatchKeeper:
             self.log("snapshot %d: patches sent to %d synth(s)" % (n + 1, sent))
 
 
+def links_touch(links, ids):
+    """whether ALSA's connections (alsa_links(): two maps, port -> the ports at its other end) still show one of the
+    clients `ids` at either end of one"""
+    return any(k[0] in ids or any(c in ids for c, _ in peers) for d in links for k, peers in d.items())
+
+
+class SynthPorts:
+    """0.23.2: the synths' ports of the snapshot patches (the PatchKeeper's), opened once and kept. Every port opened
+    or closed is an ALSA client that comes or goes, and RaspiMIDIHub takes its whole matrix down and up again at each
+    one (its hotplug scan: the notes that sound are ended, every road is away for a moment). Until 0.23.1 a snapshot
+    that brought its patches back while the FM-1 played did that: two looks at the port names and a port or two opened
+    and closed, for every synth. Now a synth's port is opened when the bridge starts, or when a device comes, and
+    stays. open(pattern, name) is the PatchKeeper's open_port: (send, close) - a close that does nothing - or None
+    when the synth is not there. A port whose connections ALSA no longer shows (the synth unplugged, or made again by
+    the kernel under the same number) is opened again when it is asked for. Where /proc has no ALSA (not a Pi) nothing
+    is kept: a port is opened and closed each time, as before.
+    look() -> (input names, output names); open_out(name) -> (send(bytes list), close); open_in(name, on_bytes) ->
+    close; exclude: a regex of ports that are never a synth's (the FM-1's); put(name, bytes): a synth's SysEx in."""
+
+    def __init__(self, look, open_out, open_in, exclude, put, clients=None, links=None):
+        self.look, self.open_out, self.open_in, self.exclude, self.put = look, open_out, open_in, exclude, put
+        self.clients, self.links = clients or alsa_clients, links or alsa_links
+        self.kept = {}                                        # name -> (send, [close, ...], the ALSA clients of its ports)
+
+    def _open(self, pattern, name, names=None):
+        before = self.clients()
+        closes = []
+        try:
+            ins, outs = names if names is not None else self.look()
+            o = [n for n in outs if re.search(pattern, n, re.I) and not re.search(self.exclude, n, re.I)]
+            i = [n for n in ins if re.search(pattern, n, re.I) and not re.search(self.exclude, n, re.I)]
+            if not o:
+                return None
+            send, close = self.open_out(o[0])
+            closes.append(close)
+            if i:
+                closes.append(self.open_in(i[0], lambda raw, nm=name: self.put(nm, raw) if raw and raw[0] == 0xF0 else None))
+        except Exception:
+            self._close(closes)
+            return None
+        after = self.clients()
+        ids = set(after) - set(before) if before is not None and after is not None else set()
+        return send, closes, ids
+
+    @staticmethod
+    def _close(closes):
+        for c in closes:
+            try:
+                c()
+            except Exception:
+                pass
+
+    def gone(self, ids):
+        """a kept port's connections are no longer in ALSA's list (False where that cannot be told)"""
+        if not ids:
+            return False
+        lk = self.links()
+        return lk is not None and not links_touch(lk, ids)
+
+    def open(self, pattern, name):
+        if self.clients() is None:                            # not a Pi: no way to watch a kept port - as before
+            k = self._open(pattern, name)
+            return None if k is None else (k[0], lambda: self._close(k[1]))
+        k = self.kept.get(name)
+        if k is not None and self.gone(k[2]):
+            self.drop(name)
+            k = None
+        if k is None:
+            k = self._open(pattern, name)
+            if k is None:
+                return None
+            self.kept[name] = k
+        return k[0], (lambda: None)
+
+    def drop(self, name=None):
+        """a kept port closed (all of them without a name)"""
+        for nm in ([name] if name is not None else list(self.kept)):
+            k = self.kept.pop(nm, None)
+            if k is not None:
+                self._close(k[1])
+
+    def open_all(self, synths):
+        """patches.json's synths: the kept ports that are gone closed, the ones not open looked for (one look for all
+        of them; none when every synth's port is open) -> the names of those open. What main() does at its start and
+        when a device came or went"""
+        if self.clients() is None:
+            return []
+        for nm in list(self.kept):
+            if self.gone(self.kept[nm][2]):
+                self.drop(nm)
+        missing = [sy for sy in synths if sy["name"] not in self.kept]
+        if missing:
+            try:
+                names = self.look()
+            except Exception:
+                names = None
+            for sy in (missing if names is not None else []):
+                k = self._open(sy["port"], sy["name"], names)
+                if k is not None:
+                    self.kept[sy["name"]] = k
+        return [sy["name"] for sy in synths if sy["name"] in self.kept]
+
+
 # ----------------------------------------------------------------------------------------------- ports
 def port_number(name):
     """the ALSA port number at the end of a port name ('... 28:1'), or 0"""
@@ -1362,6 +1467,68 @@ def alsa_clients(path="/proc/asound/seq/clients"):
             return {int(m.group(1)): m.group(2) for m in re.finditer(r'^Client\s+(\d+)\s*:\s*"(.*?)"', f.read(), re.M)}
     except OSError:
         return None
+
+
+RTMIDI_CLIENTS = ("RtMidiIn Client", "RtMidiOut Client", "RtMidi Input Client", "RtMidi Output Client")
+
+
+def device_clients(read=None):
+    """0.23.2: ALSA's clients without the ones programs make through RtMidi under its own names (this bridge's ports,
+    its looks at the port names, the installer's): what is left changes when a device comes or goes, and only then.
+    None where /proc has no ALSA."""
+    c = (read or alsa_clients)()
+    return None if c is None else {k: v for k, v in c.items() if v not in RTMIDI_CLIENTS}
+
+
+def alsa_links(path="/proc/asound/seq/clients"):
+    """0.23.2: ALSA's connections as /proc shows them under each port - ({(client, port): set of (client, port) it
+    sends to}, {(client, port): set of (client, port) it hears}), or None where there is no such file. The kernel
+    writes "    Connecting To: 129:0[r:0], 128:1" and "    Connected From: 130:0" under a "  Port   1 : ..." line."""
+    try:
+        with open(path) as f:
+            text = f.read()
+    except OSError:
+        return None
+    to, frm, client, port = {}, {}, None, None
+    for line in text.splitlines():
+        m = re.match(r'^Client\s+(\d+)\s*:', line)
+        if m:
+            client, port = int(m.group(1)), None
+            continue
+        m = re.match(r'^\s+Port\s+(\d+)\s*:', line)
+        if m and client is not None:
+            port = int(m.group(1))
+            continue
+        m = re.match(r'^\s+(Connecting To|Connected From):(.*)$', line)
+        if m and client is not None and port is not None:
+            peers = {(int(c), int(q)) for c, q in re.findall(r'(\d+):(\d+)', re.sub(r'\[[^\]]*\]', '', m.group(2)))}
+            (to if m.group(1) == "Connecting To" else frm).setdefault((client, port), set()).update(peers)
+    return to, frm
+
+
+WAIT_EVERY_S, WAIT_SETTLE_S = 1.0, 0.5
+
+
+def wait_ports(have, look, seen, read=None, sleep=None, every=None, settle=None):
+    """0.23.2: (ins, outs) once have(ins, outs) says the ports that are needed are there. Looking at the ports (look():
+    mido) makes two ALSA clients that come and go, and RaspiMIDIHub takes its whole matrix down and up again at every
+    client that comes or goes (its hotplug scan: the notes that sound are cut, the roads are away for a moment). So the
+    ports are looked at again only when ALSA's own list of devices (read(): /proc, no client made) is not `seen` any
+    more - a device came, or went. Returns (ins, outs, the list as it was just before that look). Until 0.23.1 the
+    bridge ended when the FM-1 was not there and the service started it again every two seconds, each time with a
+    look: the matrix rebuilt every few seconds for as long as the FM-1 was off."""
+    read, sleep = read or device_clients, sleep or time.sleep
+    every, settle = WAIT_EVERY_S if every is None else every, WAIT_SETTLE_S if settle is None else settle
+    while True:
+        sleep(every)
+        cur = read()
+        if cur is not None and cur == seen:
+            continue
+        sleep(settle)                               # (a device that is coming makes its ports one after the other)
+        seen = read()                               # before the look: what comes during it is seen at the next turn
+        ins, outs = look()
+        if have(ins, outs):
+            return ins, outs, seen
 
 
 SX_STATO, SX_FRASE, SX_RISPOSTA, SX_TOCCATA, SX_REGIA_LED, SX_REGIA_KEY = 0x50, 0x51, 0x52, 0x53, 0x54, 0x55
@@ -1472,19 +1639,33 @@ class Regista:
 class PortWatch:
     """Notices that a Launchpad or the FM-1 has gone. ALSA drops the connections of a client that leaves, and a
     program that goes on writing to a port nobody listens to gets no error: without this the bridge would sit
-    there mute after a cable was pulled. Ends in a restart (the service) that finds the new ports."""
+    there mute after a cable was pulled. Ends in a restart (the service) that finds the new ports.
+    0.23.2: it also watches the bridge's own connections. A device the kernel makes again in less than a second (a USB
+    port reset: the same client number, the same name) was never seen to go, and the bridge sat there with connections
+    that were not there any more - the grid dead until the next restart. `mine`: the ALSA clients of the bridge's own
+    ports; `links`: alsa_links. A watched port that had a connection with one of them at the start must keep one."""
 
-    def __init__(self, port_names, read=None, every=1.0):
+    def __init__(self, port_names, read=None, every=1.0, links=None, mine=()):
         self.read = read or (lambda: alsa_clients())
         self.every = every
         self.next = 0.0
         self.want = {}
+        self.links, self.mine, self.armed = links, set(mine), []
         now = self.read()
         if now is not None:
             for n in port_names:
                 c = client_number(n)
                 if c is not None and c in now:
                     self.want[c] = now[c]
+        got = self.links() if (self.links and self.mine) else None
+        if got:
+            for n in port_names:
+                c = client_number(n)
+                if c in self.want:
+                    for k, way in enumerate(got):
+                        key = (k, c, port_number(n))
+                        if key not in self.armed and any(pc in self.mine for pc, _ in way.get((c, port_number(n)), ())):
+                            self.armed.append(key)
 
     def check(self, now):
         """None while all is well, else a sentence about the client that has gone"""
@@ -1497,6 +1678,12 @@ class PortWatch:
         for c, name in sorted(self.want.items()):
             if cur.get(c) != name:
                 return "ALSA client %d (%s) %s" % (c, name, "is gone" if c not in cur else "is now %r" % cur[c])
+        got = self.links() if self.armed else None
+        if got:
+            for k, c, p in self.armed:
+                if not any(pc in self.mine for pc, _ in got[k].get((c, p), ())):
+                    return "the bridge's connection %s ALSA port %d:%d (%s) is gone: the device was made again" % (
+                        ("from", "to")[k], c, p, self.want.get(c, "?"))
         return None
 
 
@@ -1644,7 +1831,18 @@ def main(argv=None):
     except ImportError:
         sys.exit("needs mido and python-rtmidi:  apt install python3-mido python3-rtmidi   (or: pip install mido python-rtmidi)")
 
-    ins, outs = mido.get_input_names(), mido.get_output_names()
+    def look():                                  # (each look: two ALSA clients that come and go - see wait_ports)
+        return mido.get_input_names(), mido.get_output_names()
+
+    def on_term(signum, frame):                  # 0.23.2: stopped (systemctl stop, the banco, a shutdown): as Ctrl-C - the
+        raise KeyboardInterrupt                  # Launchpads go dark and the FM-1 is told. Until now the process just
+    try:                                         # died: the grid stayed lit and still, looking alive
+        signal.signal(signal.SIGTERM, on_term)
+    except (ValueError, OSError, AttributeError):   # (not the main thread: a test)
+        pass
+
+    clients_seen = device_clients()              # before the look: a device that comes during it is seen afterwards
+    ins, outs = look()
     if a.list:
         print("inputs:");  [print("  ", n) for n in ins]
         print("outputs:"); [print("  ", n) for n in outs]
@@ -1653,6 +1851,17 @@ def main(argv=None):
     if a.export is not None or a.import_file:
         return one_shot(a, mido, ins, outs)
 
+    def fm1_there(i, o):
+        return bool(split_ports(i, a.fm1, None) and split_ports(o, a.fm1, None))
+
+    if not a.identify and not fm1_there(ins, outs):
+        if clients_seen is None:                 # (no /proc to watch, not a Pi: end, as before)
+            sys.exit("no port matches --fm1 %r; try --list" % a.fm1)
+        print("no FM-1 (no port matches --fm1 %r; --list shows the ports): the bridge waits for it" % a.fm1, file=sys.stderr, flush=True)
+        try:                                     # 0.23.2: it waits here, quietly (it ended, and the service started it again every 2 s)
+            ins, outs, clients_seen = wait_ports(fm1_there, look, clients_seen)
+        except KeyboardInterrupt:
+            return 0
     try:
         pairs = plan_ports(ins, outs, a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
     except SystemExit as e:                      # 0.15: no grid: the FM-1's side still runs (the library, the editor's
@@ -1660,14 +1869,25 @@ def main(argv=None):
             raise
         print("no grid (%s): the bridge runs for the library and the editor; it restarts when two Launchpads are there" % e, file=sys.stderr)
         pairs = []
-    headless, grid_check_at = not pairs, 0.0
+    headless, grid_check_at, synth_again = not pairs, 0.0, False
     q = queue.Queue()
     opened = []
     lp_out = []
+    mine = set()                                 # 0.23.2: the ALSA clients of the bridge's own ports (PortWatch)
+
+    def opening(open_fn, name, **kw):
+        """a port opened; the ALSA clients that came with it (python-rtmidi makes one for each port) are the bridge's"""
+        before = alsa_clients()
+        port = open_fn(name, **kw)
+        after = alsa_clients()
+        if before is not None and after is not None:
+            mine.update(set(after) - set(before))
+        return port
+
     for idx, (pin, pout) in enumerate(pairs):
         print("%s Launchpad: in %r, out %r" % (("left", "right")[idx], pin, pout))
-        opened.append(mido.open_input(pin, callback=(lambda m, i=idx, nm=pin: q.put(("lp", i, nm, m.bytes())))))
-        lp_out.append(mido.open_output(pout))
+        opened.append(opening(mido.open_input, pin, callback=(lambda m, i=idx, nm=pin: q.put(("lp", i, nm, m.bytes())))))
+        lp_out.append(opening(mido.open_output, pout))
 
     fm1_out = None
     watched = [p for pair in pairs for p in pair]
@@ -1679,10 +1899,10 @@ def main(argv=None):
             sys.exit("no port matches --fm1 %r; try --list" % a.fm1)
         fin, fout = fm1_port(names_in[0], a.port), fm1_port(names_out[0], a.port)
         print("FM-1: in %r, out %r%s" % (fin, fout, " (USB PORTS 2: port 2)" if len(names_in[0]) > 1 and a.port != "1" else ""))
-        opened.append(mido.open_input(fin, callback=lambda m: q.put(("fm1", 0, "", m.bytes()))))
-        fm1_out = mido.open_output(fout)
+        opened.append(opening(mido.open_input, fin, callback=lambda m: q.put(("fm1", 0, "", m.bytes()))))
+        fm1_out = opening(mido.open_output, fout)
         watched += [fin, fout]
-    watch = PortWatch(watched)
+    watch = PortWatch(watched, links=alsa_links, mine=mine)
 
     def send_lp(idx, msg):
         if idx < len(lp_out):
@@ -1705,28 +1925,18 @@ def main(argv=None):
         print("patches.json: %s (snapshot patches off)" % e, file=sys.stderr)
         synths, send_playing = [], True
 
-    def open_synth(pattern, name):
-        """(send, close) of a synth's port, its SysEx coming into the queue; None if it is not there"""
-        try:
-            ins_now, outs_now = mido.get_input_names(), mido.get_output_names()
-            o = [n for n in outs_now if re.search(pattern, n, re.I) and not re.search(a.fm1, n, re.I)]
-            i = [n for n in ins_now if re.search(pattern, n, re.I) and not re.search(a.fm1, n, re.I)]
-            if not o:
-                return None
-            po = mido.open_output(o[0])
-            pi = mido.open_input(i[0], callback=lambda m, nm=name: q.put(("syn", 0, nm, m.bytes()))) if i else None
-        except Exception:
-            return None
+    def synth_out(name):
+        p = mido.open_output(name)
+        return (lambda msg: p.send(mido.Message.from_bytes(msg))), p.close
 
-        def close():
-            for p in (po, pi):
-                if p is not None:
-                    p.close()
-        return (lambda msg: po.send(mido.Message.from_bytes(msg))), close
-    keeper = PatchKeeper(dump_dir, synths, send_fm1, open_synth, send_while_playing=send_playing,
+    def synth_in(name, on_bytes):
+        return mido.open_input(name, callback=lambda m: on_bytes(m.bytes())).close
+    synth_ports = SynthPorts(look, synth_out, synth_in, a.fm1, lambda name, raw: q.put(("syn", 0, name, raw)))   # 0.23.2: kept open
+    keeper = PatchKeeper(dump_dir, synths, send_fm1, synth_ports.open, send_while_playing=send_playing,
                          log=lambda text: print(text, file=sys.stderr if "could not" in text else sys.stdout))
     if synths:
-        print("snapshot patches: %s" % ", ".join(sy["name"] for sy in synths))
+        here = synth_ports.open_all(synths)          # (now, while the bridge's own ports open: not at a snapshot, in the music)
+        print("snapshot patches: %s (ports open: %s)" % (", ".join(sy["name"] for sy in synths), ", ".join(here) or "none"))
     regista = Regista(send_fm1, verbose=a.regista)                 # 0.9: STATO / RISPOSTA / TOCCATA / REGIA TASTO in
     try:                                                           # 0.11: the patterns of the genres
         patterns = PatternLib(os.path.join(dump_dir, "patterns"), send_fm1, writer=BootWriter(os.path.join(dump_dir, "patterns")),
@@ -1773,13 +1983,24 @@ def main(argv=None):
             gone = watch.check(now)
             if gone:
                 raise RuntimeError(gone)
-            if headless and now >= grid_check_at:          # 0.15: the Launchpads came: start again, with them
+            if (headless or synths) and now >= grid_check_at:   # 0.15: the Launchpads came: start again, with them
                 grid_check_at = now + 3.0
-                try:
-                    plan_ports(mido.get_input_names(), mido.get_output_names(), a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
-                    raise RuntimeError("two Launchpads are here now: again with the grid")
-                except SystemExit:
-                    pass
+                cur = device_clients()                     # 0.23.2: the ports are looked at only when ALSA's devices have
+                if cur is None or cur != clients_seen:     # changed (a look every 3 s rebuilt RaspiMIDIHub's matrix every 3 s)
+                    clients_seen = cur
+                    if headless:
+                        try:
+                            plan_ports(*look(), a.left, a.right, a.exclude, DEFAULT_PATTERN[a.model])
+                            raise RuntimeError("two Launchpads are here now: again with the grid")
+                        except SystemExit:
+                            pass
+                    synth_again = bool(synths) and cur is not None
+            if synth_again and not keeper.job:             # a device came or went: a synth just plugged in is opened now,
+                synth_again = False                        # not at the next snapshot in the music; one that went is let
+                was = sorted(synth_ports.kept)             # go (once a KEEP that listens on them is through). The ports
+                here = synth_ports.open_all(synths)        # that are still good are not touched: no look, no client
+                if sorted(here) != was:
+                    print("snapshot patches: ports open: %s" % (", ".join(here) or "none"))
     except KeyboardInterrupt:
         pass
     except Exception as e:                       # a Launchpad or the FM-1 went away: stop, so that a service restarts us
@@ -1795,6 +2016,7 @@ def main(argv=None):
                 p.close()
             except Exception:
                 pass
+        synth_ports.drop()
     return rc
 
 

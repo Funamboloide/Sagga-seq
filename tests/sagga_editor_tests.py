@@ -216,6 +216,24 @@ def t_editor_backend():
     j3 = ed.restore('hw.sgq', v[-1])
     check(len(v) == 2 and j3['project']['bpm'] == 128, 'restore: the oldest version back (%s, bpm %d)' % (v, j3['project']['bpm']))
     check(len(ed.versions('hw.sgq')) == 3, 'and the one it replaced is a version too')
+    # 0.23.2: a Pi without the internet has no clock to trust: a version kept "now" can bear an earlier time than one
+    # kept before. The names are the order: the new one takes the second after the newest there
+    vdir = os.path.join(d, E.VERSIONS, 'hw')
+    was = open(os.path.join(d, 'hw.sgq'), 'rb').read()
+    open(os.path.join(vdir, '20991231-235959.sgq'), 'wb').write(b'di domani')
+    ed.save('hw.sgq', [['project', '-', 'bpm', '-', 141]])
+    v = ed.versions('hw.sgq')
+    check(v[0] == '21000101-000000' and v[1] == '20991231-235959' and open(os.path.join(vdir, v[0] + '.sgq'), 'rb').read() == was,
+          'the clock behind the newest version: the new one is named a second after it, and is first in the list (%s)' % v[:3])
+    ed.save('hw.sgq', [['project', '-', 'bpm', '-', 142]])
+    ed.save('hw.sgq', [['project', '-', 'bpm', '-', 143]])
+    v = ed.versions('hw.sgq')
+    check(v[:3] == ['21000101-000002', '21000101-000001', '21000101-000000'] and ed.restore('hw.sgq', v[0])['project']['bpm'] == 142,
+          '... and the next ones after it, in order: the first of the list is the last one replaced (%s)' % v[:3])
+    os.unlink(os.path.join(vdir, '20991231-235959.sgq'))
+    for n in os.listdir(vdir):
+        if n.startswith('2100'):
+            os.unlink(os.path.join(vdir, n))
     n = ed.new('Nuovo pezzo')
     check(n['name'] == 'Nuovo pezzo.sgq' and n['steps'] == [] and os.path.isfile(os.path.join(d, 'Nuovo pezzo.sgq')), 'new: a blank project with that name')
     ed.new('../fuori')
@@ -770,9 +788,83 @@ def t015_page():
           'in the file: T6 a TAPE track of 2 bars with its note (%s)' % [e for e in j['tape'] if e[0] == 5])
 
 
+def t0232_tape_link():
+    group('0.23.2 the old piano roll\'s link opens the Tape tab; what its Save got wrong the editor gets right: a TAPE track on another channel, transposed, with a loop of its own')
+    d = tempfile.mkdtemp()
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    name = os.path.join(pr, 'tapes.sgq')
+    # hwtest's T4 is a TAPE of one bar with two notes: on MIDI channel 10 here, an octave up; T10 is a step track
+    r = apply(HW, ['track 3 channel - 9', 'track 3 transpose - 12', 'step 9,0,0 note 0 55', 'step 9,0,0 flags - 3'], name)
+    check(r.returncode == 0, 'the project is made (%s)' % r.stderr.strip())
+    j0 = read(name)
+    t10 = dict(j0['track'][9])
+    # the converter alone: a note more on T4, nothing else moves (the old Save: T10 became a TAPE of eight notes, T4 stayed as it was)
+    out = os.path.join(d, 'conv.sgq')
+    r = apply(name, ['tape 3 clear - 0', 'tape 3,96,117,48 add - 110', 'tape 3,960,119,50 add - 90', 'tape 3,480,96,52 add - 100'], out)
+    j = read(out)
+    check(r.returncode == 0 and [e for e in j['tape'] if e[0] == 3] == [[3, 96, 117, 48, 110], [3, 480, 96, 52, 100], [3, 960, 119, 50, 90]],
+          'the converter: T4\'s notes as written, not transposed again (%s)' % [e for e in j['tape'] if e[0] == 3])
+    check(j['track'][3]['channel'] == 9 and j['track'][3]['transpose'] == 12 and j['track'][3]['tape_bars'] == 1 and j['tape_len'][3] == 1536,
+          'T4 keeps its channel, its transpose and its one bar (%s %s %s)' % (j['track'][3]['channel'], j['track'][3]['transpose'], j['track'][3]['tape_bars']))
+    check(j['track'][9] == t10 and j['tape_cnt'][9] == 0 and [x for x in j['steps'] if x[0] == 9] == [x for x in j0['steps'] if x[0] == 9],
+          'T10 (the track of that channel\'s number) is not touched: a step track still, its step there')
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (the page: skipped, no playwright)')
+        return
+    import sagga_fw as FW
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            b = p.chromium.launch()
+            pg = b.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.add_init_script("localStorage.clear()")
+            pg.goto('http://127.0.0.1:%d/' % port)
+            pg.wait_for_timeout(500)
+            check('/roll/' not in pg.content() and '/edit/tapes.sgq' in pg.content(), 'the library: the editor\'s link, no piano roll')
+            pg.goto('http://127.0.0.1:%d/roll/tapes.sgq' % port)                   # an old bookmark
+            pg.wait_for_timeout(900)
+            check(pg.url.endswith('/edit/tapes.sgq') and pg.evaluate('V.tab') == 'tape' and pg.evaluate('V.tt') == 3,
+                  'the old link lands in the editor, on the Tape tab, on the TAPE track (%s, %s, T%s)' % (pg.url.rsplit('/', 2)[-2:], pg.evaluate('V.tab'), pg.evaluate('V.tt') + 1))
+            check(pg.evaluate('evs(3)') == [[96, 117, 48, 110], [960, 119, 50, 90]] and pg.evaluate('tapeLen(3)') == 1536,
+                  'its two notes once, as they are kept (not four copies an octave up), the loop one bar (%s)' % pg.evaluate('evs(3)'))
+            pg.evaluate("V.snap=true;V.listen=false;render()")
+            Z = pg.evaluate('V.rz')
+            box = pg.query_selector('#roll').bounding_box()
+            hi = pg.evaluate('V.rhi')
+            pg.mouse.click(box['x'] + Z * 5 + 3, box['y'] + (hi - 52) * 10 + 4)             # an E3 on the 6th 16th
+            check(pg.evaluate('evs(3)') == [[96, 117, 48, 110], [480, 96, 52, 100], [960, 119, 50, 90]], 'a note added on the roll (%s)' % pg.evaluate('evs(3)'))
+            pg.click('#bsave')
+            pg.wait_for_timeout(1200)
+            check((pg.text_content('#status') or '').startswith('salvato') and not errs, 'saved, no script errors (%s, %s)' % (pg.text_content('#status'), errs))
+            pg.goto('http://127.0.0.1:%d/edit/tapes.sgq' % port)                   # the plain link: where the view was left, no jump
+            pg.wait_for_timeout(700)
+            pg.evaluate("V.tab='tracce';keepView();render()")
+            pg.goto('http://127.0.0.1:%d/edit/tapes.sgq' % port)
+            pg.wait_for_timeout(700)
+            check(pg.evaluate('V.tab') == 'tracce', 'the editor\'s own link opens where you left it, not the Tape tab')
+            b.close()
+    finally:
+        srv.shutdown()
+    j = read(name)
+    check([e for e in j['tape'] if e[0] == 3] == [[3, 96, 117, 48, 110], [3, 480, 96, 52, 100], [3, 960, 119, 50, 90]] and j['track'][3]['channel'] == 9
+          and j['track'][3]['transpose'] == 12 and j['track'][3]['tape_bars'] == 1, 'in the file: T4 with the note more, on its channel, its transpose, its bar (%s)' % [e for e in j['tape'] if e[0] == 3])
+    check(j['track'][9] == t10 and j['tape_cnt'][9] == 0, 'in the file: T10 as it was')
+
+
 def main():
     build()
-    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page):
+    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link):
         try:
             t()
         except Exception as e:

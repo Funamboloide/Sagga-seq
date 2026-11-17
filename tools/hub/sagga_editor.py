@@ -19,6 +19,7 @@ A change is [group, index, field, elem, value]: index "-" or an int or "t,p,s" (
 field), value an int - one line of sagga_sgqjson's patch. 0.15, a TAPE track's events: ["tape", "T", "clear", "-", 0]
 then ["tape", "T,ON,DUR,NOTE", "add", "-", VEL] for each (the track's events written again whole).
 """
+import calendar
 import unicodedata
 import json
 import os
@@ -116,9 +117,12 @@ def name_changes(text):
     return [['ext', '-', 'name', str(i), ord(t[i]) if i < len(t) else 0] for i in range(NAME_LEN)]
 
 
+_VRE = re.compile(r'^(\d{8}-\d{6})(?:-(\d+))?\.sgq$')
+
+
 def _vkey(n):
     """a version's order: its time, then its -2, -3 ..."""
-    m = re.match(r'^(\d{8}-\d{6})(?:-(\d+))?\.sgq$', n)
+    m = _VRE.match(n)
     return (m.group(1), int(m.group(2) or 1)) if m else (n, 0)
 
 
@@ -148,6 +152,19 @@ class Editor:
         with open(p, 'rb') as f:
             data = f.read()
         stamp = time.strftime('%Y%m%d-%H%M%S')        # (when it was replaced; two in one second: -2, -3 ...)
+        # 0.23.2: a Pi has no clock of its own - without the internet it falls behind, and after a power cut it can start
+        # at a moment already past: "now" can be earlier than a version kept before. The names are the versions' order
+        # (the newest twenty stay, the page lists the newest first): one that is not later than the newest there takes
+        # the second after it
+        try:
+            there = sorted((n for n in os.listdir(vdir) if _VRE.match(n)), key=_vkey)
+        except OSError:
+            there = []
+        if there and stamp <= there[-1][:15]:
+            try:
+                stamp = time.strftime('%Y%m%d-%H%M%S', time.gmtime(calendar.timegm(time.strptime(there[-1][:15], '%Y%m%d-%H%M%S')) + 1))
+            except (ValueError, OverflowError):
+                pass
         name, k = stamp, 1
         while os.path.exists(os.path.join(vdir, name + '.sgq')):
             k += 1

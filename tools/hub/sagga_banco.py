@@ -741,6 +741,21 @@ def kernel_lines(system, since, limit=30):
     return [ln.strip() for ln in text.splitlines() if re.search(r"usb|snd|felucca|fm-1|midi", ln, re.I)][-limit:]
 
 
+def bridge_lines(system, limit=25, since=None):
+    """0.23.2: the grid bridge's own last lines (its journal; since `since`, time.time(), when given): the ports it
+    took, whether it waits for the FM-1 or runs without the Launchpads, why it ended. In the log because the bridge's
+    ways of 0.23.2 (it waits without looking at the ports, it watches its own connections) have run on no real Pi:
+    the file one sends after a run is their only witness"""
+    cmd = ["journalctl", "-u", "sagga-grid-bridge", "--no-pager", "-o", "short-monotonic"]
+    cmd += ["-S", "@%d" % max(0, int(since) - 1)] if since is not None else ["-n", str(limit)]
+    try:
+        r = system(cmd)
+        text = r.stdout or ""
+    except Exception:
+        return []
+    return [ln.strip() for ln in text.splitlines() if ln.strip() and not ln.startswith("-- ")][-limit:]
+
+
 def ask_diag(hub, hello):
     """0.20.9: the FM-1's counters since its boot (the HELLOs it heard, the host's enumeration) - None before 0.20.9"""
     if hub is None or not hello or X.vkey(hello.get("version")) < (0, 20, 9):
@@ -881,6 +896,11 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
         say("  %s: %s" % (lv, txt))
     if not audit_f:
         say("  tutto a posto")
+    bl = bridge_lines(system)                           # 0.23.2
+    if bl:
+        say("IL BRIDGE DEL GRID (le sue ultime righe)")
+        for ln in bl:
+            say("  " + ln)
     out_json = os.path.join(a.out, "raccolta-banco-%s.json" % ts)
     out_md = os.path.join(a.out, "RAPPORTO-BANCO-%s.md" % ts)
     if a.solo_matrice:
@@ -897,7 +917,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
     backend = backend or X.default_backend()
     bridge_was = (services_state(system).get("sagga-grid-bridge") or ("?",))[0] == "active"
     bridge_stopped = False                              # (only after the yes: stopped, the bridge lets the grid go and the
-    hub, hello = X.connect(backend, None, say)          #  FM-1's GRID DETACHED would cover its question on the screen)
+    hub, hello = X.connect(backend, None, say)          #  FM-1's GRID LOST would cover its question on the screen)
     rc = 0
     out = {"versione": 1, "firmware": plan.get("firmware"), "seme": plan.get("seme"), "audit": audit_f, "fatti": facts,
            "quando": ts, "sessioni": []}
@@ -951,7 +971,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
         if bridge_was:
             system(["systemctl", "stop", "sagga-grid-bridge"])
             bridge_stopped = True
-            say("il bridge del grid e' fermo per la prova (riparte alla fine; l'FM-1 dira' GRID DETACHED, e' giusto)")
+            say("il bridge del grid e' fermo per la prova: i Launchpad si spengono e l'FM-1 dice GRID LOST, e' giusto (riparte alla fine)")
         try:                                            # 0.20.9: the FM-1's cells now, to have them back after each reboot
             by0, conns0, fm0 = fm1_now(api)
             keep = K.describe(conns0, by0, fm0) if fm0 else []
@@ -1091,6 +1111,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
             if left:
                 rc = rc or 1
                 say("%d celle non sono tornate: Rimetti le celle (pagina del hub) quando i dispositivi ci sono" % left)
+        t_bridge = time.time()
         if bridge_stopped:
             system(["systemctl", "start", "sagga-grid-bridge"])
             say("il bridge del grid riparte")
@@ -1098,6 +1119,16 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
         report_md(out_md, audit_f, facts, rows, out_json)
         say("")
         say("Raccolta: %s (%d sessioni). Rapporto: %s" % (out_json, len(out["sessioni"]), out_md))
+        if bridge_stopped:                              # 0.23.2: what the bridge says of its start (its ports, the FM-1's
+            try:                                        # answer, the Launchpads) - last, after everything is saved
+                wait(6.0)
+                bl = bridge_lines(system, since=t_bridge)
+                if bl:
+                    say("IL BRIDGE DEL GRID (ripartito)")
+                    for ln in bl:
+                        say("  " + ln)
+            except Exception:
+                pass
         finish(rc)
     return rc
 

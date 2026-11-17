@@ -126,13 +126,17 @@ def main(argv=None):
             continue
         fds.append(os.open(path, os.O_RDWR | os.O_NONBLOCK))
         log('virtual MIDI card %s: %s' % (cid, path))
+    said = None
     while not stop_evt.is_set():
         try:
             ser, ufd = open_uart(a.port, a.baud)
         except Exception as e:
-            log('UART %s: %s (waiting)' % (a.port, e))
+            if str(e) != said:                              # (0.23.2: said once, not every two seconds for ever)
+                said = str(e)
+                log('UART %s: %s (waiting)' % (a.port, e))
             time.sleep(2)
             continue
+        said = None
         log('PC port on %s at %d' % (a.port, a.baud))
         link = Link(ufd, fds)
         try:

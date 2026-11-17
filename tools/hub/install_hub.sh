@@ -35,9 +35,12 @@ RW=0; ROOT_RO=0
 if command -v rw >/dev/null 2>&1; then rw; RW=1
 elif grep -q " / [^ ]* ro[ ,]" /proc/mounts; then ROOT_RO=1; mount -o remount,rw /; fi
 # 0.20.2: and again before every write to it: something else (RaspiMIDIHub) may have put it back read-only
+# 0.23.2: really before every block of writes - apt and the two compilers take a minute on a small Pi, and what
+# followed them wrote to the root unchecked: a root gone read-only meanwhile ended the install half way
 rwroot() { if grep -q " / [^ ]* ro[ ,]" /proc/mounts; then mount -o remount,rw / && ROOT_RO=1; fi; }
 apt-get install -y --no-install-recommends python3-mido python3-rtmidi python3-serial python3-usb gcc libc6-dev >/dev/null || \
     echo "apt failed: is the Pi on the internet? (USB tethering from the phone does it)"
+rwroot
 install -d /opt/sagga/hub
 # 0.20.1: the hub's version (the zip's folder, sagga-hub-X): the page shows it at the top
 case "$(basename "$HERE")" in sagga-hub-*) basename "$HERE" | sed 's/^sagga-hub-//' > /opt/sagga/hub/VERSION ;; esac
@@ -45,7 +48,8 @@ install -m 755 "$HERE/sagga_grid_bridge.py" "$HERE/fm1_install.py" /opt/sagga/
 [ -f "$HERE/patches.json" ] && install -m 644 "$HERE/patches.json" /opt/sagga/ || true
 install -m 755 "$HERE/sagga_m8_host.py" /opt/sagga/
 install -m 755 "$HERE/hub/sagga_pc_host.py" "$HERE/hub/sagga_fw.py" "$HERE/hub/usbmidi_pkt.py" /opt/sagga/hub/
-install -m 644 "$HERE/hub/roll.html" "$HERE/hub/sagga_patterns.py" "$HERE/hub/sagga_progs.py" "$HERE/hub/sagga_slicer.py" "$HERE/hub/sagga_editor.py" "$HERE/hub/editor.html" "$HERE/hub/sagga_celle.py" /opt/sagga/hub/
+install -m 644 "$HERE/hub/sagga_patterns.py" "$HERE/hub/sagga_progs.py" "$HERE/hub/sagga_slicer.py" "$HERE/hub/sagga_editor.py" "$HERE/hub/editor.html" "$HERE/hub/sagga_celle.py" /opt/sagga/hub/
+rm -f /opt/sagga/hub/roll.html                                 # 0.23.2: the piano roll of 0.11 is gone (the editor's Tape tab)
 for f in sagga_banco.py sagga_testport.py sagga_hw_test.py sagga_hw_explore.py banco_piano.json fm1_piano.json; do   # 0.20.3: the banco's explorer
     [ -f "$HERE/hub/$f" ] && install -m 644 "$HERE/hub/$f" /opt/sagga/hub/ || true
 done
@@ -53,15 +57,18 @@ mkdir -p /opt/sagga/hub/patterns && install -m 644 "$HERE/hub/patterns/"*.txt /o
 mkdir -p /opt/sagga/hub/progressions && install -m 644 "$HERE/hub/progressions/"*.txt /opt/sagga/hub/progressions/   # 0.11: the stock progressions (the same way)
 # 0.11: the .sgq <-> .mid converter, built here from the firmware's own core
 if [ -d "$HERE/sgqmid" ] && command -v cc >/dev/null 2>&1; then
+    rwroot
     cc -std=c11 -O2 -I"$HERE/sgqmid" "$HERE/sgqmid/sagga_sgqmid.c" "$HERE/sgqmid/sagga_seq_core.c" "$HERE/sgqmid/sagga_beats.c" -o /opt/sagga/hub/sagga_sgqmid \
         && echo "sagga_sgqmid built" || echo "sagga_sgqmid did not build: the page works without .mid"
     # 0.14: the web editor's converter (.sgq <-> what the page edits), from the same core
+    rwroot
     cc -std=c11 -O2 -I"$HERE/sgqmid" "$HERE/sgqmid/sagga_sgqjson.c" "$HERE/sgqmid/sagga_seq_core.c" "$HERE/sgqmid/sagga_beats.c" -o /opt/sagga/hub/sagga_sgqjson \
         && echo "sagga_sgqjson built" || echo "sagga_sgqjson did not build: the page's editor will say so"
 fi
 # 0.12: the SAGGA pages of RaspiMIDIHub's web interface (Remote, Mutes, Motori, Break, Mod), when the hub is on this Pi
 PLUG=$(python3 -c "import raspimidihub, os; print(os.path.join(os.path.dirname(raspimidihub.__file__), 'plugins'))" 2>/dev/null || true)
 if [ -n "$PLUG" ] && [ -d "$PLUG" ] && [ -d "$HERE/raspimidihub" ]; then
+    rwroot
     for d in "$HERE"/raspimidihub/sagga_*/; do rm -rf "$PLUG/$(basename "$d")"; cp -r "$d" "$PLUG/"; done
     RMH_RESTART=1                                   # 0.20.2: at the very end (it puts the root back read-only)
     echo "the SAGGA pages installed in $PLUG (add them in the hub's interface, OUT to the FM-1)"

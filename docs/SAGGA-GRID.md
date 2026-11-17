@@ -149,6 +149,11 @@ synths: write `/boot/firmware/sagga/patches.json` (on a PC: `sagga\patches.json`
   SysEx librarian reads.
 * `send_while_playing: false` sends them only when the FM-1 is stopped (some synths stop sounding while they load a
   patch).
+* 0.23.2: the bridge opens each synth's port **when it starts** (or when the synth is plugged in) and keeps it open.
+  Until 0.23.1 it looked at the ports and opened and closed one at every snapshot; each of those is an ALSA client
+  that comes and goes, and RaspiMIDIHub builds its whole matrix again at every one - a snapshot recalled while playing
+  cut the notes that sounded on every synth. The bridge says `snapshot patches: NAME (ports open: NAME)` at its
+  start. Of what a synth sends, the bridge takes its SysEx only.
 
 The bridge prints what it kept and sent (`journalctl -u sagga-grid-bridge -e`); the FM-1's screen says it too.
 
@@ -526,9 +531,18 @@ keeps it there too; RELOAD works from it while nothing else has used the FM-1's 
 * *The bridge stops with "bridge stopped: ...".* A cable was pulled, or a Launchpad restarted. ALSA gives a program
   no error when the port it writes to disappears, so the bridge looks once a second whether the clients of the
   Launchpads and the FM-1 are still there (it reads `/proc/asound/seq/clients`: asking for the port list would
-  create an ALSA client each time, and RaspiMIDIHub rescans its devices whenever a client comes or goes). If one
-  is gone it ends with an error, and as a service it comes back by itself after two seconds and finds the new
-  ports; by hand, start it again. Without that file (not Linux) there is no such check.
+  create an ALSA client each time, and RaspiMIDIHub takes its whole matrix down and up again whenever a client comes
+  or goes). If one is gone it ends with an error, and as a service it comes back by itself after two seconds and
+  finds the new ports; by hand, start it again. Without that file (not Linux) there is no such check.
+  **0.23.2**: it also looks whether its own connections are still there ("the bridge's connection ... is gone: the
+  device was made again"): an FM-1 that restarts is back in half a second under the same number and name, and the
+  bridge used to stay there connected to nothing, the grid dead.
+* *The bridge says "no FM-1 ... the bridge waits for it"* (0.23.2). The FM-1 is off or not plugged in: the bridge
+  waits, without looking at the ports again until a device comes (it used to end, and the service started it again
+  every two seconds - each start disturbed RaspiMIDIHub's matrix). The same without two Launchpads ("no grid ...").
+* *The Launchpads are dark and the FM-1 said GRID LOST* (0.23.2). The bridge was stopped: the Pi's banco stops it for
+  a prova and starts it again at the end, and so does a shutdown. A stopped bridge switches the lights off (until
+  0.23.1 the grid stayed lit and still, as if it were alive).
 * *The LED colours.* Edit `ROLE_RGB` in the bridge (0..127 per channel).
 * *"could not save the FM-1's project".* The dump folder is not writable: the bridge runs as a user who cannot
   write to `/boot/firmware`, or the folder is on the read-only root. Give `--dump-dir` a writable folder.

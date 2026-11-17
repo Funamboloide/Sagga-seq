@@ -185,7 +185,8 @@ typedef struct { uint64_t tick; uint8_t ch, note, vel; } non_t;   /* a note-on w
 
 static int mid2sgq(const char *in, const char *out, const char *base)
 {
-    static uint8_t file[1u << 22];
+    static uint8_t file[(1u << 22) + 8u];                   /* (0.23.2: the 8 past the file stay zero - an event cut off by the
+                                                             * end of the file reads its missing bytes there, not past the array) */
     static non_t open_[2048];
     uint8_t keep_bars[SQ_TRACKS] = {0};
     FILE *f = fopen(in, "rb");
@@ -194,7 +195,7 @@ static int mid2sgq(const char *in, const char *out, const char *base)
     uint64_t longest = 0u;
     uint16_t used[SQ_CHANNELS] = {0};
     if (!f) { fprintf(stderr, "cannot read %s\n", in); return 2; }
-    n = fread(file, 1, sizeof file, f); fclose(f);
+    n = fread(file, 1, sizeof file - 8u, f); fclose(f);
     if (n < 14 || memcmp(file, "MThd", 4)) { fprintf(stderr, "%s is not a MIDI file\n", in); return 2; }
     sq_project_init(&proj);
     if (base) {

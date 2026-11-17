@@ -53,9 +53,15 @@ static uint8_t algo_range(uint8_t a, uint8_t k, int32_t *lo, int32_t *hi)
     return 1u;
 }
 static uint8_t algo_field(const sq_algo_t *s, uint8_t k) { return k == 0u ? s->a : k == 1u ? s->b : s->c; }
+/* 0.23.2: a CELL's rule from the tablet is the EVEN rule 2 x CC (0 .. 254). Spread over 0 .. 255 as the other values
+ * are, the knob's 128 places gave the even rules up to 126 and the odd ones from 129: the rules that slide (170, 240),
+ * the one that stays (204), the traffic (184, 226) and 150 could not be had from the tablet, and their odd neighbours
+ * do something else. The even rules hold every one of the grid's sixteen pads but 51 and 105 (the panel's, the grid's). */
+static uint8_t algo_is_rule(const sq_algo_t *s, uint8_t k) { return s->algo == SQ_ALGO_CELL && k == 0u; }
 static uint8_t algo_to_cc(const sq_algo_t *s, uint8_t k)
 {
     int32_t lo, hi;
+    if (algo_is_rule(s, k)) return (uint8_t)(s->a >> 1);
     if (!algo_range(s->algo, k, &lo, &hi)) return 255u;
     return (uint8_t)clamp_i32((((int32_t)algo_field(s, k) - lo) * 127 + (hi - lo) / 2) / (hi - lo), 0, 127);
 }
@@ -67,7 +73,7 @@ static void tab_algo_abc(uint8_t t, uint8_t k, uint8_t v)
     int32_t lo, hi, x;
     char *p = msg_buf;
     if (!algo_range(s->algo, k, &lo, &hi)) { status_msg(s->algo ? "THIS ALGORITHM HAS NO C" : "ALGORITHM OFF: ALGO CHOOSES ONE"); return; }
-    x = lo + ((int32_t)v * (hi - lo) + 63) / 127;
+    x = algo_is_rule(s, k) ? (int32_t)(v & 127u) * 2 : lo + ((int32_t)v * (hi - lo) + 63) / 127;
     if (k == 0u) s->a = (uint8_t)x; else if (k == 1u) s->b = (uint8_t)x;
     else { s->c = (uint8_t)x; if (s->algo == SQ_ALGO_CELL && s == algo_slot(t)) ca_bars[t][algo_k(t)] = 0u; }
     p = put_s(p, ALGO_NAME[s->algo]); p = put_s(p, " "); p = put_s(p, N[s->algo][k]); p = put_u(p, (uint32_t)x); finish(p);

@@ -205,12 +205,15 @@ class FakeAPI:
 
 
 class FakeSystem:
-    def __init__(self, bridge="active", kernel=""):
-        self.calls, self.bridge, self.kernel = [], bridge, kernel
+    def __init__(self, bridge="active", kernel="", journal=""):
+        self.calls, self.bridge, self.kernel, self.journal = [], bridge, kernel, journal
 
     def __call__(self, cmd):
         self.calls.append(cmd)
-        out = self.kernel if cmd[0] == "journalctl" else (self.bridge if "sagga-grid-bridge" in cmd else "active") + "\n"
+        if cmd[0] == "journalctl":                           # (0.23.2: -k the kernel's, -u sagga-grid-bridge the bridge's own)
+            out = self.kernel if "-k" in cmd else self.journal
+        else:
+            out = (self.bridge if "sagga-grid-bridge" in cmd else "active") + "\n"
 
         class R_:
             stdout = out
@@ -331,15 +334,38 @@ def t_audit():
     f, _ = R.audit(Dead())
     check(f and f[0][0] == "ERRORE" and "non risponde" in f[0][1], "RaspiMIDIHub down: said (%s)" % f)
 
+    # 0.23.2: Controlla la matrice says the bridge's last lines too (one press, and the file tells how the bridge is)
+    def boom(cmd):
+        raise OSError("no journalctl here")
+    check(R.bridge_lines(boom) == [] and R.bridge_lines(FakeSystem(journal="\n-- No entries --\n")) == [], "the bridge's lines: none where there is no journal")
+    many = FakeSystem(journal="".join("[ %d.0] python3[9]: line %d\n" % (k, k) for k in range(60)))
+    got = R.bridge_lines(many)
+    check(len(got) == 25 and got[-1].endswith("line 59") and got[0].endswith("line 35"), "the bridge's lines: the last 25 (%s)" % got[-1:])
+    sysm = FakeSystem(journal="[  7.0] python3[5]: no FM-1 (no port matches --fm1 'fm-1|felucca'): the bridge waits for it\n")
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check("IL BRIDGE DEL GRID (le sue ultime righe)" in log and "the bridge waits for it" in log and "ripartito" not in log,
+          "Controlla la matrice: the bridge's last lines in its log (%s)" % log[-300:])
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), FakeSystem(), args=("--solo-matrice",))
+    check("IL BRIDGE DEL GRID" not in log, "no journal: no heading")
+
 
 def t_prova():
     group("a prova: the pages through the hub, the bridge, the synths away and back, what the FM-1 heard")
     dev = BancoFM1(deaf=1)
     api = FakeAPI(dev, own={"sagga_remote": {"fill": {"channel": 13, "cc": 99}}})
-    sysm = FakeSystem()
+    sysm = FakeSystem(journal="-- Journal begins at Mon 2026-10-26 --\n[  41.2] python3[612]: FM-1: Felucca MIDI 2\n[  41.9] python3[612]: no Launchpads: the bridge runs without the grid\n")
     dev.sysm = sysm
     before = set(api.conns)
     rc, data, report, log, status, left = run_main(dev, api, sysm)
+    # 0.23.2: the bridge's own lines in the log - its last ones with the matrix, those of its start at the very end
+    jc = [c for c in sysm.calls if c[0] == "journalctl" and "sagga-grid-bridge" in c]
+    a_, b_ = log.find("IL BRIDGE DEL GRID (le sue ultime righe)"), log.find("IL BRIDGE DEL GRID (ripartito)")
+    check(0 <= log.find("LA MATRICE") < a_ < log.find("il bridge del grid riparte") < log.find("Raccolta:") < b_,
+          "0.23.2 the bridge's lines: with the matrix, and after its start, last (%s %s)" % (a_, b_))
+    check(log.count("no Launchpads: the bridge runs without the grid") == 2 and "Journal begins" not in log,
+          "... its lines as the journal has them, without the journal's own (%s)" % log.count("no Launchpads"))
+    check(len(jc) == 2 and jc[0][-2:] == ["-n", "25"] and jc[1][-2] == "-S" and jc[1][-1].startswith("@") and "-k" not in jc[0],
+          "... asked of the bridge's unit: the last 25, then since it was started (%s)" % jc)
     check(rc == 0 and data and len(data["sessioni"]) == 2, "two sessions, rc 0 (%s)\n%s" % (rc, log[-1500:]))
     check(status.get("rc") == 0 and status.get("pid") == os.getpid(), "banco.json: the pid, then rc (%s)" % status)
     check(api.synth_during == 0 and (FM1, 0, SYNTH, 0) in api.deletes and (SYNTH, 0, FM1, 0) in api.deletes,
@@ -350,7 +376,7 @@ def t_prova():
     check(stops == [["systemctl", "stop", "sagga-grid-bridge"], ["systemctl", "start", "sagga-grid-bridge"]],
           "the bridge's service stopped for the prova, started at the end (%s)" % stops)
     check(dev.bridge_up_at_yes is True and dev.opens == 2 and "(di nuovo)" in log and "nessun tasto premuto" in log,
-          "the question asked while the grid is still attached (no GRID DETACHED over it), and again when nobody "
+          "the question asked while the grid is still attached (no GRID LOST over it), and again when nobody "
           "answered (%s %s)" % (dev.bridge_up_at_yes, dev.opens))
     check(dev.imported and dev.boots == 2 and dev.closes == 1, "the project back in memory; a reboot a session, CLOSE (%s %s)" % (dev.boots, dev.closes))
     if not data:
