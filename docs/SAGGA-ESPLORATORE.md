@@ -105,7 +105,8 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   Il giro completo della 0.23, a errore corretto: 73.819 gesti da soli in 22 situazioni, 8.797 coppie, 200 sessioni
   da 60 gesti, nessun errore; la suite di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer, nessun errore.
 
-* **Il banco della 0.23 sull'FM-1 vero** (26 ottobre 2026: il banco, 4 sessioni; l'FM-1 completo, 28): i motori
+* **Il banco della 0.23 sull'FM-1 vero** (i file datati 26 ottobre 2026 dall'orologio del Pi, che era indietro: il
+  banco, 4 sessioni; l'FM-1 completo, 28): i motori
   THEORY sull'FM-1 fanno le stesse parti del simulatore (le otto sessioni con i motori, uguali sonda per sonda), e
   nelle 28 sessioni le note sono le stesse, 28.068. Il rapporto segnava
   cinque cose; guardate una per una, quattro erano tempo o la prova stessa: un dado dal grid preso 1 ms dopo, il

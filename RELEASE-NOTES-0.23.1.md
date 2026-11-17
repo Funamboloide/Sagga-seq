@@ -114,8 +114,9 @@ tablet le 171 e 241 scivolano come la 170 e la 240.
 
 ## La prova al banco conta i messaggi
 
-Nei log della prova del 26 ottobre (0.23) c'era una cosa vera e non spiegata: **6 messaggi che l'FM-1 aveva mandato e
-il Pi non aveva sentito**, in 2 sessioni su 28 (quattro tick del clock e due note-off). Il resto tornava: i motori
+Nei log della prova al banco che mi hai mandato (FM-1 alla 0.23; i file dicono 26 ottobre perché l'orologio del Pi è
+indietro) c'era una cosa vera e non spiegata: **6 messaggi che l'FM-1 aveva mandato e il Pi non aveva sentito**, in 2
+sessioni su 28 (quattro tick del clock e due note-off). Il resto tornava: i motori
 sull'FM-1 vero suonano come nel simulatore, nota per nota. Ma da quei log non si poteva capire da che lato i 6
 messaggi si erano persi. Adesso sì:
 
@@ -170,7 +171,7 @@ Nel simulatore, che è il firmware stesso compilato per il computer, e sui tuoi 
   girato: il test nuovo li ha trovati, e li ho cambiati. Ho accorciato apposta la vista di CELL sulla storia: i test
   non se ne accorgevano, ho aggiunto due casi e adesso sì. Senza la ricerca nuova dei millisecondi, la prova del
   rapporto fallisce.
-* **GitHub** compila il pacchetto (`FM-1_973`) e rifà i controlli del cuore del firmware.
+* **GitHub** ha compilato il pacchetto (`FM-1_973`) e rifatto i 2.306.210 controlli del cuore del firmware.
 * **Cosa non è stato provato**: un FM-1 vero. NUMERIC, CELL e i contatori nuovi hanno girato solo nel simulatore.
 
 ## Installare
@@ -182,6 +183,8 @@ Nel simulatore, che è il firmware stesso compilato per il computer, e sui tuoi 
 ## Da sapere
 
 * **Niente di questo ha girato su un FM-1 vero.** È provato nel simulatore: la logica, i tempi, il MIDI che esce.
+  Il firmware cresce di 2,4 KB e ci sta con margine: 443.912 byte su 581.564 (la 0.23: 441.544), la RAM 68.816 byte
+  su 98.304 (+80). Lo dice la compilazione di GitHub.
 * **I progetti di prima** si aprono come sono. Cambia solo un ritmo NUMERIC che stava suonando: sceglilo di nuovo. Una
   traccia con CELL acceso suona uguale finché la riga non esce vuota; da lì torna al ritmo scritto, non più a un colpo
   solo.
