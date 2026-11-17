@@ -164,7 +164,7 @@ girato sul tuo Pi.**
   le porte dei synth aperte a ogni snapshot (9 controlli falliscono), lo slicer senza il controllo nuovo (4
   falliscono). Se ne accorgono tutti. Il vecchio piano roll l'ho fatto girare con il suo stesso codice sui tre casi,
   per vedere il danno prima di toglierlo.
-* **GitHub** compila il pacchetto (`FM-1_973`) e rifà i 2.306.210 controlli del cuore del firmware.
+* **GitHub** ha compilato il pacchetto (`FM-1_973`) e rifatto i 2.306.210 controlli del cuore del firmware.
 * **Cosa non è stato provato**: il Pi vero, RaspiMIDIHub vero in funzione, i Launchpad veri, un FM-1 vero.
 
 ## Installare
@@ -186,3 +186,5 @@ girato sul tuo Pi.**
   attimo di buco). È suo. Meglio farlo fra un pezzo e l'altro.
 * **I progetti** si aprono come sono. Nell'FM-1 cambia solo la manopola A del tablet su una traccia CELL: la stessa
   posizione della manopola adesso dà un'altra regola (il doppio del numero).
+* **Il firmware** cresce di 32 byte: 443.944 su 581.564 (la 0.23.1: 443.912). La RAM è la stessa: 68.816 byte su
+  98.304. Lo dice la compilazione di GitHub.
