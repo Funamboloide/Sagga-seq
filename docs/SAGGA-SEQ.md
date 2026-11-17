@@ -50,7 +50,7 @@ Two things that were there and could not be used, put right; and the PC test cou
 * **CELL comes back to what you wrote.** CELL (SEQ 2) turns the track's rhythm into a new row every bar by a fixed
   rule. When a row came out empty - it does with more than a hundred of the 256 rules - it started again from a single
   hit in the middle of the bar, and the rhythm you wrote never returned. Now **an empty row is the written rhythm
-  again**: many rules become a phrase of a few bars that always comes home (rule 90 on 16 cells: eight rows, then
+  again**: many rules become a phrase of a few bars that always comes home (rule 90 on 16 cells: at most eight rows, then
   yours). Nothing written: the single hit, as before.
 * **The screen says what a rule does.** Turning RULE or CELLS (K2, K3; the grid's pads; the tablet's A and B) says
   what the rule makes of this track's rhythm from here on - from the row that plays, or from the written rhythm while
@@ -62,7 +62,8 @@ Two things that were there and could not be used, put right; and the PC test cou
   hits in a row open up, 51 hits and rests swap, 90 150 105 60 loops of a few rows through the written rhythm, 54 thin
   and thick in turn, 18 22 126 122 110 longer stories, 30 no loop in sight. (They were 30 45 54 60 73 90 105 110 122
   126 150 18 22 57 62 184, in no order.) From the tablet the A knob reaches one rule in two (128 places for 256
-  rules): 170, 240, 184, 204, 51 and 150 are the panel's and the grid's; 171 and 241 slide as 170 and 240 do.
+  rules): 170, 240, 184, 204, 51 and 150 are the panel's and the grid's; 171 and 241 slide too, but first they fill
+  the holes of three steps or more: what slides is a rhythm thicker than the written one.
 * **The PC test counts.** The FM-1 counts what its program hands to the USB, by port and kind (clock ticks, note-ons,
   note-offs, control changes, the rest, the bytes), and the output ring keeps its own account; the test's DIAG says
   them, a new **QUIET** stops the FM-1 and leaves it silent. The Pi's banco asks before each session and after it and

@@ -9423,8 +9423,8 @@ def t0231_cell():
     s.at(t, "dump", 0)
     log = run(s, t + 100)
     st, v = states(log), v16s(log)
-    check(len(st) == 1 and v[0]["edit"][:2] == (2, 241) and st[0]["rawmsg"] == "TAB " + cell_hint(241, cell_row(TRES), cell_row(TRES)) and "SLIDES 1 STEP LATER" in st[0]["msg"],
-          "the tablet's A on 120: rule 241, TAB T1 CELL RULE 241: SLIDES 1 STEP LATER EVERY ROW (%s)" % (st[0]["rawmsg"] if st else st))
+    check(len(st) == 1 and v[0]["edit"][:2] == (2, 241) and st[0]["rawmsg"] == "TAB " + cell_hint(241, cell_row(TRES), cell_row(TRES)) and st[0]["msg"] == "T1 CELL RULE 241: AFTER 1 ROW SLIDES 1 STEP LATER",
+          "the tablet's A on 120: rule 241, TAB T1 CELL RULE 241: AFTER 1 ROW SLIDES 1 STEP LATER - the clave's holes of three steps filled first (%s)" % (st[0]["rawmsg"] if st else st))
 
 
 def t0231_counts():

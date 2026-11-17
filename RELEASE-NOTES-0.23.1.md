@@ -75,7 +75,7 @@ Due cose nuove:
 1. **Una riga vuota torna al tuo ritmo.** Con più di cento regole, prima o poi la riga esce vuota. Fino alla 0.23
    ripartiva da un colpo solo a metà battuta, e il ritmo che avevi scritto non tornava più. Adesso riparte dal ritmo
    scritto. Così molte regole diventano una frase di qualche battuta che torna sempre a casa: la regola 90 su 16
-   celle fa otto righe e poi di nuovo la tua.
+   celle fa al massimo otto righe e poi di nuovo la tua.
 2. **Lo schermo dice cosa fa la regola.** Le regole sono 256 numeri senza nome. Adesso, quando giri RULE o CELLS, lo
    schermo dice cosa farà quella regola con il ritmo di quella traccia:
 
@@ -110,7 +110,8 @@ Quasi tutte le altre si fermano, riempiono tutto o non fanno niente: lo schermo 
 **Sul grid** (TRACK 3, riga 5) i sedici pad delle regole adesso vanno dalla più calma alla più agitata: 204, 170, 240,
 184, 51, 90, 150, 105, 60, 54, 18, 22, 126, 122, 110, 30. **Dal tablet** la manopola A arriva a una regola su due
 (ha 128 posizioni per 256 regole): le regole 170, 240, 184, 204, 51 e 150 si scelgono dal pannello o dal grid. Dal
-tablet le 171 e 241 scivolano come la 170 e la 240.
+tablet le 171 e 241 scivolano anche loro, ma prima riempiono i buchi di tre step o più: scivola un ritmo più fitto del
+tuo.
 
 ## La prova al banco conta i messaggi
 
