@@ -10,6 +10,11 @@
  * 0.23: the THEORY engines - th (src: 1 the patterns are MADE; seed: the next one, 0-998) and thp, what the engines know
  * of each pattern they made (index: track * 8 + pattern; style 0: not theirs, else the style + 1 with the length in bits
  * 5-6; seed, func, var, vary, energy). The editor shows it and forgets it (style 0) when it empties or moves a pattern.
+ * 0.24: the COPIES - a step's flag 64 says it is one (the pattern going round again in a track longer than it, or the
+ * mark of a pattern's end after the loop: sagga_seq_core.h). A patch is put in order as the FM-1 would: a track whose
+ * length (or loop start) changes has its eight patterns FIT it (sq_row_fit: copies made, taken away, the mark); a
+ * pattern whose own steps change has its copies made again; a pattern with a COPY changed keeps all its copies as
+ * steps (flag 64 off). The editor only shows them.
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -317,6 +322,38 @@ static int tape_line(char **tok, unsigned no)
     return 0;
 }
 
+/* 0.24: what a patch touched, for the copies: the steps of each pattern (a bit a step), and what the tracks were */
+static uint64_t touched[SQ_TRACKS][SQ_PATTERNS], ghost_was[SQ_TRACKS][SQ_PATTERNS];
+static uint8_t len_was[SQ_TRACKS], start_was[SQ_TRACKS];
+
+static void copies_before(void)
+{
+    uint32_t t, pt, i;
+    memset(touched, 0, sizeof touched);
+    memset(ghost_was, 0, sizeof ghost_was);
+    for (t = 0; t < SQ_TRACKS; t++) {
+        len_was[t] = proj.track[t].length; start_was[t] = proj.track[t].start;
+        for (pt = 0; pt < SQ_PATTERNS; pt++)
+            for (i = 0; i < SQ_STEPS; i++) if (proj.step[t][pt][i].flags & SQ_STEP_GHOST) ghost_was[t][pt] |= (uint64_t)1u << i;
+    }
+}
+/* after the patch (and sanitize: the lengths are lengths): every pattern in order, as the FM-1 keeps them */
+static void copies_after(void)
+{
+    uint32_t t, pt;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        const sq_track_cfg_t *c = &proj.track[t];
+        uint8_t moved = (uint8_t)(c->length != len_was[t] || c->start != start_was[t]);
+        for (pt = 0; pt < SQ_PATTERNS; pt++) {
+            sq_step_t *row = proj.step[t][pt];
+            if (touched[t][pt] & ghost_was[t][pt]) sq_row_keep(row);                 /* a copy was written: they are steps now */
+            if (c->start != start_was[t]) sq_row_keep(row);                           /* (another loop start: nothing mirrors it) */
+            if (moved) sq_row_fit(row, c->start, len_was[t], c->length);
+            else if (touched[t][pt]) sq_row_fit(row, c->start, c->length, c->length); /* the pattern changed: its copies again */
+        }
+    }
+}
+
 static int patch_line(char *line, unsigned no)
 {
     char *tok[6];
@@ -363,6 +400,7 @@ static int patch_line(char *line, unsigned no)
     at = g->off;
     for (k = 0; k < d; k++) at += idx[k] * g->stride[k];
     set_v(&proj, at + f->off + elem * f->size, f, v);
+    if (!strcmp(g->name, "step")) touched[idx[0]][idx[1]] |= (uint64_t)1u << idx[2];   /* 0.24 */
     return 0;
 }
 
@@ -387,6 +425,7 @@ static int cmd_apply(const char *base, const char *patch, const char *out)
     int r;
     if (!strcmp(base, "new")) sq_project_init(&proj);
     else if ((r = read_image(base, &proj)) != 0) return r;
+    copies_before();
     f = fopen(patch, "r");
     if (!f) { fprintf(stderr, "cannot read %s\n", patch); return 2; }
     while (fgets(line, sizeof line, f)) {
@@ -394,6 +433,8 @@ static int cmd_apply(const char *base, const char *patch, const char *out)
         if ((r = patch_line(line, no)) != 0) { fclose(f); return r; }
     }
     fclose(f);
+    sq_project_sanitize(&proj);
+    copies_after();
     return write_image(out);
 }
 

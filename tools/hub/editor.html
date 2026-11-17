@@ -17,7 +17,7 @@ main{padding:10px 12px 60px}h3{margin:14px 0 6px;font-size:13px;letter-spacing:.
 .ov{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:#0b0b0b}
 .tr{display:flex;align-items:center;height:22px}.tr .lb{position:sticky;left:0;background:#0b0b0b;min-width:150px;max-width:150px;padding:0 6px;font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1}
 .tr .lb.cur{color:var(--sel)}.c{width:15px;height:17px;margin:0 1px;border-radius:2px;background:#262626;flex:none;cursor:pointer;position:relative}
-.c.bar{margin-right:4px}.c.out{background:#151515}.c.on{background:var(--on)}.c.on.out{background:#164}.c.sel{outline:2px solid var(--sel)}
+.c.bar{margin-right:4px}.c.out{background:#151515}.c.on{background:var(--on)}.c.on.out{background:#164}.c.on.ghost{background:#1d5f66}.c.sel{outline:2px solid var(--sel)}
 .c.tie:after{content:'';position:absolute;right:-3px;top:7px;width:5px;height:3px;background:#9cf}.c.slide:after{background:#f9c}
 .c.lock:before{content:'';position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:2px;background:#fd5}
 .c.rat{box-shadow:inset 0 -3px 0 #f84}.tape{font-size:12px;color:var(--dim);padding-left:6px}
@@ -105,6 +105,7 @@ const NN = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const MODES = [['FREE',0],['IN KEY',1],['DRUM',2],['TAPE',0x20],['BREAK',0x40]];
 const MODE_BITS = 0x01 | 0x02 | 0x20 | 0x40;
 const ON = 1, SET = 2, LOCK = 4, XOFF = 8, TIE = 16, SLIDE = 32, F_CHAIN = 0x10, F_FOLLOW = 0x04, F_EUC = 0x08;
+const GHOST = 64;                                     // 0.24: a COPY - the pattern going round again in a track longer than it (the FM-1 and the Pi's converter keep them)
 const NONE = 255;
 const TABS = [['tracce','Tracce'],['traccia','Traccia'],['lane','Lane'],['tape','Tape'],['scene','Scene'],['song','Song'],['catene','Catene'],['lfo','LFO'],['progetto','Progetto']];
 const NAME_OK = /[A-Z0-9 \-_.+#&!'()\/:]/;
@@ -323,7 +324,7 @@ function rTracce() {
       const st = getStep(t, V.pat, s), out = s < c.start || s >= c.length;
       let cl = 'c';
       if (st.flags & ON) { cl += ' on'; if (!out) on++; }
-      if (out) cl += ' out';
+      if (out) cl += ' out'; else if (st.flags & GHOST) cl += ' ghost';   // 0.24: a copy
       if (s % 4 === 3) cl += ' bar';
       if (st.flags & TIE) cl += ' tie'; if (st.flags & SLIDE) cl += ' tie slide';
       if (st.lane.some(x => x !== NONE)) cl += ' lock';
@@ -333,7 +334,7 @@ function rTracce() {
     }
     o += '</div>';
   }
-  o += '</div><small>' + on + ' step accesi nel P' + (V.pat + 1) + ' · scuro: fuori dal loop · puntino giallo: lock · linea arancio: ratchet · trattino: TIE / SLIDE</small>';
+  o += '</div><small>' + on + ' step accesi nel P' + (V.pat + 1) + ' · scuro: fuori dal loop · verde-azzurro: una copia (il pattern che gira ancora in una traccia più lunga di lui) · puntino giallo: lock · linea arancio: ratchet · trattino: TIE / SLIDE</small>';
   return o + rStep();
 }
 document.addEventListener('click', ev => {
@@ -350,7 +351,7 @@ function rStep() {
   let o = '<h3>STEP ' + (s + 1) + ' · ' + h(trackLabel(t)) + ' · P' + (p + 1) + '</h3><div class="row"><button onclick="toggleStep(' + t + ',' + p + ',' + s + ');commit();render()">' + (st.flags & ON ? 'Spegni' : 'Accendi') + '</button>' +
     '<button class="sec" onclick="V.s=Math.max(0,V.s-1);keepView();render()">◀</button><button class="sec" onclick="V.s=Math.min(63,V.s+1);keepView();render()">▶</button>' +
     '<button class="sec" onclick="clip=clone(getStep(' + t + ',' + p + ',' + s + '));status(\'step copiato\')">Copia</button><button class="sec" onclick="pasteStep()">Incolla</button>' +
-    '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button><button class="sec" onclick="hearStep(' + t + ',' + p + ',' + s + ')" title="l\'FM-1 lo suona (serve il bridge)">♪ ascolta</button></div><div class="grid">';
+    '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button><button class="sec" onclick="hearStep(' + t + ',' + p + ',' + s + ')" title="l\'FM-1 lo suona (serve il bridge)">♪ ascolta</button></div>' + copyNote(t, p, s) + '<div class="grid">';
   for (let j = 0; j < 4; j++) o += L('nota ' + (j + 1), notesel('step', k, 'note', j, j > 0));
   o += L('velocity', num('step', k, 'velocity', '-', 1, 127)) + L('gate <small>' + lenText(st.length) + '</small>', num('step', k, 'length', '-', 1, 164)) +
     L('chance %', num('step', k, 'chance', '-', 0, 100)) + L('ratchet', num('step', k, 'ratchet', '-', 1, 8)) +
@@ -362,9 +363,20 @@ function rStep() {
   }
   return o + '</div>';
 }
+// 0.24: a step that is a COPY (flag 64, in the loop): which step of the pattern it repeats, and what a change does
+function copyNote(t, p, s) {
+  const c = P.track[t];
+  if (!(getStep(t, p, s).flags & GHOST) || s < c.start || s >= c.length) return '';
+  let own = c.start;
+  while (own < c.length && !(getStep(t, p, own).flags & GHOST)) own++;
+  if (own <= c.start || own > s) return '';
+  return '<p class="dim">Questo step è una <b>copia</b> dello step ' + (c.start + (s - c.start) % (own - c.start) + 1) + ': il pattern è di ' + (own - c.start) +
+    ' step e gira ancora nella traccia, più lunga. Cambia lo step ' + (c.start + (s - c.start) % (own - c.start) + 1) + ' e al Salva la copia lo segue. Cambia questa, e al Salva tutte le copie diventano step tuoi.</p>';
+}
 let clip = null;
 function pasteStep() { if (!clip) return status('prima Copia'); const k = V.t + ',' + V.pat + ',' + V.s; copyInto(k, clip); commit(); render(); }
-function copyInto(k, src) { for (const f in src) { if (Array.isArray(src[f])) src[f].forEach((v, j) => set('step', k, f, j, v)); else set('step', k, f, '-', src[f]); } }
+function copyInto(k, src) {                           // (0.24: what is copied, pasted, moved is a step, never a copy: flag 64 stays behind)
+  for (const f in src) { if (Array.isArray(src[f])) src[f].forEach((v, j) => set('step', k, f, j, v)); else set('step', k, f, '-', f === 'flags' ? src[f] & ~GHOST : src[f]); } }
 function clearStep(t, p, s) { copyInto(t + ',' + p + ',' + s, P.step_default); commit(); render(); }
 
 function rTraccia() {
@@ -372,7 +384,7 @@ function rTraccia() {
   let o = '<div class="row">' + trackSel() + '</div><h3>TRACCIA</h3><div class="grid">' +
     L('modo', vsel(g, t, 'mode', '-', MODES.map(m => m[0]), MODES.findIndex(m => m[1] === modeOf(t)))) +
     L('canale', sel(g, t, 'channel', '-', range(1, 16))) + L('ruolo', sel(g, t, 'role', '-', N.role || [])) + L('nota PEN', notesel(g, t, 'pen')) +
-    L('lunghezza', num(g, t, 'length', '-', 1, 64)) + L('primo step', num(g, t, 'start', '-', 0, 63)) + L('divisione', sel(g, t, 'division', '-', DIV)) +
+    L('lunghezza <small title="0.24: al Salva i pattern della traccia si adattano come sull\'FM-1: più lunga, il pattern gira ancora (le copie); più corta, il resto aspetta dopo il loop">i pattern si adattano al Salva</small>', num(g, t, 'length', '-', 1, 64)) + L('primo step', num(g, t, 'start', '-', 0, 63)) + L('divisione', sel(g, t, 'division', '-', DIV)) +
     L('direzione', sel(g, t, 'direction', '-', DIR)) + L('pattern iniziale', sel(g, t, 'initial_pattern', '-', range(1, 8))) +
     L('trasposizione', num(g, t, 'transpose', '-', -48, 48)) + L('ottava', num(g, t, 'octave', '-', -3, 3)) + L('swing %', num(g, t, 'swing', '-', 50, 75)) +
     L('velocity +/-', num(g, t, 'vel_offset', '-', -63, 63)) + L('umano: tempo', num(g, t, 'hum_time', '-', 0, 50)) + L('umano: velocity', num(g, t, 'hum_vel', '-', 0, 50)) +

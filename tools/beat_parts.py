@@ -407,7 +407,7 @@ def variations(genre, part, seeds, count, extra, triplets):
 
     def chain(start, items):
         """each next the closest; one whose first bar is the bar before's comes later (at the library's 16 steps, the
-        length a pattern is loaded at unless SAVE 2 K4 says more, the two would sound the same)"""
+        length a pattern is loaded at on a track of one bar, the two would sound the same)"""
         order, left = [], list(items)
         prev = start
         while left:

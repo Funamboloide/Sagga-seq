@@ -84,7 +84,7 @@ static void pipat_tick(void)
 static void pipat_loaded(const uint8_t *text, const uint8_t *notes, uint8_t n)
 {
     static char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
-    uint8_t t = pi_get.t, f = pi_get.func, g = pi_get.genre, len, note, nv, i, want = lib_len_steps();
+    uint8_t t = pi_get.t, f = pi_get.func, g = pi_get.genre, len, note, nv, i, pat = pi_get.pat < SQ_PATTERNS ? pi_get.pat : tr[pi_get.t].pattern;
     sq_track_cfg_t *c = &project.track[t];
     sq_step_t *row = project.step[t][pi_get.pat < SQ_PATTERNS ? pi_get.pat : tr[t].pattern];
     beat_cfg_t o;
@@ -97,9 +97,10 @@ static void pipat_loaded(const uint8_t *text, const uint8_t *notes, uint8_t n)
     len = sq_beat_load_text(row, r, notes ? nt : 0, f, note);
     if (!len) { status_msg("PI: NOT A PATTERN OF THIS PART"); return; }
     th_forget(t, pi_get.pat);                           /* 0.23: the Pi's pattern */
-    if (len < want && want % len == 0u) { for (i = len; i < want; i++) row[i] = row[i % len]; len = want; }   /* (the library's length: repeated) */
+    made_fit(t, pat, len);                              /* 0.24: the track keeps its length: the pattern again in what it has more */
     beat_cfg_for(c, g, f, len, note, &o);
-    beat_cfg_apply(t, &o);
+    if (16u % len && len % 16u) o.length = len;         /* (but one that does not fit a bar - 12 steps, 24: the track is as long as it is) */
+    beat_cfg_apply(t, pat, &o);
     nv = sq_beat_variants(g, f);
     c->src_func = f; c->src_var = (uint8_t)(nv ? nv - 1u : 0u);     /* (COOK walks on to the FM-1's first) */
     c->src_genre = g;

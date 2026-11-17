@@ -189,6 +189,21 @@ svuotare il resto (non in un RUMBLE o in un SUB che segue la cassa: quelli, quan
 interi). Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
 **Copia in...** su un altro pattern della stessa traccia porta con sé il seme; su un'altra traccia no.
 
+**0.24, le copie.** Sull'FM-1 la lunghezza è della traccia: quando una traccia è più lunga del suo pattern, negli step
+in più il pattern gira di nuovo. Quegli step sono le sue **copie**, e l'editor le mostra in **verde-azzurro** (gli step
+scritti da te restano verdi). Se ne selezioni una, sotto leggi di quale step è la copia.
+Quando premi **Salva** il Pi rimette tutto a posto come farebbe l'FM-1 (lo fa `sagga_sgqjson`, con lo stesso codice
+del firmware):
+
+* cambi uno **step del pattern**: le sue copie cambiano con lui;
+* cambi una **copia**: tutte le copie di quel pattern diventano step tuoi (il pattern è lungo quanto la traccia);
+* **allunghi la traccia** (scheda Traccia, *lunghezza*): il pattern gira nei nuovi step, in tutti e 8 i pattern della
+  traccia. Se dopo la fine del loop avevi scritto qualcosa, vale quello che hai scritto e non si copia niente;
+* **accorci la traccia**: il pattern resta intero dopo il loop e torna com'era quando la riallunghi.
+
+Le copie nuove le vedi **dopo il Salva** (la pagina si ricarica da sola), non mentre scrivi il numero della lunghezza.
+Uno step copiato o incollato, o un pattern copiato su un altro, arriva sempre come step tuo, mai come copia.
+
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:
 tocchi il vuoto e c'è una nota da un sedicesimo, la trascini per spostarla, dal bordo destro la allunghi, Canc la toglie;

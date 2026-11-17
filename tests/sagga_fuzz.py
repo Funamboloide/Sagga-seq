@@ -206,7 +206,7 @@ def check_log(log, seed, panic_t=1 << 30):
             top = 15                                               # two ports: port 1 has 16 channels of tracks
         elif st == 0x9F:
             top = 13
-            if d2 > 17:                                            # 0.12: 16 TAIL, 17 TIE
+            if d2 > 18:                                            # 0.12: 16 TAIL, 17 TIE; 0.24: 18 GHOST (a copy that plays)
                 bad.append("%d: pad LED role %d" % (t, d2))
             if two:
                 continue

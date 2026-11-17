@@ -45,7 +45,7 @@ Puoi passare da una sorgente all'altra quando vuoi, anche suonando: quello che c
 | una progressione nuova | **DICE PROG**: è fatta con le regole del genere e va nello slot del dado. |
 | cambiare genere tenendo la band | **GENRE LIVE**: le parti vengono rifatte nel genere nuovo, dallo stesso seme. |
 | nessun genere | **SEQ 8 K1 su FREE**: BAND dà una band di otto parti fatta solo con il metro, e BEAT, KIT, i dadi e DICE PROG lavorano senza genere. Vedi "Liberi dal genere". |
-| parti di quattro battute | **SAVE 2 K4**, LIBRARY LENGTH 64. Con 16 la parte è una battuta, con 32 due (la seconda risponde alla prima), con 64 quattro, e l'ultima ha la chiusura. |
+| parti di quattro battute | **La lunghezza della traccia** (dalla 0.24): portala a 64 **prima** di fare la parte (HOME, K2; o per tutte le tracce la mossa LONGER, SEL + nero 6 nelle MOSSE, due volte). Con 16 step la parte è una battuta, con 32 due (la seconda risponde alla prima), con 64 quattro, e l'ultima ha la chiusura. Una parte già fatta su 16 step, se allunghi la traccia dopo, si ripete uguale (le copie): per le risposte e la chiusura rifalla. (Fino alla 0.23 lo decideva SAVE 2 K4, LIBRARY LENGTH.) |
 
 Sul **grid**, nella vista BEAT, la terza riga: i pad da 11 a 16 scelgono il seme fra sei, il pad 10 passa ai sei dopo.
 Con SHIFT tenuto vedi il pattern che quel seme darebbe.
@@ -253,7 +253,10 @@ Ogni scelta è un numero da 0 a 255 fatto dal seme, dalla parte e dal nome della
 Niente dipende da cosa è stato fatto prima: per questo lo stesso seme ridà la stessa band, e una variazione cambia solo
 le scelte che rifà.
 
-Una parte dura una, due o quattro battute (LIBRARY LENGTH). Le battute 1 e 3 sono la stessa battuta; la 2 e la 4
+Una parte dura una, due o quattro battute: quelle che la traccia ha quando la parte viene fatta (16, 32 o 64 step;
+fino alla 0.23 lo decideva LIBRARY LENGTH). Su una traccia di un'altra lunghezza la parte è fatta su 16, 32 o 64
+step, la misura più grande che ci sta (16 su una traccia da 19, 32 su una da 48), e il resto sono le sue copie; su una
+traccia più corta di 16 è fatta su 16 e ne suona l'inizio. Le battute 1 e 3 sono la stessa battuta; la 2 e la 4
 rifanno una quota delle scelte (la **risposta** alla prima); l'ultima ha la **chiusura** del genere.
 
 ### Il ritmo

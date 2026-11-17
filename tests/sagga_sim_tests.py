@@ -150,6 +150,10 @@ class Log:
         self.dumps = [dict(t=int(m.group(1)), track=int(m.group(2)), pat=int(m.group(3)), start=int(m.group(4)), length=int(m.group(5)),
                            hash=m.group(6), mode=m.group(7), pen=int(m.group(8)), on=m.group(9))
                       for m in re.finditer(r"^\s*(\d+) ms  steps T(\d+) P(\d+) (\d+)-(\d+) ([0-9A-F]{8}) mode (\w) pen (\d+) ON:([x.]*)", text, re.M)]
+        # 0.24: the copies, a dump of a track: the pattern's own length in the loop, the whole row (x a step that
+        # plays, g a copy that plays, r a copy at rest - after the loop: the mark of the pattern's end)
+        self.copies = [dict(t=int(m.group(1)), track=int(m.group(2)), own=int(m.group(3)), row=m.group(4))
+                       for m in re.finditer(r"^\s*(\d+) ms  copies T(\d+) own (\d+) ROW:([xgr.]*)", text, re.M)]
 
         self.states = [dict(t=int(m.group(1)), track=int(m.group(2)), flags=int(m.group(3)), pulses=int(m.group(4)), rot=int(m.group(5)),
                             algo=int(m.group(6)), a=int(m.group(7)), b=int(m.group(8)), c=int(m.group(9)), mfx=int(m.group(10)),
@@ -4894,13 +4898,25 @@ def t010_tools():
     check(all(x > 0 for x in on[:10]) and on[10] == 0, "every one of the ten tracks has a pattern, the eleventh none (%s)" % on)
     check(roles == [1, 8, 3, 9, 10, 4, 17, 5, 20, 21, 0], "the roles KICK CLAP HAT OPEN-HAT RIDE PERC RUMBLE BASS STAB PAD (%s)" % roles)
     check(log.states[0]["harm"][0] == 1, "the HARMONY is on")
-    # the library at 32 steps (SAVE page 2 K4): BEAT puts a two-bar pattern down
+    # 0.24: the length is the track's. A track of 32 steps, BEAT: the kick of one bar, and the bar again (its copies) -
+    # LONG PATTERNS (SAVE page 2 K4; LIBRARY LEN until 0.23) on COPY, as a new project has it ...
     s = Script()
-    s.press(100, SAVE); s.tap_btn(130, OCT_UP, hold=20); s.enc(180, K4, 1); s.release(240, SAVE)
-    s.press(400, SEQ); s.tap_key(430, wk(9)); s.release(500, SEQ)                                    # BEAT
-    s.at(600, "dump", 0)
-    log = run(s, 700)
-    check(log.dumps[0]["length"] == 32 and log.dumps[0]["on"].count("x") >= 8 and cfgs(log)[0]["lib"] == 1, "LIBRARY 32 STEPS: a 32-step kick (%s %s)" % (log.dumps[0]["length"], log.dumps[0]["on"]))
+    t = home_page(s, 100, 0, [(K2, 16)])                                                             # LENGTH 32
+    s.press(t, SEQ); s.tap_key(t + 30, wk(9)); s.release(t + 100, SEQ)                               # BEAT
+    s.at(t + 200, "dump", 0)
+    log = run(s, t + 300)
+    check(log.dumps[0]["length"] == 32 and log.dumps[0]["on"] == "x...x...x...x..." * 2 and log.copies[0]["own"] == 16 and cfgs(log)[0]["lib"] == 0,
+          "a track of 32, BEAT, LONG PATTERNS COPY: the kick's bar twice, the second its copies (%s %s own %s)" % (log.dumps[0]["length"], log.dumps[0]["on"], log.copies[0]["own"]))
+    # ... on PHRASE: the two bars of 0.10 (the next variation in the second, the genre's fill), all of them the pattern's
+    s = Script()
+    t = home_page(s, 100, 0, [(K2, 16)])
+    s.press(t, SAVE); s.tap_btn(t + 30, OCT_UP, hold=20); s.enc(t + 80, K4, 1); s.release(t + 140, SAVE); t += 300
+    s.press(t, SEQ); s.tap_key(t + 30, wk(9)); s.release(t + 100, SEQ)                               # BEAT
+    s.at(t + 200, "dump", 0)
+    log = run(s, t + 300)
+    check(log.dumps[0]["length"] == 32 and log.dumps[0]["on"][:16] == "x...x...x...x..." and log.dumps[0]["on"][16:] != log.dumps[0]["on"][:16]
+          and log.dumps[0]["on"].count("x") >= 8 and log.copies[0]["own"] == 32 and cfgs(log)[0]["lib"] == 1,
+          "... LONG PATTERNS PHRASE: a 32-step kick, its second bar another (%s %s own %s)" % (log.dumps[0]["length"], log.dumps[0]["on"], log.copies[0]["own"]))
     # GENRE LIVE (TOOLS K4): the tracks that came from the library are loaded again when the genre changes, at the bar line
     s = Script()
     t = tools_knobs(s, 100, [(K4, 2)])                             # GENRE LIVE (SEQ 6 TOOLS K4)
@@ -5221,7 +5237,8 @@ def t011_lengths():
     s.at(p0 + int(38 * STEP_MS), "dump", 0)
     log = run(s, p0 + int(4 * BAR) - 20)
     k = [round((tm - p0) / STEP_MS) for tm, d1, v in log.notes(ch=0, after=p0 + int(37 * STEP_MS))]
-    check(log.dumps[0]["length"] == 16 and log.dumps[0]["on"] == "x...x...x...x..x", "the new pattern: 16 steps, kick #2 (%s)" % log.dumps[0]["on"])
+    check(log.dumps[0]["length"] == 64 and log.dumps[0]["on"] == "x...x...x...x..x" * 4 and log.copies[0]["own"] == 16,
+          "the new pattern, kick #2: the track stays 64 steps (0.24: until 0.23.2 the pattern made it 16), the kick's bar four times (%s, own %s)" % (log.dumps[0]["on"], log.copies[0]["own"]))
     check(k == [40, 44, 47, 48, 52, 56, 60, 63], "it goes on where the clock is: 40 44 47, then the bar 48 52 56 60 63 (%s)" % k)
     # stopped: the length changes at once, and a turn of the knob 16 -> 24 repeats the first 8 steps of the loop
     s = Script()
@@ -6268,7 +6285,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.23.2", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.24", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -8598,7 +8615,11 @@ def t023_theory():
         return rows[part] if part else rows
 
     def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
-    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])        # SAVE 2 K4: the LIBRARY LENGTH, 64 steps (four bars: the answers, the fill)
+    def lib64(s, t):                                            # 0.24: the length is the track's: every track 64 steps (the MOSSE's LONGER,
+        t = vg_on(s, t, remote=False)                           #  twice - stopped: at once), four bars: the answers, the fill
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        return vg_studio(s, t)
     def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
     def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
     def look(s, t, tracks):
@@ -8632,7 +8653,7 @@ def t023_theory():
         check(sc and sc[0]["cells"][0] == ("> SOURCE", "THEORY") and sc[0]["cells"][1] == ("NEXT SEED", "1") and sc[0]["lines"][2].startswith("SEQ 8/8 TECHNO KICK SEED 1"),
               "SEQ 8: SOURCE THEORY, the next seed, the part it will make (%s, %s)" % (sc[0]["cells"] if sc else None, sc[0]["lines"][2] if sc else None))
         e = at(log, 0, 1)[1]["now"]
-        want = text("TECHNO", 0, e, n=16)                       # (the LIBRARY LENGTH of a new project: 16 steps)
+        want = text("TECHNO", 0, e, n=16)                       # (a new project's tracks: 16 steps, one bar)
         got = [at(log, k, 1 if k == 0 else 0) for k in range(10)]
         check("TECHNO BAND SEED 1: 10 TRACKS" in msgs, "BAND with the SOURCE on THEORY: a band of seed 1 (%s)" % msgs)
         check(all(got[k][0]["on"] == onoff(want[PARTS[k]]) for k in range(10)), "... every part is what the engines make of that seed at the machine's energy (%d): %s" % (
@@ -8832,7 +8853,11 @@ def t023_theory_genres():
         return out[0], [l.split("\t") for l in out[1:]]
 
     def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
-    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])
+    def lib64(s, t):                                            # 0.24: the length is the track's: every track 64 steps (the MOSSE's LONGER,
+        t = vg_on(s, t, remote=False)                           #  twice - stopped: at once), four bars: the answers, the fill
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        return vg_studio(s, t)
     def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
     def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
     def look(s, t, tracks):
@@ -8980,7 +9005,11 @@ def t023_theory_free():
         return rows[part] if part else rows
 
     def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
-    def lib64(s, t): return pg(s, t, SAVE, 1, [(K4, 2)])        # SAVE 2 K4: the LIBRARY LENGTH, 64 steps
+    def lib64(s, t):                                            # 0.24: the length is the track's: every track 64 steps (the MOSSE's LONGER,
+        t = vg_on(s, t, remote=False)                           #  twice - stopped: at once), four bars: the answers, the fill
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        return vg_studio(s, t)
     def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
     def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
     def screen(s, t): s.press(t, SEQ); s.at(t + 60, "ui"); s.release(t + 700, SEQ); return t + 800     # (held 0.7 s: not a tap, no window stays open)
@@ -9551,6 +9580,389 @@ def t0231_counts():
     check([a for _, a in answers(log, "quiet")] == [0], "QUIET outside the test: no (%s)" % answers(log, "quiet"))
 
 
+# ------------------------------------------------------------------------------------------------ 0.24: the length is the track's
+def _played(log, p0, bars, ch=0):
+    """the note of every step after p0, a bar a list (None: silence); melody16's notes are 0..15"""
+    row = {}
+    for tm, d1, v in log.notes(ch=ch, after=p0):
+        row[round((tm - p0) / STEP_MS)] = d1 - 60
+    return [[row.get(b * 16 + i) for i in range(16)] for b in range(bars)]
+
+
+def _bars(on): return [on[i:i + 16] for i in range(0, len(on), 16)]
+
+
+def t024_lengths():
+    group("0.24 THE LENGTH IS THE TRACK'S: 16 -> 19 -> 32 at the bars is the pattern twice, from the bar line; shorter and back; the 64th step alone; a second bar written first")
+    BAR = 16 * STEP_MS
+    M16 = list(range(16))
+    # THE ONE THAT WAS WRONG. A melody of 16 steps plays; LENGTH 19 asked in bar 1 (it waits for the bar), LENGTH 32 asked
+    # in bar 3. 0.23.2: the step on the bar line of bar 4 was the old loop's (its step 11), and the 32 steps were the
+    # NINETEEN going on - 0 1 2 0 1 .. 12 in the second bar, three steps off, for good.
+    s = Script()
+    t = melody16(s)
+    s.tap_btn(t, PLAY); p0 = t
+    home_page(s, p0 + int(4.5 * STEP_MS), 0, [(K2, 3)])
+    home_page(s, p0 + int(36.5 * STEP_MS), 0, [(K2, 13)])
+    s.at(p0 + int(20 * STEP_MS), "dump", 0)
+    s.at(p0 + int(50 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(6 * BAR) - 20)
+    b = _played(log, p0, 6)
+    msgs = [x["msg"] for x in log.states]
+    check([d["length"] for d in log.dumps] == [19, 32] and [c["own"] for c in log.copies] == [16, 16],
+          "19 at the bar, then 32 at the bar: the pattern is still its 16 steps (%s, own %s)" % ([d["length"] for d in log.dumps], [c["own"] for c in log.copies]))
+    check(log.copies[0]["row"] == "x" * 16 + "ggg" + "." * 45 and log.copies[1]["row"] == "x" * 16 + "g" * 16 + "." * 32,
+          "what the track has more are the pattern's COPIES: three, then sixteen (%s | %s)" % (log.copies[0]["row"][:20], log.copies[1]["row"][:34]))
+    check(msgs == ["LENGTH 19: THE 16 STEPS REPEAT", "LENGTH 32: THE 16 STEPS REPEAT"], "the screen says what plays (%s)" % msgs)
+    check(b[0] == M16 and b[1] == [0, 1, 2] + list(range(13)) and b[2] == [13, 14, 15, 0, 1, 2] + list(range(10)),
+          "19 steps: the polymetre - bar 2 begins with the three copies, bar 3 with steps 14 15 16 (%s | %s)" % (b[1], b[2]))
+    check(b[3] == M16, "32 at the bar line of bar 4: the step ON the line is the pattern's first (0.23.2: its step 11, the old loop's) (%s)" % b[3])
+    check(b[4] == M16 and b[5] == M16, "... and the 32 steps are the pattern twice: on the rails again (0.23.2: 0 1 2 0 1 .. 12, for good) (%s)" % b[4])
+
+    # A TRACK SHORTER THAN ITS PATTERN, AND BACK. Twelve notes in a track of 16 (its last quarter silent). 12, then 16:
+    # the four rests are there (0.11 - 0.23.2 put the first four notes in them: the loop "repeated"). A MARK keeps the
+    # place where the pattern ends: a step at rest after it, flagged. 12, then 32: the pattern as it was, twice.
+    s = Script()
+    t = program(s, 100, [60 + i for i in range(12)])
+    t = home_page(s, t, 0, [(K2, -4)]); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 4)]); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, -4)])
+    t = home_page(s, t, 0, [(K2, 20)]); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["length"] == 12 and c[0]["row"] == "x" * 12 + "....r" + "." * 47, "LENGTH 12: the pattern keeps its 16 steps, a mark after them (%s)" % c[0]["row"][:20])
+    check(d[1]["on"] == "x" * 12 + "...." and "r" not in c[1]["row"] and "g" not in c[1]["row"] and c[1]["own"] == 16,
+          "... 16 again: the last quarter is silent as it was written (%s)" % d[1]["on"])
+    check(d[2]["length"] == 32 and d[2]["on"] == ("x" * 12 + "....") * 2 and c[2]["own"] == 16 and c[2]["row"][16:32] == "g" * 12 + "rrrr",
+          "12, then 32: the pattern as it was, twice - its rests copied too (%s, own %s)" % (d[2]["on"], c[2]["own"]))
+
+    # THE LAST STEP ALONE. The 64th step written while the track loops its 16; LENGTH 40: nothing is copied, the track is
+    # silent after the 16; LENGTH 64: the same; the 64th turned off before the cursor comes: 64 steps, 48 of them silent
+    s = Script()
+    t = melody16(s)
+    s.enc(t, E_ALG, 63); t += 60
+    s.press(t, SEL); s.tap_key(t + 30, 1 << (72 - 53), hold=40); s.release(t + 100, SEL); t += 520
+    t = home_page(s, t, 0, [(K2, 24)]); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 24)]); s.at(t, "dump", 0); t += 50
+    s.tap_key(t, wk(15)); t += 100; s.at(t, "dump", 0); t += 50
+    s.tap_btn(t, PLAY); p0 = t
+    log = run(s, p0 + int(4 * BAR) - 20)
+    d, c = log.dumps, log.copies
+    n = [sum(1 for x in bar if x is not None) for bar in _played(log, p0, 4)]
+    check(d[0]["on"] == "x" * 16 + "." * 24 and c[0]["own"] == 40 and "g" not in c[0]["row"], "step 64 written, LENGTH 40: no copies, silence after the 16 (%s)" % d[0]["on"])
+    check(d[1]["on"] == "x" * 16 + "." * 47 + "x" and c[1]["own"] == 64, "LENGTH 64: the 64 steps as written (%s)" % d[1]["on"])
+    check(d[2]["on"] == "x" * 16 + "." * 48 and n == [16, 0, 0, 0], "the 64th turned off: one bar of notes, three of silence (%s)" % n)
+
+    # A SECOND BAR WRITTEN WHILE THE TRACK LOOPS THE FIRST (one note, on step 21), then LENGTH 64: what was written is
+    # part of the pattern - two bars now - and it is those two that go round
+    s = Script()
+    t = melody16(s)
+    s.enc(t, E_ALG, 5); t += 60
+    s.press(t, SEL); s.tap_key(t + 30, 1 << (72 - 53), hold=40); s.release(t + 100, SEL); t += 520
+    t = home_page(s, t, 0, [(K2, 48)]); s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    two = "x" * 16 + "....x..........."
+    check(log.dumps[0]["on"] == two * 2 and log.copies[0]["own"] == 32 and log.states[0]["msg"] == "LENGTH 64: THE 32 STEPS REPEAT",
+          "a note written in the second bar, then 64: the two bars twice (%s, own %s, %s)" % (_bars(log.dumps[0]["on"]), log.copies[0]["own"], log.states[0]["msg"]))
+
+
+def t024_copies():
+    group("0.24 the COPIES follow their pattern until one is written; every pattern of the track fits its length; a snapshot, UNDO, a power cycle; the grid's colour")
+    def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
+    def store(s, t, n): s.press(t, SAVE); s.press(t + 20, SEL); s.tap_key(t + 40, bk(n)); s.release(t + 100, SEL); s.release(t + 120, SAVE); return t + 180
+    def recall(s, t, n): s.press(t, SAVE); s.tap_key(t + 20, bk(n)); s.release(t + 100, SAVE); return t + 160
+
+    # a step of the pattern turned off: its copy goes too. A copy turned off: every copy is a step of the player's from
+    # then on (the screen says so), and a step of the pattern no longer moves the others
+    s = Script()
+    t = melody16(s)
+    t = home_page(s, t, 0, [(K2, 16)])
+    s.enc(t, E_ALG, -64); t += 60
+    s.tap_key(t, wk(2)); t += 100; s.at(t, "dump", 0); t += 50          # step 3 off
+    s.enc(t, E_ALG, 16); t += 60                                          # the cursor on step 17: the second page
+    s.tap_key(t, wk(5)); t += 100; s.at(t, "dump", 0); t += 50          # step 22 off: a copy
+    s.enc(t, E_ALG, -16); t += 60
+    s.tap_key(t, wk(0)); t += 100; s.at(t, "dump", 0); t += 50          # step 1 off
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["on"] == "xx." + "x" * 13 + "xx." + "x" * 13 and c[0]["own"] == 16 and c[0]["row"][16:32] == "ggr" + "g" * 13,
+          "step 3 off: step 19, its copy, off too (%s)" % d[0]["on"])
+    check(d[1]["on"] == "xx." + "x" * 13 + "xx.xx." + "x" * 10 and c[1]["own"] == 32 and "g" not in c[1]["row"] and "r" not in c[1]["row"]
+          and log.states[1]["msg"] == "THE COPIES ARE YOUR STEPS NOW",
+          "step 22 off, a copy: the copies are the player's steps, the pattern is 32 (%s, own %s, %s)" % (d[1]["on"], c[1]["own"], log.states[1]["msg"]))
+    check(d[2]["on"] == ".x." + "x" * 13 + "xx.xx." + "x" * 10, "... step 1 off: step 17 stays (%s)" % d[2]["on"])
+
+    # the track's OTHER patterns fit its length too (0.11: the one that played, and its CHAIN partner)
+    s = Script()
+    t = s.steps(100, [0, 4])
+    s.enc(t, E_PRE, 1); t += 60; t = s.steps(t, [2])                     # pattern 2: step 3
+    s.enc(t, E_PRE, -1); t += 60
+    t = home_page(s, t, 0, [(K2, 16)]); s.at(t, "dump", 0); t += 50
+    s.enc(t, E_PRE, 1); t += 60; s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, -20)]); s.at(t, "dump", 0); t += 50     # 12: the mark, in both
+    s.enc(t, E_PRE, -1); t += 60; s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check([x["pat"] for x in d] == [1, 2, 2, 1] and d[0]["on"] == "x...x..........." * 2 and d[1]["on"] == "..x............." * 2 and c[0]["own"] == 16 and c[1]["own"] == 16,
+          "LENGTH 32 with pattern 1 playing: pattern 2 has its copies as well (%s)" % d[1]["on"])
+    check(c[2]["row"] == "..x.............r" + "." * 47 and c[3]["row"] == "x...x...........r" + "." * 47, "LENGTH 12: both keep their 16 steps and the mark (%s)" % c[3]["row"][:20])
+
+    # the loop's START moved (HOME + ALG: step 5): no copy stands for the step it stood for any more - the copies of
+    # both patterns are steps, as they sound; made longer after it, the track goes round its loop from step 5
+    s = Script()
+    t = s.steps(100, [0, 4])
+    s.enc(t, E_PRE, 1); t += 60; t = s.steps(t, [2])
+    s.enc(t, E_PRE, -1); t += 60
+    t = home_page(s, t, 0, [(K2, 16)])
+    s.press(t, HOME); s.enc(t + 30, E_ALG, 4); s.release(t + 100, HOME); t += 160
+    s.at(t, "dump", 0); t += 50
+    s.enc(t, E_PRE, 1); t += 60; s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 16)]); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["start"] == 4 and c[0]["own"] == 32 and c[0]["row"][:32] == "x...x..........." * 2 and c[1]["own"] == 32 and c[1]["row"][:32] == "..x............." * 2,
+          "the loop's start on step 5: the copies of the two patterns are steps (%s | %s)" % (c[0]["row"][:34], c[1]["row"][:34]))
+    check(d[2]["length"] == 48 and c[2]["own"] == 32 and c[2]["row"][32:48] == "rrrrrrrrrrrrrrgr" and log.states[2]["msg"] == "LENGTH 48: THE 28 STEPS REPEAT",
+          "... 48 after it: the 28 steps of the loop go round (%s, %s)" % (c[2]["row"][30:50], log.states[2]["msg"]))
+
+    # DOUBLE writes the loop again as steps (the player's: no copies) - the other pattern gets copies; UNDO: 16 again,
+    # and the other pattern's copies are no more
+    s = Script()
+    t = s.steps(100, [0, 4])
+    s.enc(t, E_PRE, 1); t += 60; t = s.steps(t, [2])
+    s.enc(t, E_PRE, -1); t += 60
+    t = seqkey(s, t, wk(13)); s.at(t, "dump", 0); t += 50                # DOUBLE
+    s.enc(t, E_PRE, 1); t += 60; s.at(t, "dump", 0); t += 50
+    s.enc(t, E_PRE, -1); t += 60
+    t = seqkey(s, t, wk(7)); s.at(t, "dump", 0); t += 50                 # UNDO
+    s.enc(t, E_PRE, 1); t += 60; s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["length"] == 32 and c[0]["own"] == 32 and c[0]["row"][:32] == "x...x..........." * 2, "DOUBLE: 32 steps, all the player's (%s)" % c[0]["row"][:34])
+    check(c[1]["own"] == 16 and c[1]["row"][:32] == "..x.............rrgrrrrrrrrrrrrr", "... pattern 2: its copies (%s)" % c[1]["row"][:34])
+    check(d[2]["length"] == 16 and d[3]["length"] == 16 and c[3]["row"] == "..x" + "." * 61, "UNDO: 16 again, pattern 2 as it was (%s)" % c[3]["row"][:34])
+
+    # a SNAPSHOT keeps lengths, not steps: one of 16 recalled on a track of 32 takes the copies away; one of 32
+    # recalled on a track of 16 brings them back from the pattern as it is NOW
+    s = Script()
+    t = s.steps(100, [0, 4])
+    t = store(s, t, 0)
+    t = home_page(s, t, 0, [(K2, 16)]); s.at(t, "dump", 0); t += 50
+    t = recall(s, t, 0); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 16)]); t = store(s, t, 1)
+    t = home_page(s, t, 0, [(K2, -16)]); s.tap_key(t, wk(1)); t += 100    # 16 again; step 2 written
+    t = recall(s, t, 1); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["length"] == 32 and d[1]["length"] == 16 and c[1]["row"] == "x...x" + "." * 59, "the snapshot of 16: the copies are no more (%s)" % c[1]["row"][:34])
+    check(d[2]["length"] == 32 and d[2]["on"] == "xx..x..........." * 2 and c[2]["own"] == 16, "the snapshot of 32: the pattern as it is now, twice (%s)" % d[2]["on"])
+
+    # SAVED, a power cycle: the copies and the mark come back (in the image: a list of which steps are copies - a copied
+    # rest costs nothing), and a track made longer after it goes round from where its pattern ends
+    with tempfile.TemporaryDirectory() as dd:
+        fl = os.path.join(dd, "flash.bin")
+        s = Script()
+        t = s.steps(100, [0, 4])
+        t = home_page(s, t, 0, [(K2, 16)])
+        s.enc(t, E_SEL, 1); t += 60; t = s.steps(t, [0, 2, 9]); t = home_page(s, t, 0, [(K2, -4)])    # track 2: 12 of its 16
+        s.enc(t, E_SEL, -1); t += 60
+        s.at(t, "dump", 0); s.at(t + 10, "dump", 1)
+        s.tap_btn(t + 50, SAVE); s.tap_btn(t + 350, SAVE)
+        a = run(s, t + 3000, flash=fl)
+        s = Script()
+        s.at(1400, "dump", 0); s.at(1410, "dump", 1)
+        t = home_page(s, 1500, 0, [(K2, 16)])
+        s.enc(t, E_SEL, 1); t += 60; t = home_page(s, t, 0, [(K2, 12)])
+        s.at(t, "dump", 0); s.at(t + 10, "dump", 1)
+        b = run(s, t + 100, flash=fl)
+        check(a.saves and [x["row"] for x in b.copies[:2]] == [x["row"] for x in a.copies[:2]] and b.copies[0]["own"] == 16 and "r" in b.copies[1]["row"]
+              and [x["hash"] for x in b.dumps[:2]] == [x["hash"] for x in a.dumps[:2]],
+              "after the power cycle: the same steps, the same copies, the mark (%s | %s)" % (b.copies[0]["row"][:34], b.copies[1]["row"][:20]))
+        check(b.dumps[2]["on"] == "x...x..........." * 3 and b.dumps[3]["on"] == "x.x......x......x.x....." and b.copies[3]["own"] == 16,
+              "... 48 and 24 after it: each goes round from its pattern's own end (%s | %s)" % (b.dumps[2]["on"], b.dumps[3]["on"]))
+        # ... and what the copies cost in the slot: the same project with both tracks at 16 steps (no copies), saved
+        s = Script()
+        t = s.steps(100, [0, 4])
+        s.enc(t, E_SEL, 1); t += 60; t = s.steps(t, [0, 2, 9])
+        s.enc(t, E_SEL, -1); t += 60
+        s.tap_btn(t + 50, SAVE); s.tap_btn(t + 350, SAVE)
+        c0 = run(s, t + 3000, flash=os.path.join(dd, "flash0.bin"))
+        size = lambda lg: [int(x) for x in re.findall(r"slot \d+ saved \((\d+) B\)", lg.text)]
+        check(len(size(a)) == 1 and len(size(c0)) == 1 and 0 < size(a)[0] - size(c0)[0] <= 2 * 8 + 3 + 2 * 4,
+              "in the slot: 16 copies and a mark cost %s bytes more (the two copied notes, and the list of which steps are copies; the 14 copied rests nothing)" % (size(a)[0] - size(c0)[0] if size(a) and size(c0) else None))
+
+    # the grid's STEP view: a copy that plays has a colour of its own (GHOST, role 18); written on, it is a step
+    s = Script()
+    t = s.steps(100, [0, 4, 6])
+    t = home_page(s, t, 0, [(K2, 16)])
+    s.raw(t, "attach"); t += 100
+    for k in range(0, 3000, 900): s.raw(t + k, "hb")
+    t += 400; m1 = t
+    s.pad(t + 50, 4, 1); t += 400; m2 = t                               # step 21: a copy, turned off
+    log = run(s, t + 200)
+    p1 = log.leds(until=m1)[0]; p2 = log.leds(until=m2)[0]
+    check([p1.get(i) for i in (0, 4, 6)] == [3, 3, 6] and [p1.get(i) for i in (16, 20, 22)] == [18, 18, 18] and p1.get(17) == 1 and p1.get(32) == 0,
+          "the grid: the pattern's steps as ever, its copies that play in GHOST, a copy at rest as any rest (%s)" % [p1.get(i) for i in range(16, 24)])
+    check([p2.get(i) for i in (16, 22)] == [3, 3] and p2.get(20) == 14, "a copy turned off: the others are steps, lit as steps (%s)" % [p2.get(i) for i in range(16, 24)])
+
+
+def t024_longer_shorter():
+    group("0.24 LONGER / SHORTER (the MOSSE: SEL + DOUBLE / SEL + HALF; the grid: SHIFT + the pad): every track twice / half as long, in time; and back as it was")
+    BAR = 16 * STEP_MS
+    M16 = list(range(16))
+    def mossa(s, t, i): s.press(t, SEL); s.tap_key(t + 30, bk(i)); s.release(t + 100, SEL); return t + 160
+
+    # stopped: at once. Track 1 two steps in 16, track 2 one step in 12 of its 16, track 3 empty. LONGER twice, then
+    # SHORTER twice: every track and every step as it was
+    s = Script()
+    t = s.steps(100, [0, 4])
+    s.enc(t, E_SEL, 1); t += 60; t = s.steps(t, [2]); t = home_page(s, t, 0, [(K2, -4)])
+    s.enc(t, E_SEL, -1); t += 60
+    for k in range(3): s.at(t + 10 * k, "dump", k)
+    t += 50
+    t = vg_on(s, t, remote=False)
+    t = mossa(s, t, 5)
+    for k in range(3): s.at(t + 10 * k, "dump", k)
+    t += 50
+    t = mossa(s, t, 5)
+    for k in range(3): s.at(t + 10 * k, "dump", k)
+    t += 50
+    t = mossa(s, t, 5)                                                    # a third time: nothing can be twice as long
+    s.at(t, "dump", 0); t += 50
+    t = mossa(s, t, 4); t = mossa(s, t, 4)
+    for k in range(3): s.at(t + 10 * k, "dump", k)
+    log = run(s, t + 100)
+    d, c, m = log.dumps, log.copies, [x["msg"] for x in log.states]
+    check([x["length"] for x in d[3:6]] == [32, 24, 32] and m[3] == "LONGER: 16 TRACKS TWICE AS LONG" and d[3]["on"] == "x...x..........." * 2 and c[3]["own"] == 16,
+          "LONGER, stopped: at once, every track - 32, 24, 32; track 1 its bar twice (%s, %s)" % ([x["length"] for x in d[3:6]], m[3]))
+    check(d[4]["on"] == "..x...............x....." and c[4]["own"] == 16, "track 2 was 12 of a pattern of 16: 24 is the pattern, and its first half again (%s)" % d[4]["on"])
+    check([x["length"] for x in d[6:9]] == [64, 48, 64] and c[6]["own"] == 16 and d[6]["on"] == "x...x..........." * 4, "LONGER again: 64, 48, 64 (%s)" % [x["length"] for x in d[6:9]])
+    check(m[9] == "LONGER: 0 TRACKS TWICE AS LONG, 16 STAY" and d[9]["length"] == 64, "a third time: twice would pass 64 steps - they stay, and the screen says so (%s)" % m[9])
+    check([x["length"] for x in d[10:13]] == [16, 12, 16] and [x["hash"] for x in d[10:13]] == [x["hash"] for x in d[0:3]] and m[10] == "SHORTER: 16 TRACKS HALF AS LONG",
+          "SHORTER twice: 16, 12, 16, every step as it was before (%s, %s)" % ([x["length"] for x in d[10:13]], m[10]))
+
+    # playing: LONGER is a move - queued, at the phrase's end (four bars here); every bar of the melody in time
+    s = Script()
+    t = melody16(s)
+    t = vg_bars4(s, t)
+    t = vg_on(s, t, remote=False)
+    s.tap_btn(t, PLAY); p0 = t
+    mossa(s, p0 + int(20.5 * STEP_MS), 5)
+    s.at(p0 + int(24 * STEP_MS), "dump", 0)
+    s.at(p0 + int(66 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(7 * BAR) - 20)
+    d, c, m = log.dumps, log.copies, [x["msg"] for x in log.states]
+    check(m[0] == "QUEUED: LONGER" and d[0]["length"] == 16 and d[1]["length"] == 32 and c[1]["own"] == 16, "playing: QUEUED, then 32 at the phrase's end (%s, %s)" % (m[0], d[1]["length"]))
+    check(all(b == M16 for b in _played(log, p0, 7)), "... the melody never leaves the bar")
+
+    # LONGER then SHORTER while they wait: neither (the screen says CANCELLED); NOW: nothing to do
+    s = Script()
+    t = melody16(s)
+    t = vg_on(s, t, remote=False)
+    s.tap_btn(t, PLAY); p0 = t
+    mossa(s, p0 + int(4.5 * STEP_MS), 5); s.at(p0 + int(6 * STEP_MS), "dump", 0)
+    mossa(s, p0 + int(8.5 * STEP_MS), 4); s.at(p0 + int(10 * STEP_MS), "dump", 0)
+    s.tap_key(p0 + int(12.5 * STEP_MS), bk(10)); s.at(p0 + int(14 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(2 * BAR) - 20)
+    m = [x["msg"] for x in log.states]
+    check(m == ["QUEUED: LONGER", "CANCELLED: LONGER", "QUEUE EMPTY: NOTHING TO DO NOW"] and log.dumps[2]["length"] == 16, "LONGER, then SHORTER: cancelled (%s)" % m)
+
+    # the grid's VIAGGIO view: SHIFT + the pad of DOUBLE is LONGER (stopped: at once); playing, SHIFT + HALF queues
+    # SHORTER and NOW brings it at the next bar: 16 again as it was, in time
+    s = Script()
+    t = melody16(s)
+    s.raw(t, "attach"); t += 100
+    t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)
+    s.at(t, "dump", 0); t += 30
+    shift(s, t, 1); s.pad(t + 20, 5, 3); shift(s, t + 120, 0); t += 200
+    s.at(t, "dump", 0); t += 50
+    s.tap_btn(t, PLAY); p0 = t
+    for k in range(0, 6000, 900): s.raw(p0 + k, "hb")
+    shift(s, p0 + int(4.5 * STEP_MS), 1); s.pad(p0 + int(4.5 * STEP_MS) + 20, 4, 3); shift(s, p0 + int(4.5 * STEP_MS) + 120, 0)
+    s.pad(p0 + int(8.5 * STEP_MS), 0, 0)                                  # NOW
+    s.at(p0 + int(12 * STEP_MS), "dump", 0)
+    s.at(p0 + int(18 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(3 * BAR) - 20)
+    d, m = log.dumps, [x["msg"] for x in log.states]
+    check(d[1]["length"] == 32 and m[1] == "LONGER: 16 TRACKS TWICE AS LONG", "the grid, SHIFT + DOUBLE: LONGER (%s, %s)" % (d[1]["length"], m[1]))
+    check(d[2]["length"] == 32 and d[3]["length"] == 16 and d[3]["hash"] == d[0]["hash"] and all(b == M16 for b in _played(log, p0, 3)),
+          "SHIFT + HALF and NOW while it plays: 16 again at the bar, the pattern as it was, in time (%s)" % d[3]["length"])
+
+
+def t024_makers():
+    group("0.24 whoever brings a pattern keeps the track's length (17: the pattern and its first step; 12: the pattern waits); RANDOM, DICE, COOK and the engines make a phrase for it")
+    def seqkey(s, t, key, hold=40): s.press(t, SEQ); s.tap_key(t + 30, key, hold=hold); s.release(t + 60 + hold, SEQ); return t + 140 + hold
+
+    # a library pattern on a track of 17: the 16 steps and the first again; on a track of 12: its first 12, the rest
+    # waiting after the loop - made 24 later, the track plays all of it and then its first half again
+    s = Script()
+    t = home_page(s, 100, 0, [(K2, 1)])
+    t = beat_key(s, t); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, -5)])
+    t = beat_key(s, t); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 12)]); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["length"] == 17 and d[0]["on"] == "x...x...x...x...x" and c[0]["own"] == 16 and c[0]["row"][16] == "g",
+          "BEAT on a track of 17: the track stays 17, the 17th step is the first again (%s)" % d[0]["on"])
+    check(d[1]["length"] == 12 and d[1]["on"] == "x...x...x..." and c[1]["row"][:17] == "x...x...x...x..xr", "BEAT on a track of 12: 12 play, the pattern is whole after the loop (%s)" % c[1]["row"][:20])
+    check(d[2]["length"] == 24 and d[2]["on"] == "x...x...x...x..xx...x..." and c[2]["own"] == 16, "... 24: all of it, and its first half again (%s)" % d[2]["on"])
+
+    # RANDOM on a track of 64: a PHRASE - the bar it made, its answer (the bar with another ending), the bar, the turn -
+    # not the bar four times, not 64 steps of chance. On 32: the bar and its answer. On 16 and less: as ever
+    for n, want in ((48, 4), (16, 2), (0, 1)):
+        s = Script()
+        t = home_page(s, 100, 0, [(K2, n)]) if n else 100
+        t = seqkey(s, t, wk(4)); s.at(t, "dump", 0)
+        log = run(s, t + 100)
+        b = _bars(log.dumps[0]["on"])
+        ok = len(b) == want and log.copies[0]["own"] == 16 * want and (want < 2 or (b[1] != b[0] and b[1][:8] == b[0][:8])) and (want < 4 or (b[2] == b[0] and b[3] != b[0] and b[3][:4] == b[0][:4]))
+        check(ok, "RANDOM on %d steps: %s" % (16 * want, b))
+    # ... DICE SEQ on a track of 64 with the library: a variation as a PHRASE - its bars (here a variation written over
+    # two: A B A), and in the last the next variation with the genre's fill, not B again - whatever LONG PATTERNS
+    # says (HEAT at 1: the take of each bar changes nothing here, the phrase is the library's). The steps are the
+    # track's; OCT- puts back the bar and its three copies
+    s = Script()
+    t = beat_key(s, 100)
+    t = home_page(s, t, 0, [(K2, 48)]); s.at(t, "dump", 0); t += 50
+    t = pg(s, t, SEQ, 0, [(K4, -30)])                                    # HEAT 1
+    t = seq_page(s, t, 0, keys=[bk(0)]); s.at(t, "dump", 0); t += 50
+    s.tap_btn(t, OCT_DOWN); t += 100; s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    b = _bars(d[1]["on"])
+    check(c[0]["own"] == 16 and c[1]["own"] == 64 and b[2] == b[0] and b[3] != b[1] and b[3] != b[0] and b[0][:9] == "x...x...x",
+          "DICE SEQ on 64 steps: the variation's bars, and a last bar that is another - a phrase, not the same bars again (%s)" % b)
+    check(d[2]["hash"] == d[0]["hash"] and c[2]["own"] == 16, "... OCT-: the bar and its copies, as they were")
+    # ... COOK walks to the next variation over the whole track: on 32 steps it gets there, and the track is that one
+    s = Script()
+    t = beat_key(s, 100)
+    t = home_page(s, t, 0, [(K2, 16)])
+    for k in range(12):
+        t = seqkey(s, t, wk(8)); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    m = [x["msg"] for x in log.states]
+    k = next((i for i, x in enumerate(m) if x.endswith("REACHED")), None)
+    check(k is not None and m[k] == "COOK KICK #2 REACHED" and log.dumps[k]["length"] == 32 and log.dumps[k]["on"][:16] == "x...x...x...x..x",
+          "COOK on 32 steps walks to KICK #2 and gets there (%s)" % m[:3])
+    # ... the THEORY engines: a part is made in the bars the track has - 32 steps for a track of 48 (and its first bar
+    # again), the seed turned (SEQ 8 K3) on a track of 64 makes four bars, on a track of 16 one
+    s = Script()
+    t = pg(s, 100, SEQ, 7, [(K1, 1)])                                     # SOURCE THEORY
+    t = home_page(s, t, 0, [(K2, 32)])                                    # 48 steps
+    t = seqkey(s, t, wk(9)); s.at(t, "dump", 0); t += 50                  # BEAT
+    t = home_page(s, t, 0, [(K2, 16)]); s.at(t, "dump", 0); t += 50       # 64
+    t = pg(s, t, SEQ, 7, [(K3, 1)]); s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, -48)])                                   # 16
+    t = pg(s, t, SEQ, 7, [(K3, 1)]); s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c, m = log.dumps, log.copies, [x["msg"] for x in log.states]
+    check(m[0] == "TECHNO KICK SEED 1" and d[0]["length"] == 48 and c[0]["own"] == 32 and d[0]["on"][32:] == d[0]["on"][:16], "THEORY, BEAT on 48 steps: two bars made, the first again (%s, own %s)" % (_bars(d[0]["on"]), c[0]["own"]))
+    check(d[1]["length"] == 64 and c[1]["own"] == 32 and d[1]["on"][32:] == d[1]["on"][:32], "... 64: the two bars twice (own %s)" % c[1]["own"])
+    check(m[2] == "KICK SEED 2" and c[2]["own"] == 64 and m[3] == "KICK SEED 3" and d[3]["length"] == 16 and c[3]["row"][16:] == "." * 48,
+          "the seed turned: made again for the track as it is - four bars on 64, one on 16 (%s, own %s; %s, %s)" % (m[2], c[2]["own"], m[3], c[3]["row"][:20]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -9566,7 +9978,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t015_names_clear, t015_groove, t015_link, t016_genre_groove, t016_harm_free_copy, t016_algo_ready, t016_ready_elsewhere, t016_merengue,
          t017_mosse, t017_proposal,
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
-         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule]
+         t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
+         t024_lengths, t024_copies, t024_longer_shorter, t024_makers]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

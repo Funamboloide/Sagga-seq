@@ -14,13 +14,20 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 ## Come lavora
 
-1. **Le situazioni.** Prepara la macchina in 12 modi: vuota ferma e in play, una band TECHNO in play, una HOUSE con
+1. **Le situazioni.** Prepara la macchina in 23 modi (erano 12 nella 0.12): vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
-   note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.18: **il
+   note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
    tornano al hub sulla porta 2). 0.23: **cinque con i motori THEORY**: una band TECHNO; una REGGAETON
    (regole contate) con GENRE LIVE; SOURCE FREE (nessun genere) con pattern di quattro battute, ferma; una AMAPIANO con il tablet e il
    grid; una HOUSE sulle MOSSE, dove RISER, DROP e l'energia riempiono e svuotano quello che i motori hanno fatto.
+   0.24: **una con le lunghezze**: una band TECHNO con la traccia 1 da 32 step (la seconda battuta sono le copie del
+   pattern) e la traccia 8 da 19 (tre copie: il polimetro), sulle MOSSE con le mosse **alla battuta**: così una mossa
+   chiesta (LONGER e SHORTER comprese) è già successa quando la sonda guarda, due battute dopo. Nelle altre situazioni
+   le mosse aspettano la fine della frase, 16 battute, e la sonda le vede solo in coda. E ogni situazione che nel nome
+   promette una lunghezza viene controllata prima di cominciare: la 0.24, alla prima stesura, aveva lasciato "pattern
+   di quattro battute" a esplorare tracce da una battuta sola (SAVE 2 K4 non era più LIBRARY LENGTH), e niente lo
+   diceva.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -50,6 +57,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 | CANALE | il canale MIDI di una traccia cambiato da chi non deve (BAND, un dado, una manopola qualunque) |
 | NOTE SCRITTE | BAND o KIT che cambiano la nota di una traccia dove hai scritto qualcosa |
 | FASE | due battute dopo un gesto, una traccia che non è dove la battuta dice |
+| COPIE | 0.24: due battute dopo un gesto (e alla fine), le copie di un pattern fuori posto: nel pattern che suona devono essere la fine del loop, ognuna uguale allo step del pattern che ripete; dopo il loop, in ogni pattern della traccia, solo il segno di dove il pattern finisce (uno step in pausa). Non guardata su una traccia TAPE, né mentre un loop fra due step o un LOOP del viaggio tiene la lunghezza |
 | NOTE APPESE | dopo lo STOP, una nota accesa e mai spenta |
 | CLOCK | il clock MIDI che salta (tanti tick quanti ne vuole il tempo) |
 | MIDI | byte MIDI non validi |
@@ -105,6 +113,19 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   Il giro completo della 0.23, a errore corretto: 73.819 gesti da soli in 22 situazioni, 8.797 coppie, 200 sessioni
   da 60 gesti, nessun errore; la suite di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer, nessun errore.
 
+* **Sulla 0.24** (la lunghezza è della traccia, le copie): la regola nuova **COPIE** e una situazione nuova, con le
+  copie nel loop e le mosse alla battuta. Il giro completo: 76.720 gesti da soli in 23 situazioni, 9.197 coppie, 200
+  sessioni da 60 gesti, nessun errore, nemmeno di COPIE; in più 200 sessioni tutte nella situazione nuova, nessun
+  errore. La regola è stata provata rompendo apposta il servizio delle copie in una copia del firmware: 150 sessioni
+  corte, 5 errori COPIE (il primo: `copie fuori posto dopo due battute: T1 (dal gesto 34 ...)`), zero sul firmware
+  vero; nella situazione nuova, con la stessa rottura, bastano i gesti da soli: 73 errori COPIE. La situazione nuova, al primo giro, ha fatto vedere due cose che le regole non conoscevano, tutte e due il
+  firmware come deve essere: sulle MOSSE **K3 è il genere**, una mossa, e l'armonia lo segue (finché le mosse
+  aspettavano la fine della frase nessuna sonda lo vedeva arrivare: adesso ARMONIA lo sa); e l'**inizio del loop**
+  spostato e rimesso lascia le copie come step (è fra i "Visti e voluti" del rapporto). Un limite da sapere: un
+  errore che vuole tre gesti precisi di fila (uno snapshot salvato, una lunghezza cambiata, lo snapshot richiamato)
+  l'esploratore lo trova solo se il caso glieli mette in fila; per quelli ci sono le prove fisse del simulatore
+  (`t024_copies`), che lo rifanno a ogni giro.
+
 * **Il banco della 0.23 sull'FM-1 vero** (i file datati 26 ottobre 2026 dall'orologio del Pi, che era indietro: il
   banco, 4 sessioni; l'FM-1 completo, 28): i motori
   THEORY sull'FM-1 fanno le stesse parti del simulatore (le otto sessioni con i motori, uguali sonda per sonda), e
@@ -147,7 +168,7 @@ due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono 
 | --- | --- |
 | SIMULATORE | l'FM-1 diverso dal simulatore, dalla sonda dove comincia: il campo, i due valori, gli ultimi gesti |
 | MORTO | il firmware piantato (vettore e PC del crash), un riavvio da solo, l'FM-1 che non risponde più |
-| FASE, NOTE APPESE | le stesse regole, sui dati dell'FM-1 |
+| FASE, NOTE APPESE, COPIE (0.24) | le stesse regole, sui dati dell'FM-1 |
 | PERSI | 0.23.1: un tick, una nota o un note-off che il simulatore manda e il computer non ha sentito dall'FM-1, **uno per uno, con il momento**. Le due liste sono messe una accanto all'altra, tipo per tipo e nota per nota; un messaggio arrivato in ritardo e quello che lo raggiunge si cancellano. Fino alla 0.23 le note si contavano dai note-on e i tick con due di margine: un note-off perso non si vedeva |
 | CONTI | 0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1: quello che l'FM-1 **dice di aver mandato** (lo conta lui, per porta e per tipo, e tiene i conti della sua coda USB) contro quello che il computer ha sentito e quello che ha ricevuto il suo driver USB. Dice dove un messaggio si è perso: dentro l'FM-1, per strada, o nel computer |
 | NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada (0.18: non le luci del grid sul canale 16, ne' gli interruttori degli LFO che tornano al tablet, note 100-115 sul canale 13) |
@@ -173,8 +194,8 @@ python3 tests/sagga_explore.py --banco-piano tools/hub/banco_piano.json    # il 
 python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> build/explore/RAPPORTO-BANCO.md
 ```
 
-Il piano: 20 sessioni da 40 gesti nelle situazioni con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato, poi
-ognuna delle situazioni dell'FM-1); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
+poi ognuna delle situazioni dell'FM-1: 21 dalla 0.24, erano 20); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

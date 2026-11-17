@@ -419,11 +419,26 @@ def _play(s, t):
     return t + 60
 
 
+def _mosse(s, t):
+    """SEL + GLO, a tap: the MOSSE (and the studio again)"""
+    s.press(t, S.SEL); s.tap_btn(t + 30, S.GLO); s.release(t + 90, S.SEL)
+    return t + 150
+
+
+def _longer(s, t, n):
+    """0.24: the MOSSE's LONGER (SEL + black 6) n times - stopped: at once - every track twice as long; the studio again"""
+    t = _mosse(s, t)
+    for _ in range(n):
+        s.press(t, S.SEL); s.tap_key(t + 30, S.bk(5)); s.release(t + 100, S.SEL); t += 160
+    return _mosse(s, t)
+
+
 class Situazione:
-    def __init__(self, name, setup, grid=False, tablet=False, hw=True, band=True):
+    def __init__(self, name, setup, grid=False, tablet=False, hw=True, band=True, lens=None):
         self.name, self.setup, self.grid, self.tablet = name, setup, grid, tablet
         self.band = band                            # (0.22: it starts from a BAND: situazioni_vere checks that it is there)
         self.hw = hw                                # (False: never on the FM-1 by the PC: a USB reconnect in its set-up)
+        self.lens = lens or {}                      # (0.24: {track: (length, the pattern's own steps)} its name promises: checked too)
 
 
 def sit_vuoto(s):
@@ -590,9 +605,11 @@ def sit_theory_live(s):
 
 def sit_theory_free(s):
     """0.23: the SOURCE on FREE (SEQ 8 K1, two clicks: the engines with the rules of no genre): a band of no genre, four
-    bars a pattern (LIBRARY LENGTH 64: the answers, the fills), stopped"""
-    t = S.pg(s, 200, S.SAVE, 1, [(S.K4, 2)])
-    t = S.pg(s, t, S.SAVE, 0)
+    bars a pattern (the answers, the fills), stopped. Until 0.23 LIBRARY LENGTH 64 (SAVE 2 K4) made them four bars;
+    0.24: the length is the TRACK's - every track 64 steps first (the MOSSE's LONGER, twice). (0.24 as it was first
+    written left this set-up alone: SAVE 2 K4 is LONG PATTERNS now, the tracks stayed 16 steps, and the situation
+    explored one bar under the name of four; `lens` is there so that a name cannot say that again)"""
+    t = _longer(s, 200, 2)
     t = S.pg(s, t, S.SEQ, 7, [(S.K1, 2)])                   # LIBRARY -> THEORY -> FREE
     t = S.pg(s, t, S.SEQ, 0)
     return _band(s, t) + 100
@@ -618,6 +635,20 @@ def sit_theory_tablet(s):
     return _play(s, t + 100)
 
 
+def sit_024_lengths(s):
+    """0.24: the length is the track's. A TECHNO band (the library's patterns: 16 steps each); track 1 at 32 (its second
+    bar the pattern's COPIES), track 8 at 19 (three copies: the polymetre); the MOSSE with the moves AT THE BAR (ALG),
+    so that a move asked - LONGER and SHORTER too - is there when the probe looks, two bars on; in play"""
+    t = _band(s, 200)
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, 16)])                 # track 1: LENGTH 32 (stopped: at once)
+    s.enc(t, S.E_SEL, 7); t += 60                           # track 8
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, 3)])                  # ... LENGTH 19
+    s.enc(t, S.E_SEL, -7); t += 60
+    t = _mosse(s, t)
+    s.enc(t, S.E_ALG, 1); t += 60                           # the moves: at the BAR
+    return _play(s, t + 100)
+
+
 SITUAZIONI = [
     Situazione("vuoto, fermo", sit_vuoto, band=False),
     Situazione("vuoto, in play", sit_vuoto_play, band=False),
@@ -638,9 +669,12 @@ SITUAZIONI = [
     Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),
     Situazione("0.23 THEORY: TECHNO band dei motori, in play", sit_theory_techno),
     Situazione("0.23 THEORY: REGGAETON (regole contate), GENRE LIVE, in play", sit_theory_live),
-    Situazione("0.23 THEORY: SOURCE FREE (nessun genere), pattern di 4 battute, fermo", sit_theory_free),
+    Situazione("0.23 THEORY: SOURCE FREE (nessun genere), pattern di 4 battute, fermo", sit_theory_free,
+               lens={1: (64, 64), 2: (64, 64), 8: (64, 64)}),
     Situazione("0.23 THEORY: AMAPIANO, tablet e grid, in play", sit_theory_tablet, grid=True, tablet=True),
     Situazione("0.23 THEORY: HOUSE, le MOSSE (RISER, DROP, energia), in play", sit_theory_mosse),
+    Situazione("0.24 le lunghezze: traccia 1 da 32 e traccia 8 da 19 con le copie, le MOSSE alla battuta, in play", sit_024_lengths,
+               lens={1: (32, 16), 2: (16, 16), 8: (19, 16)}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -733,12 +767,17 @@ def situazioni_vere(sits, empty_row):
     situations out of seventeen explored an empty project, in the simulator and on the FM-1, and nothing said so"""
     bad = []
     for sit in sits:
-        if not sit.band:
+        if not sit.band and not sit.lens:
             continue
         base, _ = parse_run(run_script(script_for(sit, [])[0])[0])
         n = sum(1 for k, v in base.items() if k[:1] == "T" and isinstance(v, dict) and v.get("steps#") not in (None, empty_row))
-        if n < 5:
+        if sit.band and n < 5:
             bad.append("%s: %d tracce con qualcosa di scritto (una band ne ha almeno 5)" % (sit.name, n))
+        for tk, (ln, own) in sorted(sit.lens.items()):      # 0.24: the lengths its name promises
+            tr = base.get("T%d" % tk, {})
+            if (tr.get("len"), tr.get("own")) != (str(ln), str(own)):
+                bad.append("%s: la traccia %d e' lunga %s step e il suo pattern %s (il nome dice %d e %d)" % (
+                    sit.name, tk, tr.get("len"), tr.get("own"), ln, own))
     return bad
 
 
@@ -850,6 +889,9 @@ REGOLE = {
                          "snapshot, un progetto caricato)"),
     "NOTE SCRITTE": ("ERRORE", "BAND e KIT non cambiano la nota di una traccia dove e' scritto qualcosa"),
     "FASE": ("ERRORE", "due battute dopo qualunque gesto ogni traccia e' dove la battuta dice (la 0.9 le lasciava spostate)"),
+    "COPIE": ("ERRORE", "0.24: due battute dopo qualunque gesto le copie di ogni pattern sono a posto - nel pattern che suona sono "
+                        "la fine del loop e ognuna e' lo step del pattern che sta ripetendo; dopo il loop, in ogni pattern, c'e' "
+                        "solo il segno di dove il pattern finisce (uno step in pausa)"),
     "NOTE APPESE": ("ERRORE", "dopo lo STOP ogni nota accesa e' spenta"),
     "CLOCK": ("ERRORE", "il clock MIDI non salta: tanti tick quanti ne fa il tempo, se il gesto non e' il tempo o lo STOP"),
     "MIDI": ("ERRORE", "solo MIDI valido: dati a 7 bit, note e CC sui canali 1-16"),
@@ -867,12 +909,17 @@ ACCETTATI = [
     ("RITORNO", r"^HOME 7 (SEL\+)?K2 ", "CHAIN acceso e spento: se la fine del loop cade in mezzo, la traccia e' gia' passata al pattern dopo"),
     ("RITORNO", r"^HOME \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),
     ("RITORNO", r"^GLO 3 (SEL\+)?K3 ", "il genere di VIAGGIO porta con se' il genere dell'armonia: tornato indietro, l'armonia resta sul genere del set"),
+    # 0.24, seen with the first situation that has a pattern's COPIES in its loop: a fourth field, the only fields that
+    # may differ (anything else there and back with the loop's start is still to look at)
+    ("RITORNO", r"^HOME \d (SEL\+)?ALG ", "0.24: l'inizio del loop che si sposta fa diventare step le copie del pattern (nessuna starebbe "
+     "piu' al posto dello step che ripeteva); tornato indietro la musica e' la stessa, ma sono step e non piu' copie: il pattern "
+     "e' lungo quanto il loop (T.own)", r"^T\d+\.own "),
 ]
 
 
 def accepted(f):
-    for rule, rx, why in ACCETTATI:
-        if f.rule == rule and re.match(rx, f.gesto):
+    for rule, rx, why, *only in ACCETTATI:
+        if f.rule == rule and re.match(rx, f.gesto) and (not only or all(re.match(only[0], w) for w in f.what.split("; "))):
             return why
     return None
 
@@ -938,7 +985,11 @@ def _check(sit, g, base, br, null, findings, off):
     locked = base["G"].get("hlock") == "1"
     live_genre = base["G"].get("gmode") == "2" and "PRESETS" in name     # (GENRE LIVE: a genre change reloads: wanted)
     mosse_prog = base["G"].get("vg") == "1" and re.match(r"^PRESETS ", name)   # (0.17: on the MOSSE PRESETS is the progression, a move)
-    if harm and g.kind not in ("sfoglia", "dado") and not live_genre and not mosse_prog:
+    # 0.24: on the MOSSE K3 is the GENRE, a move too (GLO 3 K3 with GLO held, which HARM_OK knows): the harmony follows
+    # the set's genre unless it is locked. Nothing saw it until a situation had the moves AT THE BAR: at the phrase's end
+    # (the others) a move asked is still in the queue when the probe looks, two bars on
+    mosse_genre = base["G"].get("vg") == "1" and not locked and re.match(r"^K3 ", name)
+    if harm and g.kind not in ("sfoglia", "dado") and not live_genre and not mosse_prog and not mosse_genre:
         if locked and not HARM_OK_LOCK.match(name):
             findings.append(Finding("LOCK", "ERRORE", sit.name, name, _fmt(harm)))
         elif not locked and not HARM_OK.match(name):
@@ -959,6 +1010,12 @@ def _check(sit, g, base, br, null, findings, off):
         late = ["T%d (step %s)" % (t, pb["T%d" % t].get("step")) for t in range(1, 17) if pb.get("T%d" % t, {}).get("ok") == "0"]
         if late:
             findings.append(Finding("FASE", "ERRORE", sit.name, name, "fuori fase dopo due battute: " + ", ".join(late)))
+    # COPIE (0.24): two bars on (and at the end), every track's copies in order
+    for k, when in ((1, "dopo due battute"), (2, "alla fine")):
+        bad = ["T%d" % t for t in range(1, 17) if probes[k].get("T%d" % t, {}).get("gh") == "0"]
+        if bad:
+            findings.append(Finding("COPIE", "ERRORE", sit.name, name, "copie fuori posto %s: %s" % (when, ", ".join(bad))))
+            break
     # NOTE APPESE: after the STOP (when it stopped), every note off
     pf = probes[2]
     if pf["G"].get("play") == "0":
@@ -1177,6 +1234,17 @@ def session_check(sit, gs, rnd_seed):
                     break
             where = (" (dal gesto %d, %s)" % (first + 1, gs[first].name)) if first is not None else ""
             found.append(("FASE", "fuori fase alla fine: " + ", ".join(late) + where))
+    for pc, when in ((br["probes"][-2], "dopo due battute"), (br["probes"][-1], "alla fine")):   # COPIE (0.24)
+        bad = ["T%d" % t for t in range(1, 17) if pc.get("T%d" % t, {}).get("gh") == "0"]
+        if bad:
+            first = None                                     # (the gesture after which the first of them had its copies out of place)
+            for k, p in enumerate(br["probes"][:len(gs)]):
+                if any(p.get(x, {}).get("gh") == "0" for x in bad):
+                    first = k
+                    break
+            where = (" (dal gesto %d, %s)" % (first + 1, gs[first].name)) if first is not None else ""
+            found.append(("COPIE", "copie fuori posto %s: %s%s" % (when, ", ".join(bad), where)))
+            break
     if br["probes"][-1]["G"].get("play") == "0":
         hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
@@ -1352,7 +1420,9 @@ def main(argv):
     if a.banco_piano or a.banco or a.banco_prova:
         import sagga_banco as BC
         if a.banco_piano:
-            plan = BC.piano(a.sessioni if a.sessioni is not None else 20, a.lunghe if a.lunghe != 60 else 40, a.seme)
+            # (0.24: a session for every situation of the banco - 21 with the lengths' one; it was 20, and one more
+            #  situation would have stayed out of the plan without a word)
+            plan = BC.piano(a.sessioni if a.sessioni is not None else len(BC.banco_situazioni()), a.lunghe if a.lunghe != 60 else 40, a.seme)
             os.makedirs(os.path.dirname(os.path.abspath(a.banco_piano)), exist_ok=True)
             BC.T.save(a.banco_piano, plan)
             dur = sum(s["eventi"][-1][0] for s in plan["sessioni"]) / 1000.0
@@ -1386,7 +1456,7 @@ def main(argv):
     if a.hw_piano or a.hw or a.hw_prova:
         import sagga_explore_hw as H
         if a.hw_piano:
-            plan = H.piano(a.sessioni if a.sessioni is not None else 20, a.lunghe, a.seme, tablet=a.hw_tablet)
+            plan = H.piano(a.sessioni if a.sessioni is not None else H.situazioni_n(), a.lunghe, a.seme, tablet=a.hw_tablet)   # (0.24: every situation once; it was 20)
             dest = a.hw_piano
             if not dest.endswith(".json"):                 # a folder: the plan and what Windows needs to run it
                 os.makedirs(dest, exist_ok=True)
@@ -1419,7 +1489,8 @@ def main(argv):
     if not a.no_build:
         build()
     sits = SITUAZIONI if not a.veloce else [SITUAZIONI[0], SITUAZIONI[2], SITUAZIONI[3], SITUAZIONI[5], SITUAZIONI[10],
-                                            SITUAZIONI[18]]     # (0.23: + THEORY with counted rules and GENRE LIVE)
+                                            SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
+                                            SITUAZIONI[22]]     # (0.24: + the lengths, the copies, the moves at the bar)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:

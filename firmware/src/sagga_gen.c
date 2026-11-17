@@ -52,7 +52,7 @@ static uint8_t track_drum(uint32_t t) { return (project.track[t].flags & SQ_TF_D
 #define TRACK_MODES 5u
 static uint8_t track_mode(uint32_t t) { return (project.track[t].flags & SQ_TF_BREAK) ? 4u : (project.track[t].flags & SQ_TF_TAPE) ? 3u : track_drum(t) ? 2u : track_in_key(t) ? 1u : 0u; }   /* FREE, KEY, DRUM, TAPE, BREAK (0.12) */
 static void track_realign(uint32_t t);               /* (dinghy.c) */
-static void track_cfg_back(uint32_t t, const sq_track_cfg_t *was);
+static void track_cfg_back(uint32_t t, const sq_track_cfg_t *was, uint8_t pat);
 static uint8_t track_break(uint32_t t);              /* (sagga_break.c, 0.12) */
 static void brk_say(const char *what, uint32_t t);
 static uint8_t brk_slices(uint32_t t);
@@ -144,7 +144,21 @@ static uint8_t th_style_now(uint8_t genre)
     return sq_th_style(genre);
 }
 static uint16_t genre_reload_pend;                     /* 0.10 GENRE LIVE: tracks to reload from the library at the bar */
-static uint8_t lib_len_steps(void) { return project.gen.lib_len == SQ_LL_64 ? 64u : project.gen.lib_len == SQ_LL_32 ? 32u : 16u; }
+/* 0.24: THE LENGTH IS THE TRACK'S. A pattern is MADE (the library, the engines, the Pi) for the track it goes to:
+ * in 64 steps for a track of 64, in 32 for one of 32 .. 63, in 16 for a shorter one (made_len). What the track has more
+ * than that is the pattern again (its copies), what it has less is kept after the loop (made_fit: sq_row_made). Nobody
+ * who brings a pattern changes the track's length any more (but the bembe', twelve steps: beat_cfg_apply).
+ * lib_phrase: a library pattern of one bar in a longer track comes as a PHRASE (SAVE 2 K4, or a DICE: dice_phrase) */
+static uint8_t dice_phrase;
+static uint8_t made_len(uint32_t t) { return sq_len_made(project.track[t].length); }
+static uint8_t lib_phrase(void) { return (uint8_t)(dice_phrase || project.gen.lib_len == SQ_LL_PHRASE); }
+static void made_fit(uint32_t t, uint8_t pat, uint8_t n)
+{
+    uint8_t made = made_len(t);
+    if (t >= SQ_TRACKS || pat >= SQ_PATTERNS || !n) return;
+    sq_row_made(project.step[t][pat], n < made ? n : made, project.track[t].length);
+    gh_st[t].pat = 255u;                                  /* (what the copies were made from is not known any more) */
+}
 
 /* ---- the settings (the panel and the grid share them) */
 static void gen_scope_set(uint8_t scope)
@@ -338,7 +352,7 @@ static void undo_apply(uint16_t txn)                     /* swap the rows of one
         }
         c->length = undo_len[k]; c->start = undo_start[k];
         undo_len[k] = l; undo_start[k] = s0;
-        track_cfg_back(undo_track[k], &was);              /* 0.11: in time (the explorer) */
+        track_cfg_back(undo_track[k], &was, undo_pat[k]);   /* 0.11: in time (the explorer) */
     }
 }
 
@@ -1321,9 +1335,12 @@ static uint8_t prog_onto_x(uint8_t t, uint8_t pat, uint8_t genre, uint8_t var, u
     n = sq_beat_chords(project.step[t][pat < SQ_PATTERNS ? pat : tr[t].pattern], genre, var, gen_root(t), gen_scale(), center);
     if (!n) return 0u;
     project.th.pat[t][pat < SQ_PATTERNS ? pat : tr[t].pattern].style = 0u;   /* 0.23: the library's chords */
-    if (cfg) { cfg->length = n; cfg->swing = c->swing; cfg->flags = (uint8_t)((c->flags & ~SQ_TF_DRUM) | SQ_TF_SCALE | SQ_TF_FOLLOW); cfg->pen = c->pen; }
+    made_fit(t, pat < SQ_PATTERNS ? pat : tr[t].pattern, n);          /* 0.24: the track keeps its length */
+    if (cfg) { cfg->length = 0u; cfg->swing = c->swing; cfg->flags = (uint8_t)((c->flags & ~SQ_TF_DRUM) | SQ_TF_SCALE | SQ_TF_FOLLOW); cfg->pen = c->pen; }
     if (apply) {
-        c->length = n; c->start = 0u;
+        uint8_t st = c->start;
+        c->start = 0u;
+        if (st) track_fit(t, c->length, st, pat < SQ_PATTERNS ? pat : tr[t].pattern);   /* (the loop begins elsewhere: the other patterns) */
         c->flags = (uint8_t)((c->flags & ~SQ_TF_DRUM) | SQ_TF_SCALE | SQ_TF_FOLLOW);
         c->src_func = SQ_FUNC_PROG; c->src_var = var;                 /* 0.10: GENRE LIVE loads it again from the new genre */
         c->src_genre = genre;                                         /* 0.11: COOK walks to the next one of this genre */
@@ -1340,7 +1357,8 @@ static void prog_onto(uint8_t t, uint8_t var) { prog_onto_x(t, tr[t].pattern, be
 static void beat_cfg_for(const sq_track_cfg_t *c, uint8_t genre, uint8_t func, uint8_t n, uint8_t note, beat_cfg_t *o)
 {
     uint8_t melodic = sq_func_kind(func) != SQ_KIND_DRUM;
-    o->length = n;
+    (void)n;
+    o->length = 0u;                                                        /* 0.24: the track's own (12: the bembe' asks for its twelve) */
     sq_genre_groove(genre, func, &o->swing, &o->groove, &o->groove_amt);   /* the genre's feel (UK garage swings; 0.16: the
                                                                             * part's GROOVE, and the swing that goes with it) */
     if (melodic) {
@@ -1349,10 +1367,16 @@ static void beat_cfg_for(const sq_track_cfg_t *c, uint8_t genre, uint8_t func, u
     } else o->flags = (uint8_t)((c->flags & ~(SQ_TF_SCALE | SQ_TF_FOLLOW)) | SQ_TF_DRUM);
     o->pen = melodic ? c->pen : note;
 }
-static void beat_cfg_apply(uint8_t t, const beat_cfg_t *o)
+static void beat_cfg_apply(uint8_t t, uint8_t pat, const beat_cfg_t *o)
 {
     sq_track_cfg_t *c = &project.track[t];
-    c->length = o->length; c->start = 0u;
+    uint8_t st = c->start, old = c->length;
+    c->start = 0u;
+    if (o->length && o->length != c->length) {         /* a pattern that is not made of bars: the track is as long as it is */
+        if (pat < SQ_PATTERNS) sq_row_made(project.step[t][pat], o->length, o->length);
+        c->length = o->length;
+    }
+    if (st || old != c->length) track_fit(t, old, st, pat);   /* (the track's other patterns: another loop for them too) */
     c->swing = o->swing;
     c->flags = o->flags;
     PEN(t) = o->pen;
@@ -1420,8 +1444,11 @@ static uint8_t th_make(uint8_t t, uint8_t pat, uint8_t style, uint8_t func, uint
 static uint8_t th_again(uint8_t t, uint8_t pat)
 {
     sq_thpat_t *m = &project.th.pat[t][pat];
+    uint8_t n;
     if (!m->style) return 0u;
-    return th_make(t, pat, SQ_THP_STYLE(m), m->func, m->seed, m->var, m->vary, vg_energy_now(), SQ_THP_LEN(m));
+    n = th_make(t, pat, SQ_THP_STYLE(m), m->func, m->seed, m->var, m->vary, vg_energy_now(), made_len(t));   /* 0.24: for the track as it is now */
+    made_fit(t, pat, n);
+    return n;
 }
 /* THE ENERGY: a pattern of the engines that plays, and was made at another energy than the machine has now, is made
  * again at this one - only the steps that are not the same at the two energies are written (sq_th_remake), so the
@@ -1502,7 +1529,7 @@ static void th_prog_dice(uint8_t style)
  * for it: a CLAP where it has no SNARE). The SOURCE on FREE: the engines are free of the genre, the pattern stays as it
  * is. 0: not the engines' (the library reloads it) */
 static void beat_cfg_for(const sq_track_cfg_t *c, uint8_t genre, uint8_t func, uint8_t n, uint8_t note, beat_cfg_t *o);
-static void beat_cfg_apply(uint8_t t, const beat_cfg_t *o);
+static void beat_cfg_apply(uint8_t t, uint8_t pat, const beat_cfg_t *o);
 static uint8_t th_restyle(uint8_t t, uint8_t pat, uint8_t genre)
 {
     sq_thpat_t *m = &project.th.pat[t][pat];
@@ -1513,11 +1540,12 @@ static uint8_t th_restyle(uint8_t t, uint8_t pat, uint8_t genre)
     if (project.th.src == SQ_SRC_FREE) return 1u;       /* the SOURCE is free of the genre: a change of genre leaves the engines' patterns as they are */
     fn = style == SQ_TH_FREE ? m->func : sq_genre_part_for(genre, m->func);
     if (fn == 255u || fn >= SQ_FUNCS) fn = m->func;
-    n = th_make(t, pat, style, fn, m->seed, m->var, m->vary, vg_energy_now(), SQ_THP_LEN(m));
+    n = th_make(t, pat, style, fn, m->seed, m->var, m->vary, vg_energy_now(), made_len(t));
     if (!n) return 0u;
+    made_fit(t, pat, n);
     beat_cfg_for(c, genre, fn, n, th_note(t, fn), &o);
     if (style == SQ_TH_FREE) { o.swing = SQ_SWING_MIN; o.groove = SQ_GROOVE_OFF; o.groove_amt = 0u; }   /* (no genre: no feel of one) */
-    beat_cfg_apply(t, &o);
+    beat_cfg_apply(t, pat, &o);
     c->src_func = fn; c->src_genre = genre;
     harm_follow_genre(genre);
     track_loaded(t);
@@ -1537,18 +1565,19 @@ static uint8_t beat_onto_s(uint8_t t, uint8_t pat, uint8_t genre, uint8_t func, 
     if (func == SQ_FUNC_PROG || func == SQ_FUNC_KIT || func >= SQ_FUNCS) return 0u;
     nv = sq_beat_variants(genre, func);
     if (style != 255u) {                                 /* 0.23 THEORY: made, from the seed `var` after the one SEQ 8 K2 shows */
-        n = th_make(t, pi, style, func, (uint16_t)(((uint32_t)project.th.seed + var) % SQ_TH_SEEDS), 0u, 0u, vg_energy_now(), lib_len_steps());
+        n = th_make(t, pi, style, func, (uint16_t)(((uint32_t)project.th.seed + var) % SQ_TH_SEEDS), 0u, 0u, vg_energy_now(), made_len(t));
         if (!nv) nv = 1u;                                /* (any part: the engines make them all) */
     } else {
         if (!nv) return 0u;
-        n = sq_beat_load_len(row, genre, func, (uint8_t)(var % nv), note, apply ? lib_len_steps() : 0u);   /* (a proposal: the native length) */
+        n = sq_beat_load_for(row, genre, func, (uint8_t)(var % nv), note, c->length, lib_phrase());   /* 0.24: for the track's length */
         if (n) project.th.pat[t][pi].style = 0u;        /* (the library's: not the engines' any more) */
     }
     if (!n) return 0u;
+    made_fit(t, pi, n);                                  /* 0.24: the track keeps its length: the pattern again in what it has more */
     beat_cfg_for(c, genre, func, n, note, &o);
     if (style == SQ_TH_FREE) { o.swing = SQ_SWING_MIN; o.groove = SQ_GROOVE_OFF; o.groove_amt = 0u; }   /* (no genre: no feel of one) */
     if (apply) {
-        beat_cfg_apply(t, &o);
+        beat_cfg_apply(t, pi, &o);
         c->src_func = func; c->src_var = (uint8_t)(var % nv);        /* 0.10: GENRE LIVE knows where it came from */
         c->src_genre = genre;                                         /* 0.11: and COOK which genre's next variation */
         if (!c->role) c->role = sq_func_role(func);                   /* the library gives the track its role */
@@ -1654,6 +1683,7 @@ static uint8_t cook_towards(uint8_t t)
     sq_step_t *row = project.step[t][tr[t].pattern];
     uint8_t g = c->src_genre < SQ_GENRES ? c->src_genre : beat_genre, fn = c->src_func, nv, next, left, steps, len = c->length, n, i;
     char *p = msg_buf;
+    sq_row_keep(row);                                    /* 0.24: the walk moves the steps of the loop, the copies as any other */
     {   /* 0.23 THEORY: a pattern of the engines walks to the next variation of its own seed; HEAT says how large the
          * variation is (and, as for the library, how many steps move a press). A variation that is the pattern as it
          * is - a part with little to vary, a small HEAT - is passed over: the next ones, then larger ones, until one
@@ -1684,7 +1714,7 @@ static uint8_t cook_towards(uint8_t t)
                 steps = (uint8_t)(1u + ((uint32_t)tool_heat * len) / 800u);
                 left = sq_row_approach(row, target, len, steps, &sq_rng_state);
                 wk->on = left ? 1u : 0u; wk->pat = tr[t].pattern; wk->base = m->var; wk->next = next; wk->vary = vy; wk->seed = m->seed;
-                if (!left) { m->var = next; m->vary = h.vary; }
+                if (!left) { m->var = next; m->vary = h.vary; sq_row_again(row, 0u, n, len); }   /* (there: the pattern and its copies again) */
                 p = put_s(p, "COOK "); p = put_s(p, sq_func_name(m->func)); p = put_s(p, " VAR "); p = put_u(p, next);
                 if (left) { p = put_s(p, ": "); p = put_u(p, left); p = put_s(p, " TO GO"); }
                 else p = put_s(p, " REACHED");
@@ -1706,13 +1736,13 @@ static uint8_t cook_towards(uint8_t t)
         n = sq_beat_chords(target, g, next, gen_root(t), gen_scale(), center);
     } else {
         uint8_t note = sq_func_kind(fn) != SQ_KIND_DRUM ? gen_root_note(t) : PEN(t);
-        n = sq_beat_load_len(target, g, fn, next, note, (uint8_t)(len == 16u || len == 32u || len == 64u ? len : 0u));
+        n = sq_beat_load_for(target, g, fn, next, note, len, 1u);   /* 0.24: for the track's length, as a phrase (as 0.11 did at 32 and 64) */
     }
     if (!n) return 0u;
     for (i = n; i < len; i++) target[i] = target[i % n];         /* (a length of the player's: the variation repeats) */
     steps = (uint8_t)(1u + ((uint32_t)tool_heat * len) / 800u);
     left = sq_row_approach(row, target, len, steps, &sq_rng_state);
-    if (!left) c->src_var = next;
+    if (!left) { c->src_var = next; sq_row_again(row, 0u, n, len); }   /* (there: the pattern and its copies again) */
     p = put_s(p, "COOK "); p = put_s(p, sq_func_name(fn)); p = put_s(p, " #"); p = put_u(p, (uint32_t)next + 1u);
     if (left) { p = put_s(p, ": "); p = put_u(p, left); p = put_s(p, " TO GO"); }
     else p = put_s(p, " REACHED");
@@ -1722,11 +1752,62 @@ static uint8_t cook_towards(uint8_t t)
     return 1u;
 }
 
+/* 0.24: A GENERATOR ON A LOOP LONGER THAN A BAR MAKES A PHRASE - not the bar again, and not 64 steps of chance: the
+ * bar it made (A, the first 16 steps of `part`) is answered. Two bars: A A'. Three: A A' B. Four: A A' A B. A' is the
+ * ANSWER: the bar with its second half cooked (by the track's role, in the key: COOK's own rules, the beats the last
+ * to go). B is the TURN of the phrase: all of the bar but its first beat cooked, harder. HEAT says how much both. A bar
+ * the cook left as it was gets a pickup at its end (or loses the one it had): an answer is never the question again.
+ * A loop that is not a number of bars ends on the beginning of the next one. The steps are the track's own. */
+static uint16_t bar_hits(const sq_step_t *bar, uint8_t n)
+{
+    uint16_t m = 0u;
+    uint8_t k;
+    for (k = 0; k < n && k < 16u; k++) if (bar[k].flags & SQ_STEP_ON) m |= (uint16_t)(1u << k);
+    return m;
+}
+static void phrase_pickup(sq_step_t *bar, uint8_t n)
+{
+    uint8_t k, r;
+    for (k = n; k-- > 0u;) {
+        sq_step_t *s = &bar[k];
+        if (!(k & 3u) || (s->flags & SQ_STEP_LOCK)) continue;       /* (never a beat, never a locked step) */
+        if (s->flags & SQ_STEP_ON) { s->flags &= (uint8_t)~SQ_STEP_ON; return; }
+        for (r = k; r-- > 0u;) if (bar[r].flags & SQ_STEP_ON) break;      /* the hit before it: the pickup plays what it plays */
+        if (r >= n) return;                                          /* (none: an empty bar has no answer) */
+        *s = bar[r];
+        s->flags = (uint8_t)((s->flags & ~(SQ_STEP_TIE | SQ_STEP_SLIDE | SQ_STEP_LOCK)) | SQ_STEP_ON);
+        s->velocity = (uint8_t)(bar[r].velocity > 54u ? ((uint32_t)bar[r].velocity * 3u) / 4u : 40u);
+        s->ratchet = 1u;
+        if (s->length > 50u) s->length = 50u;
+        return;
+    }
+}
+static void gen_phrase(uint8_t t, sq_step_t *part, uint8_t len)
+{
+    uint8_t bars = (uint8_t)((len + 15u) / 16u), b, drum = track_drum(t), role = gen_role(t);
+    for (b = 1; b < bars; b++) {
+        sq_step_t *bar = part + 16u * b;
+        uint8_t n = (uint8_t)(len - 16u * b > 16u ? 16u : len - 16u * b), last = (uint8_t)(b + 1u == bars && bars >= 3u);
+        uint8_t from = (uint8_t)((last ? n / 4u : n / 2u) & ~3u), heat = (uint8_t)(last ? 35u + tool_heat / 2u : 25u + tool_heat / 3u);
+        uint16_t was;
+        memcpy(bar, part, (uint32_t)n * sizeof(sq_step_t));
+        if (!(b & 1u) && !last) continue;                        /* (the third bar of four: A as it is) */
+        if (from >= n) continue;
+        was = bar_hits(bar, n);
+        if (genre_feel()) sq_row_cook_role(bar + from, (uint8_t)(n - from), heat, role, gen_root(t), gen_scale(), &sq_rng_state);
+        else sq_row_cook(bar + from, (uint8_t)(n - from), heat, &sq_rng_state);
+        if (!drum && (!genre_feel() || role == SQ_ROLE_NONE || role == SQ_ROLE_ARP))
+            sq_row_cook_notes(bar + from, (uint8_t)(n - from), heat, gen_root(t), gen_scale(), &sq_rng_state);
+        if (bar_hits(bar, n) == was) phrase_pickup(bar, n);
+    }
+}
+
 static void tool_one(uint8_t tool, uint8_t t)
 {
     sq_track_cfg_t *cfg = &project.track[t];
     sq_step_t *row = project.step[t][tr[t].pattern];
     uint8_t lo = cfg->start, len = (uint8_t)(cfg->length - cfg->start), tg = project.gen.targets, drum = track_drum(t);
+    uint8_t own = sq_row_own(row, lo, cfg->length), bar = (uint8_t)(len > 16u ? 16u : len);
     sq_step_t *part = row + lo;
     uint32_t i;
     if (track_break(t) && (tool == TOOL_RAND || tool == TOOL_COOK)) {   /* 0.12: a break's dice, the chop after */
@@ -1740,15 +1821,19 @@ static void tool_one(uint8_t tool, uint8_t t)
         if (tr[t].step >= cfg->length || tr[t].step < cfg->start) tr[t].step = cfg->start;
         return;
     }
+    /* 0.24: a tool works on the loop as it sounds, the copies steps as any other. After it, a loop that is still the
+     * pattern and its rounds (turned, shifted, cleared: it is) has its copies again; one that is not is the player's */
+    if (tool != TOOL_COOK || cook_random) sq_row_keep(row);          /* (COOK towards a variation: cook_towards) */
     switch (tool) {
     case TOOL_CLEAR: sq_row_clear(row); break;
     case TOOL_REV:   sq_row_reverse(part, len); break;
     case TOOL_SHL:   sq_row_shift(part, len, -1); break;
     case TOOL_SHR:   sq_row_shift(part, len, 1); break;
-    case TOOL_RAND:
-        sq_row_random(part, len, tool_density, &sq_rng_state);
-        if ((tg & SQ_GT_NOTES) && !drum) sq_row_random_notes(part, len, PEN(t), gen_root(t), gen_scale(), &sq_rng_state);
-        if (!drum) sq_row_phrase_gates(part, len, gen_role(t), tool_heat, &sq_rng_state);   /* 0.11: the lengths, by the role */
+    case TOOL_RAND:                                                  /* 0.24: a bar of chance, then its phrase (gen_phrase) */
+        sq_row_random(part, bar, tool_density, &sq_rng_state);
+        if ((tg & SQ_GT_NOTES) && !drum) sq_row_random_notes(part, bar, PEN(t), gen_root(t), gen_scale(), &sq_rng_state);
+        if (!drum) sq_row_phrase_gates(part, bar, gen_role(t), tool_heat, &sq_rng_state);   /* 0.11: the lengths, by the role */
+        gen_phrase(t, part, len);
         if (tg & SQ_GT_CC) sq_row_random_lanes(part, len, tool_density, gen_lanes(t), &sq_rng_state);
         if (tg & SQ_GT_LFO) lfo_dice(t, tool_heat);
         break;
@@ -1770,6 +1855,8 @@ static void tool_one(uint8_t tool, uint8_t t)
     default: break;
     }
     if (tool != TOOL_COOK && tool != TOOL_HUMAN && tool != TOOL_WRITE) th_forget(t, tr[t].pattern);   /* 0.23: cleared, turned, written at random: the player's */
+    if (own && own < cfg->length && (tool != TOOL_COOK || cook_random)) sq_row_again(row, lo, own, cfg->length);
+    gh_st[t].pat = 255u;
     activate_row(t, row);
     if (tr[t].step >= cfg->length || tr[t].step < cfg->start) tr[t].step = cfg->start;
 }
@@ -1876,6 +1963,7 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
     if (tool == TOOL_UNDO) { undo_swap(); return; }
     if (tool == TOOL_COPY) {
         memcpy(clip_row, part, (uint32_t)len * sizeof(sq_step_t));
+        for (k = 0; k < len; k++) clip_row[k].flags &= (uint8_t)~SQ_STEP_GHOST;   /* 0.24: what is pasted is the player's */
         clip_len = len; clip_valid = 1u;
         status_num("COPIED STEPS ", len);
         return;
@@ -1890,7 +1978,9 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
             memcpy(part, clip_row, (uint32_t)n * sizeof(sq_step_t));
             if (n > len) set_length(t, (uint8_t)(lo + n));          /* (0.3 lengthened it but copied only `len` steps) */
         } else {
-            uint8_t nl = sq_row_double(part, len, (uint8_t)(SQ_STEPS - lo));
+            uint8_t nl;
+            sq_row_keep(row);                            /* 0.24: DOUBLE writes steps: the loop as it sounds, twice, the player's */
+            nl = sq_row_double(part, len, (uint8_t)(SQ_STEPS - lo));
             set_length(t, (uint8_t)(lo + nl));
         }
         activate_row(t, row);
@@ -2034,7 +2124,7 @@ static void dice_restore(void)
         memcpy(project.step[t][dsnap_pat[t]], dsnap_row[t], sizeof dsnap_row[t]);
         project.th.pat[t][dsnap_pat[t]] = dsnap_th[t];
         *c = dsnap_cfg[t];
-        track_cfg_back(t, &was);                          /* 0.11: the loop as it was, in time (the explorer) */
+        track_cfg_back(t, &was, dsnap_pat[t]);            /* 0.11: the loop as it was, in time (the explorer) */
         for (l = 0; l < SQ_LANES; l++)                    /* the synth's sound back as it was */
             if (c->lane_cc[l] != SQ_LANE_NONE && c->lane_base[l] != SQ_LANE_NONE) send_cc(track_ch(t), c->lane_cc[l], lane_val(l, c->lane_base[l]));
     }
@@ -2106,14 +2196,20 @@ static void dice_seq(uint16_t mask)
             continue;
         }
         if (genre_feel() && nv) {
+            dice_phrase = 1u;                                 /* 0.24: on a long track the dice rolls a PHRASE (the next variation, a fill) */
             beat_onto((uint8_t)t, fn, (uint8_t)grand(nv));
+            dice_phrase = 0u;
+            sq_row_keep(row);                                 /* (and every bar of it gets a take of its own: the steps are the track's) */
             sq_row_cook_role(row + c->start, (uint8_t)(c->length - c->start), (uint8_t)(tool_heat / 4u + 1u), gen_role(t), gen_root(t), gen_scale(), &sq_rng_state);   /* a take of its own */
         } else {                                              /* GENRE FREE: a rhythm of the dice, no library */
-            sq_row_random(row + c->start, (uint8_t)(c->length - c->start), (uint8_t)(30u + grand(40u)), &sq_rng_state);
+            uint8_t span = (uint8_t)(c->length - c->start), bar = (uint8_t)(span > 16u ? 16u : span);   /* 0.24: a bar, then its phrase */
+            sq_row_keep(row);
+            sq_row_random(row + c->start, bar, (uint8_t)(30u + grand(40u)), &sq_rng_state);
             if (!track_drum(t)) {
-                sq_row_random_notes(row + c->start, (uint8_t)(c->length - c->start), PEN(t), gen_root(t), gen_scale(), &sq_rng_state);
-                sq_row_phrase_gates(row + c->start, (uint8_t)(c->length - c->start), gen_role(t), tool_heat, &sq_rng_state);   /* 0.11: notes of their own length */
+                sq_row_random_notes(row + c->start, bar, PEN(t), gen_root(t), gen_scale(), &sq_rng_state);
+                sq_row_phrase_gates(row + c->start, bar, gen_role(t), tool_heat, &sq_rng_state);   /* 0.11: notes of their own length */
             }
+            gen_phrase((uint8_t)t, row + c->start, span);
         }
         if ((project.gen.targets & SQ_GT_NOTES) && !track_drum(t) && fn != SQ_FUNC_PROG)
             sq_row_cook_notes(row + c->start, (uint8_t)(c->length - c->start), (uint8_t)(tool_heat / 3u + 1u), gen_root(t), gen_scale(), &sq_rng_state);
@@ -2304,6 +2400,14 @@ static void evo_take_seed(void)
     memcpy(evo_seed_lfo, project.lfo, sizeof evo_seed_lfo);
 }
 
+/* 0.24: the track's length changed (track_fit): EVOLVE's seed is one of its patterns */
+static void gen_track_fit(uint32_t t, uint8_t old_len, uint8_t old_start)
+{
+    if (!evo_run || !(evo_mask & (1u << t))) return;
+    if (old_start != project.track[t].start) sq_row_keep(evo_seed[t]);
+    sq_row_fit(evo_seed[t], project.track[t].start, old_len, project.track[t].length);
+}
+
 static void evo_status(void)
 {
     char *p = msg_buf;
@@ -2377,6 +2481,7 @@ static void evo_change(void)
         uint8_t namt = (uint8_t)(((uint32_t)amt * note + 50u) / 100u);
         if (!(evo_mask & (1u << t))) continue;
         if (!project.gen.evo_drift) memcpy(row, evo_seed[t], sizeof evo_seed[t]);    /* around the seed */
+        sq_row_keep(row);                               /* 0.24: EVOLVE moves every bar of the loop its own way: the copies are steps (the seed keeps its own) */
         if (genre_feel()) sq_row_cook_role(part, len, ramt, gen_role(t), gen_root(t), gen_scale(), &sq_rng_state);
         else sq_row_cook(part, len, ramt, &sq_rng_state);
         if ((tg & SQ_GT_NOTES) && !track_drum(t)) {
@@ -2447,7 +2552,7 @@ static void temp_end(void)
         *c = temp_cfg[t];
         tr[t].pattern = temp_pat[t];
         tr[t].pending_pattern = SQ_NO_PENDING;
-        track_cfg_back(t, &was);                          /* 0.11: in time (the explorer) */
+        track_cfg_back(t, &was, temp_pat[t]);             /* 0.11: in time (the explorer) */
     }
     memcpy(project.lfo, temp_lfo, sizeof temp_lfo);
     memset(lfo_last_valid, 0, sizeof lfo_last_valid);

@@ -301,8 +301,9 @@ static void vg_tira(uint8_t t, uint8_t dice)
         n = sq_beat_load_text(project.step[t][pat], a->text, 0, SQ_FUNC_PERC, PEN(t));
         if (n) {
             th_forget(t, pat);                          /* 0.23 */
+            made_fit(t, pat, n);                        /* 0.24: for the track as long as it is */
             beat_cfg_for(&project.track[t], genre, SQ_FUNC_PERC, n, PEN(t), &cfg);
-            if (a->steps == 12u) cfg.length = 12u;
+            if (a->steps == 12u) cfg.length = 12u;      /* (the bembe' is twelve steps: the track is made twelve when it enters) */
         }
     }
     if (!n) {
@@ -389,7 +390,7 @@ static void vg_enter(uint8_t t, uint8_t pat)
         for (k = 0; k < SQ_PATTERNS; k++) if (m & (1u << k)) { pat = k; break; }
     }
     pat = vg_loop_sync(t, pat);
-    if (vg_pcfg_has[t] & (1u << pat)) { beat_cfg_apply(t, &vg_pcfg[t][pat]); vg_pcfg_has[t] &= (uint8_t)~(1u << pat); }   /* (its settings come with it, once) */
+    if (vg_pcfg_has[t] & (1u << pat)) { beat_cfg_apply(t, pat, &vg_pcfg[t][pat]); vg_pcfg_has[t] &= (uint8_t)~(1u << pat); }   /* (its settings come with it, once) */
     if (pat != tr[t].pattern) { tr[t].pattern = pat; tr[t].pending_pattern = SQ_NO_PENDING; }
     if (playing) track_restart(t);
     vg_mute_set(t, 0u);
@@ -604,6 +605,34 @@ static uint8_t vg_silence_guard(uint16_t was_in)
     return 1u;
 }
 
+/* 0.24 LONGER / SHORTER (SEL + DOUBLE / SEL + HALF on the MOSSE, SHIFT + the pad on the grid): the LENGTH of every
+ * track at once, twice or half - not the speed. Longer: each pattern goes round again in what its track has more
+ * (track_fit: its copies - or what was written there, or what a SHORTER had left waiting). Shorter: the tracks play
+ * their first half, the rest waits after the loop and comes back with LONGER. A track that cannot (twice would pass
+ * 64 steps; an odd number of steps has no half) stays as it is, with its own loop; a TAPE track has no steps; a track
+ * in a LOOP of the journey has that loop's length. Every track lands where the clock says (length_apply). */
+static void vg_lengths(int32_t dir)
+{
+    uint32_t t, n = 0u, stay = 0u;
+    char *p = msg_buf;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        const sq_track_cfg_t *c = &project.track[t];
+        uint32_t span = c->length > c->start ? (uint32_t)c->length - c->start : 1u, want;
+        if (track_tape(t) || vg_chain_on[t]) continue;
+        if (dir > 0) want = c->start + 2u * span;
+        else want = (span & 1u) ? 0u : c->start + span / 2u;
+        if (!want || want > SQ_STEPS) { stay++; continue; }
+        len_pend[t] = 0u;
+        length_apply((uint8_t)t, (uint8_t)want);
+        n++;
+    }
+    p = put_s(p, dir > 0 ? "LONGER: " : "SHORTER: "); p = put_u(p, n); p = put_s(p, dir > 0 ? " TRACKS TWICE AS LONG" : " TRACKS HALF AS LONG");
+    if (stay) { p = put_s(p, ", "); p = put_u(p, stay); p = put_s(p, " STAY"); }
+    finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void vg_run_queue(uint8_t boundary)              /* boundary 0: NOW, or stopped: the phrase playing is not in the trail yet */
 {
     uint32_t i, t;
@@ -631,6 +660,8 @@ static void vg_run_queue(uint8_t boundary)              /* boundary 0: NOW, or s
             break;
         case SQ_MV_HALF: vg_speed_set(-1); break;
         case SQ_MV_DOUBLE: vg_speed_set(1); break;
+        case SQ_MV_LONGER: vg_lengths(1); break;         /* 0.24 */
+        case SQ_MV_SHORTER: vg_lengths(-1); break;
         case SQ_MV_TRANSPOSE: ktrans_apply((int32_t)m->a - SQ_KTRANS_MAX); break;
         case SQ_MV_PROG:                                 /* (0.17: the HARMONY stays as the hands left it: queued only when it was on) */
             project.gen.harm_prog = m->a < SQ_PROGS_ALL ? m->a : 0u;
@@ -866,6 +897,15 @@ static void vg_black(uint8_t bi, uint8_t sel_held)
         if (!vg_queue(kind, selected_track, vg_prop[selected_track])) vg_msg_t("QUEUED: SWAP ", selected_track, "");
         break;
     case SQ_MV_LOOP: if (!vg_queue(kind, selected_track, sel_held)) vg_msg_t("QUEUED: LOOP ", selected_track, sel_held ? " 4 BARS" : ""); break;
+    case SQ_MV_HALF: case SQ_MV_DOUBLE:                  /* 0.24: with SEL not the speed: the LENGTH of every track (SHORTER / LONGER) */
+        if (sel_held) kind = kind == SQ_MV_HALF ? SQ_MV_SHORTER : SQ_MV_LONGER;
+        if (!playing && sel_held) { vg_lengths(kind == SQ_MV_LONGER ? 1 : -1); break; }   /* (stopped: at once, as the LENGTH knob) */
+        {   /* (its opposite waiting in the queue: the two are no more, and the screen says so) */
+            uint8_t opp = kind == SQ_MV_HALF ? SQ_MV_DOUBLE : kind == SQ_MV_DOUBLE ? SQ_MV_HALF : kind == SQ_MV_LONGER ? SQ_MV_SHORTER : SQ_MV_LONGER;
+            uint8_t had = (uint8_t)(sq_queue_find(&vg_q, opp, 0u) >= 0);
+            if (!vg_queue(kind, 0u, 0u)) vg_msg2(had ? "CANCELLED: " : "QUEUED: ", sq_move_name(had ? opp : kind));
+        }
+        break;
     default: if (!vg_queue(kind, 0u, 0u)) vg_msg2("QUEUED: ", sq_move_name(kind)); break;
     }
 }
@@ -886,7 +926,8 @@ static uint8_t vg_move_lit(int bi, uint8_t blink)
     uint8_t kind = bi >= 0 && bi < 8 ? VG_BLACK_MOVE[bi] : bi == 8 ? SQ_MV_BACK : 0u;
     if (bi == 9) return vg_q.n ? 1u : 0u;
     if (bi == 10) return vg_now ? blink : 0u;
-    for (i = 0; kind && i < vg_q.n; i++) if (vg_q.m[i].kind == kind) return 1u;
+    for (i = 0; kind && i < vg_q.n; i++)
+        if (vg_q.m[i].kind == kind || (kind == SQ_MV_HALF && vg_q.m[i].kind == SQ_MV_SHORTER) || (kind == SQ_MV_DOUBLE && vg_q.m[i].kind == SQ_MV_LONGER)) return 1u;
     return 0u;
 }
 /* 0.17 the MOSSE on the panel (PERF page 3, or GLO held on page 3): black 1 FILL, 2 BREAK (SEL: all, 2 bars), 3 RISER,
@@ -1124,7 +1165,12 @@ static void rg_frase_apply(void)
         s->length = rg_frase[i][3] ? rg_frase[i][3] : 102u;            /* 0: two steps long */
         s->flags |= SQ_STEP_ON | SQ_STEP_SET;
     }
-    c->length = len; c->start = 0u;
+    {   /* 0.24: the phrase is steps of its own and brings its bars: the track's other patterns fit them, in time */
+        uint8_t old = c->length, st = c->start;
+        sq_row_keep(row);
+        c->length = len; c->start = 0u;
+        if (old != len || st) { track_fit(t, old, st, pat); track_loaded(t); }
+    }
     if (c->division != SQ_DIV_1_16) c->division = SQ_DIV_1_16;
     if (tr[t].step >= c->length) tr[t].step = 0u;
     if (vg_on() && vg_state(t) == SQ_TS_EMPTY) vg_set_state(t, (mute_mask & (1u << t)) ? SQ_TS_PROPOSED : SQ_TS_IN);
@@ -1167,7 +1213,7 @@ static void vg_pattern_in(uint32_t t)
     if (t >= SQ_TRACKS) return;
     pat = tr[t].pattern;
     if (pat < SQ_PATTERNS && (vg_pcfg_has[t] & (1u << pat))) {
-        beat_cfg_apply((uint8_t)t, &vg_pcfg[t][pat]);
+        beat_cfg_apply((uint8_t)t, pat, &vg_pcfg[t][pat]);
         vg_pcfg_has[t] &= (uint8_t)~(1u << pat);
         if (tr[t].step >= project.track[t].length) tr[t].step = project.track[t].start;
     }

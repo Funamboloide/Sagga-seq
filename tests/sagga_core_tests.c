@@ -732,7 +732,7 @@ static void test_sanitize(void)
     CHECK(p.step[9][5][33].velocity == 127u && p.step[9][5][33].ratchet == SQ_RATCHET_MAX && p.step[9][5][33].chance == 100u);
     CHECK(p.step[9][5][33].note[2] == SQ_NOTE_NONE && p.step[9][5][33].lane[1] == SQ_LANE_NONE);
     CHECK(p.step[9][5][33].nudge == -1 && p.step[9][5][33].ramp == -1);   /* 0xFF as a signed byte is in range */
-    CHECK(p.step[9][5][33].flags == (SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_LOCK | SQ_STEP_XOFF | SQ_STEP_TIE | SQ_STEP_SLIDE));   /* (0.10: PLAIN is a flag too; 0.13 SLIDE) */
+    CHECK(p.step[9][5][33].flags == (SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_LOCK | SQ_STEP_XOFF | SQ_STEP_TIE | SQ_STEP_SLIDE | SQ_STEP_GHOST));   /* (0.10: PLAIN is a flag too; 0.13 SLIDE; 0.24 a copy) */
     p.step[1][1][1].nudge = 100; p.step[1][1][1].ramp = -120; p.step[1][1][1].condition = 99;
     sq_project_sanitize(&p);
     CHECK(p.step[1][1][1].nudge == 50 && p.step[1][1][1].ramp == -100 && p.step[1][1][1].condition == SQ_COND_ALWAYS);
@@ -1784,7 +1784,7 @@ static void test_v09(void)
     proj_a.key[3].root = 2u; proj_a.key[3].scale = SQ_SC_LYDIAN; proj_a.key[3].shift = -12; proj_a.key_cur = 0u;
     proj_a.device[4] = SQ_DEV_ELEKTRON;
     proj_a.uprog[1].n = 3u; proj_a.uprog[1].deg[0] = 0; proj_a.uprog[1].deg[1] = 5; proj_a.uprog[1].deg[2] = 3; proj_a.uprog[1].col[2] = SQ_HC_7; proj_a.uprog[1].bars = 2u;
-    proj_a.gen.harm_prog = 7u; proj_a.gen.genre_mode = SQ_GM_LIVE; proj_a.gen.when = SQ_WHEN_4; proj_a.gen.every = SQ_EVERY_8; proj_a.gen.every_tool = 9u; proj_a.gen.lib_len = SQ_LL_32;
+    proj_a.gen.harm_prog = 7u; proj_a.gen.genre_mode = SQ_GM_LIVE; proj_a.gen.when = SQ_WHEN_4; proj_a.gen.every = SQ_EVERY_8; proj_a.gen.every_tool = 9u; proj_a.gen.lib_len = SQ_LL_PHRASE;
     proj_a.step[1][0][3].flags = SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_TIE; proj_a.step[1][0][3].condition = SQ_COND_PRE; proj_a.step[1][0][3].lane[5] = 99u;
     sq_project_sanitize(&proj_a);
     proj_a.gen.harm_genre = 5u; proj_a.gen.harm_lock = 1u;                                   /* 0.11 */
@@ -1861,39 +1861,333 @@ static void test_v09(void)
 }
 
 /* 0.10: the pure parts that are new */
-/* 0.11: a track made longer repeats its loop in the new steps (unless something was written there) */
-static void test_v011_extend(void)
+/* 0.24: a pattern in a track longer than it is: its copies (0.11: sq_row_extend, the loop repeated once into the new steps) */
+static uint8_t t24_on(const sq_step_t *row, uint32_t i) { return (uint8_t)((row[i].flags & SQ_STEP_ON) != 0u); }
+static uint8_t t24_gh(const sq_step_t *row, uint32_t i) { return (uint8_t)((row[i].flags & SQ_STEP_GHOST) != 0u); }
+static void t24_melody(sq_step_t *row, uint32_t n)        /* n steps, each its own note (60 + i), the rest of the row at rest */
 {
-    static sq_step_t row[SQ_STEPS];
     uint32_t i;
     for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
-    for (i = 0; i < 16u; i += 4u) { row[i].flags |= SQ_STEP_ON; row[i].note[0] = (uint8_t)(36u + i); }
-    row[6].flags |= SQ_STEP_ON; row[6].velocity = 77u;
-    /* 16 -> 64 in one go: four copies */
-    CHECK(sq_row_extend(row, 0u, 16u, 16u, 64u) == 48u);
-    for (i = 16u; i < 64u; i++) CHECK(!memcmp(&row[i], &row[i % 16u], sizeof row[0]));
-    CHECK(row[38].velocity == 77u && (row[60].flags & SQ_STEP_ON) && !(row[61].flags & SQ_STEP_ON));
-    /* a turn of the knob 16 -> 17 -> 18 ... each click fills from the loop of 16, not from the loop so far */
+    for (i = 0; i < n; i++) { row[i].flags = SQ_STEP_ON | SQ_STEP_SET; row[i].note[0] = (uint8_t)(60u + i); }
+}
+static uint8_t t24_mark(const sq_step_t *row, uint32_t i)       /* the mark of a pattern's end: a rest, flagged a copy */
+{
+    sq_step_t d;
+    sq_step_default(&d);
+    d.flags = SQ_STEP_GHOST;
+    return (uint8_t)!memcmp(&row[i], &d, sizeof d);
+}
+static uint32_t t24_ghosts(const sq_step_t *row)                /* how many steps of the row are flagged */
+{
+    uint32_t i, n = 0u;
+    for (i = 0; i < SQ_STEPS; i++) n += t24_gh(row, i);
+    return n;
+}
+static void test_v024_copies(void)
+{
+    static sq_step_t row[SQ_STEPS], was[SQ_STEPS];
+    static sq_ghost_t g;
+    sq_step_t d;
+    uint32_t i;
+    sq_step_default(&d);
+    /* 16 -> 64 in one go: the pattern three times more, every new step flagged a copy, the pattern's own not */
+    t24_melody(row, 16u);
+    row[6].velocity = 77u;
+    CHECK(sq_row_fit(row, 0u, 16u, 64u) == 48u);
+    for (i = 16u; i < 64u; i++) CHECK(sq_step_alike(&row[i], &row[i % 16u]) && t24_gh(row, i));
+    for (i = 0; i < 16u; i++) CHECK(!t24_gh(row, i));
+    CHECK(row[38].velocity == 77u && sq_row_own(row, 0u, 64u) == 16u);
+    /* THE ONE THAT WAS WRONG: 16, then 19, then 32 - the second bar is the pattern again, not the 19 steps going on */
+    t24_melody(row, 16u);
+    CHECK(sq_row_fit(row, 0u, 16u, 19u) == 3u && row[16].note[0] == 60u && row[18].note[0] == 62u && sq_row_own(row, 0u, 19u) == 16u);
+    CHECK(sq_row_fit(row, 0u, 19u, 32u) == 16u);
+    for (i = 16u; i < 32u; i++) CHECK(row[i].note[0] == 60u + (i - 16u) && t24_gh(row, i));
+    CHECK(!t24_on(row, 32u) && sq_row_own(row, 0u, 32u) == 16u && t24_ghosts(row) == 16u);
+    /* ... and 12 -> 15 -> 24: twice the twelve */
+    t24_melody(row, 12u);
+    CHECK(sq_row_fit(row, 0u, 12u, 15u) == 3u && sq_row_fit(row, 0u, 15u, 24u) == 12u);
+    for (i = 12u; i < 24u; i++) CHECK(row[i].note[0] == 60u + (i - 12u));
+    /* shorter: the copies after the loop are no more; longer again: made from the pattern AS IT IS NOW */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    CHECK(sq_row_fit(row, 0u, 32u, 24u) == 8u && t24_gh(row, 23u) && !memcmp(&row[24], &d, sizeof d) && t24_ghosts(row) == 8u);
+    CHECK(sq_row_fit(row, 0u, 24u, 16u) == 0u && t24_ghosts(row) == 0u);
+    for (i = 16u; i < 64u; i++) CHECK(!memcmp(&row[i], &d, sizeof d));
+    row[3].note[0] = 99u;                                               /* the pattern is edited while it is 16 */
+    CHECK(sq_row_fit(row, 0u, 16u, 32u) == 16u && row[19].note[0] == 99u);
+    /* A TRACK SHORTER THAN ITS PATTERN, and back. Sixteen steps, the last four at rest; the track goes to 12 and comes
+     * back to 16: the four rests are there (0.11 - 0.23 put the first four steps in them), a mark kept the place */
+    t24_melody(row, 12u);
+    CHECK(sq_row_fit(row, 0u, 16u, 12u) == 0u && t24_mark(row, 16u) && t24_ghosts(row) == 1u && sq_row_own(row, 0u, 12u) == 12u);
+    CHECK(sq_row_fit(row, 0u, 12u, 16u) == 0u && t24_ghosts(row) == 0u && !t24_on(row, 12u) && !t24_on(row, 15u));
+    /* ... to 12 and then to 32: the pattern as it was, twice (on the rails again), not the twelve going on */
+    sq_row_fit(row, 0u, 16u, 12u);
+    CHECK(sq_row_fit(row, 0u, 12u, 32u) == 16u && sq_row_own(row, 0u, 32u) == 16u && !t24_on(row, 12u) && !t24_on(row, 15u));
+    for (i = 16u; i < 28u; i++) CHECK(row[i].note[0] == 60u + (i - 16u) && t24_on(row, i));
+    CHECK(!t24_on(row, 28u) && !t24_on(row, 31u) && t24_gh(row, 31u));
+    /* ... to 12, then 14, then 10, then 24: the mark stays where the pattern ends */
+    t24_melody(row, 12u);
+    sq_row_fit(row, 0u, 16u, 12u);
+    CHECK(sq_row_fit(row, 0u, 12u, 14u) == 0u && t24_mark(row, 16u) && sq_row_fit(row, 0u, 14u, 10u) == 0u && t24_mark(row, 16u) && t24_ghosts(row) == 1u);
+    CHECK(sq_row_fit(row, 0u, 10u, 24u) == 8u && row[16].note[0] == 60u && row[23].note[0] == 67u && !t24_on(row, 12u));
+    /* a track of 32, the pattern and its copies, made 12: the copies are no more, the mark is at 16 */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    CHECK(sq_row_fit(row, 0u, 32u, 12u) == 0u && t24_mark(row, 16u) && t24_ghosts(row) == 1u && row[13].note[0] == 73u && !t24_gh(row, 13u));
+    CHECK(sq_row_fit(row, 0u, 12u, 20u) == 4u && row[19].note[0] == 63u);
+    /* the mark written on (the player put a step there): it is a step, the player's, and part of the pattern */
+    t24_melody(row, 12u);
+    sq_row_fit(row, 0u, 16u, 12u);
+    row[16].flags |= SQ_STEP_ON | SQ_STEP_SET; row[16].note[0] = 50u;
+    CHECK(sq_row_fit(row, 0u, 12u, 32u) == 8u && row[16].note[0] == 50u && !t24_gh(row, 16u) && sq_row_own(row, 0u, 32u) == 24u && row[24].note[0] == 60u);
+    /* a pattern MADE for a track: 16 steps in a track of 32, of 17, of 12, of 64; what was in the row before is gone */
+    t24_melody(row, 40u);
+    for (i = 16u; i < 40u; i++) row[i].note[0] = 1u;                    /* (the pattern that was there, longer) */
+    CHECK(sq_row_made(row, 16u, 32u) == 16u && row[16].note[0] == 60u && row[31].note[0] == 75u && !memcmp(&row[32], &d, sizeof d) && !memcmp(&row[39], &d, sizeof d));
+    t24_melody(row, 16u);
+    CHECK(sq_row_made(row, 16u, 17u) == 1u && row[16].note[0] == 60u && t24_gh(row, 16u) && !memcmp(&row[17], &d, sizeof d));
+    t24_melody(row, 16u);
+    CHECK(sq_row_made(row, 16u, 12u) == 0u && t24_mark(row, 16u) && row[15].note[0] == 75u && !t24_gh(row, 15u));
+    CHECK(sq_row_fit(row, 0u, 12u, 24u) == 8u && row[15].note[0] == 75u && row[16].note[0] == 60u);   /* (longer later: all of it, then again) */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);                                      /* (a pattern with copies, then one made over it: no flag is left in it) */
+    for (i = 0; i < 32u; i++) row[i].flags |= SQ_STEP_GHOST;
+    CHECK(sq_row_made(row, 32u, 64u) == 32u && sq_row_own(row, 0u, 64u) == 32u);
+    t24_melody(row, 64u);
+    CHECK(sq_row_made(row, 64u, 64u) == 0u && sq_row_made(row, 64u, 20u) == 0u && t24_ghosts(row) == 0u && row[63].note[0] == 123u);
+    /* THE PLAYER'S OWN STEPS AFTER THE LOOP are part of the pattern: nothing is copied over them. One step written at
+     * the very end keeps a longer track silent up to it (0.11 looked only at the new steps: 16 -> 40 copied) */
+    t24_melody(row, 16u);
+    row[63].flags = SQ_STEP_ON | SQ_STEP_SET;
+    CHECK(sq_row_fit(row, 0u, 16u, 40u) == 0u && !t24_on(row, 16u) && !t24_on(row, 39u) && sq_row_own(row, 0u, 40u) == 40u && t24_ghosts(row) == 0u);
+    CHECK(sq_row_fit(row, 0u, 40u, 64u) == 0u && t24_on(row, 63u) && !t24_on(row, 62u));
+    row[63].flags = 0u;                                                 /* turned off at 64: the 64 steps are the pattern, silent after the first 16 */
+    CHECK(sq_row_fit(row, 0u, 64u, 64u) == 0u && !t24_on(row, 16u) && !t24_on(row, 63u));
+    /* ... turned off while the track is still 40: nothing is written after it any more, the 40 steps go round */
+    t24_melody(row, 16u);
+    row[63].flags = SQ_STEP_ON | SQ_STEP_SET;
+    sq_row_fit(row, 0u, 16u, 40u);
+    row[63].flags = 0u;
+    CHECK(sq_row_fit(row, 0u, 40u, 64u) == 24u && row[40].note[0] == 60u && row[55].note[0] == 75u && !t24_on(row, 56u) && t24_gh(row, 63u));
+    CHECK(sq_row_own(row, 0u, 64u) == 40u);
+    /* a second bar written while the track loops the first, then 64: the two bars, twice (the pattern is two bars now) */
+    t24_melody(row, 16u);
+    row[20].flags = SQ_STEP_ON | SQ_STEP_SET; row[20].note[0] = 99u;
+    CHECK(sq_row_fit(row, 0u, 16u, 32u) == 0u && row[20].note[0] == 99u && !t24_on(row, 16u) && !t24_gh(row, 20u));
+    t24_melody(row, 16u);
+    row[20].flags = SQ_STEP_ON | SQ_STEP_SET; row[20].note[0] = 99u;
+    CHECK(sq_row_fit(row, 0u, 16u, 64u) == 32u && sq_row_own(row, 0u, 64u) == 32u && row[52].note[0] == 99u && row[32].note[0] == 60u && !t24_on(row, 48u) && !t24_on(row, 63u) && t24_gh(row, 63u));
+    /* ... written while the track is 24 (the pattern and half of it again): the copies become steps, the pattern is 32 */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 24u);
+    row[28].flags = SQ_STEP_ON | SQ_STEP_SET;
+    CHECK(sq_row_fit(row, 0u, 24u, 48u) == 16u && sq_row_own(row, 0u, 48u) == 32u && row[20].note[0] == 64u && !t24_gh(row, 20u) && t24_on(row, 28u) && row[32].note[0] == 60u);
+    /* a pattern of 12: what is written after it counts in twelves (a step in its second round: 24 steps) */
+    t24_melody(row, 12u);
+    row[13].flags = SQ_STEP_ON | SQ_STEP_SET;
+    CHECK(sq_row_fit(row, 0u, 12u, 36u) == 12u && sq_row_own(row, 0u, 36u) == 24u && t24_on(row, 13u) && !t24_on(row, 14u) && row[24].note[0] == 60u && row[35].note[0] == 71u && !t24_gh(row, 23u));
+    /* DOUBLE writes the loop again after itself, as steps: a loop of 12 with one note is 24 with two, and stays so */
+    t24_melody(row, 1u);
+    CHECK(sq_row_double(row, 12u, 64u) == 24u && sq_row_fit(row, 0u, 12u, 24u) == 0u && t24_on(row, 12u) && !t24_on(row, 16u) && t24_ghosts(row) == 0u);
+    CHECK(sq_row_fit(row, 0u, 24u, 32u) == 8u && t24_on(row, 24u) && !t24_on(row, 28u));
+    /* an empty pattern made longer is a longer empty pattern: no copies, no mark (a note written then is one note) */
     for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
-    row[0].flags |= SQ_STEP_ON; row[3].flags |= SQ_STEP_ON;
-    for (i = 17u; i <= 24u; i++) CHECK(sq_row_extend(row, 0u, 16u, (uint8_t)(i - 1u), (uint8_t)i) == 1u);
-    CHECK((row[16].flags & SQ_STEP_ON) && !(row[17].flags & SQ_STEP_ON) && (row[19].flags & SQ_STEP_ON) && !(row[20].flags & SQ_STEP_ON));
-    /* shortened and lengthened again: what was written beyond the old length comes back, nothing is overwritten */
-    for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
-    row[0].flags |= SQ_STEP_ON; row[20].flags |= SQ_STEP_ON; row[20].note[0] = 99u;
-    CHECK(sq_row_extend(row, 0u, 16u, 16u, 32u) == 0u && row[20].note[0] == 99u && !(row[16].flags & SQ_STEP_ON));
-    /* a loop that starts late repeats its own span */
+    CHECK(sq_row_fit(row, 0u, 16u, 32u) == 0u && sq_row_own(row, 0u, 32u) == 32u && sq_row_fit(row, 0u, 32u, 8u) == 0u && t24_ghosts(row) == 0u);
+    /* a loop that starts late goes round its own span */
     for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
     row[4].flags |= SQ_STEP_ON; row[6].flags |= SQ_STEP_ON;
-    CHECK(sq_row_extend(row, 4u, 8u, 8u, 16u) == 8u);
-    CHECK((row[8].flags & SQ_STEP_ON) && !(row[9].flags & SQ_STEP_ON) && (row[10].flags & SQ_STEP_ON) && (row[12].flags & SQ_STEP_ON) && (row[14].flags & SQ_STEP_ON));
-    /* no change: nothing longer, or past the end */
-    CHECK(sq_row_extend(row, 0u, 16u, 16u, 16u) == 0u && sq_row_extend(row, 0u, 16u, 16u, 8u) == 0u);
-    CHECK(sq_row_extend(row, 0u, 64u, 64u, 70u) == 0u);
-    /* `from` under the period (the knob came back under it, then up): the period's own steps are left alone */
+    CHECK(sq_row_fit(row, 4u, 8u, 16u) == 8u);
+    CHECK(t24_on(row, 8u) && !t24_on(row, 9u) && t24_on(row, 10u) && t24_on(row, 12u) && t24_on(row, 14u) && sq_row_own(row, 4u, 16u) == 8u);
+    /* the same length: the row is put in order (old copies after the loop go) */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    CHECK(sq_row_fit(row, 0u, 24u, 24u) == 8u && t24_ghosts(row) == 8u && !t24_on(row, 24u));
+    /* lengths out of range */
+    t24_melody(row, 16u);
+    CHECK(sq_row_fit(row, 0u, 16u, 200u) == 48u && t24_gh(row, 63u) && sq_row_fit(row, 0u, 64u, 0u) == 0u && t24_mark(row, 16u));
+    /* flags that are not those of a pattern and its copies (a step among the copies that is not one): the player's */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    row[24].flags &= (uint8_t)~SQ_STEP_GHOST;
+    CHECK(sq_row_own(row, 0u, 32u) == 0u && sq_row_own(row, 0u, 24u) == 16u && sq_row_own(row, 16u, 24u) == 0u);
+    CHECK(sq_row_fit(row, 0u, 32u, 64u) == 32u && sq_row_own(row, 0u, 64u) == 32u && row[20].note[0] == 64u && !t24_gh(row, 20u) && row[52].note[0] == 64u);
+    /* own: none -> the length; kept: nothing flagged, the steps stay */
+    t24_melody(row, 16u);
+    CHECK(sq_row_own(row, 0u, 16u) == 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    sq_row_keep(row);
+    CHECK(t24_ghosts(row) == 0u && sq_row_own(row, 0u, 32u) == 32u && row[20].note[0] == 64u);
+    /* alike and the hash: the flag does not count, anything else does */
+    t24_melody(row, 16u);
+    row[1] = row[0]; row[1].flags |= SQ_STEP_GHOST;
+    CHECK(sq_step_alike(&row[0], &row[1]) && sq_step_hash(&row[0]) == sq_step_hash(&row[1]));
+    row[1].velocity ^= 1u;
+    CHECK(!sq_step_alike(&row[0], &row[1]) && sq_step_hash(&row[0]) != sq_step_hash(&row[1]));
+    row[1] = row[0]; row[1].flags ^= SQ_STEP_TIE;
+    CHECK(!sq_step_alike(&row[0], &row[1]));
+
+    /* THE SERVICE. The copies as they should be: nothing to do, the pattern is known */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    memset(&g, 0, sizeof g); g.pat = 255u;
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_NONE && g.pat == 3u && g.own == 16u);
+    /* a step of the pattern changes: its copy follows (and only then) */
+    row[5].note[0] = 30u; row[9].flags &= (uint8_t)~SQ_STEP_ON;
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_AGAIN && row[21].note[0] == 30u && !t24_on(row, 25u) && t24_gh(row, 21u) && sq_row_own(row, 0u, 32u) == 16u);
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_NONE);
+    /* a copy is written by hand: every copy is the player's step, as it sounds; the edit stays */
+    row[20].note[0] = 99u;
+    memcpy(was, row, sizeof row);
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_KEPT && row[20].note[0] == 99u && sq_row_own(row, 0u, 32u) == 32u && g.pat == 255u);
+    for (i = 0; i < 32u; i++) CHECK(sq_step_alike(&row[i], &was[i]));
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_NONE && row[4].note[0] == 64u);
+    row[4].note[0] = 10u;                                               /* ... and the pattern's step no longer moves the other */
+    CHECK(sq_ghost_service(row, 0u, 32u, 3u, &g) == SQ_GH_NONE && row[20].note[0] == 99u);
+    /* a step of the pattern AND a copy written between two passes (two pads pressed together): both stay */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    row[2].note[0] = 20u; row[27].flags &= (uint8_t)~SQ_STEP_ON;
+    CHECK(sq_ghost_service(row, 0u, 32u, 0u, &g) == SQ_GH_KEPT && row[2].note[0] == 20u && !t24_on(row, 27u) && row[18].note[0] == 62u);
+    /* a copy turned off and the pattern's step turned off too, in one pass: the copies are still the pattern's */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    row[2].flags &= (uint8_t)~SQ_STEP_ON; row[18].flags &= (uint8_t)~SQ_STEP_ON;
+    CHECK(sq_ghost_service(row, 0u, 32u, 0u, &g) == SQ_GH_NONE && sq_row_own(row, 0u, 32u) == 16u);
+    /* another pattern on the track, never seen: its copies differ from it (the editor wrote one) -> kept, not made again */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    row[7].note[0] = 1u;
+    CHECK(sq_ghost_service(row, 0u, 32u, 1u, &g) == SQ_GH_KEPT && row[23].note[0] == 67u && row[7].note[0] == 1u);
+    /* a tool turned the loop round (the copies first, the pattern after): flags that are not those of copies -> kept */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    sq_row_reverse(row, 32u);
+    g.pat = 255u;
+    CHECK(sq_ghost_service(row, 0u, 32u, 0u, &g) == SQ_GH_KEPT && sq_row_own(row, 0u, 32u) == 32u && row[0].note[0] == 75u && row[31].note[0] == 60u);
+    /* the loop's start moved: the copies no longer answer the pattern from there -> kept as they are */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    CHECK(sq_ghost_service(row, 4u, 32u, 0u, &g) == SQ_GH_KEPT && row[16].note[0] == 60u);
+    /* no copies in the loop: nothing known, nothing done (a loop between two steps of the pattern) */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 32u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    CHECK(sq_ghost_service(row, 8u, 12u, 0u, &g) == SQ_GH_NONE && g.pat == 255u && t24_gh(row, 20u));
+    CHECK(sq_ghost_service(row, 0u, 32u, 0u, &g) == SQ_GH_NONE && g.pat == 0u);
+    /* the copies of rests are copies too (flagged), and a note written on one of them is the player's */
     for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
-    row[0].flags |= SQ_STEP_ON; row[12].flags |= SQ_STEP_ON;
-    CHECK(sq_row_extend(row, 0u, 16u, 12u, 20u) == 4u && (row[16].flags & SQ_STEP_ON) && !(row[17].flags & SQ_STEP_ON) && (row[12].flags & SQ_STEP_ON));
+    row[0].flags = SQ_STEP_ON | SQ_STEP_SET;
+    sq_row_fit(row, 0u, 16u, 32u);
+    CHECK(t24_gh(row, 17u) && !t24_on(row, 17u) && t24_on(row, 16u));
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 32u, 0u, &g);
+    row[17].flags |= SQ_STEP_ON | SQ_STEP_SET;
+    CHECK(sq_ghost_service(row, 0u, 32u, 0u, &g) == SQ_GH_KEPT && t24_on(row, 17u) && !t24_on(row, 1u) && !t24_gh(row, 16u));
+}
+
+/* 0.24: the copies in the image: the flag is not in the steps (a 0.23 firmware reads plain steps, a copied rest costs
+ * nothing), chunk 3 says which steps; the library's patterns for a track's length */
+static void test_v024_image(void)
+{
+    static uint8_t img[0x10000], img2[0x10000];
+    sq_step_t d, row[SQ_STEPS];
+    sq_track_cfg_t cfg;
+    uint32_t n, n0, n2, i, t, pat, bad = 0u;
+    sq_step_default(&d);
+    sq_project_init(&proj_a);
+    n0 = sq_serialize(&proj_a, img, sizeof img);
+    t24_melody(proj_a.step[2][1], 16u);
+    for (i = 4u; i < 16u; i++) sq_step_default(&proj_a.step[2][1][i]);            /* four notes and twelve rests */
+    n = sq_serialize(&proj_a, img, sizeof img);
+    proj_a.track[2].length = 64u;
+    CHECK(sq_row_fit(proj_a.step[2][1], 0u, 16u, 64u) == 48u);
+    t24_melody(proj_a.step[9][7], 12u);
+    proj_a.track[9].length = 15u;
+    sq_row_fit(proj_a.step[9][7], 0u, 12u, 15u);
+    n2 = sq_serialize(&proj_a, img, sizeof img);
+    CHECK(n0 && n > n0 && n2 > n);
+    /* the 48 copies of T3 are 12 notes and 36 rests: the notes cost what notes cost, the rests nothing, and seven bytes
+     * say that they are copies (the chunk's three and four a pattern) */
+    {
+        uint32_t four = n - n0 - 8u;                                               /* (a pattern with steps: 8 bytes say which, then the steps) */
+        proj_b = proj_a;
+        for (i = 0; i < SQ_STEPS; i++) sq_step_default(&proj_b.step[9][7][i]);
+        CHECK(sq_serialize(&proj_b, img2, sizeof img2) == n + 3u * four + 3u + 4u);
+        sq_row_keep(proj_b.step[2][1]);                                            /* the same steps as the player's: the chunk is no more */
+        CHECK(sq_serialize(&proj_b, img2, sizeof img2) == n + 3u * four);
+    }
+    CHECK(sq_deserialize(&proj_b, img, n2) == 0);
+    for (t = 0; t < SQ_TRACKS; t++) for (pat = 0; pat < SQ_PATTERNS; pat++) for (i = 0; i < SQ_STEPS; i++)
+        if (memcmp(&proj_a.step[t][pat][i], &proj_b.step[t][pat][i], sizeof d)) bad++;
+    CHECK(!bad);                                                                    /* every step back, the flags too */
+    CHECK(sq_row_own(proj_b.step[2][1], 0u, 64u) == 16u && sq_row_own(proj_b.step[9][7], 0u, 15u) == 12u && proj_b.step[2][1][20].flags == SQ_STEP_GHOST
+          && proj_b.step[2][1][17].flags == (SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_GHOST));
+    CHECK(sq_serialize(&proj_b, img2, sizeof img2) == n2 && !memcmp(img, img2, n2));   /* written again: the same image */
+    /* RELOAD reads one pattern of one track: its copies with it */
+    CHECK(sq_image_track(img, n2, 2u, 1u, &cfg, row) == 0 && cfg.length == 64u);
+    for (i = 0; i < SQ_STEPS; i++) CHECK(!memcmp(&row[i], &proj_a.step[2][1][i], sizeof d));
+    CHECK(sq_image_track(img, n2, 2u, 0u, &cfg, row) == 0 && !(row[20].flags & SQ_STEP_GHOST));
+    /* the flag is not in a step of the image: a reader that skips chunk 3 (0.23) has plain steps. The chunk is the
+     * last thing before the end: without it the image reads, the notes are there, nothing is a copy */
+    {
+        uint32_t cut = n2 - 1u - (3u + 8u);                                         /* (two patterns with copies: 3 + 2 x 4 bytes, then the 0) */
+        CHECK(img[cut] == SQ_CHUNK_GHOST && img[cut + 1u] == 8u && img[cut + 2u] == 0u);
+        memcpy(img2, img, cut);
+        img2[cut] = 0u;
+        CHECK(sq_deserialize(&proj_b, img2, cut + 1u) == 0);
+        CHECK(proj_b.step[2][1][16].note[0] == 60u && (proj_b.step[2][1][16].flags & SQ_STEP_ON) && !(proj_b.step[2][1][16].flags & SQ_STEP_GHOST));
+        CHECK(sq_row_own(proj_b.step[2][1], 0u, 64u) == 64u);
+    }
+    /* a chunk that names what is not there is passed over */
+    {
+        uint32_t cut = n2 - 1u - (3u + 8u);
+        memcpy(img2, img, n2);
+        img2[cut + 3u] = 99u;                                                       /* a track that is none */
+        img2[cut + 9u] = 30u; img2[cut + 10u] = 20u;                                /* first after end */
+        CHECK(sq_deserialize(&proj_b, img2, n2) == 0 && sq_row_own(proj_b.step[2][1], 0u, 64u) == 64u && sq_row_own(proj_b.step[9][7], 0u, 15u) == 15u);
+    }
+    /* sanitize keeps the flag */
+    proj_a.step[2][1][17].flags = 0xFFu;
+    sq_project_sanitize(&proj_a);
+    CHECK(proj_a.step[2][1][17].flags == SQ_STEP_FLAGS && (SQ_STEP_FLAGS & SQ_STEP_GHOST));
+
+    /* THE LIBRARY FOR A TRACK'S LENGTH. sq_len_made: 64, 32, 16 */
+    CHECK(sq_len_made(1u) == 16u && sq_len_made(16u) == 16u && sq_len_made(31u) == 16u && sq_len_made(32u) == 32u && sq_len_made(63u) == 32u && sq_len_made(64u) == 64u);
+    {
+        static sq_step_t a[SQ_STEPS], b[SQ_STEPS];
+        uint8_t g, f, v, nv, native, seen16 = 0u, seen32 = 0u, seen64 = 0u;
+        for (g = 0; g < SQ_GENRES; g++) for (f = 0; f < SQ_FUNCS; f++) {
+            if (f == SQ_FUNC_PROG || f == SQ_FUNC_KIT) continue;
+            nv = sq_beat_variants(g, f);
+            for (v = 0; v < nv; v++) {
+                uint8_t len;
+                native = sq_beat_load(a, g, f, v, 60u);
+                if (native != 16u && native != 32u && native != 64u) { CHECK(native == 16u); continue; }
+                if (native == 16u) seen16++; else if (native == 32u) seen32++; else seen64++;
+                for (len = 1u; len <= 64u; len = (uint8_t)(len + (len < 14u ? 13u : len == 31u || len == 63u || len == 15u ? 1u : 15u))) {
+                    uint8_t made = sq_len_made(len), want = native < made ? native : made, got, k;
+                    for (k = 0; k < SQ_STEPS; k++) sq_step_default(&b[k]);
+                    got = sq_beat_load_for(b, g, f, v, 60u, len, 0u);              /* COPY: as it is written, its first bars when it is longer */
+                    CHECK(got == want);
+                    for (k = 0; k < got; k++) if (memcmp(&a[k], &b[k], sizeof d)) { CHECK(0); break; }
+                    got = sq_beat_load_for(b, g, f, v, 60u, len, 1u);              /* PHRASE: always as long as the track asks */
+                    CHECK(got == made);
+                    if (native >= made) for (k = 0; k < made; k++) if (memcmp(&a[k], &b[k], sizeof d)) { CHECK(0); break; }
+                }
+            }
+        }
+        CHECK(seen16 && seen32 && seen64);                                          /* (the library has variations of one, two and four bars) */
+        CHECK(sq_beat_load_for(a, 0u, SQ_FUNC_PROG, 0u, 60u, 32u, 0u) == 0u && sq_beat_load_for(a, 0u, SQ_FUNC_KICK, 250u, 60u, 32u, 0u) == 0u);
+    }
 }
 
 /* 0.11: COOK walks a row to the next variation, the weak places first; the generated melodic parts get their lengths */
@@ -2877,7 +3171,8 @@ int main(void)
     test_v08();
     test_v09();
     test_v010();
-    test_v011_extend();
+    test_v024_copies();
+    test_v024_image();
     test_v011_cook();
     test_v011_harmony();
     test_planes();

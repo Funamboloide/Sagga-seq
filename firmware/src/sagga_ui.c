@@ -283,7 +283,7 @@ static void ui_build(void)
             ui_cell(0, "CC LEAD MS", f_u(project.live.cc_lead_ms), project.live.cc_lead_ms ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "SONG TEMPO", f_onoff(project.live.song_tempo), project.live.song_tempo ? C_ON : SQ_C_DIM);
             ui_cell(2, f_pre("DEVICE CH", (uint32_t)ch + 1u), sq_device_name(project.device[ch]), project.device[ch] ? C_ACCENT : C_WHITE);
-            ui_cell(3, "LIBRARY LEN", project.gen.lib_len == SQ_LL_64 ? "64" : project.gen.lib_len == SQ_LL_32 ? "32" : "16", project.gen.lib_len ? C_ACCENT : C_WHITE);
+            ui_cell(3, "LONG PATTERNS", project.gen.lib_len == SQ_LL_PHRASE ? "PHRASE" : "COPY", project.gen.lib_len ? C_ACCENT : C_WHITE);
             ui_line(2, "SAVE 2/4  LOCKS AHEAD, SONG TEMPO, SYNTH", C_WARN);
             break;
         }

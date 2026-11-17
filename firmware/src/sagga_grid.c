@@ -40,7 +40,8 @@ static const char *const GV_NAME[GV_COUNT] = {"STEP", "PERF", "TRACK", "CC", "LF
 /* LED roles: the bridge decides the colours (tools/sagga_grid_bridge.py, ROLE_RGB) */
 enum { GL_OFF = 0, GL_FAINT, GL_DIM, GL_ON, GL_ACCENT, GL_PLAY, GL_CURSOR, GL_BLUE,
        GL_MUTED, GL_PEND, GL_FILL, GL_WHITE, GL_CYAN, GL_VIOLET, GL_ORANGE, GL_YELLOW,
-       GL_TAIL, GL_TIE };                                   /* 0.12: a step a long note covers; a step tied to the next */
+       GL_TAIL, GL_TIE,                                     /* 0.12: a step a long note covers; a step tied to the next */
+       GL_GHOST };                                          /* 0.24: a COPY that plays: the pattern going round again in a longer track */
 
 /* the 32 buttons: 0-7 left Launchpad top row, 8-15 right Launchpad top row, 16-23 and 24-31 their side columns */
 enum { GC_PLAY = 0, GC_REC, GC_FILL, GC_UNDO, GC_VSTEP, GC_VPERF, GC_VTRACK, GC_SHIFT,
@@ -1312,6 +1313,7 @@ static void gr_render_step(void)
             else role = on ? GL_DIM : GL_FAINT;                                                  /* ... dim, a hit it takes away */
             if (!on && ((tail | half) & ((uint64_t)1u << stn)) && (role == GL_FAINT || role == GL_DIM)) role = GL_TAIL;
             if (on && (s->flags & SQ_STEP_LEGATO) && stn < cfg->length && stn >= cfg->start) role = GL_TIE;
+            if (on && (s->flags & SQ_STEP_GHOST) && stn < cfg->length && stn >= cfg->start) role = GL_GHOST;   /* 0.24: not written: the pattern again */
             if (stn == cursor_step) role = on ? GL_CURSOR : GL_ORANGE;
             if (playing && stn < cfg->length && ev[t].step_index == stn) role = GL_PLAY;
             gr_put(x, y, role);
@@ -1379,7 +1381,9 @@ static void gr_render_viaggio(void)
     }
     for (x = 0; x < 16u; x++) {                            /* row 4: the moves */
         uint8_t kind = x < 11u ? VG_BLACK_MOVE[x] : 0u, role = GL_OFF;
-        if (x < 10u) role = sq_queue_find(&vg_q, kind, selected_track) >= 0 ? GL_PEND : vg_allows_move(kind) ? GL_DIM : GL_OFF;
+        if (x < 10u) role = (sq_queue_find(&vg_q, kind, selected_track) >= 0
+                             || (kind == SQ_MV_HALF && sq_queue_find(&vg_q, SQ_MV_SHORTER, 0u) >= 0)       /* 0.24: SHIFT + the pad */
+                             || (kind == SQ_MV_DOUBLE && sq_queue_find(&vg_q, SQ_MV_LONGER, 0u) >= 0)) ? GL_PEND : vg_allows_move(kind) ? GL_DIM : GL_OFF;
         else if (x == 10u) role = vg_now ? GL_PEND : vg_q.n ? GL_CYAN : GL_FAINT;
         else if (x == 14u) role = vg_trail.n ? GL_VIOLET : GL_FAINT;
         else if (x == 15u) role = vg_q.n ? GL_ORANGE : GL_FAINT;
@@ -1694,6 +1698,7 @@ static void gr_render_drum(void)
             if (stn >= c->length || stn < c->start) role = on ? GL_BLUE : GL_OFF;
             else if (heard) role = !aud ? GL_MUTED : !on ? GL_CYAN : s->velocity >= 110u ? GL_ACCENT : GL_ON;
             else role = on ? GL_DIM : sel ? GL_DIM : GL_FAINT;
+            if (on && aud && (s->flags & SQ_STEP_GHOST) && stn < c->length && stn >= c->start) role = GL_GHOST;   /* 0.24 */
             if (sel && stn == cursor_step) role = on ? GL_CURSOR : GL_ORANGE;
             if (playing && ev[t].step_index == stn && stn < c->length) role = GL_PLAY;
             gr_put(x, y, role);

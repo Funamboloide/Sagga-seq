@@ -30,7 +30,9 @@
 #define SQ_STEP_XOFF 0x08u   /* 0.10: a plain step on an EXPO track: it plays as written, no curve (EDIT + black 5) */
 #define SQ_STEP_TIE  0x10u   /* 0.10: legato: the note ends after the next step's note has begun (a mono synth slides) */
 #define SQ_STEP_SLIDE 0x20u  /* 0.13: TIE, and the next note glides into place: portamento on (CC 65) for that note (the 808) */
-#define SQ_STEP_FLAGS (SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_LOCK | SQ_STEP_XOFF | SQ_STEP_TIE | SQ_STEP_SLIDE)
+#define SQ_STEP_GHOST 0x40u  /* 0.24: an automatic COPY: the pattern going round again in a track longer than it is (sq_row_fit).
+                              * In the image the flag is not in the step (a copied rest costs nothing): chunk 3 says which steps */
+#define SQ_STEP_FLAGS (SQ_STEP_ON | SQ_STEP_SET | SQ_STEP_LOCK | SQ_STEP_XOFF | SQ_STEP_TIE | SQ_STEP_SLIDE | SQ_STEP_GHOST)
 #define SQ_STEP_LEGATO (SQ_STEP_TIE | SQ_STEP_SLIDE)   /* 0.13: the note holds into the next step (TIE, or SLIDE) */
 
 #define SQ_RATCHET_MAX 8u    /* repeats per step (BLOCK) or notes per step (ARP) */
@@ -576,6 +578,9 @@ typedef struct __attribute__((packed)) {
 } sq_theory_t;                   /* 1028 bytes */
 #define SQ_CHUNK_TH 2u           /* the image's chunk of it: src, seed (2), n, then n x (track, pattern, sq_thpat_t): only the
                                   * patterns the engines made; no chunk when there is nothing to say (a 0.22 firmware skips it) */
+#define SQ_CHUNK_GHOST 3u        /* 0.24: the image's chunk of the copies (SQ_STEP_GHOST): n x (track, pattern, first, end) - the
+                                  * steps first .. end-1 of that pattern are copies. The steps themselves are in the image as
+                                  * plain steps (a 0.23 firmware, which skips the chunk, plays them); a copied rest is not there */
 void sq_theory_default(sq_theory_t *h);
 void sq_theory_sanitize(sq_theory_t *h);
 void sq_thpat_sanitize(sq_thpat_t *m);
@@ -603,7 +608,12 @@ enum { SQ_GM_FREE = 0, SQ_GM_ON, SQ_GM_LIVE, SQ_GMS };   /* 0.10 GENRE: FREE = t
                                                           * LIVE = ON, and the tracks loaded from the library follow a change */
 enum { SQ_WHEN_NOW = 0, SQ_WHEN_BAR, SQ_WHEN_2, SQ_WHEN_4, SQ_WHEN_8, SQ_WHEN_16, SQ_WHENS };   /* 0.10: a tool applies at ... */
 enum { SQ_EVERY_OFF = 0, SQ_EVERY_1, SQ_EVERY_2, SQ_EVERY_4, SQ_EVERY_8, SQ_EVERY_16, SQ_EVERY_32, SQ_EVERYS };   /* ... and again every ... bars */
-enum { SQ_LL_16 = 0, SQ_LL_32, SQ_LL_64, SQ_LLS };   /* 0.10: the length a library pattern is loaded at */
+/* 0.24 LONG PATTERNS: what a library pattern of one bar becomes in a longer track. COPY: itself again (the track
+ * repeats it); PHRASE: the long form of 0.10 (the next variation in the last bar, the genre's fill). The patterns the
+ * library has written over two or four bars come as they are either way. (0.10 - 0.23: LIBRARY LEN 16 / 32 / 64, the
+ * length a pattern was loaded at - and the track made that long. The length is the track's now: 16 reads as COPY,
+ * 32 and 64 as PHRASE.) */
+enum { SQ_LL_COPY = 0, SQ_LL_PHRASE, SQ_LLS };
 #define SQ_UPROGS 4u             /* 0.10: progressions written by the player; harm_prog SQ_PROGS.. picks them */
 #define SQ_UPROG_SLOTS (SQ_UPROGS + 1u)   /* 0.11: and one more, the progression that came from the Pi (harm_prog 10) */
 #define SQ_PROG_PI (6u + SQ_UPROGS)       /* 0.11: harm_prog of the Pi's progression (uprog[SQ_UPROGS]) */
@@ -703,6 +713,7 @@ enum { SQ_MV_NONE = 0,
        SQ_MV_KEY,                /* a: root 0..11; b: scale */
        SQ_MV_ENERGY,             /* a: the target 0..100 */
        SQ_MV_BACK,               /* INDIETRO: a phrases back in the trail */
+       SQ_MV_LONGER, SQ_MV_SHORTER,   /* 0.24: every track twice / half as long (its patterns go round again in it, or wait after it) */
        SQ_MOVE_KINDS };
 typedef struct __attribute__((packed)) { uint8_t kind, a, b; } sq_move_t;
 typedef struct { sq_move_t m[SQ_MOVES]; uint8_t n; } sq_queue_t;
@@ -1022,12 +1033,48 @@ uint8_t sq_row_approach(sq_step_t *row, const sq_step_t *target, uint8_t len, ui
 void sq_row_phrase_gates(sq_step_t *row, uint8_t len, uint8_t role, uint8_t heat, uint32_t *rng);
 /* DOUBLE: the pattern is repeated after itself; returns the new length (at most `room`, the steps there are from row) */
 uint8_t sq_row_double(sq_step_t *row, uint8_t len, uint8_t room);
-/* 0.11: a track made longer, to `new_len` steps: the steps from `from` on repeat the loop of `period` steps that was
- * there (the loop starts at `start`: step i gets step start + (i - start) % (period - start)), but only if they are
- * all at rest - steps that were written and hidden by a shorter length come back as they were. `period` is the length
- * before the knob began to turn, `from` the length now (the knob may have gone past it already, or come back under
- * it: `from` is raised to `period`). Returns the steps written (0: kept). */
-uint8_t sq_row_extend(sq_step_t *row, uint8_t start, uint8_t period, uint8_t from, uint8_t new_len);
+/* 0.24: A PATTERN IN A TRACK LONGER THAN IT IS. The length is the track's; a pattern shorter than its track goes
+ * round again in the steps the track has more: those steps are its COPIES (SQ_STEP_GHOST), each the step of the
+ * pattern that would play there - step i is step start + (i - start) % (own - start), `own` the pattern's own length.
+ * In a row the copies are the end of the loop: own .. length-1. They are kept equal to the pattern (sq_ghost_service:
+ * a step of the pattern changed, its copies change), until one of them is written by hand, or a tool rewrites the
+ * loop: then all of them are the player's steps, and the pattern is as long as the track.
+ * A pattern LONGER than its track (a track made shorter, a library pattern in a short track) keeps the steps the track
+ * does not play; one step at rest flagged a copy, after its last, is the MARK of where it ends - so that the track
+ * made longer again finds the pattern as it was, its silences too, and goes round from there.
+ * (0.11 had sq_row_extend: the loop repeated into the new steps, once, the period "the length when the knob began to
+ * turn" - 16, then 19 at the bar, then 32 repeated the 19: a second bar three steps off, for good.) */
+/* the pattern's own length in the loop start .. len-1: where its copies begin; len when it has none; 0 when the flags
+ * are not those of copies (a copy on the loop's first step, a step after the first copy that is not one) */
+uint8_t sq_row_own(const sq_step_t *row, uint8_t start, uint8_t len);
+/* THE TRACK'S LENGTH CHANGED, old_len -> new_len (longer, shorter, or the same: a row to be put in order). The
+ * pattern ends where its copies begin, at its mark, or with the old loop; what the track has after that is the
+ * pattern again, whatever lengths came before, and what the track no longer has loses its copies (the pattern's own
+ * steps stay where they are, with the mark when the loop is now shorter than the pattern).
+ * BUT the steps the player wrote after the pattern (a step that plays, not a copy, from old_len on) are part of it:
+ * the pattern then ends with the round of itself that the last of them is in (a step written in the second bar of a
+ * 16-step pattern: 32 steps; the last step alone, the 64th: all 64, silent up to it), its copies become steps, and
+ * only what the track has after THAT is copied. A pattern with no step that plays has no copies and no mark.
+ * Returns the copies in the loop */
+uint8_t sq_row_fit(sq_step_t *row, uint8_t start, uint8_t old_len, uint8_t new_len);
+/* a pattern was MADE in steps 0 .. made-1 (the library, an engine) for a track of len steps: the rest of the row is
+ * cleared, then the copies (len > made) or the mark (len < made). Returns the copies */
+uint8_t sq_row_made(sq_step_t *row, uint8_t made, uint8_t len);
+/* a loop of steps (none flagged: a tool worked on it) that IS a pattern of `own` and its rounds - every step from own
+ * on the step of the pattern that would play there: those steps are flagged its copies again. Returns 1 if it was */
+uint8_t sq_row_again(sq_step_t *row, uint8_t start, uint8_t own, uint8_t len);
+/* the copies become the player's steps: nothing in the row is flagged */
+void sq_row_keep(sq_step_t *row);
+uint8_t sq_step_alike(const sq_step_t *a, const sq_step_t *b);   /* the same step, but for SQ_STEP_GHOST */
+uint16_t sq_step_hash(const sq_step_t *s);                        /* of a step without SQ_STEP_GHOST */
+/* what the copies of the pattern a track plays were last seen made from: a hash a step of the pattern */
+typedef struct { uint16_t h[SQ_STEPS]; uint8_t pat, own, start; } sq_ghost_t;   /* pat 255: nothing known */
+enum { SQ_GH_NONE = 0,           /* no copies, or all as they should be */
+       SQ_GH_AGAIN,              /* the pattern changed: its copies were made again */
+       SQ_GH_KEPT };             /* a copy was written (it differs from the pattern, and is not what the pattern was): all
+                                  * the copies are the player's steps now. Also when the flags are not those of copies */
+/* called now and then on the pattern a track plays (pattern number `pat`, to know when it is another) */
+uint8_t sq_ghost_service(sq_step_t *row, uint8_t start, uint8_t len, uint8_t pat, sq_ghost_t *g);
 /* the generators' other targets: notes moved by steps of the key (chords move together), CC lane values per step
  * (lane_mask: bit per lane; base: the lanes' base values, SQ_LANE_NONE = 64), random notes of the key around center */
 void sq_row_cook_notes(sq_step_t *row, uint8_t len, uint8_t heat, uint8_t root, uint8_t scale, uint32_t *rng);

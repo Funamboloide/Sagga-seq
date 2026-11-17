@@ -68,6 +68,14 @@ uint8_t sq_beat_load(sq_step_t *row, uint8_t genre, uint8_t func, uint8_t var, u
  * 16ths roll (a ratchet of 2, or 3 where the genre rolls in triplets) or gain a hit. Deterministic. */
 uint8_t sq_beat_load_len(sq_step_t *row, uint8_t genre, uint8_t func, uint8_t var, uint8_t note, uint8_t len);
 /* 0.9: the same from a pattern's text (at most SQ_STEPS characters; `notes` 0 for a drum): the AFRO / LATIN family */
+/* 0.24: the variation as the pattern of a track `len` steps long (1..64): the track's length is the player's, the
+ * pattern is made for it. A track of 64 gets 64 steps, one of 32..63 gets 32, a shorter one 16: the variation as it is
+ * written when it is written that long (many are, over two or four bars: the answers, the fills), or its first bars
+ * when it is longer; one written shorter is given as it is (`phrase` 0: the track repeats it - COPY) or in the long
+ * form of 0.10 (`phrase` 1: the bars after the first are the next variation's, the genre's fill in the last). Returns
+ * the steps of the pattern, 16, 32 or 64 (0: none); what the track has more is the pattern again (sq_row_made) */
+uint8_t sq_beat_load_for(sq_step_t *row, uint8_t genre, uint8_t func, uint8_t var, uint8_t note, uint8_t len, uint8_t phrase);
+uint8_t sq_len_made(uint8_t len);        /* 64, 32 or 16: the steps a pattern is made in for a track of len steps */
 uint8_t sq_beat_load_text(sq_step_t *row, const char *text, const char *notes, uint8_t func, uint8_t note);
 /* the four parts of a KIT (0 kick, 1 snare, 2 hat, 3 perc): their function and the note they play */
 void sq_beat_kit_part(uint8_t genre, uint8_t part, uint8_t *func, uint8_t *note);

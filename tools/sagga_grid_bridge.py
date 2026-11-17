@@ -59,7 +59,8 @@ import zlib
 # the order is the GL_* enum in firmware/src/sagga_grid.c (tests/sagga_bridge_tests.py checks it)
 ROLE_NAMES = ["OFF", "FAINT", "DIM", "ON", "ACCENT", "PLAY", "CURSOR", "BLUE",
               "MUTED", "PEND", "FILL", "WHITE", "CYAN", "VIOLET", "ORANGE", "YELLOW",
-              "TAIL", "TIE"]                  # 0.12: a step a long note covers (a dark green), a step tied to the next
+              "TAIL", "TIE",                  # 0.12: a step a long note covers (a dark green), a step tied to the next
+              "GHOST"]                        # 0.24: a COPY that plays (the pattern going round again in a longer track)
 ROLE_PEND = ROLE_NAMES.index("PEND")          # blinks
 
 # Launchpad RGB, 0..127 per channel
@@ -82,6 +83,7 @@ ROLE_RGB = {
     "YELLOW": (100, 100, 0),
     "TAIL": (0, 28, 12),
     "TIE": (40, 110, 60),
+    "GHOST": (0, 38, 48),         # a dim blue-green: the same pattern, not written there (an older bridge shows it DIM)
 }
 RGB = [ROLE_RGB[n] for n in ROLE_NAMES]
 
@@ -214,7 +216,8 @@ class MK2(Launchpad):
 # first-generation Launchpad / Launchpad Mini (MK1 and the "MK2" Mini): red + green LEDs, 2 bits each
 MINI_RG = {"OFF": (0, 0), "FAINT": (0, 1), "DIM": (1, 1), "ON": (0, 3), "ACCENT": (2, 3), "PLAY": (3, 0),
            "CURSOR": (3, 2), "BLUE": (0, 2), "MUTED": (1, 0), "PEND": (3, 3), "FILL": (3, 1), "WHITE": (3, 3),
-           "CYAN": (1, 3), "VIOLET": (2, 1), "ORANGE": (2, 2), "YELLOW": (3, 3), "TAIL": (0, 1), "TIE": (1, 3)}
+           "CYAN": (1, 3), "VIOLET": (2, 1), "ORANGE": (2, 2), "YELLOW": (3, 3), "TAIL": (0, 1), "TIE": (1, 3),
+           "GHOST": (0, 2)}
 
 
 class Mini(Launchpad):

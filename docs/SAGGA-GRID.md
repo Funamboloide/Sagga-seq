@@ -255,6 +255,7 @@ the palette colours in `MK2_PALETTE`.)
 | 15 | YELLOW | solo, a marker |
 | 16 | TAIL (0.12) | a step a long note covers (the note before it still rings): a dark green, so the note reads as one block |
 | 17 | TIE (0.12) | a step tied to the next (legato): a lighter green |
+| 18 | GHOST (0.24) | a **copy** that plays: the pattern going round again in a track longer than it is (a dim blue-green; on the red-green Launchpads a medium green). A copy at rest is a rest as any other. A bridge older than 0.24 shows it DIM |
 
 ## 3. What the pads do
 
@@ -286,7 +287,7 @@ changes apply at once.
 
 | rows | pads |
 |---|---|
-| 1-4 | the 64 steps, 16 a row (0.8: what you hear; cyan a hit the live layer adds). Tap: on / off (the step becomes the cursor). **Hold one and press another: the note between them** (0.11: the first step plays that long, both counted; the FM-1's SEL + FX tapped first (0.12; FX alone in 0.11): the track loops between them instead, the first one stays as it was). Hold alone half a second: select without changing it. SHIFT + pad: the pattern ends here. Outside the loop: dark (blue if the step is on). 0.12: the steps a long note covers are dark green (TAIL), a tied step light green (TIE): a long note is one block. On a BREAK track the steps are slices: the note row (row 8) is the 16 slices. |
+| 1-4 | the 64 steps, 16 a row (0.8: what you hear; cyan a hit the live layer adds; **0.24: blue-green, a COPY - the pattern going round again in a track longer than it: it follows the pattern until you write on one, then they are all steps of yours**). Tap: on / off (the step becomes the cursor). **Hold one and press another: the note between them** (0.11: the first step plays that long, both counted; the FM-1's SEL + FX tapped first (0.12; FX alone in 0.11): the track loops between them instead, the first one stays as it was). Hold alone half a second: select without changing it. SHIFT + pad: the pattern ends here. Outside the loop: dark (blue if the step is on). 0.12: the steps a long note covers are dark green (TAIL), a tied step light green (TIE): a long note is one block. On a BREAK track the steps are slices: the note row (row 8) is the 16 slices. |
 | 5 | velocity of the cursor step, 16 levels |
 | 6 | chance, 6 % .. 100 %. **SHIFT: the condition** ALL, 1:2, 2:2, 1:4, 2:4, 3:4, 4:4, FILL, !FILL, 1:3, 2:3, 3:3, 1:8, FIRST, PRE, !PRE (0.10) |
 | 7 | left: ratchet 1..8; right: gate 12 % .. 100 %. **SHIFT** (0.10): pad 15 **PLAIN** (no EXPO from this step), pad 16 **TIE** (the note holds into the next step, legato) |
@@ -323,7 +324,7 @@ length, dim red a muted track's hits.
 | 2 | arp mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY); octaves 1-3 (14-16) |
 | 3 | swing 50 .. 75 % (1-8); direction FWD, REV, PING, RND (9-12); transpose -12, -1, +1, +12 (13-16; SHIFT: back to 0) |
 | 4 | division 1/1 .. 1/32T (1-13); the track FREE / IN KEY (cyan) / DRUM (amber) / BREAK (0.12) (14; a TAPE: HOME 4 K1 on the FM-1). (Mute and solo: the PERF view) |
-| 5 | length 4, 8 .. 64 (0.11: playing, at the bar; a longer loop filled with the one that was there). SHIFT: the loop start 1, 5 .. 61 |
+| 5 | length 4, 8 .. 64 (0.11: playing, at the bar; **0.24**: a longer track has the pattern go round again in its new steps - the copies, whatever lengths came before - and a shorter one keeps the pattern whole after the loop). SHIFT: the loop start 1, 5 .. 61 |
 | 6 | humanise: timing 0 .. 50 % (1-8), velocity 0 .. 50 (9-16) |
 | 7 | velocity offset -63 .. +63 (the middle pad: 0) |
 | 8 | nudge of the cursor step -50 .. +50 % (left of the middle: early) |
@@ -435,7 +436,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 1 | the bars of the phrase (red: playing, lit: past, the last one in the FILL colour when a fill waits); any pad: **NOW** (stopped: the queue at once) |
 | 2 | the 16 tracks: faint EMPTY, dim PROPOSED, lit IN, muted OUT; the selected one amber; red: LOOP records on it. **Tap**: a proposal (on an IN track nothing changes); **hold**: the dice; **SHIFT + tap** (0.10): the track's next **role** (KICK SNARE HAT PERC BASS CHORD ARP, or none: by its note) — the proposals follow it |
 | 3 | the queue: a track with a move waiting is lit; **tap**: IN / OUT at the boundary (the remote's CC 32) |
-| 4 | the moves 1-11 (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW; SHIFT: BREAK all / LOOP 4 bars); 15 **INDIETRO**; 16 **cancel** the last |
+| 4 | the moves 1-11 (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW; SHIFT: BREAK all / LOOP 4 bars; **0.24: SHIFT + HALF = SHORTER, SHIFT + DOUBLE = LONGER: every track's length half / twice**, at the phrase's end, stopped at once); 15 **INDIETRO**; 16 **cancel** the last |
 | 5 | the energy 0-100 (the bar: what sounds; the target in the waiting colour while it glides) |
 | 6 | the patterns of the selected track: the one playing red, the proposals lit; tap one: SWAP (IN track) or IN at the boundary; 16: the dice |
 | 7 | the progressions: 1-6 the genre's, 7-10 yours (violet; ARP 5 writes them), queued (0.17: with the HARMONY off, READY) |

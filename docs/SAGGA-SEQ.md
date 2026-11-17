@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.23.2
+# SAGGA SEQ 0.24
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -8,11 +8,58 @@ steps), the **THEORY engines** that make a band from a seed in each of them (0.2
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.23.2` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.24` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.22.
+
+## What is new in 0.24
+
+**The length is the track's.** A track's LENGTH (HOME 1 K2, the grid, the pages, the moves) is the player's, and its
+eight patterns fit it: a pattern shorter than its track goes round again in what the track has more, one longer keeps
+what the track does not play. Nothing that brings a pattern changes the length any more. The whole of it is in
+[The length of a track](#the-length-of-a-track-and-its-patterns-024) below; in short:
+
+* **A length that changes lands on the bar line.** While it plays a new length waits for the bar, as since 0.11 - but
+  the step ON that bar line was still the old loop's (the track was put in line a tick later): a track of 19 steps
+  made 32 at a bar played its step 11 there. It now plays the step the clock asks for, from that tick. The same for
+  everything else that changes a loop on a bar line (a snapshot, a pattern with other settings, the Pi's phrase).
+* **16, then 19, then 32: on the rails again.** A longer track repeats the PATTERN, whatever lengths came before.
+  0.11 repeated "the length when the knob began to turn": 16 made 19 at a bar (a polymetre, fine) and then 32 was the
+  nineteen going on - a second bar that began with steps 1 2 3 again and stayed three steps off for good. Now 32 is
+  the 16 steps twice. The steps the track has more are the pattern's **COPIES**: they follow it (change a step, its
+  copies change), until one of them is written - then they are all steps of yours (`THE COPIES ARE YOUR STEPS NOW`),
+  and the pattern is as long as the track. The screen says `LENGTH 32: THE 16 STEPS REPEAT`; the grid shows the
+  copies in a colour of their own.
+* **Shorter and back.** A track made shorter keeps its pattern whole after the loop, with a mark where it ends. Made
+  16 again, a pattern of 16 with a silent last quarter is as it was (0.11 - 0.23 wrote its first four steps there);
+  made 32 from 12, it is the pattern twice. Every pattern of the track fits a new length, not only the one that plays.
+* **Silence when you ask for it.** What you write after the loop is part of the pattern, and the pattern then ends
+  with the round of itself your last step is in: write the 64th step alone and a longer track stays silent up to it
+  (turn it off before the cursor gets there: 64 steps, 48 of them silent); write a second bar while the track loops
+  the first, and 64 steps are those two bars twice.
+* **A pattern that comes keeps the track's length.** BEAT, KIT, BAND, the dice, the proposals, GENRE LIVE, the Pi's
+  patterns, the engines: on a track of 32 a pattern of 16 comes with its copies, on a track of 17 with its first step
+  again, on a track of 12 its first twelve play and the rest waits. (Until 0.23 the pattern made the track as long as
+  itself.) SAVE 2 K4 was LIBRARY LEN and is **LONG PATTERNS**: COPY (a one-bar variation repeats) or PHRASE (the long
+  form of 0.10: the next variation in the last bar, the genre's fill). The variations the library has written over
+  two or four bars come whole on a track that long either way.
+* **LONGER / SHORTER, two moves.** On the MOSSE, SEL + black 6 (DOUBLE) and SEL + black 5 (HALF); on the grid's VIAGGIO
+  view SHIFT + those pads: every track twice or half as long, at the phrase's end (stopped: at once). SHORTER after
+  LONGER gives every pattern back as it was.
+* **The generators make a phrase for the length.** RANDOM and the dice on a track of 32 or 64 steps no longer fill it
+  with chance: a bar, its answer (the bar with another ending), the bar, the turn. COOK walks to the next variation
+  as a phrase as long as the track. The THEORY engines make the bars the track has (16, 32 or 64 steps) and the rest
+  is copies; a seed turned (SEQ 8 K3) makes the pattern again for the track as it is now.
+* **The Pi and the grid.** The grid's light role 18, GHOST, is a copy that plays (the bridge of 0.24 has its colour;
+  an older bridge shows it dim). The editor shows the copies and, when it saves, the Pi's converter puts them in
+  order as the FM-1 would: a track made longer there has its patterns go round, a copy changed there makes them steps.
+* **The project file.** That a step is a copy is not in the step: a list after the steps says which are (chunk 3).
+  A copied rest costs nothing; SAGGA SEQ 0.23 reads a 0.24 project and finds plain steps where the copies were.
+* Smaller things: a move that cancels its opposite in the queue says so (`CANCELLED: LONGER`, `CANCELLED: HALF`); a
+  phrase from the Pi's regia that changes a track's length puts the track in time; the explorers have a rule for the
+  copies (COPIE).
 
 ## What is new in 0.23.2
 
@@ -199,7 +246,7 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
 | SAVE | slot 1-8; **white 16: the set played becomes scenes and the song** (SALVA VIAGGIO) | **1-8 SNAPSHOT** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (4); PRESETS: the slot |
 | GLO (PERF) | **0.12: mute 1-16 in any mode** (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (3); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
-| **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE, THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
+| **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE (0.24, with SEL: SHORTER, LONGER - every track's length), THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
 
 A group **held half a second** with nothing else shows the map of its keys on the screen's message lines, and what
 SEL + a key does for the knob in focus (in a window the map stays four seconds, then the key and genre lines come back).
@@ -208,7 +255,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 TRACK | MIDI channel (1-14; 1-16 with two USB ports) | length 1-64 (playing: at the bar; longer: the new steps filled with the loop) | step: 1/1 .. 1/32T | transpose: IN KEY -24 .. +24 **steps of the scale**, FREE -48 .. +48 semitones |
+| 1 TRACK | MIDI channel (1-14; 1-16 with two USB ports) | length 1-64 (playing: at the bar, from the bar line; **0.24**: longer, the pattern goes round again in the new steps - its copies; shorter, it waits whole after the loop) | step: 1/1 .. 1/32T | transpose: IN KEY -24 .. +24 **steps of the scale**, FREE -48 .. +48 semitones |
 | 2 PLAY | direction FWD REV PING RND | swing 50 % (straight) .. 75 % | **OCTAVE** -3 .. +3 | **FOLLOW** the harmony |
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
@@ -282,7 +329,7 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 | SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** (**0.23, SOURCE THEORY: the NEXT SEED**) / **the genre** (of everything; the harmony follows only what is loaded) |
 | SAVE | **the selected track's loop to the Pi** as a variation of its part (**ARP + SAVE**: the progression, the one being written on ARP 5 / 6, else the one playing) |
 
-BEAT on one track loads the part chosen at the LIBRARY length (KIT: the genre's drums; they become drum tracks; BAND:
+BEAT on one track loads the part chosen for the track's length (0.24: the track keeps it; a pattern shorter than the track comes with its copies) (KIT: the genre's drums; they become drum tracks; BAND:
 the genre's whole band, on the tracks with those roles, else on free tracks; channels are kept); pressed again, the
 next variation. A BASS or ARP loaded while HARMONY is on gets FOLLOW. A loaded track remembers where it came from:
 GENRE LIVE reloads it from the new genre at the bar line. The tools apply to the scope (the screen says on how many
@@ -348,7 +395,7 @@ MOVES AT and PRESETS the progression; the black keys are the moves.
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
 | 1 | MASTER knob function | the remote OFF / CH 14 / 13 + 14 | snapshots bring their tempo | the PROFILE |
-| 2 | **CC LEAD** 0-30 ms | **SONG TEMPO** | **DEVICE** of the track's channel (GENERIC, ELEKTRON) | **LIBRARY** 16 / 32 / 64 STEPS |
+| 2 | **CC LEAD** 0-30 ms | **SONG TEMPO** | **DEVICE** of the track's channel (GENERIC, ELEKTRON) | **LONG PATTERNS** (0.24; LIBRARY LEN until 0.23): COPY (a library pattern of one bar repeats in a longer track) / PHRASE (the long form: the next variation in the last bar, the genre's fill) |
 | 3 SYSTEM (0.12) | **USB PORTS** 1 / 2 (SEL + K1 twice: reconnect) | the button lights | | |
 | **4 LIVE IN** (0.13) | **MOTION** OFF / 1 / 2 / 4 BARS (REC + FX K: written) | **KEYBOARD** OFF / ALL / SPLIT C3 (the MIDI IN transposes) | **KEYB CH** ANY / 1-16 | **MIDI IN** REC ONLY / ALWAYS |
 
@@ -438,6 +485,47 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
   move the rhythm more, melodic ones the notes; on FOLLOW tracks the beats get chord tones of the tonic, the steps
   between move by step. A locked step (EDIT + black 1) never changes.
 
+## The length of a track, and its patterns (0.24)
+
+A track has ONE length (1-64 steps) and a loop start, for its eight patterns; a pattern is 64 steps of storage. What
+plays is steps START .. LENGTH of the pattern.
+
+| | |
+|---|---|
+| a length changes | **Playing: at the bar** (`LENGTH 32 AT THE BAR`; the knob, the grid's SHIFT + step and TRACK row, the pages), and from that bar line the track is where the clock says a loop of that length is: two tracks of the same length are always in step, however they got there. Stopped: at once. LONGER / SHORTER: at the phrase's end |
+| longer than the pattern | the pattern goes round again in the steps the track has more: its **COPIES**. Step i plays the step of the pattern that would play there, whatever lengths came before (16 -> 19 -> 32: the sixteen twice). `LENGTH 32: THE 16 STEPS REPEAT` |
+| the copies | follow the pattern: a step of it changed by anyone (a key, the grid, a page, a tool, an engine, the energy) changes its copies within a moment. **A copy changed** (written, turned off, its note): all the copies are steps of yours from then on, the pattern is as long as the track (`THE COPIES ARE YOUR STEPS NOW`). The grid: a copy that plays is GHOST (a dim blue-green); the Pi's editor: the same colour |
+| shorter than the pattern | the track plays its first steps; the pattern stays whole after the loop (the grid shows those steps blue, as ever), with a MARK where it ends. Longer again: the pattern as it was, its silences too, then round again from its own end (16 -> 12 -> 32: the sixteen twice) |
+| written after the loop | steps you write after the loop are part of the pattern: made longer, the track plays them, and the pattern ends with the round of itself the last of them is in. The 64th step alone: silence up to it. A second bar written while the first loops, then LENGTH 64: the two bars twice |
+| an empty pattern | has no copies: a longer empty track is a longer empty track |
+| all eight patterns | fit the track's length, the ones that do not play too. A snapshot, UNDO, a dice put back, RELOAD, the end of TEMP bring a length back: the patterns fit it (the pattern that came back with it is as it was) |
+| a tool on the loop | works on the loop as it sounds (REVERSE, SHIFT, INVERT, EUCLID, HUMANIZE, COOK, RANDOM): after it a loop that still is a pattern and its rounds keeps its copies, one that is not is steps. DOUBLE writes the loop again as STEPS (no copies: to be changed by hand); COPY / PASTE carry steps |
+| a loop between two steps | (two keys, the grid's row) holds the track for a while: the copies wait as they are, EXIT brings the loop back |
+| the loop's START moves | (HOME + ALG, the grid, a pattern that comes and puts it back on step 1, a snapshot): no copy stands for the step it stood for any more - the copies of the track's patterns are kept as steps, as they sound |
+| a pattern that comes | **keeps the track's length**: the library, the engines, the Pi's patterns, the dice, the proposals, GENRE LIVE. It is made for the track - 64 steps for a track of 64, 32 for one of 32 .. 63, 16 for a shorter one - and what the track has more is its copies, what it has less waits after the loop. Only a pattern that does not fit a bar (the bembé's twelve steps, a Pi pattern of 12 or 24) makes the track as long as itself; the Pi's regia brings its own bars |
+| LONG PATTERNS (SAVE 2 K4) | a library variation of one bar on a longer track: COPY, it repeats (its copies); PHRASE, the long form of 0.10 - the bars before the last are the variation, the last is the next variation with the genre's fill. A variation written over two or four bars comes as written. An old project's LIBRARY LEN 16 reads as COPY, 32 and 64 as PHRASE |
+| LONGER / SHORTER | the MOSSE's SEL + black 6 / SEL + black 5: every track twice / half as long |
+| saved | the copies and the mark are saved (a list of which steps are copies: a copied rest takes no room). Steps kept after a loop take room in the project as any step |
+
+What each generator makes of a track longer than a bar:
+
+| | on 32 or 64 steps |
+|---|---|
+| the library (BEAT, KIT, BAND, GENRE LIVE) | the variation as written when it is two or four bars long; a one-bar one: COPY or PHRASE (LONG PATTERNS) |
+| the THEORY engines | their own phrase: two bars a a', four bars a a' a b (the turn-around, the fill) |
+| DICE SEQ | the library: a variation as a PHRASE, every bar a light take of its own; the engines: a new seed's phrase; GENRE FREE: a bar of chance and its phrase (as RANDOM) |
+| RANDOM | a bar of chance, then its phrase: A A' on two bars, A A' A B on four. A' is the bar with its second half cooked (by the track's role, in the key), B the bar cooked harder but for its first beat; HEAT says how much. An answer the cook left as the question gets a pickup at its end (or loses one) |
+| COOK | at random: every bar by the role's rules, its beats kept - the bars drift apart. Towards the next variation: the variation as a phrase as long as the track, a few steps a press |
+| EVOLVE | cooks the whole loop: the bars evolve each their own way |
+| EUCLID (live, and the tool) | its pulses are spread over the loop: 5 over 32 steps is not 5 over 16 twice |
+| NUMERIC | a rhythm of one bar, repeated |
+| TRESILLO | its 3 3 2 groups run along the whole loop: PULSES counts them over it |
+| TURING | its phrase is its register (B: 2-16 steps): it goes round inside the track, whatever the length |
+| CELL | its row is B cells (4-64): set B to the track's length for one row a loop; a new generation every 1 / 2 / 4 bars or every loop |
+| ACCENT, DENSITY, the ARP, EXPO | by step and by beat: the same on any length (POLY3 runs across the bars) |
+| the HARMONY, FOLLOW | by bars: a track of 64 steps hears four bars of chords |
+| a BREAK's chops | written over the track's loop |
+
 ## THEORY: the engines (0.23)
 
 SEQ 8 K1 chooses where BEAT, KIT, BAND, the dice and the proposals take a pattern from: the **LIBRARY** (the written
@@ -454,7 +542,7 @@ with what each engine does and why: [TEORIA.md](TEORIA.md); the rules of the 21 
 | the dice | DICE SEQ: seeds of the dice on the scope (the rolls, OCT+ and OCT- as with the library); DICE PROG: a progression by the genre's rules in the DICE / PI slot, which plays |
 | the genre | GENRE LIVE: a new genre makes the engines' patterns again in its style from their seeds, at the bar |
 | no genre | **SOURCE FREE** (SEQ 8 K1, the click past THEORY): FREE's band (KICK SNARE HAT PERC BASS CHORD ARP LEAD; KIT: the first four) and its rules of no genre, no swing or groove of a genre, the tempo as it is; BEAT on several tracks (the scope) gives each the part of its ROLE - FREE has a rule for every role; DICE PROG rolls in any scale; a change of genre leaves the engines' patterns alone, GENRE LIVE or not (a track of the library takes the new genre's part from the library, as always). The screen: `FREE BAND SEED 3: 8 TRACKS`, `FREE HAT SEED 4`. **GENRE FREE** (SEQ 6 K4) does the same while the SOURCE is THEORY (the cell says THEORY, the line under it FREE); **HARMONY FREE** (ARP 4 K2) frees DICE PROG alone. A pattern keeps the style it was made in: the energy and COOK treat a FREE one as FREE until BEAT makes it again |
-| the length | the LIBRARY LENGTH (SAVE 2 K4): 16 steps a bar, 32 a bar and its answer, 64 the two again with the genre's fill in the last |
+| the length | **0.24: the track's.** A track of 16 steps (or less) gets a bar, one of 32 .. 63 a bar and its answer, one of 64 the two again with the genre's fill in the last; what the track has more than that is the pattern again (its copies). SEQ 8 K3 makes it again for the track as it is now |
 
 What the engines know of a pattern (its seed, style, part, variation, energy) is kept with the pattern: saved with the
 project, restored by UNDO, RELOAD and the dice's BACK, copied with the pattern. A pattern that is pasted, doubled,
@@ -506,6 +594,7 @@ is muted). It follows the hands: a mute in PERF, a scene, a pattern changed, a r
 | 3 | RISER | the last 4 bars of an 8- or 16-bar phrase climb to energy 100, then back to the target |
 | 4 | DROP | a fill in the last bar, then every track with notes IN and energy 100 at once |
 | 5 / 6 | HALF / DOUBLE | every track at half / double speed for one phrase (the tempo and the tracks' divisions stay; every track restarts on the bar line at both ends) |
+| SEL + 5 / SEL + 6 | **SHORTER / LONGER** (0.24) | the LENGTH of every track, half or twice (not the speed): longer, each pattern goes round again in what its track has more; shorter, the tracks play their first half and the rest waits after the loop - LONGER brings it back as it was. A track that cannot (twice would pass 64 steps; an odd number of steps) stays as it is; not a TAPE track, not a track in a LOOP of the journey. Stopped: at once. The grid: SHIFT + the pads |
 | 7 | THIN | two tracks out: the two highest on the genre's ladder (never the last one); they fade in the last bar |
 | 8 | SWELL | two tracks back in, the nearest to the energy |
 | 9 | INDIETRO | the phrase before the one that ends plays again (patterns, mutes, key, genre, progression, energy; not the tempo); again before the boundary: one more back; with NOW (or stopped) it is the phrase before the one playing (0.9-0.16: OCT-) |
@@ -821,6 +910,11 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
   DELAY): no conditions, ratchets, lanes or EXPO on a tape. A TAPE track's steps rest while it is a TAPE and are back
   when it is not. The DELAY of an EXPO span is not applied (spans start on the grid).
 
+* The lengths (0.24): LONGER cannot make a track pass 64 steps and SHORTER cannot halve an odd number of steps (those
+  tracks stay as they are, and the screen counts them); a TURING's phrase is its register (16 steps at most) and
+  NUMERIC a rhythm of one bar, whatever the track's length; a pattern kept whole after a shortened loop takes room
+  in the project as any other steps; the Pi's editor shows a track's copies after Save (it is the Pi's converter
+  that makes them, as the FM-1 would), not while the length is being typed.
 * An export blocks the FM-1 for about half a second (stopped only); a file of the library loads only while stopped.
 * EVOLVE changes the patterns that were playing when it started.
 * The parameter loops always go forward, whatever the track's direction.

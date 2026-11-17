@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.23.2"
+#define SQ_VERSION "0.24"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
 #include "platform.c"
 #include "sagga_seq_core.c"
@@ -242,6 +242,8 @@ static uint16_t realign_pend;              /* tracks to realign at the next tick
 static uint16_t fx_pos_prev;               /* the time FX held at the last tick */
 #define FX_POS ((1u << FX_HALF) | (1u << FX_DOUBLE) | (1u << FX_REV) | (1u << FX_FREEZE) | (1u << FX_RND))
 static uint16_t sl_on;                     /* 0.10: a loop between two steps is on (bit per track): EXIT puts the loop back */
+static sq_ghost_t gh_st[SQ_TRACKS];        /* 0.24: what the copies of the pattern each track plays were made from (ghost_service) */
+static uint8_t gh_at;                      /* the track that service looks at next */
 static uint8_t sl_prev_start[SQ_TRACKS], sl_prev_len[SQ_TRACKS];
 static uint16_t panic_cc;                  /* 0.10 PANIC: the channels still to get their All Notes Off (paced) */
 static uint16_t panic_snd;                 /* ... and All Sound Off too (the PANIC gesture; a STOP leaves the tails) */
@@ -725,6 +727,7 @@ static void project_runtime_reset(uint8_t boot)
     loop_on = 0u; loop_latched = 0u; lp_held = 0u;
     realign_pend = 0u; fx_pos_prev = 0u;
     for (t = 0; t < SQ_TRACKS; t++) { tie_pend[t] = 0u; ev[t].arp_going = 0u; ev[t].arp_until_us = 0u; }
+    if (boot) for (t = 0; t < SQ_TRACKS; t++) gh_st[t].pat = 255u;   /* 0.24: another project: nothing is known of its copies */
     pending_scene = SQ_NO_PENDING;
     retrig_mask = 0u; restart_pend = 0u; stop_at_bar = 0u;
     if (boot) vg_reset();                        /* 0.9: a project loaded: nothing queued, the trail starts again */
@@ -1492,12 +1495,57 @@ static void realign_all(void)
     for (t = 0; t < SQ_TRACKS; t++) track_realign(t);
     realign_pend = 0u;
 }
-/* 0.11: a track's settings were put back (UNDO, a dice put back, RELOAD, the end of TEMP): if its loop is another (length,
- * start, direction, division, TAPE) and it plays, it goes where the bar says - the explorer found each of these a step or
- * more off; else only back inside its loop. `was`: the settings before they were put back. */
-static void track_cfg_back(uint32_t t, const sq_track_cfg_t *was)
+/* 0.24: THE LENGTH IS THE TRACK'S, and its eight patterns fit it. A pattern shorter than the track goes round again in
+ * the steps the track has more (its COPIES, sq_row_fit); one longer keeps what the track does not play. Whoever changes
+ * a track's length calls track_fit with the length it had: the knob and the grid (length_apply), a snapshot, UNDO and
+ * the others that put settings back (track_cfg_back), VIAGGIO's LONGER / SHORTER. `but`: the pattern that came back
+ * WITH the length (UNDO's row, a dice's, RELOAD's: it is as it was at that length already), 255: none. `old_start`:
+ * where the loop began - when that changed too, no copy stands for the step it stood for: the copies of the other
+ * patterns are kept as steps (as the service does for the one that plays). Returns the
+ * copies of the pattern that plays. (A TAPE track's steps are not played, but they are there for when it is one of
+ * steps again: they fit its length as any other's.) */
+static void gen_track_fit(uint32_t t, uint8_t old_len, uint8_t old_start);   /* sagga_gen.c: EVOLVE's seed is as long as its track */
+static uint8_t track_fit(uint32_t t, uint8_t old_len, uint8_t old_start, uint8_t but)
 {
     const sq_track_cfg_t *c = &project.track[t];
+    uint32_t pat;
+    uint8_t n = 0u;
+    for (pat = 0; pat < SQ_PATTERNS; pat++) {
+        uint8_t k;
+        if (pat != but && old_start != c->start) sq_row_keep(project.step[t][pat]);
+        k = sq_row_fit(project.step[t][pat], c->start, pat == but ? c->length : old_len, c->length);
+        if (pat == tr[t].pattern) n = k;
+    }
+    gen_track_fit(t, old_len, old_start);
+    gh_st[t].pat = 255u;
+    if (t == selected_track) ui_dirty = grid_dirty = 1u;
+    return n;
+}
+/* the copies follow their pattern: a track a pass. A step of the pattern was changed (by anyone: a key, the grid, a
+ * tool, a page, an engine): its copies change. A copy was changed: all the copies are the player's steps from now on,
+ * the pattern is as long as the track. Not while a loop between two steps holds the track (EXIT brings its loop back). */
+static void ghost_service(void)
+{
+    uint32_t t = gh_at;
+    const sq_track_cfg_t *c = &project.track[t];
+    gh_at = (uint8_t)((gh_at + 1u) % SQ_TRACKS);
+    uint8_t r;
+    if (track_tape(t) || (sl_on & (1u << t))) return;
+    r = sq_ghost_service(project.step[t][tr[t].pattern], c->start, c->length, tr[t].pattern, &gh_st[t]);
+    if (r == SQ_GH_NONE || t != selected_track) return;
+    if (r == SQ_GH_KEPT) status_msg("THE COPIES ARE YOUR STEPS NOW");    /* (one of them was written: the pattern is as long as the track) */
+    ui_dirty = grid_dirty = 1u;
+}
+
+/* 0.11: a track's settings were put back (UNDO, a dice put back, RELOAD, the end of TEMP): if its loop is another (length,
+ * start, direction, division, TAPE) and it plays, it goes where the bar says - the explorer found each of these a step or
+ * more off; else only back inside its loop. `was`: the settings before they were put back. 0.24: `pat`: the pattern
+ * whose steps came back with them (the others fit the length that came back). */
+static void track_cfg_back(uint32_t t, const sq_track_cfg_t *was, uint8_t pat)
+{
+    const sq_track_cfg_t *c = &project.track[t];
+    if (c->length != was->length || c->start != was->start) track_fit(t, was->length, was->start, pat);
+    else gh_st[t].pat = 255u;                                             /* (a row came back: what its copies were made from is not known) */
     if (playing && (c->length != was->length || c->start != was->start || c->direction != was->direction ||
                     c->division != was->division || (c->flags & SQ_TF_TAPE) != (was->flags & SQ_TF_TAPE)))
         track_realign(t);
@@ -1668,6 +1716,10 @@ static void seq_clock_tick(uint32_t now)
         tool_bar_tick();                              /* 0.10: a tool that waited for its bar, the one that repeats */
     } else if ((global_clock % 24u) == 0u) vg_beat_tick();   /* 0.10: VIAGGIO's moves at the beat (QUANTISE BEAT) */
     quant_tick();                                     /* then what was queued: scene, mutes, patterns */
+    /* 0.24: a loop that changed ON this tick (a length that waited for the bar, a snapshot, a pattern with another
+     * loop) plays this tick's step from where the clock says it is. Until 0.23.2 it was put in line at the NEXT tick:
+     * the step on the bar line was the old loop's (a track of 19 steps made 32 at a bar played its step 11 there). */
+    if (realign_pend) { for (t = 0; t < SQ_TRACKS; t++) if (realign_pend & (1u << t)) track_realign(t); realign_pend = 0u; }
     if (loop_on) {
         uint32_t el = global_clock - loop_t0;
         if (el && (el % loop_len) == 0u) loop_restore();
@@ -2498,60 +2550,75 @@ static void set_loop(uint8_t t, uint8_t first, uint8_t last)
 }
 
 /* 0.11: the length of a track changes IN TIME. While it plays, the new length waits for the bar line (len_pend), then
- * the track is realigned from its anchor: it lands where the clock says, never out of phase. A longer loop gets its new
- * steps filled with the loop that was there (sq_row_extend), so a 16-step kick made 64 keeps playing instead of
- * running into silence; what was written beyond the old length comes back as it was. One turn of the knob (clicks
- * within SQ_LEN_TURN_MS) counts as one change: the base the new steps repeat is the length before the turn began. */
-#define SQ_LEN_TURN_MS 800u
+ * the track is realigned from its anchor: it lands where the clock says, never out of phase - 0.24: on the bar line
+ * itself (seq_clock_tick). 0.24: every pattern of the track fits the new length (track_fit): what the track has more
+ * is the pattern again, from the pattern's own steps, whatever lengths came before (0.11 repeated "the length when
+ * the knob began to turn", in the pattern that played only: 16, 19 at a bar, then 32 repeated the nineteen). */
 static uint8_t len_pend[SQ_TRACKS];        /* the length that waits for the bar (0: none) */
-static uint8_t len_base[SQ_TRACKS];        /* the length when this turn of the knob began */
-static uint32_t len_turn_ms[SQ_TRACKS];    /* when the knob last moved */
 static uint8_t len_shown(uint8_t t) { return len_pend[t] ? len_pend[t] : project.track[t].length; }
-static void length_apply(uint8_t t, uint8_t len)
+static uint8_t length_apply(uint8_t t, uint8_t len)      /* returns the copies in the pattern that plays */
 {
     sq_track_cfg_t *c = &project.track[t];
-    uint8_t old = c->length, base = len_base[t] ? len_base[t] : old;
+    uint8_t old = c->length, st = c->start, n;
+    uint32_t pat;
     len = (uint8_t)clamp_i32(len, 1, 64);
-    if (len > old && !track_tape(t)) {
-        uint32_t pat;
-        for (pat = 0; pat < SQ_PATTERNS; pat++)                               /* every pattern of the track: the same loop longer */
-            if (pat == tr[t].pattern || (c->flags & SQ_TF_CHAIN && pat == (tr[t].pattern ^ 1u)))
-                sq_row_extend(project.step[t][pat], c->start, base, old, len);
-    }
+    if (sl_on & (1u << t))                                               /* (a length set by hand is not a step loop: its loop is the track's, */
+        for (pat = 0; pat < SQ_PATTERNS; pat++) sq_row_keep(project.step[t][pat]);   /*  the steps as they are) */
+    sl_on &= (uint16_t)~(1u << t);
     c->length = len;
     if (c->start >= c->length) c->start = (uint8_t)(c->length - 1u);
-    sl_on &= (uint16_t)~(1u << t);                                       /* (a length set by hand is not a step loop) */
+    n = track_fit(t, old, st, 255u);
     track_changed(t);
+    return n;
+}
+/* what the screen says of a length: "LENGTH 32: THE 16 STEPS REPEAT" when the pattern goes round in it */
+static void length_say(uint8_t t, uint8_t copies, const char *tail)
+{
+    const sq_track_cfg_t *c = &project.track[t];
+    char *p = msg_buf;
+    p = put_s(p, "LENGTH "); p = put_u(p, c->length);
+    if (copies && copies < c->length) { p = put_s(p, ": THE "); p = put_u(p, (uint32_t)c->length - copies - c->start); p = put_s(p, " STEPS REPEAT"); }
+    p = put_s(p, tail);
+    finish(p);
+    status_msg(msg_buf);
 }
 static void set_length(uint8_t t, uint8_t len)
 {
-    char *p = msg_buf;
     len = (uint8_t)clamp_i32(len, 1, 64);
-    if (!len_base[t] || (uint32_t)(fm1_ms - len_turn_ms[t]) > SQ_LEN_TURN_MS) len_base[t] = project.track[t].length;   /* a new turn */
-    len_turn_ms[t] = fm1_ms;
-    if (!playing || track_tape(t)) { len_pend[t] = 0u; length_apply(t, len); }
-    else len_pend[t] = len == project.track[t].length ? 0u : len;
-    p = put_s(p, "LENGTH "); p = put_u(p, len); p = put_s(p, len_pend[t] ? " AT THE BAR" : ""); finish(p);
-    status_msg(msg_buf);
+    if (!playing || track_tape(t)) { len_pend[t] = 0u; length_say(t, length_apply(t, len), ""); }
+    else {
+        char *p = msg_buf;
+        len_pend[t] = len == project.track[t].length ? 0u : len;
+        p = put_s(p, "LENGTH "); p = put_u(p, len); p = put_s(p, len_pend[t] ? " AT THE BAR" : ""); finish(p);
+        status_msg(msg_buf);
+    }
     ui_dirty = grid_dirty = 1u;
 }
 static void length_bar_tick(void)                 /* every bar line: the lengths that waited */
 {
     uint32_t t;
-    for (t = 0; t < SQ_TRACKS; t++) if (len_pend[t]) { uint8_t l = len_pend[t]; len_pend[t] = 0u; length_apply((uint8_t)t, l); }
+    for (t = 0; t < SQ_TRACKS; t++)
+        if (len_pend[t]) {
+            uint8_t l = len_pend[t], n;
+            len_pend[t] = 0u;
+            n = length_apply((uint8_t)t, l);
+            if (t == selected_track) length_say((uint8_t)t, n, "");
+        }
 }
-/* a pattern came from the library (or a snapshot, a scene) with a length of its own: no length waits any more, the
+/* a pattern came from the library (or a snapshot, a scene) with a loop of its own: no length waits any more, the
  * track goes where the clock says it is (not back to its first step at some odd moment) */
 static void track_loaded(uint8_t t)
 {
-    len_pend[t] = 0u; len_base[t] = 0u;
+    len_pend[t] = 0u;
     track_changed(t);
 }
 
 static void set_loop_start(uint8_t t, uint8_t st)
 {
     sq_track_cfg_t *c = &project.track[t];
+    uint8_t was = c->start;
     c->start = st >= c->length ? (uint8_t)(c->length - 1u) : st;
+    if (c->start != was) track_fit(t, c->length, was, 255u);   /* 0.24: the loop begins elsewhere: the copies of its patterns are steps */
     track_changed(t);
 }
 
@@ -3859,7 +3926,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d1) { project.live.cc_lead_ms = (uint8_t)kstep(project.live.cc_lead_ms, d1, f1, 0, (int32_t)SQ_CC_LEAD_MAX); status_num("CC LEAD MS ", project.live.cc_lead_ms); }
             if (d2) { project.live.song_tempo = d2 > 0 ? 1u : 0u; status_msg(project.live.song_tempo ? "THE SONG SETS THE TEMPO" : "THE SONG KEEPS THE TEMPO"); }
             if (d3) { uint8_t ch = track_ch(selected_track); project.device[ch] = change_u8(project.device[ch], d3, 0u, SQ_DEV_COUNT - 1u); status_msg(sq_device_name(project.device[ch])); }
-            if (d4) { project.gen.lib_len = change_u8(project.gen.lib_len, d4, 0u, SQ_LLS - 1u); status_msg(project.gen.lib_len == SQ_LL_64 ? "LIBRARY: 64 STEPS" : project.gen.lib_len == SQ_LL_32 ? "LIBRARY: 32 STEPS" : "LIBRARY: 16 STEPS"); }
+            if (d4) { project.gen.lib_len = change_u8(project.gen.lib_len, d4, 0u, SQ_LLS - 1u); status_msg(project.gen.lib_len == SQ_LL_PHRASE ? "LONG PATTERNS: A PHRASE (THE NEXT ONE, A FILL)" : "LONG PATTERNS: THE PATTERN REPEATS"); }
             if (d1 || d2 || d3 || d4) { save_knob = 1u; ui_dirty = 1u; }
             return;
         }
@@ -4638,7 +4705,6 @@ static void app_host_theory(int packed, int seed)
         sq_genre_bpm(g, &lo, &hi);
         project.bpm = (uint16_t)(style == SQ_TH_FREE ? 120u : (lo + hi) / 2u);
         knob_live = 0u; knob_ref = fm1_knob;
-        project.gen.lib_len = SQ_LL_64;
         p.scale = project.key_scale; p.energy = energy;
         for (k = 0; k < SQ_UPROGS; k++) {                /* USER 1: the seed's own chords; 2-4: three more of the style */
             p.var = k; p.vary = (uint8_t)(k ? 100u : 0u);
@@ -4652,6 +4718,7 @@ static void app_host_theory(int packed, int seed)
         project.th.seed = sd;
         for (t = 0; t < n; t++) {
             PEN(t) = sq_part_note(g, funcs[t]);
+            project.track[t].length = 64u; project.track[t].start = 0u;   /* (0.24: the length is the track's: four bars) */
             beat_onto_x(t, 0u, g, funcs[t], 0u, 1u, 0);
             activate_row(t, project.step[t][0]);
         }
@@ -4691,6 +4758,11 @@ static void app_host_dump(int t)
            (unsigned)project.track[t].start, (unsigned)project.track[t].length, (unsigned)h, "FKDTB"[track_mode((uint32_t)t)],
            (unsigned)PEN(t));
     for (i = 0; i < project.track[t].length; i++) putchar((row[i].flags & SQ_STEP_ON) ? 'x' : '.');
+    putchar('\n');
+    /* 0.24: the copies: the pattern's own length in the loop, and the whole row (x a step that plays, g a copy that
+     * plays, r a copy at rest - after the loop: the mark of the pattern's end) */
+    printf("%6u ms  copies T%d own %u ROW:", fm1_ms, t + 1, (unsigned)sq_row_own(row, project.track[t].start, project.track[t].length));
+    for (i = 0; i < SQ_STEPS; i++) putchar((row[i].flags & SQ_STEP_GHOST) ? ((row[i].flags & SQ_STEP_ON) ? 'g' : 'r') : (row[i].flags & SQ_STEP_ON) ? 'x' : '.');
     putchar('\n');
     {   /* 0.11: the tape of the track */
         uint16_t tf, tn, k;
@@ -4877,6 +4949,7 @@ static void app_main(void)
         live_service();
         vg_service();                                  /* 0.9: a track key held = the dice */
         th_service();                                  /* 0.23: the engines' patterns follow the energy, a track a pass */
+        ghost_service();                               /* 0.24: the copies of a pattern follow it, a track a pass */
         regia_service();                               /* 0.9: STATO, TOCCATA, REGIA TASTO to the Pi */
 
         /* one piece of the screen per pass: the clock is served between pieces (see the screen, sagga_ui.c). 0.22: and

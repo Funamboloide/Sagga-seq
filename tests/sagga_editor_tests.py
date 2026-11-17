@@ -862,9 +862,109 @@ def t0232_tape_link():
     check(j['track'][9] == t10 and j['tape_cnt'][9] == 0, 'in the file: T10 as it was')
 
 
+def t024_copies():
+    group('0.24 the copies: a track made longer has its patterns go round, as on the FM-1; a step of the pattern changed: its copies follow; a copy changed: they are steps; shorter: the mark')
+    d = tempfile.mkdtemp()
+    a, b, c2, e = [os.path.join(d, n) for n in ('a.sgq', 'b.sgq', 'c.sgq', 'e.sgq')]
+    lines = []
+    for st in (0, 4, 10):
+        lines += ['step 0,0,%d flags - 3' % st, 'step 0,0,%d note 0 %d' % (st, 60 + st)]
+    lines += ['step 0,1,2 flags - 3']                                       # pattern 2 of the same track
+    r = apply('new', lines, a)
+    check(r.returncode == 0 and not any(x['flags'] & 64 for _, _, _, x in read(a)['steps']), 'three steps in a track of 16: no copies (%s)' % r.stderr)
+
+    def steps(path):
+        return {(t, p, st): x for t, p, st, x in read(path)['steps']}
+    def copies(path, t, p):
+        return sorted(st for (tt, pp, st), x in steps(path).items() if tt == t and pp == p and x['flags'] & 64)
+
+    r = apply(a, ['track 0 length - 32'], b)
+    st = steps(b)
+    check(r.returncode == 0 and copies(b, 0, 0) == list(range(16, 32)) and st[(0, 0, 20)]['flags'] == 3 | 64 and st[(0, 0, 20)]['note'][0] == 64 and st[(0, 0, 17)]['flags'] == 64,
+          'LENGTH 32 in a patch: steps 17 .. 32 are the pattern\'s copies - the notes and the rests (%s)' % copies(b, 0, 0)[:4])
+    check(copies(b, 0, 1) == list(range(16, 32)) and st[(0, 1, 18)]['flags'] == 3 | 64, '... in the track\'s other pattern too')
+    apply(b, [], e)
+    check(open(b, 'rb').read() == open(e, 'rb').read(), 'an empty patch: the same image, byte for byte (the copies are in it)')
+    r = apply(b, ['step 0,0,4 note 0 72', 'step 0,0,10 flags - 2'], c2)   # step 5: another note; step 11: off
+    st = steps(c2)
+    check(r.returncode == 0 and st[(0, 0, 20)]['note'][0] == 72 and st[(0, 0, 20)]['flags'] == 3 | 64 and st[(0, 0, 26)]['flags'] == 2 | 64 and copies(c2, 0, 0) == list(range(16, 32)),
+          'steps of the pattern changed: their copies follow (step 21 plays %s, step 27 is %s)' % (st[(0, 0, 20)]['note'][0], st[(0, 0, 26)]['flags']))
+    r = apply(c2, ['step 0,0,20 velocity - 33'], e)                         # step 21, a copy: changed
+    st = steps(e)
+    check(r.returncode == 0 and copies(e, 0, 0) == [] and st[(0, 0, 20)]['velocity'] == 33 and st[(0, 0, 20)]['flags'] == 3 and st[(0, 0, 16)]['flags'] == 3
+          and copies(e, 0, 1) == list(range(16, 32)),
+          'a copy changed: the copies of that pattern are steps (the other pattern keeps its own) (%s)' % copies(e, 0, 0))
+    r = apply(b, ['track 0 length - 12'], c2)
+    st = steps(c2)
+    check(r.returncode == 0 and copies(c2, 0, 0) == [16] and st[(0, 0, 16)]['flags'] == 64 and st[(0, 0, 10)]['flags'] == 3 and (0, 0, 20) not in st,
+          'LENGTH 12: the pattern keeps its 16 steps, the mark after them, no copies (%s)' % copies(c2, 0, 0))
+    r = apply(c2, ['track 0 length - 24'], e)
+    st = steps(e)
+    check(copies(e, 0, 0) == list(range(16, 24)) and st[(0, 0, 20)]['note'][0] == 64 and (0, 0, 12) not in st, '... 24 after it: the pattern whole, and its first half again (%s)' % copies(e, 0, 0))
+    r = apply(a, ['step 0,0,63 flags - 3', 'track 0 length - 40'], c2)       # the 64th step written, then longer: nothing copied
+    check(r.returncode == 0 and copies(c2, 0, 0) == [] and (0, 0, 20) not in steps(c2), 'a step written at the end, then LENGTH 40: no copies, silence up to it')
+    r = apply(b, ['track 0 start - 4'], c2)                                  # the loop's start moved: nothing mirrors it
+    check(r.returncode == 0 and copies(c2, 0, 0) == [] and steps(c2)[(0, 0, 20)]['flags'] == 3, 'the loop\'s start moved: the copies are steps')
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (the page: skipped, no playwright)')
+        return
+    import sagga_fw as FW
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    name = os.path.join(pr, 'copie.sgq')
+    shutil.copy(b, name)
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            br = p.chromium.launch()
+            pg = br.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda x: errs.append(str(x)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/edit/copie.sgq' % port)
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.pat=0;V.t=0;V.s=20;V.toggle=true;V.listen=false;V.tab='tracce';render()")
+            gh = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.on.ghost').length")
+            on = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.on').length")
+            note = pg.text_content('#main p.dim') or ''
+            check(gh == 3 and on == 6, 'the page: the three copies that play have their own colour (%s of %s lit)' % (gh, on))
+            check('copia' in note and 'dello step 5' in note and 'di 16 step' in note, 'a copy selected: the page says of which step it is one (%s)' % note[:80])
+            check('verde-azzurro: una copia' in (pg.text_content('#main') or ''), 'the legend names the colour')
+            pg.evaluate("set('step','0,0,4','note',0,70);commit();render()")       # step 5 of the pattern: another note
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            check(pg.evaluate('getStep(0,0,20).note[0]') == 70 and pg.evaluate('getStep(0,0,20).flags') == 3 | 64, 'a step of the pattern changed and saved: the page comes back with its copy changed too')
+            pg.click('.c[data-ts="0,20"]')                                           # the copy turned off
+            pg.wait_for_timeout(100)
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            gh = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.ghost').length")
+            check(gh == 0 and pg.evaluate('getStep(0,0,16).flags') == 3 and pg.evaluate('getStep(0,0,20).flags') == 2 and copies(name, 0, 0) == [],
+                  'a copy turned off and saved: the copies are steps, on the page and in the file (%s)' % gh)
+            pg.evaluate("V.s=4;clip=clone(getStep(0,1,18));pasteStep()")             # a copy of pattern 2 pasted onto step 5 of pattern 1: a step
+            check(pg.evaluate('getStep(0,0,4).flags') == 3, 'a copy pasted somewhere is a step there (flags %s)' % pg.evaluate('getStep(0,0,4).flags'))
+            pg.evaluate("set('track',0,'length','-',48);commit();render()")
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            check(pg.evaluate('P.track[0].length') == 48 and copies(name, 0, 0) == list(range(32, 48)) and copies(name, 0, 1) == list(range(16, 48)),
+                  'LENGTH 48 in the editor, saved: the pattern of 32 goes round (16 copies), the other one of 16 twice more (%s)' % len(copies(name, 0, 1)))
+            check(not errs, 'no script errors (%s)' % errs[:2])
+            br.close()
+    finally:
+        srv.shutdown()
+
+
 def main():
     build()
-    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link):
+    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies):
         try:
             t()
         except Exception as e:

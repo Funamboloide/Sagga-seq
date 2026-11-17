@@ -113,6 +113,32 @@ static uint32_t probe_hash(const void *p, uint32_t n)
 }
 static void pr_kh(const char *k, const void *p, uint32_t n) { pr_k(k); pr_x(probe_hash(p, n), 8u); }
 
+/* 0.24: the copies of track t, in order? (the explorer's rule COPIE.) Every pattern of the track: what is flagged after
+ * the loop is the MARK of a pattern's end alone - one step at rest - and then nothing in the loop is flagged. The
+ * pattern that plays: its copies are the end of the loop, each the step of the pattern it stands for (the service
+ * sees to it within a pass or two of an edit). "-": not looked at - a TAPE track plays no steps, a loop between two
+ * steps or a LOOP of the journey holds the track's length for a while. */
+static const char *tst_copies_ok(uint32_t t)
+{
+    const sq_track_cfg_t *c = &project.track[t];
+    const sq_step_t *row;
+    uint32_t pat, i;
+    uint8_t own;
+    if (track_tape(t) || (sl_on & (1u << t)) || vg_chain_on[t] || c->start >= c->length) return "-";
+    for (pat = 0; pat < SQ_PATTERNS; pat++) {
+        uint32_t marks = 0u, in = 0u;
+        row = project.step[t][pat];
+        for (i = c->start; i < c->length; i++) if (row[i].flags & SQ_STEP_GHOST) in++;
+        for (i = c->length; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) { if (!ghost_mark_(&row[i])) return "0"; marks++; }
+        if (marks > 1u || (marks && in)) return "0";
+    }
+    row = project.step[t][tr[t].pattern];
+    own = sq_row_own(row, c->start, c->length);
+    if (!own) return "0";
+    for (i = own; i < c->length; i++) if (!sq_step_alike(&row[i], &row[c->start + (i - c->start) % (uint32_t)(own - c->start)])) return "0";
+    return "1";
+}
+
 static uint32_t probe_render(char *buf, uint32_t cap)
 {
     uint32_t t;
@@ -163,6 +189,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_ku("euc", c->euc_pulses); pr_c('/'); pr_u(c->euc_rot); pr_ku("algo", c->algo); pr_k("slots"); pr_xm(slots);
         pr_ku("mfx", c->mfx); pr_k("mfxon"); pr_x(project.ext.mfxc[t].on, 2u); pr_k("mfxnew"); pr_x(project.ext.mfxd[t].on, 2u); pr_ku("pat", tr[t].pattern + 1u); pr_ku("step", tr[t].step); pr_k("ok"); pr_s(ok);
         pr_ku("lenpend", len_pend[t]); pr_ku("src", c->src_genre); pr_c('/'); pr_u(c->src_func); pr_c('/'); pr_u(c->src_var);
+        pr_k("gh"); pr_s(tst_copies_ok(t)); pr_ku("own", sq_row_own(project.step[t][tr[t].pattern], c->start, c->length));   /* 0.24: the copies in order, the pattern's own length */
         {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
             const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
             pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(m->vary); pr_c('/'); pr_u(m->energy);

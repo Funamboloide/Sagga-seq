@@ -199,11 +199,13 @@ def session_plan(sit, gs, name):
             "sonde": roles, "reali": real}
 
 
-def piano(n=20, length=40, seed=11):
-    """n sessions in the banco's situations (in turn); every other gesture a page, the rest the panel and the grid in
+def piano(n=None, length=40, seed=11):
+    """n sessions (None: one for every situation) in the banco's situations (in turn); every other gesture a page, the rest the panel and the grid in
     turn; the pages' gestures in turn over the whole run (with n * length / 2 at least their number: every cell of
     every page at least once), the rest at random"""
     sits = banco_situazioni()
+    if n is None:
+        n = len(sits)
     every = E.catalogo(grid=True, tablet=False)
     panel = [g for g in every if g.name != "niente" and "andata" not in g.tags and "grid" not in g.tags and H.gesture_ok(g)]
     grid = [g for g in every if "grid" in g.tags and H.gesture_ok(g)]

@@ -434,7 +434,7 @@ void sq_gen_default(sq_gen_t *g)
     g->harm_on = 0u; g->genre_mode = SQ_GM_ON; g->harm_prog = 0u; g->harm_bars = 0u;
     g->custom = 0u;
     g->panel_lights = 0u;
-    g->when = SQ_WHEN_NOW; g->every = SQ_EVERY_OFF; g->every_tool = 255u; g->lib_len = SQ_LL_16;
+    g->when = SQ_WHEN_NOW; g->every = SQ_EVERY_OFF; g->every_tool = 255u; g->lib_len = SQ_LL_COPY;
     g->harm_genre = 0u; g->harm_lock = 0u; g->harm_free = 0u;
     g->harm_rhythm = SQ_HR_BARS; g->harm_mood = SQ_MOOD_ANY;               /* 0.11 */
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
@@ -724,7 +724,7 @@ void sq_project_sanitize(sq_project_t *p)
         if (g->when >= SQ_WHENS) g->when = SQ_WHEN_NOW;
         if (g->every >= SQ_EVERYS) g->every = SQ_EVERY_OFF;
         if (g->every_tool >= 16u && g->every_tool != 255u) g->every_tool = 255u;
-        if (g->lib_len >= SQ_LLS) g->lib_len = SQ_LL_16;
+        if (g->lib_len >= SQ_LLS) g->lib_len = SQ_LL_PHRASE;   /* (0.24: LIBRARY LEN 64 was 2) */
         if (g->harm_genre >= 64u) g->harm_genre = g->genre;
         g->harm_lock = g->harm_lock ? 1u : 0u;
         g->harm_free = g->harm_free ? 1u : 0u;      /* (0.16; a 0.15 image: 0) */
@@ -1446,18 +1446,135 @@ uint8_t sq_row_double(sq_step_t *row, uint8_t len, uint8_t room)
     return (uint8_t)nl;
 }
 
-uint8_t sq_row_extend(sq_step_t *row, uint8_t start, uint8_t period, uint8_t from, uint8_t new_len)
+uint8_t sq_step_alike(const sq_step_t *a, const sq_step_t *b)
+{
+    sq_step_t x = *a, y = *b;
+    x.flags &= (uint8_t)~SQ_STEP_GHOST;
+    y.flags &= (uint8_t)~SQ_STEP_GHOST;
+    return (uint8_t)!bdiff_(&x, &y, sizeof x);
+}
+
+uint16_t sq_step_hash(const sq_step_t *s)
+{
+    sq_step_t x = *s;
+    const uint8_t *p = (const uint8_t *)&x;
+    uint32_t h = 2166136261u, k;
+    x.flags &= (uint8_t)~SQ_STEP_GHOST;
+    for (k = 0; k < sizeof x; k++) h = (h ^ p[k]) * 16777619u;
+    return (uint16_t)(h ^ (h >> 16));
+}
+
+uint8_t sq_row_own(const sq_step_t *row, uint8_t start, uint8_t len)
+{
+    uint32_t i, k;
+    if (len > SQ_STEPS) len = (uint8_t)SQ_STEPS;
+    for (i = start; i < len; i++) if (row[i].flags & SQ_STEP_GHOST) break;
+    if (i >= len) return len;
+    if (i == start) return 0u;
+    for (k = i; k < len; k++) if (!(row[k].flags & SQ_STEP_GHOST)) return 0u;
+    return (uint8_t)i;
+}
+
+void sq_row_keep(sq_step_t *row)
+{
+    uint32_t i;
+    for (i = 0; i < SQ_STEPS; i++) row[i].flags &= (uint8_t)~SQ_STEP_GHOST;
+}
+
+/* the mark of a pattern's end after the loop: a step at rest with nothing of its own, flagged a copy */
+static uint8_t ghost_mark_(const sq_step_t *s)
+{
+    sq_step_t d;
+    sq_step_default(&d);
+    d.flags = SQ_STEP_GHOST;
+    return (uint8_t)!bdiff_(s, &d, sizeof d);
+}
+
+uint8_t sq_row_fit(sq_step_t *row, uint8_t start, uint8_t old_len, uint8_t new_len)
+{
+    uint32_t i, e = SQ_STEPS, base, span, last = 0u, written = 0u, any = 0u;
+    if (old_len < 1u) old_len = 1u;
+    if (old_len > SQ_STEPS) old_len = (uint8_t)SQ_STEPS;
+    if (new_len < 1u) new_len = 1u;
+    if (new_len > SQ_STEPS) new_len = (uint8_t)SQ_STEPS;
+    if (start >= old_len || start >= new_len) {                     /* (the loop's start moved too: nothing here mirrors it) */
+        sq_row_keep(row);
+        start = (uint8_t)((old_len < new_len ? old_len : new_len) - 1u);
+    }
+    for (i = start; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) { e = i; break; }
+    if (e < old_len) {                                              /* copies in the loop ... */
+        for (i = old_len; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) sq_step_default(&row[i]);   /* (after it: old ones) */
+        for (i = e; i < old_len; i++) if (!(row[i].flags & SQ_STEP_GHOST)) break;
+        if (i < old_len || e == start) { sq_row_keep(row); e = SQ_STEPS; }   /* ... that are not a pattern and its copies: the player's */
+    } else if (e < SQ_STEPS && !ghost_mark_(&row[e])) {             /* after the loop, and not the mark of an end: written on */
+        sq_row_keep(row);
+        e = SQ_STEPS;
+    }
+    base = e < SQ_STEPS ? e : old_len;                              /* where the pattern ends (after the loop: the mark) */
+    for (i = base > old_len ? base : old_len; i < SQ_STEPS; i++)
+        if ((row[i].flags & SQ_STEP_ON) && !(row[i].flags & SQ_STEP_GHOST)) { last = i; written = 1u; }
+    if (written) {                          /* the player wrote after it: the pattern goes on to the end of that round of itself */
+        uint32_t unit = base - start;
+        for (i = start; i < SQ_STEPS; i++)
+            if (row[i].flags & SQ_STEP_GHOST) { if (i < old_len) row[i].flags &= (uint8_t)~SQ_STEP_GHOST; else sq_step_default(&row[i]); }
+        base = (uint32_t)start + ((last - start) / unit + 1u) * unit;
+        if (base > SQ_STEPS) base = SQ_STEPS;
+    }
+    for (i = start; i < base; i++) if (row[i].flags & SQ_STEP_ON) any = 1u;
+    span = base - start;
+    for (i = base; i < SQ_STEPS; i++) {
+        if (any && i < new_len) { row[i] = row[start + (i - start) % span]; row[i].flags |= SQ_STEP_GHOST; }
+        else if (row[i].flags & SQ_STEP_GHOST) sq_step_default(&row[i]);
+    }
+    if (any && !written && base > new_len && base < SQ_STEPS) { sq_step_default(&row[base]); row[base].flags = SQ_STEP_GHOST; }   /* the mark */
+    return (uint8_t)(any && base < new_len ? new_len - base : 0u);
+}
+
+uint8_t sq_row_again(sq_step_t *row, uint8_t start, uint8_t own, uint8_t len)
 {
     uint32_t i, span;
-    if (new_len > SQ_STEPS) new_len = (uint8_t)SQ_STEPS;
-    if (period < 1u) period = 1u;
-    if (start >= period) start = (uint8_t)(period - 1u);
-    if (from < period) from = period;
-    if (new_len <= from) return 0u;
-    for (i = from; i < new_len; i++) if (row[i].flags & SQ_STEP_ON) return 0u;   /* something is written there: it comes back */
-    span = (uint32_t)period - start;
-    for (i = from; i < new_len; i++) row[i] = row[start + (i - start) % span];
-    return (uint8_t)(new_len - from);
+    if (len > SQ_STEPS) len = (uint8_t)SQ_STEPS;
+    if (own <= start || own >= len) return 0u;
+    span = (uint32_t)own - start;
+    for (i = own; i < len; i++) if (!sq_step_alike(&row[i], &row[start + (i - start) % span])) return 0u;
+    for (i = start; i < own; i++) if (row[i].flags & SQ_STEP_GHOST) return 0u;
+    for (i = own; i < len; i++) row[i].flags |= SQ_STEP_GHOST;
+    for (i = len; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) sq_step_default(&row[i]);
+    return 1u;
+}
+
+uint8_t sq_row_made(sq_step_t *row, uint8_t made, uint8_t len)
+{
+    uint32_t i;
+    if (made < 1u) made = 1u;
+    for (i = made; i < SQ_STEPS; i++) sq_step_default(&row[i]);
+    for (i = 0; i < made && i < SQ_STEPS; i++) row[i].flags &= (uint8_t)~SQ_STEP_GHOST;
+    return sq_row_fit(row, 0u, made, len);
+}
+
+uint8_t sq_ghost_service(sq_step_t *row, uint8_t start, uint8_t len, uint8_t pat, sq_ghost_t *g)
+{
+    uint32_t i, span, again = 0u;
+    uint8_t own, known;
+    if (len > SQ_STEPS) len = (uint8_t)SQ_STEPS;
+    own = sq_row_own(row, start, len);
+    if (own >= len) { g->pat = 255u; return SQ_GH_NONE; }       /* no copies in the loop */
+    if (!own) { sq_row_keep(row); g->pat = 255u; return SQ_GH_KEPT; }
+    known = (uint8_t)(g->pat == pat && g->own == own && g->start == start);
+    span = (uint32_t)own - start;
+    for (i = own; i < len; i++) {
+        uint32_t j = start + (i - start) % span;
+        if (sq_step_alike(&row[i], &row[j])) continue;
+        if (known && sq_step_hash(&row[i]) == g->h[j]) { again = 1u; continue; }   /* what the pattern was there: it changed */
+        sq_row_keep(row);                                        /* a copy that is neither: written by hand */
+        g->pat = 255u;
+        return SQ_GH_KEPT;
+    }
+    if (again)
+        for (i = own; i < len; i++) { row[i] = row[start + (i - start) % span]; row[i].flags |= SQ_STEP_GHOST; }
+    for (i = start; i < own; i++) g->h[i] = sq_step_hash(&row[i]);
+    g->pat = pat; g->own = own; g->start = start;
+    return again ? SQ_GH_AGAIN : SQ_GH_NONE;
 }
 
 static uint8_t pent_or(uint8_t scale) { return scale == SQ_SC_CHROMATIC ? (uint8_t)SQ_SC_PENT_MINOR : scale; }
@@ -2596,11 +2713,14 @@ typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u 
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
 
-static void wr_step(wr_t *w, const sq_step_t *s, const sq_step_t *def)
+static void wr_step(wr_t *w, const sq_step_t *step, const sq_step_t *def)
 {
-    const uint8_t *a = (const uint8_t *)s, *d = (const uint8_t *)def;
+    sq_step_t x = *step;
+    const sq_step_t *s = &x;
+    const uint8_t *a = (const uint8_t *)&x, *d = (const uint8_t *)def;
     uint32_t k, m = 0u;
     uint8_t mb[3];
+    x.flags &= (uint8_t)~SQ_STEP_GHOST;                  /* 0.24: that it is a copy is in chunk 3 */
     for (k = 0; k < sizeof *s; k++) if (a[k] != d[k]) m |= 1u << k;
     mb[0] = (uint8_t)(m & 0xFFu); mb[1] = (uint8_t)((m >> 8) & 0xFFu); mb[2] = (uint8_t)(m >> 16);
     wr_put(w, mb, 3);
@@ -2698,13 +2818,13 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
         uint8_t pmask = 0u;
         for (pat = 0; pat < SQ_PATTERNS; pat++)
             for (i = 0; i < SQ_STEPS; i++)
-                if (bdiff_(&p->step[t][pat][i], &def, sizeof def)) { pmask |= (uint8_t)(1u << pat); break; }
+                if (!sq_step_alike(&p->step[t][pat][i], &def)) { pmask |= (uint8_t)(1u << pat); break; }
         wr_put(&w, &pmask, 1);
         for (pat = 0; pat < SQ_PATTERNS; pat++) {
             uint8_t m[8] = {0, 0, 0, 0, 0, 0, 0, 0};
             if (!(pmask & (1u << pat))) continue;
             for (i = 0; i < SQ_STEPS; i++)
-                if (bdiff_(&p->step[t][pat][i], &def, sizeof def)) m[i >> 3] |= (uint8_t)(1u << (i & 7u));
+                if (!sq_step_alike(&p->step[t][pat][i], &def)) m[i >> 3] |= (uint8_t)(1u << (i & 7u));
             wr_put(&w, m, 8);
             for (i = 0; i < SQ_STEPS; i++)
                 if (m[i >> 3] & (1u << (i & 7u))) wr_step(&w, &p->step[t][pat][i], &def);
@@ -2740,6 +2860,21 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
                     wr_put(&w, at, 2);
                     wr_put(&w, &p->th.pat[tk][pk], sizeof(sq_thpat_t));
                 }
+        }
+    }
+    {   /* 0.24: chunk 3, the copies: which steps of which patterns are the pattern going round again */
+        uint32_t n = 0u, tk, pk, k;
+        for (tk = 0; tk < SQ_TRACKS; tk++) for (pk = 0; pk < SQ_PATTERNS; pk++)
+            for (k = 0; k < SQ_STEPS; k++) if (p->step[tk][pk][k].flags & SQ_STEP_GHOST) { n++; break; }
+        if (n) {
+            uint8_t h[3];
+            h[0] = SQ_CHUNK_GHOST; h[1] = (uint8_t)((n * 4u) & 0xFFu); h[2] = (uint8_t)((n * 4u) >> 8);
+            wr_put(&w, h, 3);
+            for (tk = 0; tk < SQ_TRACKS; tk++) for (pk = 0; pk < SQ_PATTERNS; pk++) {
+                uint8_t e[4] = {(uint8_t)tk, (uint8_t)pk, 255u, 0u};
+                for (k = 0; k < SQ_STEPS; k++) if (p->step[tk][pk][k].flags & SQ_STEP_GHOST) { if (e[2] == 255u) e[2] = (uint8_t)k; e[3] = (uint8_t)(k + 1u); }
+                if (e[2] != 255u) wr_put(&w, e, 4);
+            }
         }
     }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
@@ -2867,6 +3002,18 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
                 else if (at[0] == want_t && at[1] == want_pat) *th = m;   /* (one pattern asked: RELOAD) */
             }
             rd_skip(&r, n - used);
+        } else if (h[0] == SQ_CHUNK_GHOST && (p || row)) {   /* 0.24: the copies (the steps were read before: the flag is put on them) */
+            uint32_t used = 0u;
+            while (used + 4u <= n && !r.bad) {
+                uint8_t e[4] = {255u, 255u, 0u, 0u};
+                sq_step_t *dst;
+                rd_get(&r, e, 4);
+                used += 4u;
+                if (r.bad || e[0] >= SQ_TRACKS || e[1] >= SQ_PATTERNS || e[2] >= e[3] || e[3] > SQ_STEPS) continue;
+                dst = p ? p->step[e[0]][e[1]] : (e[0] == want_t && e[1] == want_pat) ? row : 0;
+                if (dst) for (i = e[2]; i < e[3]; i++) dst[i].flags |= SQ_STEP_GHOST;
+            }
+            rd_skip(&r, n - used);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
@@ -2937,7 +3084,7 @@ const char *sq_move_name(uint8_t kind)
 {
     static const char *const N[SQ_MOVE_KINDS] = {"-", "IN", "OUT", "SWAP", "FILL", "BREAK", "RISER", "DROP", "HALF",
                                                  "DOUBLE", "TRANSPOSE", "PROG", "GENRE", "THIN", "SWELL", "LOOP", "KEY",
-                                                 "ENERGY", "BACK"};
+                                                 "ENERGY", "BACK", "LONGER", "SHORTER"};
     return N[kind < SQ_MOVE_KINDS ? kind : 0u];
 }
 
@@ -2971,6 +3118,10 @@ int sq_queue_push(sq_queue_t *q, uint8_t kind, uint8_t a, uint8_t b)
     }
     if (kind == SQ_MV_HALF || kind == SQ_MV_DOUBLE) {             /* HALF after DOUBLE: neither */
         i = sq_queue_find(q, kind == SQ_MV_HALF ? SQ_MV_DOUBLE : SQ_MV_HALF, 0u);
+        if (i >= 0) { sq_queue_remove(q, (uint32_t)i); return 0; }
+    }
+    if (kind == SQ_MV_LONGER || kind == SQ_MV_SHORTER) {          /* 0.24: SHORTER after LONGER: neither */
+        i = sq_queue_find(q, kind == SQ_MV_LONGER ? SQ_MV_SHORTER : SQ_MV_LONGER, 0u);
         if (i >= 0) { sq_queue_remove(q, (uint32_t)i); return 0; }
     }
     i = sq_queue_find(q, kind, a);

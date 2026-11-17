@@ -116,6 +116,11 @@ def session_plan(sit, gs, name):
             "sonde": roles}
 
 
+def situazioni_n():
+    """how many situations the FM-1 can do by the PC (0.24: the plan's sessions when nobody says how many)"""
+    return len([x for x in E.SITUAZIONI if x.hw and situation_ok(x)])
+
+
 def piano(n, length, seed, tablet=0):
     """n sessions, a situation each in turn; 0.18: then `tablet` more in the tablet's situations (the tablet, the grid
     and the panel at once)"""
@@ -611,6 +616,12 @@ def compare(session, heard=None):
         late = ["T%d" % t for t in range(1, 17) if pb.get("T%d" % t, {}).get("ok") == "0"]
         if late:
             found.append(("FASE", "ERRORE", "fuori fase alla fine: " + ", ".join(late)))
+    for role in ("battuta", "fermo"):                                      # 0.24 COPIE: the same rule, on the FM-1's own data
+        pc = hw_p.get(roles.get(role))
+        bad = ["T%d" % t for t in range(1, 17) if (pc or {}).get("T%d" % t, {}).get("gh") == "0"]
+        if bad:
+            found.append(("COPIE", "ERRORE", "copie fuori posto (%s): %s" % (role, ", ".join(bad))))
+            break
     pf = hw_p.get(roles.get("fermo"))
     if hw.get("done") and pf and pf.get("G", {}).get("play") == "0":      # (the last PLAY may have started it again)
         seen = lambda k: any(p.get("G", {}).get(k) == "1" for p in hw_p.values())   # (0.18: the grid's lights, the tablet's LFO switches)
@@ -661,6 +672,7 @@ REGOLE_HW = {
     "SIMULATORE": "l'FM-1 fa quello che fa il simulatore con gli stessi eventi negli stessi punti: una differenza e' "
                   "il compilatore, l'hardware o una cosa che dipende dal tempo (da capire: mandami la raccolta)",
     "FASE": "due battute dopo i gesti ogni traccia e' dove la battuta dice",
+    "COPIE": "0.24: le copie di ogni pattern sono a posto (i giri del pattern sono i suoi step; dopo il loop solo il segno di dove finisce)",
     "NOTE APPESE": "dopo lo STOP ogni nota accesa e' spenta",
     "NOTE": "le note che escono dall'USB sono quelle del simulatore (nessuna persa per strada)",
     "CLOCK": "i tick di clock sono quelli del simulatore",

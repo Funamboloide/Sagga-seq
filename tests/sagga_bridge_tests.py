@@ -56,7 +56,8 @@ def t_roles_match_firmware():
     body = re.sub(r"/\*.*?\*/", "", m.group(1), flags=re.S)                 # (0.12: a comment inside the enum)
     names = ["OFF"] + [x.strip()[3:] for x in body.replace("\n", " ").split(",") if x.strip()]
     check(names == B.ROLE_NAMES, "LED roles in the bridge are the GL_* of the firmware (%s)" % names)
-    check(len(B.RGB) == 18 and all(len(c) == 3 and max(c) <= 127 for c in B.RGB), "18 colours, 0..127 (0.12: TAIL, TIE)")
+    check(len(B.RGB) == 19 and all(len(c) == 3 and max(c) <= 127 for c in B.RGB), "19 colours, 0..127 (0.12: TAIL, TIE; 0.24: GHOST)")
+    check(len(set(B.RGB)) == len(B.RGB), "no two roles of one colour (the red-green Launchpad finds a role by its colour)")
     check(all(n in B.MINI_RG for n in B.ROLE_NAMES), "the red-green Launchpad has every role")
     m = re.search(r"enum \{ GC_PLAY = 0, (.*?)GC_TRK0 = 8, GC_PAT0 = 16, GC_SCN0 = 24", src, re.S)
     check(len([x for x in m.group(1).split(",") if x.strip()]) == 7, "buttons 0-7 are the transport / view / shift ones")

@@ -157,7 +157,7 @@ static void reload_track(uint32_t t)
     memcpy(project.step[t][pat], rl_row, sizeof rl_row);
     project.th.pat[t][pat] = th;                       /* 0.23: and what the engines knew of it when it was saved */
     *c = rl_cfg;
-    track_cfg_back(t, &was);                           /* 0.11: in time (the explorer) */
+    track_cfg_back(t, &was, pat);                      /* 0.11: in time (the explorer) */
     for (l = 0; l < SQ_LANES; l++)                     /* the synth's sound back as it was saved */
         if (c->lane_cc[l] != SQ_LANE_NONE && c->lane_base[l] != SQ_LANE_NONE) send_cc(track_ch(t), c->lane_cc[l], lane_val(l, c->lane_base[l]));
 }
@@ -407,6 +407,7 @@ static void snap_apply(uint8_t n)
         tr[t].pattern = p;
         tr[t].pending_pattern = SQ_NO_PENDING;
         if (tr[t].step >= c->length || tr[t].step < c->start) tr[t].step = c->start;
+        if (c->length != len || c->start != st) track_fit(t, len, st, 255u);   /* 0.24: a snapshot keeps lengths, not steps: the patterns fit the one it brings */
         if (c->length != len || c->start != st || c->division != div || c->direction != dir)
             track_loaded((uint8_t)t);                      /* 0.11: another loop: in time (0.23: another DIRECTION too - a snapshot that
                                                             * brought back FORWARD left the track where BACKWARD had it, a step off

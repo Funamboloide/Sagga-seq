@@ -32,6 +32,7 @@ static uint8_t brk_live_key = 255u;           /* ARP + a white key down: the cho
 static uint8_t brk_live_t2, brk_live_chop_was, brk_live_saved;   /* ... its track, the chop before, the pattern before is kept */
 static uint32_t brk_live_ms;
 static sq_step_t brk_live_prev[SQ_STEPS] __attribute__((section(".pool")));   /* the pattern before the chop held */
+static uint8_t brk_live_len;                                                   /* 0.24: ... and the track's length then */
 
 static void brk_say(const char *what, uint32_t t)
 {
@@ -111,6 +112,7 @@ static void brk_white(uint32_t t, uint8_t wi, uint32_t k)
 {
     if (brk_live_key == 255u || brk_live_t2 != t) {                    /* the first key of the gesture: keep what is there */
         memcpy(brk_live_prev, project.step[t][tr[t].pattern], sizeof brk_live_prev);
+        brk_live_len = project.track[t].length;                         /* 0.24 */
         brk_live_chop_was = project.track[t].brk_chop;
         brk_live_saved = 1u;
         brk_live_ms = fm1_ms;
@@ -129,6 +131,9 @@ static void brk_white_up(uint32_t up)
     undo_begin();                                                       /* held: back to the pattern before (UNDO: the chop again) */
     undo_add((uint8_t)t, tr[t].pattern);
     memcpy(project.step[t][tr[t].pattern], brk_live_prev, sizeof brk_live_prev);
+    if (brk_live_len != project.track[t].length)                        /* 0.24: the track's length changed under the key: the pattern fits it */
+        sq_row_fit(project.step[t][tr[t].pattern], project.track[t].start, brk_live_len, project.track[t].length);
+    gh_st[t].pat = 255u;
     project.track[t].brk_chop = brk_live_chop_was;
     activate_row(t, project.step[t][tr[t].pattern]);
     brk_say("BACK", t);

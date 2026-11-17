@@ -388,6 +388,21 @@ uint8_t sq_beat_load_len(sq_step_t *row, uint8_t genre, uint8_t func, uint8_t va
     return len;
 }
 
+uint8_t sq_len_made(uint8_t len) { return (uint8_t)(len >= 64u ? 64u : len >= 32u ? 32u : 16u); }
+
+uint8_t sq_beat_load_for(sq_step_t *row, uint8_t genre, uint8_t func, uint8_t var, uint8_t note, uint8_t len, uint8_t phrase)
+{
+    const char *nt, *r;
+    uint32_t n;
+    uint8_t made = sq_len_made(len);
+    if (!loadable(func)) return 0u;
+    r = sq_beat_text(genre, func, var, &nt);
+    if (!r || (sq_func_kind(func) != SQ_KIND_DRUM && !nt)) return 0u;
+    n = text_len(r);
+    if (n >= made || phrase) return sq_beat_load_len(row, genre, func, var, note, made);
+    return sq_beat_load_len(row, genre, func, var, note, (uint8_t)(n >= 32u ? 32u : 16u));   /* as written: the track repeats it */
+}
+
 /* ---- 0.8 progressions */
 
 const sq_prog_t *sq_prog_get(uint8_t genre, uint8_t i)
