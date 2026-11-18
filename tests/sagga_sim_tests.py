@@ -6291,7 +6291,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.26", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.27", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -11582,6 +11582,15 @@ def t027_keyless_band():
         check(len(mel) >= 3 and all(n % 12 == 0 for _, n in mel), "%s band, no key: every melodic part's note is a C (%s)" % (name, mel))
         check(arp and chords and arp <= chords | {10, 11}, "... and the arpeggio plays the notes of the chords playing (and their seventh), not those of a "
               "chord a fifth above (arp %s, chords %s)" % (sorted(arp), sorted(chords)))
+    s = Script()                                                       # a proposal of the journey on an empty track (a tap), no key
+    t = vg_on(s, 100)
+    for i in range(8):
+        t = vg_tap(s, t, i) + 40
+        s.at(t, "dump", i); t += 20
+    log = run(s, t + 200)
+    said = [(d["track"], re.sub(r"^T\d+ ", "", x["msg"]).split(" P")[0], d["pen"]) for d, x in zip(log.dumps, log.states)]
+    mel = [(k, n) for k, who, n in said if who in ("BASS", "CHORD", "ARP", "PAD", "LEAD", "STAB", "PIANO", "VOX", "SUB")]
+    check(len(mel) >= 3 and all(n % 12 == 0 for _, n in mel), "a proposal of the journey on an empty track, no key: a melodic part's note is a C too (%s)" % said)
 
 
 def t027_random_dice():
@@ -11671,6 +11680,21 @@ def t027_evolve_return():
           "SEL + K2 on SEQ 3: the RETURN, and the screen says what it does (%s)" % [x for x in st_msgs(l50) if "RETURN" in x][:1])
     check([d["hash"] for d in l0.dumps[1:]] == [d["hash"] for d in lk.dumps[1:]], "RETURN 0 is DRIFT, bar for bar the same as the key black 8 (%s / %s)" % (d0[:6], dk[:6]))
     check(m[0] < m[1] < m[2], "the further from 100, the further from the seed it wanders: 100 %%, 50 %%, 0 %% (%s; %s / %s / %s)" % ([round(x, 1) for x in m], d100, d50, d0))
+    s = Script()                                                       # the key black 8: to 0, and back to the RETURN it had
+    t = s.steps(100, [0, 4, 8, 12])
+    t = pg(s, t, SEQ, 2, [(K2, -10)], sel=True)                        # RETURN 50
+    for _ in range(2):
+        t = seq_page(s, t, 0, keys=[bk(7)])
+        s.at(t, "dump", 0); t += 50
+    t = seq_page(s, t, 0, keys=[bk(7)])                                # (DRIFT again, then RETURN 100 by hand: the key goes back to 100)
+    t = pg(s, t, SEQ, 2, [(K2, 20)], sel=True)
+    t = seq_page(s, t, 0, keys=[bk(7)])
+    s.at(t, "dump", 0); t += 50
+    t = seq_page(s, t, 0, keys=[bk(7)])
+    s.at(t, "dump", 0); t += 50
+    ms = [x["msg"] for x in states(run(s, t + 100))]
+    check(ms == ["DRIFT: EVOLVE WANDERS AWAY", "NO DRIFT: EVOLVE RETURN 50%", "DRIFT: EVOLVE WANDERS AWAY", "NO DRIFT: EVOLVE STAYS NEAR THE SEED"],
+          "the key black 8: DRIFT, and again the RETURN it had - 50 %%, then 100 %% (%s)" % ms)
 
 
 

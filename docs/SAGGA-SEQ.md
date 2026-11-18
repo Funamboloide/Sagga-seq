@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.26
+# SAGGA SEQ 0.27
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
@@ -10,40 +10,40 @@ its pedal and wheels recorded, and **the journey**: every set is cut into phrase
 queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.26` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.27` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.25.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.26.
 
-## What is new in 0.26
+## What is new in 0.27
 
-Seven things, and the technical check of 0.23 - 0.25. The projects of before open as they are and play as they did.
+Four proposals of the map of the generators ([MAPPA-GENERATORI.md](MAPPA-GENERATORI.md)), and a fix. Nothing is
+taken away: the projects of before open as they are and play as they did.
 
-* **THE CLICK** (SAVE 5, a new page): a metronome on the beats **of the metre** - the bar line higher and louder -,
-  OFF / while it RECords / while it PLAYs; the FM-1's own sound, or a note on a MIDI channel (CLICK OUT); and a
-  **COUNT IN** of one or two bars before a recording. See [The click](#the-click).
-* **The keyboard's chords are the harmony**: KEYBOARD (SAVE 4 K2) has two more ways, **CHORDS** and **CHORD <C3**. The
-  chord you hold (two notes or more; below C3 only, in the second) is the harmony's chord from that moment - every
-  FOLLOW track goes to it, as when the progression changes chord -, with the HARMONY off too, until the next one.
-  `CHORD IV (THE KEYBOARD'S)`.
-* **The scenes bring their metre** (GLO 4 K3, **SCENE METRE**: BRING IT): a scene stored remembers the metre it was
-  stored in (`SCENE STORED 2 IN 7/8`), and brings it when it is recalled - stopped at once, playing at the bar line. A
-  song walks through its scenes' metres, and finds its place in them from any point.
-* **Chords that move little**: FOLLOW has a fifth way, **SMOOTH** (ARP 4 K1, past MELODY). The chord is the one FOLLOW
-  makes of it, its notes in the octaves nearest to the written ones: the notes two chords share stay, the others move
-  a step or two (C E G on IV: C F A). The PADs and PIANOs the makers write follow so.
-* **The keyboard's expression**: the pedal, the pitch wheel, the aftertouch (a key's own too) and every controller of a
-  keyboard played through the FM-1 go where its notes go; with REC on they are recorded - the wheels in the track's
-  LANES, the pedal as the length of the notes. See [The keyboard's expression](#the-keyboards-expression).
-* **The engines make a part IN the bar**: in 7/8, in 5/4 a part of the THEORY engines is made in seven, in five - every
-  step of the bar has its place in the metre - and no longer a 4/4 re-barred.
-* **An answer has notes**: a bass takes the notes of the tune it answers, a tune plays the notes of the chord it
-  answers. Both: [THEORY](#theory-the-engines). In 4/4 the engines make what 0.25 made, bit for bit; a pattern of
-  0.25 is made again as 0.25 made it.
+* **A band with no key starts on its root** (the fix). With no key (the scale CHROMA, as in a new project) a part's
+  root was the note it starts from, and an arpeggio starts from a G: the BAND's arpeggio - the library's and the
+  engines' - played a fifth above the bass and the chords. Now a part written on a new track with no key (BAND, BEAT
+  of the engines, a proposal) starts on the project's root (C in a new project), in the part's own register. With a
+  key nothing changes; what is already written stays as it is.
+* **RANDOM is a roll of the dice** (SEQ + white 5): the same bar of chance and its phrase, on the SCOPE's tracks, but
+  it waits like a dice: `RANDOM: OCT+ KEEP, OCT- BACK`. OCT- (or UNDO) puts back what was there, ALG goes through the
+  rolls (up to 16, with the other dice), RANDOM again is one more roll. EVERY repeating RANDOM still changes at once.
+* **EVOLVE's RETURN** (SEQ 3, **SEL + K2**, 0-100 %): before each change, how much of the seed comes back. 100 (EVOLVE
+  as it was): every change starts from the seed, and stays near it; 0: every change starts from the last one and goes
+  away - that is DRIFT; between: that share of the steps (and of the LFOs) goes back to the seed, the rest wanders on.
+  `EVOLVE RETURN 40%: PART OF THE WAY BACK`. The DRIFT key (SEQ + black 8) is RETURN 0, and pressed again the RETURN it
+  had: `DRIFT: EVOLVE WANDERS AWAY`, `NO DRIFT: EVOLVE STAYS NEAR THE SEED`. A project with DRIFT on opens with RETURN 0.
+* **The screen says who is acting**: the four hands that make the music fuller or emptier say what they work on -
+  `T3 DENSITY 60%: THIS TRACK ONLY` (SEQ 2), `T3 CHANCE 40%: THIS TRACK ONLY` (HOME 6), `ENERGY 70: THE WHOLE SET + 4
+  ENGINE PARTS` (GLO 3 K1: every track, and the patterns of the engines it fills and empties), `QUEUED: THIN - THE
+  WHOLE SET, 2 TRACKS OUT` and `QUEUED: SWELL - THE WHOLE SET, 2 TRACKS IN` (the MOSSE).
+* **A third profile, SEMPLICE** (SAVE 1 K4 goes FULL, SEMPLICE, PALCO): all of FULL, but SEQ's pages 2 (the four
+  algorithms) and 3 (EVOLVE) are hidden while nothing of theirs plays - SEQ + OCT- / OCT+ skips them. An algorithm on
+  the selected track brings SEQ 2 back, EVOLVE on brings SEQ 3: nothing is switched off. `PROFILE SEMPLICE: SEQ 2 AND
+  3 HIDDEN WHILE OFF`. PALCO is now two steps of K4 away.
 
-On the Pi: the editor and the converter know all of it (Project: IL CLICK, the two new ways of KEYBOARD, SMOOTH).
-
+On the Pi: the converter knows RETURN. An older firmware reads a RETURN under 50 % as DRIFT on, the others as DRIFT off.
 
 ## The FM-1 panel
 
@@ -100,7 +100,7 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 |---|---|---|---|---|
 | 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**; **0.23.1, NUMERIC: one of sixteen rhythms**, **0.25: fit to the bar**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC (turned: the screen says what K1 and K2 do in it) | heat (COOK, the dice) |
 | 2 ALGORITHM | OFF TURING CELL ACCENT DENSITY (the slot shown; **SEL + K1: the slot 1-4**; **0.16: READY, SEQ + white 6 starts / stops it**) | A (of the READY one, else the one playing) | B | C |
-| 3 EVOLVE | targets RHYTHM .. ALL | amount | every 1 2 4 8 16 bars | scope |
+| 3 EVOLVE | targets RHYTHM .. ALL | amount (**0.27, SEL + K2: RETURN** 0-100 %, how much of the seed comes back before each change: 100 stays near it, 0 is DRIFT) | every 1 2 4 8 16 bars | scope |
 | 4 EXPO | HITS 2-64 (SETTLE: RATE a beat) | CURVE -8 .. +8 (SETTLE: DEPTH) | SPAN STEP, BEAT, 2 BEATS, BAR, 2 BARS, 4 BARS | SHAPE OFF, RAMP, BOUNCE, SETTLE (**0.16: the one that starts it**; K1-K3 set it up while OFF) |
 | 5 EXPO 2 | VEL FLAT, FALL, RISE, BOUNCE, GRACE (the first hit at 75 %) | GATE 5-100 % | JITTER 0-50 % | NOTES CHORD, ARP, ARP +1 .. +3 OCT |
 | 6 TOOLS | random density 0-100 % | **WHEN**: NOW, BAR, 2, 4, 8, 16 BARS | **EVERY**: OFF, 1, 2, 4, 8, 16, 32 BARS | **GENRE**: FREE, ON, LIVE |
@@ -146,8 +146,8 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 
 | | |
 |---|---|
-| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops; a MIDI FX READY on the track (HOME 6): it starts**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
-| black keys 1-11 | DICE SEQ (**held: DICE PROG**; on a BREAK: the backbone kept), DICE CC, DICE LFO, DICE GROOVE, DICE ALL, SCOPE (next; held + white keys: the CUSTOM tracks), KIT (**held: BAND**), DRIFT, EVOLVE on / off, FREEZE, REVERT |
+| white keys 1-16 | CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM (**0.27: a roll of the dice**: OCT+ keeps it, OCT- puts it back, ALG goes through the rolls), **EUCLID LIVE on / off** (**0.16: on SEQ 2 the slot's algorithm: the READY one starts, else the one playing stops; a MIDI FX READY on the track (HOME 6): it starts**), **WRITE LIVE**, UNDO (a dice waiting: BACK; **held 0.6 s: REDO**), COOK (by the track's role; **held: the random COOK**; on a BREAK: the next chop of the library's genre, held: one of them at random), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT (on an empty row: all on), HUMANIZE. UNDO, COOK, DICE SEQ and KIT act when the key is let go. On a TAPE track: CLEAR, SHIFT <, SHIFT >, DOUBLE |
+| black keys 1-11 | DICE SEQ (**held: DICE PROG**; on a BREAK: the backbone kept), DICE CC, DICE LFO, DICE GROOVE, DICE ALL, SCOPE (next; held + white keys: the CUSTOM tracks), KIT (**held: BAND**), DRIFT (**0.27: EVOLVE's RETURN at 0**, and back to the one it had), EVOLVE on / off, FREEZE, REVERT |
 | SELECT / ALG / PRESETS | BEAT part (the genre's band, PROG, KIT) / variation 1-12 (1-6), **then the Pi's** (**0.23, SOURCE THEORY: the NEXT SEED**) / **the genre** (of everything; the harmony follows only what is loaded) |
 | SAVE | **the selected track's loop to the Pi** as a variation of its part (**ARP + SAVE**: the progression, the one being written on ARP 5 / 6, else the one playing) |
 
@@ -218,7 +218,7 @@ the bar's steps (white 1 = 3 steps), or the ways it divides.
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 | MASTER knob function | the remote OFF / CH 14 / 13 + 14 | snapshots bring their tempo | the PROFILE |
+| 1 | MASTER knob function | the remote OFF / CH 14 / 13 + 14 | snapshots bring their tempo | the PROFILE: FULL, SEMPLICE, PALCO |
 | 2 | **CC LEAD** 0-30 ms | **SONG TEMPO** | **DEVICE** of the track's channel (GENERIC, ELEKTRON) | **LONG PATTERNS** (0.24; LIBRARY LEN until 0.23): COPY (a library pattern of one bar repeats in a longer track) / PHRASE (the long form: the next variation in the last bar, the genre's fill) |
 | 3 SYSTEM (0.12) | **USB PORTS** 1 / 2 (SEL + K1 twice: reconnect) | the button lights | | |
 | **4 LIVE IN** (0.13) | **MOTION** OFF / 1 / 2 / 4 BARS (REC + FX K: written) | **KEYBOARD** OFF / TRANSPOSE / TRANS <C3 (the MIDI IN transposes), **0.26: CHORDS / CHORD <C3** (its chords are the harmony) | **KEYB CH** ANY / 1-16 | **MIDI IN** REC ONLY / ALWAYS |
@@ -304,9 +304,10 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
 * **Program Change per scene** (HOME page 5 K4), **RELOAD** (SEL + SAVE), **TEMP** (grid FX view), **song mode**,
   **tap tempo**, **step recording**, **finger drumming** on drum tracks, **MIDI LEARN** of CC numbers: as in 0.5.
 * **The dice**: DICE SEQ (patterns of the genre with the progression of the roll), CC (the lanes' bases), LFO, GROOVE,
-  ALL (the bank becomes a piece of the genre). Up to 16 rolls are remembered: ALG goes through them. OCT+ keeps,
-  OCT- (or UNDO) puts back what was there before the first roll.
-* **EVOLVE** every 1-16 bars, by the amount, around the seed (DRIFT: away from it); FREEZE, REVERT. Rhythm-heavy genres
+  ALL (the bank becomes a piece of the genre); 0.27: RANDOM too. Up to 16 rolls are remembered: ALG goes through them.
+  OCT+ keeps, OCT- (or UNDO) puts back what was there before the first roll.
+* **EVOLVE** every 1-16 bars, by the amount, around the seed; how near, its RETURN says (SEQ 3, SEL + K2: 100 from the
+  seed every time, 0 away from it - DRIFT -, between part of the way back); FREEZE, REVERT. Rhythm-heavy genres
   move the rhythm more, melodic ones the notes; on FOLLOW tracks the beats get chord tones of the tonic, the steps
   between move by step. A locked step (EDIT + black 1) never changes.
 
@@ -367,7 +368,7 @@ What each generator makes of a track longer than a bar:
 | the library (BEAT, KIT, BAND, GENRE LIVE) | the variation as written when it is two or four bars long; a one-bar one: COPY or PHRASE (LONG PATTERNS) |
 | the THEORY engines | their own phrase: two bars a a', four bars a a' a b (the turn-around, the fill) |
 | DICE SEQ | the library: a variation as a PHRASE, every bar a light take of its own; the engines: a new seed's phrase; GENRE FREE: a bar of chance and its phrase (as RANDOM) |
-| RANDOM | a bar of chance, then its phrase: A A' on two bars, A A' A B on four. A' is the bar with its second half cooked (by the track's role, in the key), B the bar cooked harder but for its first beat; HEAT says how much. An answer the cook left as the question gets a pickup at its end (or loses one) |
+| RANDOM | (0.27: a roll of the dice, it waits for OCT+ or OCT-) a bar of chance, then its phrase: A A' on two bars, A A' A B on four. A' is the bar with its second half cooked (by the track's role, in the key), B the bar cooked harder but for its first beat; HEAT says how much. An answer the cook left as the question gets a pickup at its end (or loses one) |
 | COOK | at random: every bar by the role's rules, its beats kept - the bars drift apart. Towards the next variation: the variation as a phrase as long as the track, a few steps a press |
 | EVOLVE | cooks the whole loop: the bars evolve each their own way |
 | EUCLID (live, and the tool) | its pulses are spread over the loop: 5 over 32 steps is not 5 over 16 twice |
@@ -532,7 +533,10 @@ bars as they lasted. Then save the project as usual.
 phrase's length (0-95 shorter, 96-127 longer), 31 the next progression, 32 track value / 8 queued in / out. A button:
 64-127.
 
-**The profiles** (SAVE + K4): FULL and PALCO. PALCO opens the MOSSE, shows HOME pages 1 and 3 only, refuses SEQ,
+**The profiles** (SAVE + K4, in this order): FULL, SEMPLICE (0.27) and PALCO. SEMPLICE is FULL with SEQ's pages
+2 (the four algorithms) and 3 (EVOLVE) hidden while nothing of theirs plays: SEQ + OCT- / OCT+ skips them; an
+algorithm on the selected track brings SEQ 2 back, EVOLVE on brings SEQ 3, and nothing is switched off
+(`PROFILE SEMPLICE: SEQ 2 AND 3 HIDDEN WHILE OFF`). PALCO opens the MOSSE, shows HOME pages 1 and 3 only, refuses SEQ,
 EDIT and ENV (the screen says so) and puts the remote on 13 + 14. The profile is kept in the FM-1's settings, not in
 the project: power-on comes back in it.
 

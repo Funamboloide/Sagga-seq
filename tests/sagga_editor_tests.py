@@ -1304,10 +1304,27 @@ def t026_files():
     check(len(img) > 1000 and j3['ext']['click'] == 2, 'the image is written whole (%d B)' % len(img))
 
 
+def t027_files():
+    group("0.27 in the files: EVOLVE's RETURN (ext evo_ret: the RETURN + 1; 0, a project of before: DRIFT's switch says) - written, kept by an edit, put right")
+    d = tempfile.mkdtemp()
+    a, b, c = os.path.join(d, 'a.sgq'), os.path.join(d, 'b.sgq'), os.path.join(d, 'c.sgq')
+    j = read(HW)
+    check(j.get('ext', {}).get('evo_ret') == 0, 'a project of before has none: EVOLVE as it was (%s)' % j.get('ext', {}).get('evo_ret'))
+    r = apply('new', ['ext - evo_ret - 41'], a)
+    j = read(a) if r.returncode == 0 else {}
+    check(r.returncode == 0 and j.get('ext', {}).get('evo_ret') == 41, 'RETURN 40 %% written and read back (%s %s)' % (j.get('ext', {}).get('evo_ret'), r.stderr))
+    r = apply(a, ['project - bpm - 99'], b)
+    j = read(b) if r.returncode == 0 else {}
+    check(r.returncode == 0 and j.get('ext', {}).get('evo_ret') == 41 and j.get('project', {}).get('bpm') == 99, 'an edit of something else keeps it (%s)' % j.get('ext', {}))
+    r = apply(a, ['ext - evo_ret - 150'], c)
+    j = read(c) if r.returncode == 0 else {}
+    check(r.returncode == 0 and j.get('ext', {}).get('evo_ret') == 0, 'a RETURN there is not is put right as the FM-1 does: none (%s)' % j.get('ext', {}).get('evo_ret'))
+
+
 def main():
     build()
     for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
-              t025_metre, t025_melody, t026_files):
+              t025_metre, t025_melody, t026_files, t027_files):
         try:
             t()
         except Exception as e:

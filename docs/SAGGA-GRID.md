@@ -320,7 +320,7 @@ length, dim red a muted track's hits.
 
 | row | pads |
 |---|---|
-| 1 | the 16 tools: CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off**, **WRITE LIVE**, UNDO, COOK (0.11: towards the next variation; **SHIFT: the random COOK**), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT, HUMANIZE, on the scope (their settings: BEAT view) |
+| 1 | the 16 tools: CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM (0.27: a roll of the dice), **EUCLID LIVE on / off**, **WRITE LIVE**, UNDO, COOK (0.11: towards the next variation; **SHIFT: the random COOK**), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT, HUMANIZE, on the scope (their settings: BEAT view) |
 | 2 | arp mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY); octaves 1-3 (14-16) |
 | 3 | swing 50 .. 75 % (1-8); direction FWD, REV, PING, RND (9-12); transpose -12, -1, +1, +12 (13-16; SHIFT: back to 0) |
 | 4 | division 1/1 .. 1/32T (1-13); the track FREE / IN KEY (cyan) / DRUM (amber) / BREAK (0.12) (14; a TAPE: HOME 4 K1 on the FM-1); **0.25, the polyrhythms: five (15) or seven (16) steps in the time of four** - a tap: of the value the track had (four quarters from 1/4, four eighths from 1/8, else four 16ths); again: the next of the three; violet, white the one that is on; a pad 1-13 goes back to a plain step. (Mute and solo: the PERF view) |
@@ -401,7 +401,7 @@ more: CC again (and FOLLOW stops).
 | 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-16. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
 | 6 | EUCLID rotation 0 .. 15 |
 | 7 | random density 10 .. 90 % (1-8); heat 5 .. 90 % (9-16) |
-| 8 | **EVOLVE** on / off (1); **FREEZE** (2); **REVERT** (3); DRIFT (4); every 1, 2, 4, 8, 16 bars (5-9); amount 5 .. 80 % (10-16) |
+| 8 | **EVOLVE** on / off (1); **FREEZE** (2); **REVERT** (3); DRIFT (4; 0.27: EVOLVE's RETURN at 0, and back); every 1, 2, 4, 8, 16 bars (5-9); amount 5 .. 80 % (10-16) |
 
 ### EUCLID (BEAT again, 0.8): the eight tracks of the bank
 

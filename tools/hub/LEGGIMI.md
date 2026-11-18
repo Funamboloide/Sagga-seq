@@ -227,6 +227,10 @@ per i due di prima (TRANSPOSE, TRANS <C3). Nella scheda **Traccia**, *FOLLOW: le
 (gli accordi si muovono poco). Un pattern dei motori copiato su un altro pattern porta con sé anche il metro in cui è
 stato fatto.
 
+**0.27.** Il convertitore conosce il **RETURN** di EVOLVE (SEQ 3, SEL + K2 sull'FM-1): un progetto aperto e salvato
+nell'editor lo tiene. L'editor non mostra EVOLVE, come prima. Il profilo SEMPLICE sta nelle impostazioni dell'FM-1,
+non nel progetto: l'editor non lo vede.
+
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:
 tocchi il vuoto e c'è una nota da un sedicesimo, la trascini per spostarla, dal bordo destro la allunghi, Canc la toglie;
