@@ -212,5 +212,5 @@ In fondo alla mappa c'è una tabella "Voglio... uso..." che vale già oggi.
 ## La dimensione
 
 Il firmware cresce di 17.288 byte: 476.948 su 581.564 (la 0.25: 459.660). La RAM cresce di 320 byte: 72.096 su
-98.304 (la 0.25: 71.776). C'è posto per tutti e due: restano libere più di 100.000 byte di firmware. Le misure sono
+98.304 (la 0.25: 71.776). C'è posto per tutti e due: restano liberi più di 100.000 byte. Le misure sono
 della build di GitHub.
