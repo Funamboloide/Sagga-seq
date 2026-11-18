@@ -279,4 +279,5 @@ una traccia MELODY torna su HOLD. Il resto è uguale.
 
 **La dimensione**
 
-Le dimensioni del firmware le misura GitHub quando lo compila: le scrivo qui appena le ha.
+Il firmware cresce di 11.044 byte: 459.660 su 581.564 (la 0.24: 448.616). La RAM cresce di 960 byte: 71.776 su 98.304
+(la 0.24: 70.816). C'è posto per tutti e due. Le misure sono della build di GitHub.
