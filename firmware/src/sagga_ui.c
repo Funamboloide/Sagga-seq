@@ -256,7 +256,7 @@ static void ui_build(void)
     case UM_SAVE:                                     /* SAVE: K1 the MASTER knob, K2 the remote, K3 snapshot tempo, slot; page 2; 0.12 page 3 SYSTEM; 0.13 page 4 LIVE IN */
         if (save_page == 3u) {
             const sq_ext_t *x = &project.ext;
-            static const char *const KB[SQ_KBS] = {"OFF", "ALL", "SPLIT C3"};
+            static const char *const KB[SQ_KBS] = {"OFF", "TRANSPOSE", "TRANSP <C3", "CHORDS", "CHORDS <C3"};   /* (0.26: the chords; until 0.25 OFF ALL SPLIT C3) */
             ui_cell(0, "MOTION", x->motion_bars == 1u ? "1 BAR" : x->motion_bars == 2u ? "2 BARS" : x->motion_bars ? "4 BARS" : "OFF", x->motion_bars ? (record_arm ? C_WARN : C_ON) : SQ_C_DIM);
             ui_cell(1, "KEYBOARD", KB[x->kb_mode < SQ_KBS ? x->kb_mode : 0u], x->kb_mode ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "KEYB CH", x->kb_ch ? f_u(x->kb_ch) : "ANY", x->kb_mode ? C_WHITE : SQ_C_DIM);
@@ -686,7 +686,7 @@ static void ui_build(void)
             if (g->harm_rhythm != SQ_HR_BARS) ui_cell(2, "RHYTHM", sq_hrhythm_name(g->harm_rhythm == SQ_HR_GENRE ? sq_genre_hrhythm(g->harm_genre) : g->harm_rhythm), C_ACCENT);
             else ui_cell(2, "BARS A CHORD", BB[g->harm_bars <= 8u ? g->harm_bars : 0u], C_WHITE);
             ui_cell(3, cfg->follow_mode == SQ_FM_RETRIG ? "FOLLOW RETRIG" : cfg->follow_mode == SQ_FM_LEGATO ? "FOLLOW LEGATO" :
-                       cfg->follow_mode == SQ_FM_MELODY ? "FOLLOW MELODY" : "FOLLOW",
+                       cfg->follow_mode == SQ_FM_MELODY ? "FOLLOW MELODY" : cfg->follow_mode == SQ_FM_SMOOTH ? "FOLLOW SMOOTH" : "FOLLOW",
                     f_onoff(cfg->flags & SQ_TF_FOLLOW), (cfg->flags & SQ_TF_FOLLOW) ? C_ON : SQ_C_DIM);
             {   sq_hchord_t hc;                         /* the chord playing, and which one of the progression */
                 uint8_t hi = 0u;
@@ -706,7 +706,7 @@ static void ui_build(void)
             ui_line(2, b, C_WARN);
         } else if (arp_page == 3u) {                 /* HARMONY 2: FOLLOW's way, the harmony's genre, the mood, the rhythm */
             const sq_gen_t *g = &project.gen;
-            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO", "MELODY"};   /* (0.25 MELODY: a tune that knows the chord) */
+            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO", "MELODY", "SMOOTH"};   /* (0.25 MELODY: a tune that knows the chord; 0.26 SMOOTH: chords that move little) */
             ui_cell(0, "FOLLOW MODE", FMN[cfg->follow_mode < SQ_FMS ? cfg->follow_mode : 0u], (cfg->flags & SQ_TF_FOLLOW) ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "HARM GENRE", g->harm_free ? "FREE" : sq_genre_name(g->harm_genre), g->harm_lock ? C_WARN : C_ACCENT);   /* (0.16 FREE) */
             ui_cell(2, "MOOD", g->harm_mood ? sq_mood_name(g->harm_mood) : "ANY", g->harm_mood ? C_ACCENT : SQ_C_DIM);
@@ -762,7 +762,7 @@ static void ui_build(void)
             sq_metre_sig(st, bt, sig); sq_metre_split(st, bt, spl);
             ui_cell(0, wait ? "BAR >" : "BAR", f_u(st), wait ? C_WARN : st != 16u ? C_ACCENT : C_WHITE);
             ui_cell(1, wait ? "BEATS >" : "BEATS", spl, wait ? C_WARN : bt != sq_metre_option(st, 0u) ? C_ACCENT : C_WHITE);
-            ui_cell(2, "METRE", sig, st != 16u || bt != SQ_BEATS_44 ? C_ACCENT : SQ_C_DIM);
+            ui_cell(2, "SCENE METRE", project.ext.scene_metre_on ? "BRING IT" : "OFF", project.ext.scene_metre_on ? C_ACCENT : SQ_C_DIM);   /* 0.26 (the metre's name: the line below) */
             p = b; if (playing) { p = put_u(p, bar_no() + 1u); p = put_s(p, "."); p = put_u(p, bar_into() / 6u + 1u); } else p = put_s(p, "--"); finish(p);
             ui_cell(3, "BAR.STEP", b, playing && bar_into() < 6u ? C_WARN : C_WHITE);
             p = b; p = put_s(p, perf_mode ? "PERF 4/4 METRE " : "GLO 4/4 METRE "); p = put_s(p, sig); p = put_s(p, " = "); p = put_s(p, spl); finish(p);

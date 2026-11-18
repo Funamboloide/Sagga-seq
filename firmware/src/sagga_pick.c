@@ -174,6 +174,7 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             uint8_t st = bar_shown();
             if (k == 0u) PK(PK_COUNT, (int32_t)SQ_BAR_MIN, (int32_t)SQ_BAR_MAX, 1, st);
             if (k == 1u && sq_metre_options(st) > 1u) PK(PK_LIST, 0, (int32_t)sq_metre_options(st) - 1, 1, (int32_t)sq_metre_index(st, beats_shown()));
+            if (k == 2u) PK(PK_LIST, 0, 1, 1, project.ext.scene_metre_on ? 1 : 0);   /* 0.26 SCENE METRE */
             PK(PK_NONE, 0, 0, 1, 0);
         } else {
             if (k == 0u) PK(PK_NONE, 0, 127, 1, morph_pos);

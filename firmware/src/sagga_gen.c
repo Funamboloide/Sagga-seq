@@ -1045,6 +1045,11 @@ static uint8_t harm_chord(sq_hchord_t *c, uint8_t *idx)
 {
     sq_hprog_t h;
     uint8_t k;
+    if (kb_chord_on && SQ_KB_IS_CHORD(project.ext.kb_mode)) {   /* 0.26 LIVE CHORDS: the keyboard's, whatever the progression (the HARMONY off too) */
+        *c = kb_chord;
+        if (idx) *idx = 0u;
+        return 1u;
+    }
     if (!project.gen.harm_on) return 0u;
     harm_hprog_of(project.gen.harm_prog, &h);
     k = sq_hprog_at(&h, harm_pos(), c);
@@ -1343,11 +1348,12 @@ static void harm_dice(void)
     ui_dirty = grid_dirty = 1u;
 }
 /* 0.11 SEQ 4, SEL + K1: how a FOLLOW track's held note meets a change of chord; 0.25 MELODY: a tune - it stays where it is
- * written and its strong notes (on a beat, long, held through a change) go to the chord playing */
+ * written and its strong notes (on a beat, long, held through a change) go to the chord playing; 0.26 SMOOTH: a chord's
+ * notes go to the nearest notes of the chord playing (held ones as LEGATO: those the two chords share go on) */
 static void follow_mode_set(uint8_t t, uint8_t m)
 {
     static const char *const N[SQ_FMS] = {"HELD NOTES KEEP THEIR CHORD", "HELD NOTES STRUCK AGAIN ON THE NEW CHORD", "HELD NOTES SLIDE TO THE NEW CHORD",
-                                          "A TUNE: ITS STRONG NOTES ON THE CHORD"};
+                                          "A TUNE: ITS STRONG NOTES ON THE CHORD", "CHORDS MOVE LITTLE: THE NEAREST NOTES"};
     project.track[t].follow_mode = m < SQ_FMS ? m : 0u;
     status_msg(N[project.track[t].follow_mode]);
     ui_dirty = grid_dirty = 1u;
@@ -1384,7 +1390,11 @@ static void beat_onto(uint8_t t, uint8_t func, uint8_t var);
 static uint8_t follow_way_for(const sq_track_cfg_t *c, uint8_t func)
 {
     if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) return SQ_FM_MELODY;
-    return (uint8_t)(c->follow_mode == SQ_FM_MELODY ? SQ_FM_HOLD : c->follow_mode);
+    /* 0.26 THE CHORDS MOVE LITTLE: the chords a hand holds (a PAD, a PIANO) follow SMOOTH - each note to the nearest note
+     * of the chord playing; a riff's chords (a STAB, the CHORD part) go on moving whole, as riffs do */
+    if (func == SQ_FUNC_PAD || func == SQ_FUNC_PIANO)
+        return (uint8_t)(c->follow_mode == SQ_FM_RETRIG || c->follow_mode == SQ_FM_LEGATO ? c->follow_mode : SQ_FM_SMOOTH);
+    return (uint8_t)(c->follow_mode == SQ_FM_MELODY || c->follow_mode == SQ_FM_SMOOTH ? SQ_FM_HOLD : c->follow_mode);
 }
 
 /* PROG: the tonic chord on the genre's chord rhythm; the track follows the HARMONY, which starts if it was off */
@@ -2891,22 +2901,26 @@ static void song_clear(void)
  * last entry. */
 static void song_seek(uint32_t ticks)
 {
-    uint32_t bar = ticks / bar_ticks(), total = 0u, i, b = 0u;   /* (0.25: the metre's bars) */
+    sq_song_pos_t o;
+    uint8_t moved = 0u;
+    /* (0.25: the metre's bars; 0.26: each entry the bars of the metre its scene brings - sq_song_locate walks them from
+     *  the song's start, which is taken to be in the bar there is now when its first scene brings none) */
     if (!song_on || !project.song.len) return;
-    for (i = 0; i < project.song.len; i++) total += project.song.e[i].bars;
-    if (!total) return;
-    if (bar >= total) bar = project.song.loop ? bar % total : total - 1u;
-    for (i = 0; i < project.song.len; i++) {
-        if (bar < b + project.song.e[i].bars) break;
-        b += project.song.e[i].bars;
-    }
-    if (i >= project.song.len) i = (uint32_t)project.song.len - 1u;
+    if (!sq_song_locate(&project.song, project.ext.scene_metre_on ? project.ext.scene_metre : 0, bar_st(), bar_bt(), ticks, &o)) return;
     song_wait = 0u;
-    song_pos = (uint8_t)i;
-    apply_scene(project.song.e[i].scene);
+    song_pos = o.entry;
+    if (o.steps != bar_st() || o.beats != bar_bt()) {  /* 0.26: the bar there, and the tracks that are bars long with it */
+        bar_pend_steps = 0u;
+        metre_put(o.steps, o.beats);
+        metre_say(0u, "");
+        moved = 1u;
+    }
+    apply_scene(project.song.e[o.entry].scene);
     pending_scene = SQ_NO_PENDING;
-    song_bar = (uint8_t)(bar - b);
-    song_skip_bar = (ticks % bar_ticks()) == 0u ? 1u : 0u;
+    song_bar = o.bar;
+    song_skip_bar = o.on_line;
+    bar_origin = o.line; bar_base = o.bars_before;     /* the bar lines are the entry's (the same lines as ever while no scene brings a metre) */
+    if (o.metre_from || moved) seek_tracks(o.metre_from, ticks);   /* every track began again where the metre last changed (and is as long as its bars are now) */
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -2938,6 +2952,7 @@ static void gen_reset(void)
     evo_run = 0u;
     temp_on = 0u;
     song_on = 0u; song_wait = 0u; song_pos = 0u; song_bar = 0u; song_skip_bar = 0u;
+    kb_chord_on = 0u;                               /* 0.26: no chord of the keyboard's */
     undo_clear();
 }
 

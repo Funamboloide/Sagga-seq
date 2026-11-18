@@ -179,6 +179,10 @@ static void live_step_done(uint32_t t);
 static void live_loop_done(uint32_t t);
 static uint8_t harm_now(int8_t *deg, uint8_t *col);
 static uint8_t harm_chord(sq_hchord_t *c, uint8_t *idx);   /* sagga_gen.c: 0.11 the chord playing */
+/* 0.26 LIVE CHORDS (KEYBOARD: CHORDS, SAVE 4 K2; sagga_live3.c): the chord the keyboard holds, or held last, IS the
+ * harmony's chord - whatever the progression says, and with the HARMONY off too - until the keyboard is given back */
+static sq_hchord_t kb_chord;
+static uint8_t kb_chord_on;
 static void gen_custom_toggle(uint8_t t);
 static void song_bar_tick(void);
 static void song_start_hook(void);
@@ -1254,7 +1258,9 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
  * playing), TURING moving the notes, then the voicing (not for an arpeggio PLAYED: the order is the player's).
  * 0.25 FOLLOW MELODY: a single note is a note of a tune: it is not moved with the chord; `strong` (it is on a beat of
  * the metre, or longer than its step, or held while the chord changes) it goes to the nearest tone of the chord playing,
- * else it plays as written. A step of two notes or more follows as ever. */
+ * else it plays as written. A step of two notes or more follows as ever.
+ * 0.26 FOLLOW SMOOTH: the chord is the one FOLLOW makes of it, its notes in the octaves nearest to the written ones
+ * (sq_harm_smooth): the notes two chords share stay, the others move a step or two. */
 static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_t strong)
 {
     const sq_track_cfg_t *c = &project.track[t];
@@ -1267,6 +1273,7 @@ static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_
         n = sq_chord_build(raw[0], c->chord, track_in_key(t) ? c->chord_key : (uint8_t)SQ_CK_FREE, root, scale, raw);
     if ((c->flags & SQ_TF_FOLLOW) && !(c->flags & SQ_TF_DRUM) && harm_chord(&hc, 0)) {   /* 0.11: a root and a shape too */
         if (n == 1u && c->follow_mode == SQ_FM_MELODY) { if (strong) raw[0] = sq_harm_melody(raw[0], root, scale, &hc); }
+        else if (c->follow_mode == SQ_FM_SMOOTH) n = sq_harm_smooth(raw, n, root, scale, &hc);   /* 0.26: the nearest notes of the chord */
         else n = sq_harm_apply_chord(raw, n, root, scale, &hc, n >= 2u);
     }
     {
@@ -1676,6 +1683,7 @@ static void scene_send_pc(uint8_t s)
     }
 }
 
+static void scene_metre_bring(uint8_t s);  /* 0.26 (below, with the metre) */
 static void apply_scene_x(uint8_t s, uint8_t restart)
 {
     uint32_t t;
@@ -1691,6 +1699,7 @@ static void apply_scene_x(uint8_t s, uint8_t restart)
     scene_cursor = s;
     scene_send_pc(s);
     if (project.scene[s].key_slot < SQ_KEYS && project.scene[s].key_slot != project.key_cur) key_select_slot(project.scene[s].key_slot);   /* 0.10: the scene's key */
+    scene_metre_bring(s);                    /* 0.26: ... and its metre */
     morph_pos = 0u;                          /* MORPH starts again from the scene that plays (nothing is sent) */
     ui_dirty = grid_dirty = 1u;
 }
@@ -2261,15 +2270,21 @@ static void lfo_service(uint32_t now)
 }
 
 /* ---- transport */
-static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where every track is after `ticks` ticks */
+/* the tracks where they are at clock tick `ticks`, having begun at tick `from` (0: the start; 0.26: the bar line a
+ * song's scene brought another metre on - every track began again there) */
+static void seek_tracks(uint32_t from, uint32_t ticks)
 {
-    uint32_t t;
+    uint32_t t, el = ticks >= from ? ticks - from : 0u;
     for (t = 0; t < SQ_TRACKS; t++) {
-        tr[t].anchor = 0u;
-        if (track_tuplet(t)) { uint16_t num; uint8_t den; sq_div_frac(project.track[t].division, &num, &den); sq_track_seek_frac(&project.track[t], &tr[t], ticks, num, den); }
-        else sq_track_seek(&project.track[t], &tr[t], ticks, sq_div_ticks(project.track[t].division));
+        tr[t].anchor = from;
+        if (track_tuplet(t)) { uint16_t num; uint8_t den; sq_div_frac(project.track[t].division, &num, &den); sq_track_seek_frac(&project.track[t], &tr[t], el, num, den); }
+        else sq_track_seek(&project.track[t], &tr[t], el, sq_div_ticks(project.track[t].division));
         pre[t].state = 0u;
     }
+}
+static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where every track is after `ticks` ticks */
+{
+    seek_tracks(0u, ticks);
     global_clock = ticks;
     tup_wait = 0u;
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: a song position is counted in the bar as it is now, from the song's start */
@@ -2795,13 +2810,10 @@ static void metre_say(uint8_t follow, const char *tail)
     finish(p);
     status_msg(msg_buf);
 }
-static void metre_apply(uint8_t steps, uint32_t beats)
+static uint8_t metre_put(uint8_t steps, uint32_t beats)   /* the bar, and the tracks that are a number of bars long -> how many of them followed */
 {
     uint8_t old = bar_st(), n = 0u;
     uint32_t t;
-    bar_pend_steps = 0u;
-    bar_base = bar_no();                               /* (the bars so far, counted in the old bar) */
-    bar_origin = global_clock;
     sq_bar_set(&project.gen, steps, beats);
     metre_sync();
     steps = bar_st();
@@ -2813,6 +2825,16 @@ static void metre_apply(uint8_t steps, uint32_t beats)
         length_apply((uint8_t)t, want);
         n++;
     }
+    return n;
+}
+static void metre_apply(uint8_t steps, uint32_t beats)
+{
+    uint8_t n;
+    uint32_t t;
+    bar_pend_steps = 0u;
+    bar_base = bar_no();                               /* (the bars so far, counted in the old bar) */
+    bar_origin = global_clock;
+    n = metre_put(steps, beats);
     if (playing) {
         loop_on = 0u; loop_latched = 0u; lp_held = 0u;
         for (t = 0; t < SQ_TRACKS; t++) track_restart(t);
@@ -2846,6 +2868,35 @@ static void metre_ask(uint8_t steps, uint32_t beats)   /* the knobs, the tablet:
 static void metre_bar_tick(void)                       /* every bar line: the bar that waited */
 {
     if (bar_pend_steps) metre_apply(bar_pend_steps, bar_pend_beats);
+}
+/* 0.26 THE METRE WITH THE SCENE (GLO 4 K3: SCENE METRE). A scene stored while it is on keeps the metre it was stored
+ * in (capture_scene), and brings it back when it comes: at once when nothing plays; on the bar line it comes at (a
+ * scene queued for the bar, an entry of the song) from that very bar; one that comes in the middle of a bar (QUANTISE
+ * NOW or BEAT, a pad of the grid) at the bar's end - the metre never begins in the middle of a bar. So a song changes
+ * metre with its scenes. Off (as every project until 0.25): a scene leaves the metre alone, and stores none. */
+static void scene_metre_bring(uint8_t s)
+{
+    uint8_t st = 16u, id;
+    uint32_t bt = SQ_BEATS_44;
+    if (s >= SQ_SCENES || !project.ext.scene_metre_on) return;
+    id = project.ext.scene_metre[s];
+    if (!id || !sq_metre_of((uint8_t)(id - 1u), &st, &bt)) return;
+    if (st == sq_bar_steps(&project.gen) && bt == sq_bar_beats(&project.gen)) { bar_pend_steps = 0u; return; }   /* (it is the bar already: none waits) */
+    if (!playing || bar_into() == 0u) metre_apply(st, bt);
+    else metre_ask(st, bt);
+}
+static uint8_t scene_metre_now(void)                   /* what a scene stored now keeps: the metre shown (the one that waits for the bar, if one does) */
+{
+    uint8_t id;
+    if (!project.ext.scene_metre_on) return 0u;
+    id = sq_metre_id(bar_shown(), beats_shown());
+    return (uint8_t)(id == 255u ? 0u : id + 1u);       /* (a bar divided from outside has no number: the scene leaves the metre) */
+}
+static void scene_metre_toggle(uint8_t on)
+{
+    project.ext.scene_metre_on = on ? 1u : 0u;
+    status_msg(on ? "SCENES BRING THEIR METRE (STORE THEM IN IT)" : "SCENES LEAVE THE METRE ALONE");
+    ui_dirty = 1u;
 }
 
 /* a pattern came from the library (or a snapshot, a scene) with a loop of its own: no length waits any more, the
@@ -3273,6 +3324,7 @@ static void step_tool(int bi)
     ui_dirty = grid_dirty = 1u;
 }
 
+static uint8_t scene_metre_now(void);
 static void capture_scene(uint8_t s)
 {
     uint32_t t;
@@ -3284,7 +3336,13 @@ static void capture_scene(uint8_t s)
         for (l = 0; l < SQ_LANES; l++) project.scene[s].lane[t][l] = project.track[t].lane_base[l];   /* for MORPH */
     }
     project.scene[s].key_slot = project.key_cur;                /* 0.10: the scene brings its key back */
-    status_num("SCENE STORED ", (uint32_t)s + 1u);
+    project.ext.scene_metre[s] = scene_metre_now();             /* 0.26: ... and its metre (SCENE METRE off: none) */
+    if (project.ext.scene_metre[s]) {
+        char sig[8], *p = msg_buf;
+        sq_metre_sig(bar_shown(), beats_shown(), sig);
+        p = put_s(p, "SCENE STORED "); p = put_u(p, (uint32_t)s + 1u); p = put_s(p, " IN "); p = put_s(p, sig); finish(p);
+        status_msg(msg_buf);
+    } else status_num("SCENE STORED ", (uint32_t)s + 1u);
 }
 
 static void scene_recall(uint8_t s)
@@ -3992,6 +4050,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
             if (n < 2u) status_msg("THIS BAR HAS ONE WAY ONLY");
             else metre_ask(st, sq_metre_option(st, change_u8(i < n ? i : 0u, d2, 0u, (uint8_t)(n - 1u))));
         }
+        if (d3 && ((d3 > 0) != (project.ext.scene_metre_on != 0u))) scene_metre_toggle((uint8_t)(d3 > 0));   /* 0.26: the scenes bring their metre */
     } else if (page == 2u) {                       /* 3 the MOSSE (0.17; VIAGGIO until 0.16): energy, phrase, genre, key */
         if (d1) vg_energy_turn(d1 * f1);
         while (d2) { vg_bars_turn(d2 > 0 ? 1 : -1); d2 += d2 > 0 ? -1 : 1; }   /* (one step a detent: PICK turns it by several) */
@@ -4157,8 +4216,11 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 else { char *p = msg_buf; p = put_s(p, "MOTION "); p = put_u(p, x->motion_bars); p = put_s(p, x->motion_bars > 1u ? " BARS: REC + FX K" : " BAR: REC + FX K"); finish(p); status_msg(msg_buf); }
             }
             if (d2) {
+                static const char *const KBM[SQ_KBS] = {"KEYBOARD: NOTES AS NOTES", "KEYBOARD: ITS NOTES TRANSPOSE THE KEY", "KEYBOARD: BELOW C3 TRANSPOSES, ABOVE PLAYS",
+                                                        "KEYBOARD: ITS CHORDS ARE THE HARMONY", "KEYBOARD: CHORDS BELOW C3, ABOVE PLAYS"};
                 x->kb_mode = change_u8(x->kb_mode, d2, 0u, SQ_KBS - 1u);
-                status_msg(x->kb_mode == SQ_KB_ALL ? "KEYBOARD: ITS NOTES TRANSPOSE THE KEY" : x->kb_mode == SQ_KB_SPLIT ? "KEYBOARD: BELOW C3 TRANSPOSES, ABOVE PLAYS" : "KEYBOARD: NOTES AS NOTES");
+                if (!SQ_KB_IS_CHORD(x->kb_mode)) kb_chord_on = 0u;       /* 0.26: the harmony is the progression's again */
+                status_msg(KBM[x->kb_mode]);
             }
             if (d3) { x->kb_ch = change_u8(x->kb_ch, d3, 0u, 16u); if (x->kb_ch) status_num("KEYBOARD ON CHANNEL ", x->kb_ch); else status_msg("KEYBOARD: ANY CHANNEL"); }
             if (d4) { x->in_thru = d4 > 0 ? 1u : 0u; status_msg(x->in_thru ? "MIDI IN PLAYS THE TRACK, REC OR NOT" : "MIDI IN PLAYS WITH REC ONLY"); }

@@ -5,6 +5,8 @@
  *   KEYBOARD  SAVE 4 K2/K3: a keyboard on the MIDI IN transposes the key (TRANSPOSE, as PERF + K3): the note played,
  *             taken from the key's root as it was before any transpose, is how far (-5 .. +6). ALL: every note of the
  *             channel; SPLIT: the notes below C3, the ones above play (and record) as before. It waits for QUANTISE.
+ *             0.26 CHORDS / CHORDS <C3: the notes held are the HARMONY's chord instead (kb_chord_now): every FOLLOW
+ *             track plays on the chord the hand holds, until the next one; with the split the right hand plays.
  *   MIDI IN   SAVE 4 K4 ALWAYS: the notes that come in play on the selected track even without REC (REC still records).
  *   MOTION    SAVE 4 K1: 1, 2 or 4 bars. With REC on, what FX + K1..K4 (and the remote, and a THROW gliding back) do to
  *             the macros is written into the loop, a 16th a cell; then it plays back. The hand wins while it turns
@@ -26,13 +28,34 @@ static uint8_t kb_takes(uint8_t st, uint8_t note)
     const sq_ext_t *x = &project.ext;
     if (!x->kb_mode) return 0u;
     if (x->kb_ch && (uint8_t)(st & 15u) != (uint8_t)(x->kb_ch - 1u)) return 0u;
-    if (x->kb_mode == SQ_KB_SPLIT && note >= SQ_KB_SPLIT_NOTE) return 0u;
+    if (SQ_KB_IS_SPLIT(x->kb_mode) && note >= SQ_KB_SPLIT_NOTE) return 0u;
     return 1u;
+}
+/* 0.26 LIVE CHORDS: the notes the keyboard holds now (the ones this mode took) as a chord of the key: the harmony's
+ * chord from this moment - a step that begins plays on it, the notes that are held move to it at the next 16th
+ * (harm_tick), as when the progression changes chord. It stays when the keys are let go, until the next chord. */
+static void kb_chord_now(void)
+{
+    uint16_t mask = 0u;
+    uint8_t bass = 255u;
+    uint32_t n;
+    sq_hchord_t c;
+    char nm[12], *p = msg_buf;
+    for (n = 0; n < 128u; n++)
+        if (kb_held[n >> 5] & (1u << (n & 31u))) { mask |= (uint16_t)(1u << (n % 12u)); if (bass == 255u) bass = (uint8_t)n; }
+    if (!sq_hchord_live(&c, mask, bass, project.key_root, project.key_scale)) return;
+    if (kb_chord_on && c.deg == kb_chord.deg && c.col == kb_chord.col && c.semi == kb_chord.semi && c.shape == kb_chord.shape) return;
+    kb_chord = c; kb_chord_on = 1u;
+    sq_hchord_name(project.key_scale, &c, nm);
+    p = put_s(p, "CHORD "); p = put_s(p, nm); p = put_s(p, " (THE KEYBOARD'S)"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
 }
 static void kb_down(uint8_t note)
 {
     int32_t base = ((int32_t)project.key_root - (int32_t)project.live.ktrans % 12 + 24) % 12;   /* the root before the transpose */
     kb_held[(note >> 5) & 3u] |= 1u << (note & 31u);
+    if (SQ_KB_IS_CHORD(project.ext.kb_mode)) { kb_chord_now(); return; }
     ktrans_set(sq_kb_transpose(note, (uint8_t)base));
 }
 static uint8_t kb_up(uint8_t note)
