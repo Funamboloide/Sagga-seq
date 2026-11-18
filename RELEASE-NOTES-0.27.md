@@ -88,7 +88,17 @@ Le quattro mani del "più pieno, più vuoto" restano quattro, perché lavorano s
 
 ## Come è stato provato
 
-{{PROVE}}
+| la prova | quanto |
+| --- | --- |
+| le prove nuove, delle cinque cose | 27 controlli nel simulatore, più quelle del cuore e dell'editor: 0 errori |
+| 21 errori messi apposta nelle parti nuove, uno alla volta | le prove li trovano tutti e 21 |
+| il cuore del sequencer | 30.938.178 controlli, 0 errori |
+| i motori THEORY, in 4/4 e in altre 18 battute | 215.628.289 controlli, 0 errori |
+| il simulatore (il firmware vero che gira sul computer) | 1.518 controlli, 0 errori |
+{{ESPLORA}}
+| l'editor del Pi | 249 controlli, 0 errori |
+| il bridge del grid, la pagina del Pi, le pagine SAGGA | 325 + 176 + 80 controlli, 0 errori |
+| gli errori di memoria (gesti a caso, con i rilevatori accesi) | 26 giri, 0 errori; anche le prove nuove: 0 errori |
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
 
