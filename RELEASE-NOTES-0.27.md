@@ -150,4 +150,5 @@ Sullo schermo, dopo l'aggiornamento: `SAGGA SEQ 0.27` per tre secondi.
 
 ## La dimensione
 
-{{DIMENSIONE}}
+Il firmware cresce di 1.568 byte: 478.516 su 581.564 (la 0.26: 476.948). La RAM resta uguale: 72.096 su 98.304. C'è
+posto: restano liberi più di 100.000 byte. Le misure sono della build di GitHub.
