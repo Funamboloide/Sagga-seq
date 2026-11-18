@@ -30,8 +30,8 @@ static const uint8_t TARGET_SET[GEN_TARGET_SETS] = {SQ_GT_RHYTHM, SQ_GT_RHYTHM |
                                                     SQ_GT_RHYTHM | SQ_GT_NOTES | SQ_GT_CC | SQ_GT_LFO};
 static const char *const TARGET_NAME[GEN_TARGET_SETS] = {"RHYTHM", "+NOTES", "+CC", "+NOTES+CC", "+CC+LFO", "ALL"};
 static const uint8_t EVO_BARS[SQ_EVO_EVERY] = {1u, 2u, 4u, 8u, 16u};
-enum { DICE_SEQ = 1, DICE_CC, DICE_LFO, DICE_GROOVE, DICE_ALL };
-static const char *const DICE_NAME[6] = {"", "DICE SEQ", "DICE CC", "DICE LFO", "DICE GROOVE", "DICE ALL"};
+enum { DICE_SEQ = 1, DICE_CC, DICE_LFO, DICE_GROOVE, DICE_ALL, DICE_RANDOM };   /* 0.27: RANDOM is a roll of the dice too */
+static const char *const DICE_NAME[7] = {"", "DICE SEQ", "DICE CC", "DICE LFO", "DICE GROOVE", "DICE ALL", "RANDOM"};
 static const char *const ALGO_NAME[SQ_ALGOS] = {"OFF", "TURING", "CELL", "ACCENT", "DENSITY"};
 
 /* the settings live in the project (sq_gen_t): these names are the ones the panel and the grid use */
@@ -126,6 +126,19 @@ static uint8_t gen_root_note(uint32_t t)
         if (note > 127u) note = (uint8_t)(note - 12u);
     }
     return note;
+}
+/* 0.27: the note a NEW track starts from (a drum part's General MIDI note, the register of a melodic part). With no key
+ * (the scale CHROMA, as a new project is) a melodic part is rooted on its track's note: that note goes to the project's
+ * root (HOME 3 K2: C at first), the nearest one, in the part's register, so all the parts of a band are in one key.
+ * Until 0.26 the arpeggio started from G4 and played a fifth above the rest. */
+static uint8_t start_note(uint8_t func, uint8_t note)
+{
+    int32_t n;
+    if (sq_func_kind(func) == SQ_KIND_DRUM || project.key_scale != SQ_SC_CHROMATIC) return note;
+    n = (int32_t)(note / 12u) * 12 + (int32_t)(project.key_root % 12u);
+    if (n - (int32_t)note > 6) n -= 12;
+    else if ((int32_t)note - n > 6) n += 12;
+    return sq_part_root(func, (uint8_t)clamp_i32(n, 0, 127));   /* (in the part's register, where the makers put its root) */
 }
 static uint32_t grand(uint32_t n) { return n ? sq_rng_next(&sq_rng_state) % n : 0u; }
 /* 0.10: the role of a track for the library and COOK: the one the player set (HOME 4 K2), else what its notes say */
@@ -969,7 +982,12 @@ static void algo_turn(uint8_t t, int32_t d2, int32_t d3, int32_t d4, int32_t f2,
         if (d4) s->c = change_u8(s->c, d4, 0u, 15u);
         break;
     case SQ_ALGO_DENSITY:
-        if (d2) s->a = (uint8_t)kstep(s->a, d2, 5 * f2, 0, 200);
+        if (d2) {                                         /* 0.27: and the screen says who it works on */
+            char *p = msg_buf;
+            s->a = (uint8_t)kstep(s->a, d2, 5 * f2, 0, 200);
+            p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " DENSITY "); p = put_u(p, s->a); p = put_s(p, "%: THIS TRACK ONLY"); finish(p);
+            status_msg(msg_buf);
+        }
         if (d3) s->b = (uint8_t)kstep(s->b, d3, 5 * f3, 10, 100);
         break;
     default:
@@ -2018,7 +2036,7 @@ static void band_load(uint8_t drums_only)
         if (style != 255u && !nv) nv = 1u;
         if (tt == 255u || !nv) { skipped++; continue; }
         undo_add(tt, tr[tt].pattern);
-        if (!row_written(tt) && PEN(tt) == 60u) PEN(tt) = sq_part_note(beat_genre, fn);   /* a new track (nothing written, its note the default): a starting note */
+        if (!row_written(tt) && PEN(tt) == 60u) PEN(tt) = start_note(fn, sq_part_note(beat_genre, fn));   /* a new track (nothing written, its note the default): a starting note */
         beat_onto(tt, fn, (uint8_t)(style != 255u ? 0u : v < nv ? v : nv - 1u));
         activate_row(tt, project.step[tt][tr[tt].pattern]);
         done++;
@@ -2252,6 +2270,8 @@ static void tool_status(uint8_t tool, uint16_t mask)
 }
 
 static void tool_apply_x(uint8_t tool, uint8_t now);
+static uint8_t tool_every_now;                         /* 0.27: the tool running is EVERY's repeat */
+static void dice_roll(uint8_t kind);
 static const uint8_t WHEN_BARS[SQ_WHENS] = {0u, 1u, 2u, 4u, 8u, 16u};
 static const uint8_t EVERY_BARS[SQ_EVERYS] = {0u, 1u, 2u, 4u, 8u, 16u, 32u};
 /* 0.10: the tools that change a pattern can wait for a bar line (WHEN) and come back every so many bars (EVERY) */
@@ -2297,7 +2317,9 @@ static void tool_bar_tick(void)                         /* every bar line: the t
     if (tool_due_tool < TOOL_COUNT && bar >= tool_due_bar) { uint8_t tl = tool_due_tool; tool_due_tool = 255u; tool_apply_x(tl, 1u); }
     if (e && project.gen.every_tool < TOOL_COUNT && bar >= every_next_bar) {
         every_next_bar = bar + EVERY_BARS[e];
+        tool_every_now = 1u;                              /* (0.27: RANDOM repeated by EVERY is the tool, not a roll to answer) */
         tool_apply_x(project.gen.every_tool, 1u);
+        tool_every_now = 0u;
     }
 }
 static void tool_apply(uint8_t tool)
@@ -2338,6 +2360,7 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
     if (track_tape(t) && tool != TOOL_UNDO) { tape_tool(t, tool); return; }   /* 0.11 */
     if (tool == TOOL_EUC) { euclid_toggle(); return; }                   /* 0.8: EUCLID LIVE on / off (the scope) */
     if (tool == TOOL_WRITE) { if (dice_pending) dice_answer(1u); live_write(); return; }   /* 0.8: WRITE what is heard */
+    if (tool == TOOL_RAND && !tool_every_now) { dice_roll(DICE_RANDOM); return; }   /* 0.27: RANDOM is a roll: OCT+ keeps it, OCT- puts it back, ALG goes through the rolls */
     if (tool == TOOL_UNDO && dice_pending) { dice_answer(0u); return; }   /* 0.5.1: UNDO with a dice waiting: BACK */
     if (dice_pending) dice_answer(1u);                    /* a tool after a dice: the dice is kept */
     if (tool == TOOL_UNDO) { undo_swap(); return; }
@@ -2376,7 +2399,7 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
             uint16_t seed = project.th.seed;
             undo_begin();
             undo_add(t, pat);
-            if (!row_written(t) && PEN(t) == 60u) PEN(t) = sq_part_note(beat_genre, beat_func);
+            if (!row_written(t) && PEN(t) == 60u) PEN(t) = start_note(beat_func, sq_part_note(beat_genre, beat_func));
             if (!beat_onto_x(t, pat, beat_genre, beat_func, 0u, 1u, 0)) { status_msg("NO PATTERN"); return; }
             project.th.seed = (uint16_t)((seed + 1u) % SQ_TH_SEEDS);
             p = put_s(p, th_style_now(beat_genre) == SQ_TH_FREE ? "FREE" : sq_genre_name(beat_genre)); p = put_s(p, " "); p = put_s(p, sq_func_name(beat_func));
@@ -2690,6 +2713,7 @@ static void dice_apply(uint8_t kind, uint16_t mask)
     case DICE_CC:     dice_cc(mask); break;
     case DICE_LFO:    for (t = 0; t < SQ_TRACKS; t++) if (mask & (1u << t)) lfo_dice(t, tool_heat); break;
     case DICE_GROOVE: dice_groove(mask); break;
+    case DICE_RANDOM: for (t = 0; t < SQ_TRACKS; t++) if (mask & (1u << t)) tool_one(TOOL_RAND, (uint8_t)t); break;   /* 0.27: the tool, as a roll */
     default:          dice_all(); break;
     }
     if (kind != DICE_LFO) dice_restore_locked(mask);
@@ -2716,7 +2740,7 @@ static void dice_status(void)
         uint16_t lo, hi;
         sq_genre_bpm(beat_genre, &lo, &hi);
         p = put_s(p, sq_genre_name(beat_genre)); p = put_s(p, " "); p = put_u(p, lo); p = put_s(p, "-"); p = put_u(p, hi); p = put_s(p, " BPM");
-    } else p = put_s(p, DICE_NAME[dice_kind <= DICE_ALL ? dice_kind : 0u]);
+    } else p = put_s(p, DICE_NAME[dice_kind <= DICE_RANDOM ? dice_kind : 0u]);
     if (dhist_n > 1u) { p = put_s(p, " "); p = put_u(p, (uint32_t)dhist_pos + 1u); p = put_s(p, "/"); p = put_u(p, dhist_n); p = put_s(p, " ALG"); }
     p = put_s(p, ": OCT+ KEEP, OCT- BACK");
     finish(p);
@@ -2727,7 +2751,7 @@ static void dice_status(void)
 static void dice_roll(uint8_t kind)
 {
     uint16_t mask = kind == DICE_ALL ? bank_mask() : gen_mask();
-    if (kind < DICE_SEQ || kind > DICE_ALL) return;
+    if (kind < DICE_SEQ || kind > DICE_RANDOM) return;
     if (!dice_pending) dhist_n = dhist_pos = 0u;
     dice_save(mask);                                  /* (the tracks not kept yet) */
     if (dhist_n && dhist_pos + 1u < dhist_n) dhist_n = (uint8_t)(dhist_pos + 1u);   /* a new roll forgets the ones after */
@@ -2791,8 +2815,11 @@ static void gen_track_fit(uint32_t t, uint8_t old_len, uint8_t old_start)
 static void evo_status(void)
 {
     char *p = msg_buf;
+    uint8_t r = sq_evo_return(&project.ext, &project.gen);
     p = put_s(p, "EVOLVE "); p = put_u(p, project.gen.evo_amount); p = put_s(p, "% EVERY "); p = put_u(p, EVO_BARS[project.gen.evo_every]);
-    p = put_s(p, project.gen.evo_drift ? " DRIFT" : ""); finish(p);
+    if (!r) p = put_s(p, " DRIFT");                    /* (0.27: RETURN 0 is DRIFT; between: how much comes back) */
+    else if (r < SQ_EVO_RETURN_MAX) { p = put_s(p, " RETURN "); p = put_u(p, r); p = put_s(p, "%"); }
+    finish(p);
     status_msg(msg_buf);
 }
 
@@ -2829,10 +2856,32 @@ static void evo_revert(void)
     ui_dirty = grid_dirty = 1u;
 }
 
+/* 0.27: DRIFT is EVOLVE's RETURN at 0 (SEQ 3 SEL + K2). The key goes there, and back to the RETURN it had (100 at first) */
+static uint8_t evo_ret_was = SQ_EVO_RETURN_MAX;
+static uint8_t evo_drifts(void) { return sq_evo_return(&project.ext, &project.gen) == 0u; }
 static void evo_drift_toggle(void)
 {
-    project.gen.evo_drift ^= 1u;
-    status_msg(project.gen.evo_drift ? "DRIFT: EVOLVE WANDERS AWAY" : "NO DRIFT: EVOLVE STAYS NEAR THE SEED");
+    uint8_t r = sq_evo_return(&project.ext, &project.gen);
+    if (r) { evo_ret_was = r; sq_evo_return_set(&project.ext, &project.gen, 0u); status_msg("DRIFT: EVOLVE WANDERS AWAY"); }
+    else {
+        char *p = msg_buf;
+        r = evo_ret_was ? evo_ret_was : (uint8_t)SQ_EVO_RETURN_MAX;
+        sq_evo_return_set(&project.ext, &project.gen, r);
+        if (r >= SQ_EVO_RETURN_MAX) status_msg("NO DRIFT: EVOLVE STAYS NEAR THE SEED");
+        else { p = put_s(p, "NO DRIFT: EVOLVE RETURN "); p = put_u(p, r); p = put_s(p, "%"); finish(p); status_msg(msg_buf); }
+    }
+    ui_dirty = grid_dirty = 1u;
+}
+static void evo_return_turn(int32_t d, int32_t f)          /* SEQ 3, SEL + K2 */
+{
+    char *p = msg_buf;
+    uint8_t r = (uint8_t)kstep(sq_evo_return(&project.ext, &project.gen), d, 5 * f, 0, (int32_t)SQ_EVO_RETURN_MAX);
+    sq_evo_return_set(&project.ext, &project.gen, r);
+    if (r) evo_ret_was = r;
+    p = put_s(p, "EVOLVE RETURN "); p = put_u(p, r); p = put_s(p, "%: ");
+    p = put_s(p, r >= SQ_EVO_RETURN_MAX ? "FROM THE SEED EVERY TIME" : r ? "PART OF THE WAY BACK" : "DRIFT, NO WAY BACK");
+    finish(p);
+    status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -2851,7 +2900,7 @@ static uint8_t evo_center(const sq_step_t *row, uint8_t len, uint8_t fallback)
 static void evo_change(void)
 {
     uint32_t t, i;
-    uint8_t amt = project.gen.evo_amount, tg = project.gen.targets, rhy = 50u, note = 50u;
+    uint8_t amt = project.gen.evo_amount, tg = project.gen.targets, rhy = 50u, note = 50u, ret = sq_evo_return(&project.ext, &project.gen);
     if (genre_feel()) sq_genre_evolve(beat_genre, &rhy, &note);   /* (0.10 GENRE FREE: half and half) */
     for (t = 0; t < SQ_TRACKS; t++) {
         sq_track_cfg_t *c = &project.track[t];
@@ -2860,7 +2909,8 @@ static void evo_change(void)
         uint8_t ramt = (uint8_t)(((uint32_t)amt * rhy + 50u) / 100u);
         uint8_t namt = (uint8_t)(((uint32_t)amt * note + 50u) / 100u);
         if (!(evo_mask & (1u << t))) continue;
-        if (!project.gen.evo_drift) memcpy(row, evo_seed[t], sizeof evo_seed[t]);    /* around the seed */
+        if (ret >= SQ_EVO_RETURN_MAX) memcpy(row, evo_seed[t], sizeof evo_seed[t]);    /* around the seed */
+        else if (ret) for (i = 0; i < SQ_STEPS; i++) if (grand(100u) < ret) row[i] = evo_seed[t][i];   /* 0.27 RETURN: part of the way back */
         sq_row_keep(row);                               /* 0.24: EVOLVE moves every bar of the loop its own way: the copies are steps (the seed keeps its own) */
         if (genre_feel()) sq_row_cook_role(part, len, ramt, gen_role(t), gen_root(t), gen_scale(), &sq_rng_state);
         else sq_row_cook(part, len, ramt, &sq_rng_state);
@@ -2870,8 +2920,8 @@ static void evo_change(void)
         }
         if (tg & SQ_GT_CC) sq_row_cook_lanes(part, len, amt, gen_lanes(t), c->lane_base, &sq_rng_state);
         if (tg & SQ_GT_LFO) {
-            if (!project.gen.evo_drift)
-                for (i = 0; i < SQ_LFOS; i++) if (lfo_aims(&evo_seed_lfo[i], t)) project.lfo[i] = evo_seed_lfo[i];
+            if (ret)
+                for (i = 0; i < SQ_LFOS; i++) if (lfo_aims(&evo_seed_lfo[i], t) && (ret >= SQ_EVO_RETURN_MAX || grand(100u) < ret)) project.lfo[i] = evo_seed_lfo[i];
             lfo_cook(t, amt);
         }
         for (i = 0; i < SQ_STEPS; i++) if (evo_seed[t][i].flags & SQ_STEP_LOCK) row[i] = evo_seed[t][i];

@@ -14,7 +14,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 ## Come lavora
 
-1. **Le situazioni.** Prepara la macchina in 27 modi (erano 12 nella 0.12, 23 nella 0.24): vuota ferma e in play, una band TECHNO in play, una HOUSE con
+1. **Le situazioni.** Prepara la macchina in 29 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26): vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
@@ -40,6 +40,10 @@ cosa cambia) e `build/explore/rapporto.json`.
    risposte fatte di note; le scene portano il metro (GLO 4 K3); il CLICK acceso mentre suona, come nota sul canale
    MIDI 10 (SAVE 5); KEYBOARD su CHORDS (SAVE 4). Il nome della situazione promette che il LEAD e il BASS sono pattern
    fatti nel modo nuovo (`thv` 3), e viene controllato prima di cominciare.
+   0.27: **una con le cose nuove**. Una band dei motori in un progetto **senza tonalità** (dove l'arpeggio andava una
+   quinta sopra), EVOLVE acceso sul banco ogni 16 battute con **RETURN 50**, il profilo **SEMPLICE** (le pagine SEQ 2 e
+   SEQ 3 si vedono solo mentre suonano: qui SEQ 3 c'è, EVOLVE è acceso), in play. Il nome promette il profilo, EVOLVE
+   e il RETURN, e viene controllato prima di cominciare.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -192,6 +196,21 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. L'analizzatore statico di clang su tutto il
   firmware: quattro avvisi, nessuno vero (li ho guardati uno per uno).
 
+* **Sulla 0.27** (il profilo SEMPLICE, RANDOM come un dado, il RETURN di EVOLVE, chi sta agendo, l'arpeggio senza
+  tonalità): una situazione nuova (sopra). Il primo giro completo ha trovato **un errore vecchio**, della 0.24, in una
+  sessione della HOUSE dei motori sulle MOSSE, ridotta a tre gesti: la traccia uno step più corta del suo pattern
+  (HOME 1 K2 -1: il pattern aspetta intero dopo il loop, con il segno della sua fine), la finestra EDIT e OCT+ (il
+  cursore sul segno), ENV 5 K1 -1. Due battute dopo le copie erano fuori posto (regola COPIE). ENV K1 girato verso il
+  basso su un passo senza lock non scriveva niente, ma segnava il passo come scritto: il segno non era più un segno, e
+  un passo così, acceso dopo con un tasto, suonava la nota 60 e non la penna della traccia (su una cassa, un altro
+  suono). Corretto: sono i test `t027_mark` (il simulatore) e `test_v027_mark` (il cuore). La stessa sequenza con un
+  lock vero (ENV 5 K1 +1) o con EDIT K1 sul segno falliva sulla 0.26 e passa sulla 0.27. Il giro completo, a errore
+  corretto: **97.380 gesti da soli in 29 situazioni, 11.597 coppie, 200 sessioni da 60 gesti, nessun errore, niente
+  da guardare**. Le prove fisse della 0.27 (`t027_*`, 32 controlli nel simulatore, più quelle del cuore e
+  dell'editor) sono state provate rompendo il firmware in ventitré punti, uno alla volta: tutte e ventitré le rotture
+  trovate. Le stesse prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. Il piano del banco: 27
+  sessioni.
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -249,7 +268,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 26 dalla 0.26, erano 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 27 dalla 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

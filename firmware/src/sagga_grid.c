@@ -1076,7 +1076,7 @@ static void gr_pad_viaggio(uint8_t x, uint8_t y, uint8_t down)
         else if (x == 14u) vg_back();
         else if (x == 15u) vg_cancel_last();
         break;
-    case 4u: vg_energy_set((uint8_t)((x * 100u + 7u) / 15u)); status_num("ENERGY ", project.viaggio.energy); break;
+    case 4u: vg_energy_set((uint8_t)((x * 100u + 7u) / 15u)); vg_energy_say(); break;   /* (0.27: and what it works on) */
     case 5u:
         if (x < SQ_PATTERNS) {
             uint8_t t = selected_track;
@@ -1613,7 +1613,7 @@ static void gr_render_beat(void)
     gr_put(0, 7, evo_run == 1u ? GL_PLAY : evo_run ? GL_ON : GL_DIM);
     gr_put(1, 7, evo_run == 2u ? GL_CYAN : GL_FAINT);
     gr_put(2, 7, evo_run ? GL_ORANGE : GL_FAINT);
-    gr_put(3, 7, project.gen.evo_drift ? GL_YELLOW : GL_FAINT);
+    gr_put(3, 7, evo_drifts() ? GL_YELLOW : GL_FAINT);
     for (x = 0; x < SQ_EVO_EVERY; x++) gr_put(4u + x, 7, project.gen.evo_every == x ? GL_WHITE : GL_BLUE);
     gr_bar(7, 9, 7, gr_nearest_u(GR_EVOAMT, 7u, project.gen.evo_amount), GL_VIOLET, GL_WHITE);
 }

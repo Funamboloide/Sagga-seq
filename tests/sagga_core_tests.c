@@ -2859,6 +2859,62 @@ static void test_v026_click(void)
     }
 }
 
+/* 0.27: EVOLVE's RETURN - an older image (no RETURN) takes it from DRIFT's switch; a RETURN set moves the switch with it */
+static void test_v027_return(void)
+{
+    static sq_project_t p, b;
+    static uint8_t img[60000];
+    uint32_t n;
+    sq_project_init(&p);
+    CHECK(p.ext.evo_ret == 0u && sq_evo_return(&p.ext, &p.gen) == 100u);        /* new: EVOLVE as ever */
+    p.gen.evo_drift = 1u; CHECK(sq_evo_return(&p.ext, &p.gen) == 0u);           /* an old project with DRIFT on: 0, DRIFT */
+    sq_evo_return_set(&p.ext, &p.gen, 60u);
+    CHECK(p.ext.evo_ret == 61u && p.gen.evo_drift == 0u && sq_evo_return(&p.ext, &p.gen) == 60u);
+    sq_evo_return_set(&p.ext, &p.gen, 30u);
+    CHECK(p.ext.evo_ret == 31u && p.gen.evo_drift == 1u && sq_evo_return(&p.ext, &p.gen) == 30u);   /* (an older firmware: DRIFT) */
+    sq_evo_return_set(&p.ext, &p.gen, 0u); CHECK(sq_evo_return(&p.ext, &p.gen) == 0u && p.gen.evo_drift == 1u);
+    sq_evo_return_set(&p.ext, &p.gen, 250u); CHECK(sq_evo_return(&p.ext, &p.gen) == 100u && p.gen.evo_drift == 0u);
+    p.ext.evo_ret = 102u; sq_ext_sanitize(&p.ext); CHECK(p.ext.evo_ret == 0u);
+    sq_evo_return_set(&p.ext, &p.gen, 45u);
+    sq_project_sanitize(&p);
+    n = sq_serialize(&p, img, sizeof img);
+    CHECK(n > 0u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&p, &b, sizeof p) && sq_evo_return(&b.ext, &b.gen) == 45u);
+}
+
+/* 0.27, found by the explorer (it was there from 0.24): a track made shorter than its pattern - the pattern waits whole
+ * after the loop, the mark of its end after it -, and the mark written on (ENV K1 on that step: a lock, or before 0.27 a
+ * turn that wrote nothing but the step's SET). The copies' service left the mark half a mark, half a step; now the steps
+ * are the player's, as sq_row_fit makes them at the next length, and what was written stays */
+static void test_v027_mark(void)
+{
+    static sq_step_t row[SQ_STEPS], was[SQ_STEPS];
+    sq_ghost_t g;
+    uint32_t i;
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 15u);
+    CHECK(t24_mark(row, 16u) && !t24_gh(row, 15u) && t24_on(row, 15u) && t24_ghosts(row) == 1u);
+    memset(&g, 0, sizeof g); g.pat = 255u;
+    memcpy(was, row, sizeof row);
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && !memcmp(row, was, sizeof row));   /* a mark as it is: nothing */
+    row[16].lane[4] = 63u; row[16].flags |= SQ_STEP_SET;                          /* ENV 5 K1 on step 17: a lock on the mark */
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && t24_ghosts(row) == 0u && row[16].lane[4] == 63u &&
+          !t24_on(row, 16u) && t24_on(row, 15u) && row[15].note[0] == 75u && sq_row_own(row, 0u, 15u) == 15u && g.pat == 255u);
+    for (i = 0; i < 16u; i++) CHECK(sq_step_alike(&row[i], &was[i]));             /* the pattern's steps as they were */
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && row[16].lane[4] == 63u);   /* and it stays */
+    /* the track made longer again: the steps written after the loop are the player's (sq_row_fit), nothing is lost */
+    sq_row_fit(row, 0u, 15u, 32u);
+    CHECK(t24_on(row, 15u) && row[15].note[0] == 75u && row[16].lane[4] == 63u && !t24_gh(row, 15u) && !t24_gh(row, 16u));
+    /* a note written on the mark (a key on step 17): the same */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 15u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 15u, 0u, &g);
+    row[16].flags |= SQ_STEP_ON | SQ_STEP_SET; row[16].note[0] = 40u;
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && t24_ghosts(row) == 0u && t24_on(row, 16u) && row[16].note[0] == 40u);
+}
+
 static void test_v026_image(void)
 {
     static sq_project_t a, b;
@@ -3979,6 +4035,8 @@ int main(void)
     test_v026_song();
     test_v026_click();
     test_v026_image();
+    test_v027_return();
+    test_v027_mark();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

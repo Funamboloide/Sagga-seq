@@ -9,7 +9,7 @@
  * velocity, the filter, the gates, the density of the hits, the depth of the LFOs and the colour of the chords, gliding
  * along the phrase. The MOVES: FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP, TRANSPOSE, PROG, GENRE, KEY,
  * ENERGY, and INDIETRO through the TRAIL, which keeps every phrase. The grid's VIAGGIO view (sagga_grid.c), the remote
- * on channel 13. The profiles: what the firmware shows and allows (FULL, PALCO).
+ * on channel 13. The profiles: what the firmware shows and allows (FULL, PALCO; 0.27: SEMPLICE).
  *
  * 0.17: no VIAGGIO mode any more: the journey always runs (at energy 50 with nothing queued it changes nothing), the
  * trail always keeps the phrases (SAVE + white 16 makes them scenes and the song), the MOVES are on the black keys of
@@ -24,13 +24,18 @@ typedef struct {
     uint8_t edit_keys;           /* 1: SEQ tools, EDIT / ENV pages, step keys; 0: the panel plays the set only */
     uint8_t viaggio_on;          /* 0.17: PERF on the MOSSE page when the profile is chosen */
     uint8_t remote_mode;         /* SQ_RM_* the profile prefers */
+    uint8_t seq_hide;            /* 0.27: bit per SEQ page 0..7 that is hidden while what it starts is not playing */
 } vg_profile_t;
 #define VG_ALL_MOVES 0xFFFFFFFFu
 static const vg_profile_t VG_PROFILE[SQ_PROFILES] = {
-    { "FULL",  0xFFu, VG_ALL_MOVES, 1u, 0u, SQ_RM_14 },
+    { "FULL",  0xFFu, VG_ALL_MOVES, 1u, 0u, SQ_RM_14, 0u },
     /* PALCO: the set is played, not edited: no SEQ tools, no EDIT / ENV pages; HOME pages 1 (the channel), 3 (the key)
      * and 8 (VIAGGIO); every move; the MOSSE from the start; the remote on 13 + 14. (The grid's views are not gated.) */
-    { "PALCO", 0x05u, VG_ALL_MOVES, 0u, 1u, SQ_RM_13_14 },   /* 0.12: VIAGGIO's page is GLO 3, always allowed */
+    { "PALCO", 0x05u, VG_ALL_MOVES, 0u, 1u, SQ_RM_13_14, 0u },   /* 0.12: VIAGGIO's page is GLO 3, always allowed */
+    /* 0.27 SEMPLICE: everything of FULL, but the pages of the lab's generators are hidden - SEQ 2 (the four algorithms)
+     * and SEQ 3 (EVOLVE). Nothing is switched off: a page comes back while what it starts plays (an algorithm on the
+     * selected track; EVOLVE) */
+    { "SEMPLICE", 0xFFu, VG_ALL_MOVES, 1u, 0u, SQ_RM_14, 0x06u },
 };
 static uint8_t vg_profile = SQ_PROF_FULL;   /* kept in the settings (sagga_store.c) */
 static const vg_profile_t *vg_prof(void) { return &VG_PROFILE[vg_profile < SQ_PROFILES ? vg_profile : 0u]; }
@@ -38,6 +43,14 @@ static const char *vg_profile_name(void) { return vg_prof()->name; }
 static uint8_t vg_allows_move(uint8_t kind) { return (vg_prof()->moves >> (kind & 31u)) & 1u; }
 static uint8_t vg_allows_home(uint8_t page) { return (vg_prof()->home_pages >> (page & 7u)) & 1u; }
 static uint8_t vg_edit_keys(void) { return vg_prof()->edit_keys; }
+static uint8_t vg_seq_shown(uint8_t page)                 /* 0.27: SEMPLICE hides SEQ 2 and 3 while nothing of theirs plays */
+{
+    uint32_t k;
+    if (page >= 8u || !((vg_prof()->seq_hide >> page) & 1u)) return 1u;
+    if (page == 2u) return evo_run ? 1u : 0u;
+    for (k = 0; k < SQ_ALGO_SLOTS; k++) if (SQ_ALGO_AT(&project.track[selected_track], k)->algo != SQ_ALGO_OFF) return 1u;
+    return 0u;
+}
 
 static void vg_profile_service(void);
 
@@ -294,7 +307,7 @@ static void vg_tira(uint8_t t, uint8_t dice)
     if (!track_has_notes(t)) {                           /* an empty track: the pen of its role (the kit's drum, or an octave) */
         if (role < SQ_FUNC_BASS && fn <= SQ_FUNC_PERC) { uint8_t f2; sq_beat_kit_part(genre, role, &f2, &PEN(t)); }
         else if (role < SQ_FUNC_BASS) PEN(t) = sq_part_note(genre, fn);
-        else PEN(t) = role == SQ_FUNC_BASS ? 36u : role == SQ_FUNC_CHORD ? 55u : 67u;
+        else PEN(t) = start_note(fn, role == SQ_FUNC_BASS ? 36u : role == SQ_FUNC_CHORD ? 55u : 67u);   /* (0.27: with no key, on the root) */
     }
     if (role == SQ_FUNC_PERC && g->afro && (!dice || grand(2u))) {    /* the AFRO / LATIN family for the percussion */
         const sq_afro_t *a = sq_afro((uint8_t)(dice ? grand(SQ_AFRO_N) : vg_tira_n[t] % SQ_AFRO_N));
@@ -906,6 +919,8 @@ static void vg_black(uint8_t bi, uint8_t sel_held)
             if (!vg_queue(kind, 0u, 0u)) vg_msg2(had ? "CANCELLED: " : "QUEUED: ", sq_move_name(had ? opp : kind));
         }
         break;
+    case SQ_MV_THIN: if (!vg_queue(kind, 0u, 0u)) vg_msg2("QUEUED: THIN - ", "THE WHOLE SET, 2 TRACKS OUT"); break;   /* 0.27: who it works on */
+    case SQ_MV_SWELL: if (!vg_queue(kind, 0u, 0u)) vg_msg2("QUEUED: SWELL - ", "THE WHOLE SET, 2 TRACKS IN"); break;
     default: if (!vg_queue(kind, 0u, 0u)) vg_msg2("QUEUED: ", sq_move_name(kind)); break;
     }
 }
@@ -940,11 +955,23 @@ static void vg_move_black(int bi, uint8_t sel_held)
     else if (bi == 9) vg_cancel_last();
     else vg_now_tap();
 }
+/* 0.27: the screen says what the ENERGY works on - the whole set (velocity, filter, gate, how many hits), and the
+ * patterns the engines made, which fill and empty with it ("MORE FULL, MORE EMPTY": four hands, the map) */
+static void vg_energy_say(void)
+{
+    char *p = msg_buf;
+    uint32_t t, n = 0u;
+    for (t = 0; t < SQ_TRACKS; t++) if (project.th.pat[t][tr[t].pattern].style && !track_tape(t) && !track_break(t)) n++;
+    p = put_s(p, "ENERGY "); p = put_u(p, project.viaggio.energy); p = put_s(p, ": THE WHOLE SET");
+    if (n) { p = put_s(p, " + "); p = put_u(p, n); p = put_s(p, n == 1u ? " ENGINE PART" : " ENGINE PARTS"); }
+    finish(p);
+    status_msg(msg_buf);
+}
 static void vg_energy_turn(int32_t d)                       /* K1 on HOME page 0: the target */
 {
     project.viaggio.energy = (uint8_t)clamp_i32((int32_t)project.viaggio.energy + d, 0, 100);
     if (!playing) { vg_energy_from = project.viaggio.energy; vg_energy_apply(project.viaggio.energy); }
-    status_num("ENERGY ", project.viaggio.energy);
+    vg_energy_say();
     ui_dirty = grid_dirty = 1u;
 }
 static void vg_energy_set(uint8_t e)                       /* the remote, the grid: glides from here */
@@ -1028,7 +1055,8 @@ static void vg_profile_note(void)
         project.live.remote_mode = SQ_RM_13_14; project.live.remote_ch = 13u;
     }
     if (!vg_allows_home(home_page)) home_page = 0u;
-    vg_msg2("PROFILE ", pr->name);
+    if (vg_profile == SQ_PROF_SEMPLICE) vg_msg2("PROFILE SEMPLICE: ", "SEQ 2 AND 3 HIDDEN WHILE OFF");   /* 0.27 */
+    else vg_msg2("PROFILE ", pr->name);
 }
 static void vg_profile_boot(void)
 {

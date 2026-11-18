@@ -26,6 +26,8 @@
  * 4 CHORDS below C3), a track's follow_mode to 4 (SMOOTH). thp: style's bit 7 (128) says the pattern was made IN the
  * bar of its metre (its length bits: one, two, four bars of it), vary's bit 7 that its answers have notes - a patch
  * that moves a pattern's record moves them with it.
+ * 0.27: ext evo_ret, EVOLVE's RETURN + 1 (1-101: 0 % - 100 % of the way back to the seed; 0: not set, DRIFT's switch
+ *   says which).
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -143,6 +145,7 @@ static const fd_t F_EXT[] = {
     A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
     F(sq_ext_t, click, 0), F(sq_ext_t, count_in, 0), F(sq_ext_t, click_out, 0), F(sq_ext_t, click_note, 0),         /* 0.26 THE CLICK */
     F(sq_ext_t, click_level, 0), F(sq_ext_t, scene_metre_on, 0), A(sq_ext_t, scene_metre, uint8_t, 0, SQ_SCENES),   /* 0.26 the scenes' metres */
+    F(sq_ext_t, evo_ret, 0),                                                                                        /* 0.27 EVOLVE's RETURN */
 };
 
 #define PO(m) ((uint32_t)offsetof(sq_project_t, m))

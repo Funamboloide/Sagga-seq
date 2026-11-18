@@ -559,7 +559,8 @@ typedef struct __attribute__((packed)) sq_ext_s {
     uint8_t click_note;          /* ... that note (0: SQ_CLICK_NOTE_DEF) */
     uint8_t click_level;         /* how loud, 1..SQ_CLICK_LEVELS (0: SQ_CLICK_LEVEL_DEF): the FM-1's sound, the note's velocity */
     uint8_t scene_metre_on;      /* 1: a scene keeps the metre it was stored in and brings it back (scene_metre, at the end) */
-    uint8_t reserved[2];
+    uint8_t evo_ret;             /* 0.27: EVOLVE's RETURN + 1 (1..101); 0: not set (an older image): from gen.evo_drift */
+    uint8_t reserved[1];
     char name[SQ_NAME_LEN];      /* 0.15: the project's name (the Pi's editor writes it; SAVE + PRESETS shows it): A-Z 0-9
                                   * space - _ . + # & ! ' ( ) / :, 0 after the last; a 0.14 image has none (a 0.14 firmware
                                   * takes the 780 bytes before it) */
@@ -710,6 +711,12 @@ typedef struct __attribute__((packed)) {
                                   * usual way (sq_bar_beats) */
     uint8_t reserved11[1];
 } sq_gen_t;                      /* 32 bytes */
+/* 0.27 EVOLVE's RETURN: how far each change starts back towards the seed, 0..100 % - 100: from the seed itself, as
+ * EVOLVE always did; 0: from the last change, DRIFT. An image without it: DRIFT's switch says which. Set: DRIFT's switch
+ * follows (on below 50 %), so an older firmware plays the nearest of the two */
+#define SQ_EVO_RETURN_MAX 100u
+uint8_t sq_evo_return(const sq_ext_t *x, const sq_gen_t *g);
+void sq_evo_return_set(sq_ext_t *x, sq_gen_t *g, uint8_t r);
 #define SQ_GEN_A 24u             /* the bytes a 0.10 image holds of it */
 
 /* 0.25 THE METRE. Until 0.24 the bar was sixteen 16ths, whatever the tracks' lengths: a length, a pattern, a tool, a
@@ -964,7 +971,7 @@ typedef struct { const char *name; const char *text; uint8_t steps; } sq_afro_t;
 const sq_afro_t *sq_afro(uint8_t i);
 
 /* the profiles (sagga_viaggio.c has the table; this is the shape): what the firmware shows and allows */
-enum { SQ_PROF_FULL = 0, SQ_PROF_PALCO, SQ_PROFILES };
+enum { SQ_PROF_FULL = 0, SQ_PROF_PALCO, SQ_PROF_SEMPLICE, SQ_PROFILES };   /* 0.27: SEMPLICE, the lab's pages hidden (the knob: FULL, SEMPLICE, PALCO) */
 
 /* 0.8 SNAPSHOT: everything that is not the notes. The patterns playing, the mutes and solos, the macros, the key and
  * TRANSPOSE, the HARMONY, every track's settings (channel, loop, swing, MIDI FX, EUCLID, algorithm, the CC lanes' base

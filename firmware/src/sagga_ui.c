@@ -567,7 +567,8 @@ static void ui_build(void)
             }
         } else if (seq_page == 2u) {
             ui_cell(0, "TARGETS", TGT[gen_target_index()], C_WHITE);
-            ui_cell(1, "EVOLVE AMT", f_pct(g->evo_amount), evo_run ? C_ACCENT : C_WHITE);
+            if (in_held() & (1u << BTN_SEL)) ui_cell(1, "RETURN", f_pct(sq_evo_return(&project.ext, g)), evo_run ? C_ACCENT : C_WHITE);   /* 0.27: SEL + K2 */
+            else ui_cell(1, "EVOLVE AMT", f_pct(g->evo_amount), evo_run ? C_ACCENT : C_WHITE);
             ui_cell(2, "EVOLVE EVERY", f_pre("", EVO_BARS[g->evo_every < SQ_EVO_EVERY ? g->evo_every : 0u]), evo_run ? C_ACCENT : C_WHITE);
             ui_cell(3, "SCOPE", SCP[g->scope < SQ_SCOPES ? g->scope : 0u], g->scope ? C_ACCENT : C_WHITE);
         } else if (seq_page == 3u || seq_page == 4u) {   /* 0.10 EXPO */

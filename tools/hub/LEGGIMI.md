@@ -76,7 +76,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
   Non cambia niente.
-* **Avvia la prova** (tutte le sessioni - 26 dalla 0.26, circa venticinque minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+* **Avvia la prova** (tutte le sessioni - 27 dalla 0.27, circa venticinque minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
@@ -226,6 +226,10 @@ CLICK OUT (il suono dell'FM-1 o un canale MIDI), il livello, la nota, e *le scen
 per i due di prima (TRANSPOSE, TRANS <C3). Nella scheda **Traccia**, *FOLLOW: le note* ha il quinto modo, **SMOOTH**
 (gli accordi si muovono poco). Un pattern dei motori copiato su un altro pattern porta con sé anche il metro in cui è
 stato fatto.
+
+**0.27.** Il convertitore conosce il **RETURN** di EVOLVE (SEQ 3, SEL + K2 sull'FM-1): un progetto aperto e salvato
+nell'editor lo tiene. L'editor non mostra EVOLVE, come prima. Il profilo SEMPLICE sta nelle impostazioni dell'FM-1,
+non nel progetto: l'editor non lo vede.
 
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:

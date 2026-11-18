@@ -5,6 +5,34 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.26
+
+Seven things, and the technical check of 0.23 - 0.25. The projects of before open as they are and play as they did.
+
+* **THE CLICK** (SAVE 5, a new page): a metronome on the beats **of the metre** - the bar line higher and louder -,
+  OFF / while it RECords / while it PLAYs; the FM-1's own sound, or a note on a MIDI channel (CLICK OUT); and a
+  **COUNT IN** of one or two bars before a recording. See [The click](../SAGGA-SEQ.md#the-click).
+* **The keyboard's chords are the harmony**: KEYBOARD (SAVE 4 K2) has two more ways, **CHORDS** and **CHORD <C3**. The
+  chord you hold (two notes or more; below C3 only, in the second) is the harmony's chord from that moment - every
+  FOLLOW track goes to it, as when the progression changes chord -, with the HARMONY off too, until the next one.
+  `CHORD IV (THE KEYBOARD'S)`.
+* **The scenes bring their metre** (GLO 4 K3, **SCENE METRE**: BRING IT): a scene stored remembers the metre it was
+  stored in (`SCENE STORED 2 IN 7/8`), and brings it when it is recalled - stopped at once, playing at the bar line. A
+  song walks through its scenes' metres, and finds its place in them from any point.
+* **Chords that move little**: FOLLOW has a fifth way, **SMOOTH** (ARP 4 K1, past MELODY). The chord is the one FOLLOW
+  makes of it, its notes in the octaves nearest to the written ones: the notes two chords share stay, the others move
+  a step or two (C E G on IV: C F A). The PADs and PIANOs the makers write follow so.
+* **The keyboard's expression**: the pedal, the pitch wheel, the aftertouch (a key's own too) and every controller of a
+  keyboard played through the FM-1 go where its notes go; with REC on they are recorded - the wheels in the track's
+  LANES, the pedal as the length of the notes. See [The keyboard's expression](../SAGGA-SEQ.md#the-keyboards-expression).
+* **The engines make a part IN the bar**: in 7/8, in 5/4 a part of the THEORY engines is made in seven, in five - every
+  step of the bar has its place in the metre - and no longer a 4/4 re-barred.
+* **An answer has notes**: a bass takes the notes of the tune it answers, a tune plays the notes of the chord it
+  answers. Both: [THEORY](../SAGGA-SEQ.md#theory-the-engines). In 4/4 the engines make what 0.25 made, bit for bit; a pattern of
+  0.25 is made again as 0.25 made it.
+
+On the Pi: the editor and the converter know all of it (Project: IL CLICK, the two new ways of KEYBOARD, SMOOTH).
+
 ## What is new in 0.25
 
 Six things the sequencer could not do.
@@ -13,7 +41,7 @@ Six things the sequencer could not do.
   in beats the way you choose - 7/8 as 2+2+3, 5/4, 6/8, 9/8, 15/16 - and everything that waits for the bar or counts
   bars follows it: the lengths, a queued pattern, QUANTISE, WHEN and EVERY, the MOSSE and their phrase, the song, the
   harmony's chords, LOOP and REPEAT, EXPO, MOTION, the tape. The library's patterns and the engines' are made in the
-  metre's bars. The whole of it: [The metre](#the-metre-025) below.
+  metre's bars. The whole of it: [The metre](../SAGGA-SEQ.md#the-metre), in the reference.
 * **True polyrhythms** (HOME 1 K3, past 1/32T; the grid's TRACK row 4, pads 15 and 16). Six more steps: `1/4 5:4`,
   `1/8 5:4`, `1/16 5:4`, `1/4 7:4`, `1/8 7:4`, `1/16 7:4` - five, or seven, steps in the time of four of that value.
   A track at 1/16 5:4 plays five steps in a quarter; at 1/4 5:4, five in a bar of 4/4 (a loop of five steps: five
@@ -57,7 +85,7 @@ MELODY track is on HOLD. Nothing else is lost.
 **The length is the track's.** A track's LENGTH (HOME 1 K2, the grid, the pages, the moves) is the player's, and its
 eight patterns fit it: a pattern shorter than its track goes round again in what the track has more, one longer keeps
 what the track does not play. Nothing that brings a pattern changes the length any more. The whole of it is in
-[The length of a track](#the-length-of-a-track-and-its-patterns-024) below; in short:
+[The length of a track](../SAGGA-SEQ.md#the-length-of-a-track-and-its-patterns), in the reference; in short:
 
 * **A length that changes lands on the bar line.** While it plays a new length waits for the bar, as since 0.11 - but
   the step ON that bar line was still the old loop's (the track was put in line a tick later): a track of 19 steps
@@ -210,8 +238,8 @@ Two things that were there and could not be used, put right; and the PC test cou
 each genre. With **SOURCE THEORY** (the new SEQ page 8, K1) a part is **MADE** when you ask for it, from the rules of
 the genre and a number, the **SEED**; one more click, **SOURCE FREE**, and it is made by the rules of **no genre**,
 whatever the genre is. SOURCE LIBRARY is 0.22 as it was; the three can be switched at any time, in play too. The whole
-of it, in Italian: [TEORIA.md](TEORIA.md) (what each engine does, why, which existing instrument it is
-like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted from the library).
+of it, in Italian: [TEORIA.md](../TEORIA.md) (what each engine does, why, which existing instrument it is
+like) and [TEORIA-GENERI.md](../TEORIA-GENERI.md) (the rules of 21 genres, counted from the library).
 
 * **A seed is a band.** The same seed gives the same parts; another seed another band of the same genre; 999 seeds a
   genre. All **25 genres** have a style, and **FREE** is a style with no genre: the metre and what a family of parts
@@ -260,8 +288,6 @@ like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted 
 Not verified on an FM-1: everything here ran in the simulator (the firmware itself, built for a computer). GitHub's
 build of 0.23: the image 441,544 B of 581,564 (0.22: 390,132; +51 KB, the engines and their counted rules), RAM
 .data + .bss 68,736 B of 98,304 (+464), the pool 326,416 B of 344,064 (+3,332: the engines' rows and the records).
-
-What was new in 0.22 and before: [storia/NOVITA.md](storia/NOVITA.md).
 
 ## What is new in 0.22
 
