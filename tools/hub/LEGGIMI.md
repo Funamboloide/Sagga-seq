@@ -220,6 +220,13 @@ al nome, leggi il metro quando non è 4/4. Nella scheda **Traccia** la lista del
 melodia resta dove è scritta e le sue note forti vanno sull'accordo). Il TURING lungo quanto la traccia è B = 17.
 Un file MIDI esce e rientra con il metro del progetto.
 
+**0.26.** Nella scheda **Progetto** c'è **IL CLICK** (la pagina SAVE 5 dell'FM-1): CLICK (OFF, REC, PLAY), COUNT IN,
+CLICK OUT (il suono dell'FM-1 o un canale MIDI), il livello, la nota, e *le scene portano il metro*. La lista
+**KEYBOARD** ha i due modi nuovi, CHORDS e CHORD <C3 (gli accordi della tastiera sono l'armonia), e i nomi dell'FM-1
+per i due di prima (TRANSPOSE, TRANS <C3). Nella scheda **Traccia**, *FOLLOW: le note* ha il quinto modo, **SMOOTH**
+(gli accordi si muovono poco). Un pattern dei motori copiato su un altro pattern porta con sé anche il metro in cui è
+stato fatto.
+
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:
 tocchi il vuoto e c'è una nota da un sedicesimo, la trascini per spostarla, dal bordo destro la allunghi, Canc la toglie;

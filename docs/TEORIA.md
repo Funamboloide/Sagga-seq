@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.25 - i motori THEORY
+# SAGGA SEQ 0.26 - i motori THEORY
 
 Questo foglio spiega i motori THEORY: cosa sono, come si usano, cosa fa ognuno e perché, e a quali strumenti che
 esistono già somigliano. In fondo ci sono i dettagli, per chi li vuole.
@@ -6,7 +6,8 @@ esistono già somigliano. In fondo ci sono i dettagli, per chi li vuole.
 Le regole dei 21 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
 
 I motori sono nati nella 0.23. Dalla **0.25** le parti **si ascoltano fra loro**, la melodia **conosce l'accordo**, e i
-motori lavorano in **qualunque metro** (7/8, 5/4, 6/8...). Sono i punti 9, 10 e 11 più sotto.
+motori lavorano in **qualunque metro** (7/8, 5/4, 6/8...). Sono i punti 9, 10 e 11 più sotto. Dalla **0.26** scrivono
+la parte **dentro la battuta** del metro, e una risposta **ha le note**: sono i punti 11 e 12.
 
 ## In breve
 
@@ -271,24 +272,79 @@ dell'accordo più vicine. E ai motivi dell'NDLR, che cambiano note con l'accordo
 Vale per qualunque traccia, non solo per quelle dei motori: metti FOLLOW e MELODY su una melodia scritta da te.
 Un accordo (uno step con due note o più) su una traccia MELODY si sposta come sempre.
 
-### 11. Il metro (0.25)
+### 11. Il metro (0.25), e la battuta (0.26)
 
-**Cosa fa.** I motori scrivono in sedicesimi, quattro tempi per battuta. Dalla 0.25 la battuta dell'FM-1 può avere
-**da 3 a 32 step**, divisi in tempi come vuoi (GLO 4): 7/8 come 2+2+3, 5/4, 6/8, 9/8. Il pattern dei motori viene
-**steso sulla battuta che suona**: ogni tempo della battuta prende un tempo del pattern scritto. Il primo prende il
-primo, l'ultimo prende l'ultimo, quelli in mezzo prendono a turno il secondo e il terzo. Un tempo lungo tre ottavi
-prende il quarto e ripete i suoi ultimi due sedicesimi.
+**Cosa fa.** La battuta dell'FM-1 può avere **da 3 a 32 step**, divisi in tempi come vuoi (GLO 4): 7/8 come 2+2+3,
+5/4, 6/8, 9/8. Dalla 0.26 i motori scrivono la parte **dentro quella battuta**.
 
-Se cambi metro, i pattern dei motori vengono **rifatti nel metro nuovo**, dal loro seme, uno alla volta. Un pattern
-dei motori che hai cambiato a mano resta com'è, nel suo metro: finché la battuta è un'altra, nemmeno l'ENERGIA lo
-tocca. (Fanno eccezione le parti che rispondono a un'altra parte o seguono la cassa: quelle vengono rifatte comunque.)
-L'ascolto fra le parti funziona in ogni metro.
+Come: ogni passo della battuta **sta per** un sedicesimo di una battuta in 4/4, e le regole dello stile (quanto pesa un
+sedicesimo, cosa c'è sempre, cosa non c'è mai) vengono lette lì. Ma ogni scelta porta il nome del posto vero del
+passo: così due tempi della battuta non sono mai la copia uno dell'altro.
 
-**Perché.** Un genere si riconosce da cosa cade sui tempi e da cosa cade fra i tempi. Portando ogni tempo scritto su
-un tempo vero della battuta, la cassa resta sui tempi e il levare resta levare, anche in sette.
+* La battuta ha **due metà**, divise al tempo più vicino al centro. La prima metà sta per i tempi 1 e 2 (l'uno e la sua
+  risposta), la seconda per i tempi 3 e 4.
+* Dentro una metà i tempi sono, a turno, "il primo" e "la risposta". Un 5/4 è UNO due due | TRE quattro.
+* Un metro dispari si può **sentire in due modi**. Il 7/8 come 2+2+3: il tempo lungo è un tempo solo (UNO due TRE-e),
+  oppure è spezzato (UNO due TRE-quattro). Ogni band ne ha uno, scelto dal suo seme, uguale per tutte le sue parti.
+* Una battuta di **due tempi** è mezza battuta: due di loro fanno UNO due | TRE quattro. Una di un tempo solo è un
+  quarto di battuta.
+* **La spina dorsale non si perde.** Una battuta di tre tempi sta per tre dei quattro tempi: può non avere un passo
+  per il colpo su cui una parte è costruita (il rullante della dubstep sul tre). Allora lo porta il passo più vicino
+  con lo stesso posto nel tempo: il rullante finisce sull'ultimo tempo della battuta.
+* **L'energia aggiunge soltanto**, anche qui: quello che una parte ha a energia zero resta sotto a ogni energia.
+* La lunghezza è di una, due o quattro **battute del metro** (quante ne ha la traccia), non più di 64 step.
 
-**Il limite.** Non è un ritmo pensato in sette: è un quattro quarti steso su sette. Per molti generi basta. Un aksak
-bulgaro o un 5/4 jazz veri hanno accenti loro, che i motori non conoscono.
+In 4/4 non cambia niente: un passo sta per se stesso, e i motori fanno le parti della 0.25, identiche.
+
+Se cambi metro, i pattern dei motori vengono **rifatti dentro la battuta nuova**, dal loro seme, uno alla volta (prima
+la parte a cui un'altra risponde, poi quella che risponde). Se torni al metro di prima ritrovi il pattern di prima.
+Un pattern dei motori che hai cambiato a mano resta com'è, nel suo metro: finché la battuta è un'altra, nemmeno
+l'ENERGIA lo tocca.
+
+**I pattern della 0.25.** Quello che i motori ricordano di un pattern dice come è stato fatto. Un pattern della 0.25
+viene rifatto come lo faceva la 0.25 (l'energia, una variazione, un altro genere): così un progetto vecchio suona
+come prima. Solo il cambio di metro lo porta dentro la battuta, e in 4/4 torna quello che era.
+
+**Perché.** Un genere si riconosce da cosa cade sui tempi e da cosa cade fra i tempi. Stendere un 4/4 su sette (la
+0.25) teneva la cassa sui tempi, ma il risultato era un 4/4 a cui mancava un pezzo. Dando a ogni passo il suo posto,
+la cassa della techno batte su ogni tempo del sette e il levare resta levare.
+
+**Il limite.** I motori conoscono i generi in 4/4 e li portano negli altri metri. Un aksak bulgaro o un 5/4 jazz
+veri hanno accenti loro, che nessuna regola qui dentro conosce.
+
+### 12. La risposta ha le note (0.26)
+
+**Cosa fa.** Nella 0.25 una parte rispondeva a un'altra solo nel ritmo. Adesso anche con le note.
+
+* **Il basso sotto la melodia** (o sotto l'arpeggio). Fuori dai tempi, dove la melodia non attacca e ha appena
+  suonato, il basso prende la nota che la melodia aveva **un ottavo o un quarto prima** (lo decide il seme della
+  band); se lì non c'era niente, l'ultima nota della melodia nel giro di un tempo. Sui tempi il basso resta sulle sue
+  note: lì è il fondamento.
+* **Quanto spesso lo decide lo stile.** Più il basso di quello stile usa di suo quella nota (la terza, la settima, la
+  quarta...), più volentieri la prende: al massimo sette volte su dieci. Una nota che il basso di quello stile non
+  suona mai, non la prende. Il basso della trance, tutto toniche, resta tutto toniche; quello della garage canta.
+  Mai la settima maggiore: un basso suona la sesta al suo posto.
+* **La melodia sopra gli accordi.** Sui sedicesimi subito dopo un accordo, dove gli accordi tacciono, la melodia
+  suona una nota dell'accordo: sul primo sedicesimo la terza, sul secondo la quinta, sul terzo la settima (l'ottava
+  se l'accordo non ha settima). Sei volte su dieci. La fine della frase resta com'era: torna a casa.
+* **Quando gli accordi si spostano**, FOLLOW MELODY tratta quella nota come una nota forte: la porta sulla nota più
+  vicina dell'accordo che sta suonando. Così la risposta è una nota dell'accordo sotto ogni accordo, non solo sul primo.
+* **La parte a cui si risponde viene sentita com'è davvero**: fatta a metà energia, e insieme alla parte a cui
+  risponde lei. Il basso sente la melodia che sente gli accordi.
+
+Il ritmo non cambia: le note cambiano solo dove la parte suonava già. E una nota resta la stessa a ogni energia.
+
+**Sotto un arpeggio** il basso prende note dell'accordo che l'arpeggio sta girando. A metà energia sono proprio le
+note appena suonate; a un'altra energia l'arpeggio cambia ordine, e la nota è dell'accordo ma non sempre quella.
+
+**Sugli altri accordi** il basso sposta la nota presa insieme all'accordo, come fa con tutte le sue note: riprende
+il disegno della melodia, portato sull'accordo.
+
+**Vale per i pattern fatti nuovi** con la 0.26 (BEAT, BAND, i dadi, un seme nuovo). Un pattern della 0.25 continua a
+rispondere solo nel ritmo, anche dopo un cambio di metro.
+
+**Perché.** In una band vera il bassista riprende la coda della frase del solista, e il solista dopo un accordo ne
+suona le note. È il modo più semplice di far sentire che due parti parlano fra loro.
 
 ## Da dove vengono le regole
 
@@ -326,11 +382,11 @@ risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e rest
 
 ## Cosa non sanno fare
 
-* **Una parte ascolta una sola altra parte, e solo il suo ritmo** (0.25). Il lead ascolta gli accordi ma non il
-  basso. Non c'è una vera botta e risposta di note: una parte non ripete o completa la frase dell'altra.
-* **Scrivono in quattro tempi di sedicesimi.** In un altro metro il pattern viene steso sulla battuta (0.25): non è
-  un ritmo pensato in sette o in cinque. Le terzine ci sono solo come rullata. Lo swing e il GROOVE sono quelli che
-  l'FM-1 dà al genere.
+* **Una parte ascolta una sola altra parte.** Il lead ascolta gli accordi ma non il basso. Dalla 0.26 la risposta ha
+  le note, ma è una risposta corta: una nota ripresa, non una frase intera completata.
+* **Conoscono i generi in 4/4.** In un altro metro la parte nasce dentro la battuta (0.26), ma con le regole che il
+  genere ha in quattro. Le terzine ci sono solo come rullata. Lo swing e il GROOVE sono quelli che l'FM-1 dà al
+  genere.
 * **Una frase è di due battute.** Con quattro battute la terza ripete la prima e la quarta risponde come la seconda, con
   la chiusura. I break lunghi quattro battute della jungle diventano frasi di due.
 * **Un motivo è una voce sola.** Dalla 0.25 conosce l'accordo (FOLLOW MELODY), ma solo con le note forti: una nota
