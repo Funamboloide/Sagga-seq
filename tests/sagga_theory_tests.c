@@ -90,6 +90,13 @@ static void t_text(uint32_t seeds)
                             for (i = 0; i < len; i++) if (((th_fix(&t, q, &x, i) >> th_s16(&x, i)) & 1u || th_nib(th_bar(q, &x, i)->w, th_s16(&x, i))) && th_level(q, &x, 15u, i) >= TH_O) can = 1u;
                         }
                         for (i = 0; i < len; i++) if (is_hit(r[i])) any = 1u;
+                        if ((q->kick & 15u) == TH_K_AVOID && x.steps < 8u) {   /* (0.26: a rumble is never on a kick - in a bar of a few steps the kick may leave it nowhere to stand) */
+                            char kr[SQ_STEPS + 1u], kn[SQ_STEPS + 1u];
+                            uint32_t room = 0u;
+                            sq_th_part(&t, SQ_FUNC_KICK, len, kr, kn);
+                            for (i = 0; i < len; i++) { if (!is_hit(kr[i])) room++; else CHECK(!is_hit(r[i]), "a rumble on a kick", &t, f, len, r, kr); }
+                            if (!room) { CHECK(!any, "a rumble with no step free of the kick", &t, f, len, r, kr); can = 0u; any = 1u; }
+                        }
                         CHECK(can ? loud : any, "a part is never empty", &t, f, len, r, nt);
                     }
                     CHECK(sq_th_load(row, &t, f, len, 60u) == len, "the firmware loads it", &t, f, len, r, nt);
@@ -177,11 +184,22 @@ static void t_styles(uint32_t seeds)
             th_ctx(&t, &x);
             sq_th_part(&t, SQ_FUNC_KICK, (uint8_t)n, k, nt);
             sq_th_part(&t, SQ_FUNC_SNARE, (uint8_t)n, r, nt);
-            for (i = 0; i < end; i++) {
-                uint32_t a = th_s16(&x, i);
-                if (a == 0u) CHECK(k[i] == 'X', "dubstep: the kick on the one", &t, SQ_FUNC_KICK, (uint8_t)n, k, r);
-                if (a == 8u) CHECK(r[i] == 'X', "dubstep: half-time, the snare on 3", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r);
-                if (a == 4u || a == 12u) CHECK(!is_loud(r[i]), "dubstep: no snare on 2 and 4", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r);
+            {   /* (0.26: a bar with no step for beat three - three beats: ONE two FOUR - carries the snare on a beat it has:
+                 *  one accent a bar, on a beat) */
+                uint32_t has3 = 0u, b;
+                for (i = 0; i < n; i++) if (th_s16(&x, i) == 8u) has3 = 1u;
+                for (i = 0; i < end; i++) {
+                    uint32_t a = th_s16(&x, i);
+                    if (a == 0u) CHECK(k[i] == 'X', "dubstep: the kick on the one", &t, SQ_FUNC_KICK, (uint8_t)n, k, r);
+                    if (a == 8u) CHECK(r[i] == 'X', "dubstep: half-time, the snare on 3", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r);
+                    if (has3 && (a == 4u || a == 12u)) CHECK(!is_loud(r[i]), "dubstep: no snare on 2 and 4", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r);
+                }
+                if (!has3)
+                    for (b = 0; (b + 1u) * x.steps <= end; b++) {
+                        uint32_t acc = 0u;
+                        for (i = b * x.steps; i < (b + 1u) * x.steps; i++) if (r[i] == 'X') { acc++; CHECK(th_onbeat(&x, i) && i % x.steps != 0u, "dubstep: the snare carried to a beat of the bar, not the one", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r); }
+                        CHECK(acc == 1u, "dubstep: one snare a bar, on a beat it has", &t, SQ_FUNC_SNARE, (uint8_t)n, k, r);
+                    }
             }
             sq_th_part(&t, SQ_FUNC_SUB, (uint8_t)n, r, nt);
             for (i = 0; i < n; i++) if (th_s16(&x, i) == 0u) CHECK(r[i] == 'X', "dubstep: the sub on the one", &t, SQ_FUNC_SUB, (uint8_t)n, r, nt);
@@ -721,21 +739,25 @@ int main(int argc, char **argv)
         {14u, 0u, "7/8"}, {14u, 1u, "7/8, another way"}, {14u, 2u, "7/8, a third way"}, {20u, 0u, "5/4"}, {12u, 0u, "12 steps (3/4 or 6/8), the usual way"},
         {12u, 1u, "12 steps, the other way"}, {10u, 0u, "5/8"}, {10u, 1u, "5/8, the other way"}, {18u, 0u, "9/8"}, {24u, 0u, "24 steps (12/8 or 6/4)"}, {22u, 0u, "11/8"},
         {28u, 0u, "7/4"}, {8u, 0u, "2/4"}, {6u, 0u, "3/8"}, {15u, 0u, "15/16"}, {16u, 1u, "16 steps, not four quarters"}, {32u, 0u, "32 steps"}, {3u, 0u, "3 steps"}};
+    const char *only = argc > 2 ? argv[2] : 0;           /* (a bar alone, by a piece of its name: "7/8", "5/4" ...) */
     uint32_t k;
-    t_counted();
-    t_prog(seeds);
-    t_golden();
-    t_bars();
-    battery(seeds, "4/4, the engines of 0.25");
-    G_GEN = 1u; G_STEPS = 16u; G_BEATS = SQ_BEATS_44;
-    battery(small, "4/4, made in the bar");
+    if (!only) {
+        t_counted();
+        t_prog(seeds);
+        t_golden();
+        t_bars();
+        battery(seeds, "4/4, the engines of 0.25");
+        G_GEN = 1u; G_STEPS = 16u; G_BEATS = SQ_BEATS_44;
+        battery(small, "4/4, made in the bar");
+    }
+    G_GEN = 1u;
     for (k = 0; k < sizeof BARS_T / sizeof BARS_T[0]; k++) {
         char sig[8], split[SQ_SPLIT_TEXT], what[80];
-        if (BARS_T[k].opt >= sq_metre_options(BARS_T[k].steps)) continue;
+        if (BARS_T[k].opt >= sq_metre_options(BARS_T[k].steps) || (only && !strstr(BARS_T[k].name, only))) continue;
         G_STEPS = BARS_T[k].steps; G_BEATS = sq_metre_option(G_STEPS, BARS_T[k].opt);
         sq_metre_sig(G_STEPS, G_BEATS, sig); sq_metre_split(G_STEPS, G_BEATS, split);
         snprintf(what, sizeof what, "%s (%s, %s)", BARS_T[k].name, sig, split);
-        battery(k < 4u ? (seeds / 3u ? seeds / 3u : 1u) : small, what);
+        battery(only ? seeds : k < 4u ? (seeds / 3u ? seeds / 3u : 1u) : small, what);
     }
     G_GEN = 0u; G_STEPS = 16u; G_BEATS = SQ_BEATS_44;
     if (failed) { printf("theory: %lu of %lu checks FAILED\n", failed, checks); return 1; }

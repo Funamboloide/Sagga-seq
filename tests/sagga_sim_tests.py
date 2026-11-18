@@ -10348,6 +10348,31 @@ def th_metres(log):
             for m in re.finditer(r"^\s*\d+ ms  thmetre T\d+ made (\d+) now (\d+) kept (\d+)$", log.text, re.M)]
 
 
+def th_made(log):
+    """0.26: the 'thmade' lines of the dumps: the pattern that plays was made IN the bar, its answers have notes, its steps"""
+    return [dict(bar=int(m.group(1)), notes=int(m.group(2)), steps=int(m.group(3)))
+            for m in re.finditer(r"^\s*\d+ ms  thmade T\d+ bar (\d+) notes (\d+) steps (\d+)$", log.text, re.M)]
+
+
+def theory_tool(tag):
+    """the engines on this computer (tools/theory/sagga_theory.c): text(style, seed, energy, ...) -> {part: (hits, notes)}"""
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%s_%d" % (tag, os.getpid()))
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+    def text(style, seed, energy, parts=None, n=64, var=0, vary=0, metre=None, flags=(), mate=None):
+        cmd = [tool] + list(flags) + (["--metre", metre] if metre else []) + (["--mate", mate[0], str(mate[1]), mate[2]] if mate else [])
+        cmd += [style, str(seed), str(var), str(vary), str(energy), str(n)] + list(parts or [])
+        out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.splitlines()
+        return {l.split("\t")[0]: (l.split("\t")[1], l.split("\t")[2]) for l in out[1:]}
+    def done():
+        try: os.remove(tool)
+        except OSError: pass
+    return text, done
+
+
+def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
+
+
 SRC_78 = [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 14, 15]      # 7/8 as 2+2+3: the step of a 4/4 bar each of its 14 takes
 def rebar78(on16): return "".join(on16[k] for k in SRC_78)
 
@@ -10370,7 +10395,9 @@ def t025_metre_makers():
     check(d[1]["length"] == 28 and c[1]["own"] == 14 and d[1]["on"] == rebar78("x...x...x...x..x") * 2 and c[1]["row"][14:28] == rebar78("grrrgrrrgrrrgrrg"),
           "... KICK #2 on a track of two bars (28): the bar of 14 and its copy, the pickup in the last beat (%s, own %s)" % (_bars14(d[1]["on"]), c[1]["own"]))
 
-    # the THEORY engines: the part of seed 1 made in 4/4, and made in 7/8: the same part, re-barred
+    # the THEORY engines: the part of seed 1 made in 4/4, and made in 7/8 (0.26: IN the bar of 14, not the 4/4 one
+    # re-barred: what the engines make of seed 1 in 7/8 - a kick on every beat of it)
+    text, done = theory_tool("mm")
     out = {}
     for name, pre in (("4/4", []), ("7/8", [(K1, -2)])):
         s = Script()
@@ -10380,10 +10407,13 @@ def t025_metre_makers():
         log = run(s, t + 100)
         out[name] = (log.dumps[0], log.copies[0], th_dumps(log)[0], th_metres(log)[0], log.states[0]["msg"])
     d4, d7 = out["4/4"], out["7/8"]
-    check(d4[4] == "TECHNO KICK SEED 1" and d7[4] == d4[4] and d7[0]["length"] == 14 and d7[1]["own"] == 14 and d7[0]["on"] == rebar78(d4[0]["on"]) and "x" in d7[0]["on"],
-          "THEORY, BEAT in 7/8: the kick of seed 1 as in 4/4, in the bar of 14 (%s <- %s)" % (d7[0]["on"], d4[0]["on"]))
+    want7 = onoff(text("TECHNO", 0, d7[2]["now"], parts=["KICK"], n=16, metre="7/8")["KICK"][0])
+    done()
+    check(d4[4] == "TECHNO KICK SEED 1" and d7[4] == d4[4] and d7[0]["length"] == 14 and d7[1]["own"] == 14 and d7[0]["on"] == want7 and len(want7) == 14
+          and all(d7[0]["on"][k] == "x" for k in (0, 4, 8)),
+          "THEORY, BEAT in 7/8: the kick of seed 1 made in the bar of 14 - on its three beats (%s; in 4/4 %s)" % (d7[0]["on"], d4[0]["on"]))
     check(d4[3]["made"] == 0 and d7[3]["made"] == d7[3]["now"] and d7[3]["made"] != 0 and d7[2]["len"] == 16,
-          "... the pattern keeps the metre it was made in (4/4: %s; 7/8: %s, made in one sixteen)" % (d4[3]["made"], d7[3]["made"]))
+          "... the pattern keeps the metre it was made in (4/4: %s; 7/8: %s, one bar)" % (d4[3]["made"], d7[3]["made"]))
 
     # THE ENGINES' PATTERNS FOLLOW THE METRE: a kick made in 4/4; the bar is 14: it is made again, in 7/8 (the one above);
     # the bar is 16 again: the pattern it was. One the player changed by hand stays as it is, cut by the loop, and back

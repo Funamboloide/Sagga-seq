@@ -454,6 +454,64 @@ static uint32_t th_shy(const sq_th_t *t, uint32_t part, const uint8_t *mate, uin
 {
     return mate && mate[at] >= TH_O && th_u(t, part, 0x500u + key, 8u) < 170u;
 }
+/* 0.26 A PART KEEPS ITS BACKBONE IN ANY BAR. A bar of three beats stands for three of the four beats of a 4/4 bar, a
+ * pattern of one bar of two beats for half of it: the 16th a part is BUILT on - the snare of dubstep on three, the clap
+ * of hard techno - may not be among the pattern's steps at all. Then the step that stands for the nearest 16th with the
+ * same place in its beat (of two as near: the later one) carries it: the snare on three is on the bar's last beat.
+ * Which 16th: one the part always plays (its accent first); a part with none: its heaviest, when no step of the pattern
+ * could ever be more than a ghost (a part is never empty). `present`: the 16ths the pattern's steps stand for in the
+ * bars of this rule, less the ones the rule never plays. Returns the 16th that carries it (lev: at what level), or
+ * 255: nothing to move - always so in 4/4, where every 16th is there. */
+static uint32_t th_backbone(const th_rule_t *q, const th_rule_t *qb, uint32_t present, uint32_t cyc_on, uint32_t *lev)
+{
+    static const uint8_t LV[4] = {TH_X, TH_A, TH_O, TH_G};
+    uint32_t F = (uint32_t)(qb->fixA | qb->fixx), f = 255u, s, best = 255u, bk = 0xFFFFu, lv = 0u;
+    if (!present) return 255u;
+    if (F) {
+        if (F & present) return 255u;
+        for (s = 0; s < 16u && f == 255u; s++) if ((qb->fixA >> s) & 1u) f = s;
+        for (s = 0; s < 16u && f == 255u; s++) if ((qb->fixx >> s) & 1u) f = s;
+        lv = (q->kick & TH_K_LV) ? LV[(qb->lv >> (2u * f)) & 3u] : ((qb->fixA >> f) & 1u) ? TH_A : TH_X;
+    } else {
+        uint32_t wbest = 0u, c;
+        for (c = 0; c < 4u; c++)                         /* (a part of classes: a class that is among the steps) */
+            if (q->cls[c] && 1u + ((q->cls_lev >> (2u * c)) & 3u) >= TH_O && (present & (0x1111u << c))) return 255u;
+        if (cyc_on) return 255u;                         /* (a cycle that turns: it is the part) */
+        for (s = 0; s < 16u; s++) {
+            uint32_t w = th_nib(qb->w, s), l = !w ? 0u : (q->kick & TH_K_LV) ? LV[(qb->lv >> (2u * s)) & 3u] : w >= 12u ? TH_A : w > q->soft ? TH_X : q->soft_lev;
+            if (l < TH_O) continue;
+            if ((present >> s) & 1u) return 255u;        /* (a step of the pattern can be a hit: nothing to move) */
+            if (w > wbest) { wbest = w; f = s; lv = l; }
+        }
+        if (f == 255u) return 255u;
+    }
+    for (s = 0; s < 16u; s++) {
+        uint32_t d, key;
+        if (!((present >> s) & 1u)) continue;
+        d = s > f ? s - f : f - s;
+        key = ((s & 3u) != (f & 3u) ? 64u : 0u) + d * 2u - (s > f ? 1u : 0u);
+        if (key < bk) { bk = key; best = s; }
+    }
+    *lev = lv;
+    return best;
+}
+/* 0.26, a part whose notes STAND APART, in a bar of its own. Of two hits on steps next to each other the one that came
+ * in later goes - and a hit that is always there never does. In 4/4 the style's rule keeps the two from ever meeting:
+ * it gives no weight to a 16th beside one that is always there (at any energy). In another bar steps are neighbours
+ * that were not - a long beat says its end twice, a bar of three beats goes from beat two to beat four - and a hit
+ * would be there until its neighbour comes in at a higher energy, and then go. So there the step BESIDE one that is
+ * always there (at some energy; or that carries the part's backbone) is left empty at every energy. */
+static uint32_t th_core_at(const th_rule_t *q, const th_bar_t *x, uint32_t at, const uint32_t *bone, uint32_t two)
+{
+    const th_rule_t *qb = th_bar(q, x, at);
+    uint32_t s16 = th_s16(x, at);
+    return (((uint32_t)(qb->fixA | qb->fixx | qb->mid) >> s16) & 1u) || bone[two & th_ab(x, at)] == s16;
+}
+static uint32_t th_beside(const sq_th_t *t, const th_rule_t *q, const th_bar_t *x, uint32_t n, uint32_t at, const uint32_t *bone, uint32_t two)
+{
+    if (!(q->kick & TH_K_APART) || !th_native(t) || th_core_at(q, x, at, bone, two)) return 0u;
+    return (at && th_core_at(q, x, at - 1u, bone, two)) || (at + 1u < n && th_core_at(q, x, at + 1u, bone, two));
+}
 static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t *q, uint8_t func, uint32_t n, th_grid_t *g)
 {
     uint32_t part = func, s, c, dens = th_en(t, q->d_lo, q->d_hi), share = th_en(t, q->cls_e0, 255u);
@@ -464,7 +522,17 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
     uint8_t con[4], opc[4] = {1u, 1u, 1u, 1u};
     th_grid_t kick;
     const uint8_t *mate = sq_th_mate_family(func) != 255u ? t->mate : 0;   /* 0.25: the part this one answers (a part that answers nobody: nobody) */
+    uint32_t pres[2] = {0u, 0u}, bone[2] = {255u, 255u}, bone_lv[2] = {0u, 0u}, two = (q->kick & TH_K_TWO) ? 1u : 0u;   /* 0.26: th_backbone */
     for (i = 0; i < SQ_STEPS; i++) { g->lev[i] = 0u; g->rat[i] = 0u; rk[i] = 0xFFFFu; kick.lev[i] = 0u; }
+    if (cyc_n) {                                         /* (the cycle is the part: the rest thins out; a low energy: every other hit of it) */
+        cyc_on = th_ub(t, part, 0xCCu, 1u) < (uint32_t)(q->cyc >> 4) * 17u;
+        cyc_ph = th_ub(t, part, 0xCDu, 1u) % cyc_n;
+        cyc_per = t->energy < 40u ? cyc_n * 2u : cyc_n;
+        if (cyc_on) dens /= 2u;
+    }
+    for (i = 0; i < n; i++) pres[two & th_ab(x, i)] |= TB(th_s16(x, i));
+    if (pres[0] != 0xFFFFu) bone[0] = th_backbone(q, q, pres[0] & ~(uint32_t)q->never, cyc_on, &bone_lv[0]);
+    if (two && pres[1] != 0xFFFFu) bone[1] = th_backbone(q, q + 1, pres[1] & ~(uint32_t)(q + 1)->never, cyc_on, &bone_lv[1]);
     if (q->kick & 15u) {                                 /* the kick that plays with it, else the seed's own */
         if (t->kick) for (i = 0; i < n; i++) kick.lev[i] = t->kick[i];
         else {                                           /* (a part that leans on the kicks: on the ones that are there at every
@@ -483,8 +551,8 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
         opc[0] = opc[1] = opc[2] = opc[3] = 0u;
         for (i = 0; i < n; i++) {
             const th_rule_t *qb = th_bar(q, x, i);
-            uint32_t s16 = th_s16(x, i), core = (uint32_t)(qb->fixA | qb->fixx) & TB(s16);
-            if ((qb->never & TB(s16)) || (avoid && kick.lev[i])) continue;
+            uint32_t s16 = th_s16(x, i), core = ((uint32_t)(qb->fixA | qb->fixx) & TB(s16)) || bone[two & th_ab(x, i)] == s16;
+            if ((qb->never & TB(s16)) || (avoid && kick.lev[i]) || th_beside(t, q, x, n, i, bone, two)) continue;
             if (!core && !th_nib(qb->w, s16) && !q->cls[s16 & 3u] && !cyc_n) continue;
             if (!core && th_shy(t, part, mate, i, th_keyat(t, q, x, part, i))) continue;
             open++; opc[s16 & 3u] = 1u;
@@ -494,14 +562,8 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
     for (c = 0; c < 4u; c++) {                           /* a class is there when its number, against its chance, is under the share */
         uint32_t cx = q->cls[c] ? (q->cls_link ? link : th_ub(t, part, 0xC1u + c, 1u)) * 255u / q->cls[c] : 0xFFFFu;
         con[c] = (uint8_t)(q->cls[c] == 255u || cx < share);
-        if (cx < best && (!mate || opc[c])) { best = cx; best_c = c; }   /* (the one that comes in first as the energy rises - 0.25:
+        if (cx < best && (!mate || opc[c]) && ((pres[0] | pres[1]) & (0x1111u << c))) { best = cx; best_c = c; }   /* (the one that comes in first as the energy rises - 0.25:
                                                                         *  of those with a place the part does not leave to the other) */
-    }
-    if (cyc_n) {                                         /* (the cycle is the part: the rest thins out; a low energy: every other hit of it) */
-        cyc_on = th_ub(t, part, 0xCCu, 1u) < (uint32_t)(q->cyc >> 4) * 17u;
-        cyc_ph = th_ub(t, part, 0xCDu, 1u) % cyc_n;
-        cyc_per = t->energy < 40u ? cyc_n * 2u : cyc_n;
-        if (cyc_on) dens /= 2u;
     }
     for (at = 0; at < n; at++) {
         {
@@ -509,7 +571,7 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
             const th_rule_t *qb = th_bar(q, x, at);
             uint32_t out;
             s = th_s16(x, at);
-            out = (qb->never & TB(s)) || (avoid && kick.lev[at]);
+            out = (qb->never & TB(s)) || (avoid && kick.lev[at]) || th_beside(t, q, x, n, at, bone, two);
             c = s & 3u;
             if (w) {                                     /* a hit is there when its number, against its weight, is under the density */
                 rk[at] = (uint16_t)(th_u(t, part, 0x200u + key, 3u) * 15u / w);
@@ -528,6 +590,7 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
                 if ((q->fixx & TB(s)) && lev < TH_X) { lev = TH_X; rk[at] = 0u; }
                 if (q->fixA & TB(s)) { lev = TH_A; rk[at] = 0u; }
             }
+            if (bone[two & th_ab(x, at)] == s && lev < bone_lv[two & th_ab(x, at)]) { lev = bone_lv[two & th_ab(x, at)]; rk[at] = 0u; }   /* 0.26: its backbone, carried here */
             if (out) { lev = 0u; rk[at] = 0xFFFFu; }
             if (lev && (qb->rollm & TB(s)) && th_u(t, part, 0x300u + key, 6u) < ((uint32_t)(qb->roll & 63u) << 2))
                 g->rat[at] = (uint8_t)((qb->roll >> 6) + 1u);    /* (by its place: the same roll at every energy) */
@@ -550,7 +613,7 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
         for (pass = 0; pass < 2u && !got; pass++)        /* (a class whose every hit was left out: the class whole) */
             for (i = 0; i < n; i++) {
                 uint32_t w = th_weight(q, x, &kick, mate, n, i), s16 = th_s16(x, i);
-                if ((th_bar(q, x, i)->never & TB(s16)) || (avoid && kick.lev[i]) || th_shy(t, part, mate, i, th_keyat(t, q, x, part, i))) continue;
+                if ((th_bar(q, x, i)->never & TB(s16)) || (avoid && kick.lev[i]) || th_beside(t, q, x, n, i, bone, two) || th_shy(t, part, mate, i, th_keyat(t, q, x, part, i))) continue;
                 if (near != 0xFFFFu) { if (w && rk[i] == near && th_level(q, x, w, i) >= TH_O) { g->lev[i] = (uint8_t)th_level(q, x, w, i); got = 1u; } }
                 else if (best_c < 4u) {
                     if ((s16 & 3u) == best_c && (pass || th_u(t, part, 0x100u + th_keyat(t, q, x, part, i), 2u) >= q->hole)) {
@@ -560,9 +623,24 @@ static void th_rhythm_rule(const sq_th_t *t, const th_bar_t *x, const th_rule_t 
                 else got = 1u;                           /* (ghosts, and nothing to add: it stays as it is) */
             }
     }
+    if (t->energy && th_native(t)) {
+        /* 0.26, a bar of its own: what the part has at NO energy it has at every energy. In 4/4 a style's rules see to
+         * it (what is always there has every 16th to stand on); in another bar a 16th may have no step, a kick may sit
+         * where the part's ground was, and the one hit that kept the part from being empty would go again when the
+         * next ones come in. So the part of energy 0 is made first, and stays under this one. */
+        sq_th_t t0 = *t;
+        th_grid_t g0;
+        t0.energy = 0u;
+        th_rhythm_rule(&t0, x, q, func, n, &g0);
+        for (i = 0; i < n; i++) {
+            if (!g0.lev[i] || g->lev[i] || (th_bar(q, x, i)->never & TB(th_s16(x, i))) || (avoid && kick.lev[i]) || th_beside(t, q, x, n, i, bone, two)) continue;
+            g->lev[i] = g0.lev[i]; g->rat[i] = g0.rat[i]; rk[i] = 0u;
+        }
+    }
     if (q->kick & TH_K_APART)                            /* no two on 16ths next to each other: the one that came in later goes */
         for (i = 1u; i < n; i++) {
-            uint32_t fa = th_fix(t, q, x, i - 1u) & TB(th_s16(x, i - 1u)), fb = th_fix(t, q, x, i) & TB(th_s16(x, i));
+            uint32_t fa = (th_fix(t, q, x, i - 1u) & TB(th_s16(x, i - 1u))) || bone[two & th_ab(x, i - 1u)] == th_s16(x, i - 1u);
+            uint32_t fb = (th_fix(t, q, x, i) & TB(th_s16(x, i))) || bone[two & th_ab(x, i)] == th_s16(x, i);
             if (!g->lev[i] || !g->lev[i - 1u] || (fa && fb)) continue;
             if (fb || (!fa && rk[i] < rk[i - 1u])) g->lev[i - 1u] = 0u; else g->lev[i] = 0u;
         }
