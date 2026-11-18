@@ -282,7 +282,7 @@ static void gr_ctl(uint8_t id, uint8_t down)
     if (id == GC_PLAY) {
         if (shift) { if (!playing) transport_continue(); }                  /* SHIFT + PLAY: carry on from where it stopped */
         else if (playing) transport_stop();
-        else transport_start();
+        else transport_start_ask();                                         /* (0.26: after the COUNT IN, as the panel's PLAY) */
     } else if (id == GC_REC) {
         if (shift) gr_set_view(g_view == GV_PROJ ? GV_LIB : GV_PROJ);              /* PROJ again: LIB */
         else { rec_toggle(); ui_dirty = 1u; }
@@ -1587,7 +1587,7 @@ static void gr_render_beat(void)
         if (th) {                                       /* 0.23: what the engines would make of the seed */
             sq_th_t h;
             th_set(&h, st, project.th.seed, 0u, 0u, vg_energy_now(), selected_track, tr[selected_track].pattern, beat_func);
-            text = sq_th_part(&h, beat_func, 32u, thr, thn) ? thr : 0;
+            text = sq_th_part(&h, beat_func, h.gen ? sq_th_steps(&h, 2u) : 32u, thr, thn) ? thr : 0;   /* (0.26: two bars of the metre) */
         }
         for (i = 0; i < 32u; i++) {
             char c = (text && !end) ? text[i] : '\0';

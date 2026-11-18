@@ -171,12 +171,17 @@ static void made_fit_x(uint32_t t, uint8_t pat, uint8_t n, uint8_t rebar)
 {
     uint8_t made = made_len(t);
     if (t >= SQ_TRACKS || pat >= SQ_PATTERNS || !n) return;
-    if (n > made) n = made;
-    if (rebar) n = made_rebar(project.step[t][pat], n);
+    if (n > made && rebar != 2u) n = made;
+    if (rebar == 1u) n = made_rebar(project.step[t][pat], n);
     sq_row_made(project.step[t][pat], n, project.track[t].length);
     gh_st[t].pat = 255u;                                  /* (what the copies were made from is not known any more) */
 }
-static void made_fit(uint32_t t, uint8_t pat, uint8_t n) { made_fit_x(t, pat, n, 1u); }
+/* (0.26: a pattern the engines of 0.26 made is in the metre's bars already - th_make: so many bars of it - and stays so) */
+static uint8_t made_in_bar(uint32_t t, uint8_t pat)
+{
+    return (uint8_t)(t < SQ_TRACKS && pat < SQ_PATTERNS && (project.th.pat[t][pat].style & 31u) && (project.th.pat[t][pat].style & SQ_THP_V26));
+}
+static void made_fit(uint32_t t, uint8_t pat, uint8_t n) { made_fit_x(t, pat, n, made_in_bar(t, pat) ? 2u : 1u); }
 static void made_fit_asis(uint32_t t, uint8_t pat, uint8_t n) { made_fit_x(t, pat, n, 0u); }   /* (the Pi's: as it was written) */
 
 /* ---- the settings (the panel and the grid share them) */
@@ -1045,6 +1050,11 @@ static uint8_t harm_chord(sq_hchord_t *c, uint8_t *idx)
 {
     sq_hprog_t h;
     uint8_t k;
+    if (kb_chord_on && SQ_KB_IS_CHORD(project.ext.kb_mode)) {   /* 0.26 LIVE CHORDS: the keyboard's, whatever the progression (the HARMONY off too) */
+        *c = kb_chord;
+        if (idx) *idx = 0u;
+        return 1u;
+    }
     if (!project.gen.harm_on) return 0u;
     harm_hprog_of(project.gen.harm_prog, &h);
     k = sq_hprog_at(&h, harm_pos(), c);
@@ -1343,11 +1353,12 @@ static void harm_dice(void)
     ui_dirty = grid_dirty = 1u;
 }
 /* 0.11 SEQ 4, SEL + K1: how a FOLLOW track's held note meets a change of chord; 0.25 MELODY: a tune - it stays where it is
- * written and its strong notes (on a beat, long, held through a change) go to the chord playing */
+ * written and its strong notes (on a beat, long, held through a change) go to the chord playing; 0.26 SMOOTH: a chord's
+ * notes go to the nearest notes of the chord playing (held ones as LEGATO: those the two chords share go on) */
 static void follow_mode_set(uint8_t t, uint8_t m)
 {
     static const char *const N[SQ_FMS] = {"HELD NOTES KEEP THEIR CHORD", "HELD NOTES STRUCK AGAIN ON THE NEW CHORD", "HELD NOTES SLIDE TO THE NEW CHORD",
-                                          "A TUNE: ITS STRONG NOTES ON THE CHORD"};
+                                          "A TUNE: ITS STRONG NOTES ON THE CHORD", "CHORDS MOVE LITTLE: THE NEAREST NOTES"};
     project.track[t].follow_mode = m < SQ_FMS ? m : 0u;
     status_msg(N[project.track[t].follow_mode]);
     ui_dirty = grid_dirty = 1u;
@@ -1384,7 +1395,11 @@ static void beat_onto(uint8_t t, uint8_t func, uint8_t var);
 static uint8_t follow_way_for(const sq_track_cfg_t *c, uint8_t func)
 {
     if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) return SQ_FM_MELODY;
-    return (uint8_t)(c->follow_mode == SQ_FM_MELODY ? SQ_FM_HOLD : c->follow_mode);
+    /* 0.26 THE CHORDS MOVE LITTLE: the chords a hand holds (a PAD, a PIANO) follow SMOOTH - each note to the nearest note
+     * of the chord playing; a riff's chords (a STAB, the CHORD part) go on moving whole, as riffs do */
+    if (func == SQ_FUNC_PAD || func == SQ_FUNC_PIANO)
+        return (uint8_t)(c->follow_mode == SQ_FM_RETRIG || c->follow_mode == SQ_FM_LEGATO ? c->follow_mode : SQ_FM_SMOOTH);
+    return (uint8_t)(c->follow_mode == SQ_FM_MELODY || c->follow_mode == SQ_FM_SMOOTH ? SQ_FM_HOLD : c->follow_mode);
 }
 
 /* PROG: the tonic chord on the genre's chord rhythm; the track follows the HARMONY, which starts if it was off */
@@ -1466,7 +1481,7 @@ static uint8_t th_kept[SQ_TRACKS];                      /* 0.25: patterns of the
 /* the kick that plays with pattern `pat` of track t: the first other track whose role is KICK and that plays in 16ths,
  * its pattern as levels a 16th (the one the engines made for the same pattern number, else the one it plays now).
  * 0: none, or the part is a kick itself: the engines then use the kick of the part's own seed. */
-static const uint8_t *th_kick(uint8_t t, uint8_t pat, uint8_t func)
+static const uint8_t *th_kick(uint8_t t, uint8_t pat, uint8_t func, uint8_t direct)
 {
     uint32_t k, i;
     if (sq_func_family(func) == SQ_FUNC_KICK) return 0;
@@ -1478,11 +1493,12 @@ static const uint8_t *th_kick(uint8_t t, uint8_t pat, uint8_t func)
         row = project.step[k][pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern];
         len = (uint8_t)(c->length - c->start);
         memset(th_kick_lev, 0, sizeof th_kick_lev);
-        for (i = 0; i < SQ_STEPS; i++) {                 /* (0.25: step i of what the kick plays is a 16th of the engines' sixteens: sq_g16) */
+        for (i = 0; i < SQ_STEPS; i++) {                 /* (0.25: step i of what the kick plays is a 16th of the engines' sixteens: sq_g16;
+                                                          *  0.26, a part made in the bar: step i is step i) */
             const sq_step_t *st = &row[c->start + i % len];
             uint8_t v = (st->flags & SQ_STEP_ON) ? (uint8_t)(st->velocity ? st->velocity : 1u) : 0u;
             uint8_t lv = (uint8_t)(!v ? 0u : v >= 112u ? 4u : v >= 88u ? 3u : v >= 60u ? 2u : 1u);
-            uint32_t at = (i / bar_st()) * 16u + sq_g16(i % bar_st());
+            uint32_t at = direct ? i : (i / bar_st()) * 16u + sq_g16(i % bar_st());
             if (at < SQ_STEPS && lv > th_kick_lev[at]) th_kick_lev[at] = lv;
             if (v) any = 1u;
         }
@@ -1508,73 +1524,236 @@ static int32_t th_mate_track(uint8_t t, uint8_t func)    /* the track the part `
     }
     return -1;
 }
-static const uint8_t *th_mate(uint8_t t, uint8_t pat, uint8_t func)
+/* 0.26: `direct` - the part that answers is made in the bar (the engines of 0.26): the levels are a step each as the
+ * track plays them, and the other part's NOTES come too (th_mate_nt: sq_th_t.mate_nt). The other part AS IT IS when it
+ * is the engines', of 0.26 and in the bar there is now: made from what they keep of it at half the energy, with the
+ * part IT answers heard the same way (the bass hears the tune that hears the chords: no further, nobody answers a
+ * bass) - so what the bass takes from the tune is what the tune plays. Else as its steps are: of a track of chords
+ * every step is a chord (with a seventh when one of its notes is one), of another its first note above the root. */
+static uint8_t th_mate_nt[SQ_STEPS];
+static uint8_t th_mate2_lev[SQ_STEPS], th_mate2_nt[SQ_STEPS];   /* (the part the heard part answers) */
+static uint8_t th_mate_notes;                           /* th_mate_nt says something (the last th_mate) */
+static uint8_t th_rec_len(const sq_thpat_t *m);
+static void th_rec_bar(const sq_thpat_t *m, sq_th_t *h);
+static uint8_t th_rec_here(const sq_thpat_t *m);
+static uint8_t th_hear(uint32_t k, uint8_t pat, uint8_t direct, uint8_t deep, uint8_t *lev, uint8_t *nt)
+{
+    const sq_track_cfg_t *c = &project.track[k];
+    uint8_t pi = pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern;
+    const sq_thpat_t *m = &project.th.pat[k][pi];
+    const sq_step_t *row = project.step[k][pi];
+    uint8_t len = (uint8_t)(c->length - c->start), any = 0u;
+    uint8_t chords = (uint8_t)(c->role && (uint8_t)(sq_role_family(c->role) - 1u) == SQ_FUNC_CHORD);
+    uint32_t i;
+    if (m->style && (!direct || th_rec_here(m))) {
+        sq_th_t h;
+        memset(&h, 0, sizeof h);
+        h.style = SQ_THP_STYLE(m); h.energy = 50u; h.vary = SQ_THP_VARY(m); h.scale = gen_scale(); h.seed = m->seed; h.var = m->var;
+        if (!direct) sq_th_levels(&h, m->func, SQ_THP_LEN(m), lev);       /* (0.25: its rhythm, and alone) */
+        else {
+            int32_t k2 = deep ? -1 : th_mate_track((uint8_t)k, m->func);
+            th_rec_bar(m, &h);                           /* (in its bar, as it was made) */
+            if (k2 >= 0 && th_hear((uint32_t)k2, pat, 1u, 1u, th_mate2_lev, th_mate2_nt)) {
+                h.mate = th_mate2_lev;
+                if (SQ_THP_NOTES(m)) h.mate_nt = th_mate2_nt;             /* (its own answers have notes when it was made so) */
+            }
+            sq_th_heard(&h, m->func, th_rec_len(m), lev, nt);
+        }
+        for (i = 0; i < SQ_STEPS; i++) if (lev[i]) any = 1u;
+        return any;
+    }
+    memset(lev, 0, SQ_STEPS);
+    if (direct) memset(nt, 255, SQ_STEPS);
+    for (i = 0; i < SQ_STEPS; i++) {                     /* (in the engines' sixteens, whatever the metre: sq_g16; 0.26, direct: a step each) */
+        const sq_step_t *st = &row[c->start + i % len];
+        uint8_t v = (st->flags & SQ_STEP_ON) ? (uint8_t)(st->velocity ? st->velocity : 1u) : 0u;
+        uint8_t lv = (uint8_t)(!v ? 0u : v >= 112u ? 4u : v >= 88u ? 3u : v >= 60u ? 2u : 1u);
+        uint32_t at = direct ? i : (i / bar_st()) * 16u + sq_g16(i % bar_st());
+        if (at < SQ_STEPS && lv > lev[at]) lev[at] = lv;
+        if (v && direct && st->note[0] <= 127u) {
+            uint8_t cnt = 0u, sev = 0u, j;
+            for (j = 0; j < SQ_POLY; j++)
+                if (st->note[j] <= 127u) {
+                    uint32_t iv = ((uint32_t)st->note[j] + 120u - st->note[0]) % 12u;
+                    cnt++;
+                    if (iv == 10u || iv == 11u) sev = 1u;
+                }
+            nt[i] = (uint8_t)(chords || cnt >= 2u ? (sev ? 18u : 16u) : ((uint32_t)st->note[0] + 120u - gen_root_note(k)) % 12u);
+        }
+        if (v) any = 1u;
+    }
+    return any;
+}
+static const uint8_t *th_mate(uint8_t t, uint8_t pat, uint8_t func, uint8_t direct)
 {
     int32_t mk = th_mate_track(t, func);
-    uint32_t k, i;
-    if (mk < 0) return 0;
-    for (k = (uint32_t)mk; k == (uint32_t)mk; k++) {
-        const sq_track_cfg_t *c = &project.track[k];
-        const sq_thpat_t *m;
-        const sq_step_t *row;
-        uint8_t pi, len, any = 0u;
-        pi = pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern;
-        m = &project.th.pat[k][pi];
-        if (m->style) {
-            sq_th_t h;
-            h.style = SQ_THP_STYLE(m); h.energy = 50u; h.vary = m->vary; h.scale = gen_scale(); h.seed = m->seed; h.var = m->var;
-            h.kick = 0; h.mate = 0;
-            sq_th_levels(&h, m->func, SQ_THP_LEN(m), th_mate_lev);
-            for (i = 0; i < SQ_STEPS; i++) if (th_mate_lev[i]) any = 1u;
-            return any ? th_mate_lev : 0;
-        }
-        row = project.step[k][pi];
-        len = (uint8_t)(c->length - c->start);
-        memset(th_mate_lev, 0, sizeof th_mate_lev);
-        for (i = 0; i < SQ_STEPS; i++) {                 /* (in the engines' sixteens, whatever the metre: sq_g16) */
-            const sq_step_t *st = &row[c->start + i % len];
-            uint8_t v = (st->flags & SQ_STEP_ON) ? (uint8_t)(st->velocity ? st->velocity : 1u) : 0u;
-            uint8_t lv = (uint8_t)(!v ? 0u : v >= 112u ? 4u : v >= 88u ? 3u : v >= 60u ? 2u : 1u);
-            uint32_t at = (i / bar_st()) * 16u + sq_g16(i % bar_st());
-            if (at < SQ_STEPS && lv > th_mate_lev[at]) th_mate_lev[at] = lv;
-            if (v) any = 1u;
-        }
-        return any ? th_mate_lev : 0;
-    }
-    return 0;
+    th_mate_notes = 0u;
+    if (mk < 0 || !th_hear((uint32_t)mk, pat, direct, 0u, th_mate_lev, th_mate_nt)) return 0;
+    th_mate_notes = direct;
+    return th_mate_lev;
 }
-static void th_set(sq_th_t *h, uint8_t style, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat, uint8_t func)
+/* 0.26 THE ANSWER HAS NOTES, when it plays. A tune the engines of 0.26 made answers the chords with their notes: on the
+ * 16ths right after a chord (three of them, the chords silent) it plays a note of the chord - written as a note of the
+ * HOME chord, its root, its third or its fifth. When the progression has moved it must be a note of the chord that
+ * PLAYS: so such a note is one FOLLOW MELODY takes to the chord (a strong note: the nearest note of the chord; on the
+ * home chord it is where it is written). Read from the rows as they are when it plays - the tune's step, the steps of
+ * the track it answers. Only in a pattern whose answers have notes (SQ_THPV_NOTES: made new by 0.26): one written by
+ * hand, one of 0.25 play as they did. */
+static uint8_t tune_answers(uint32_t t, const sq_step_t *s, uint8_t idx)
 {
+    const sq_track_cfg_t *c = &project.track[t], *mc;
+    const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern < SQ_PATTERNS ? tr[t].pattern : 0u];
+    const sq_step_t *mrow, *ms;
+    uint8_t root, hs, pc, hit = 0u;
+    int32_t k, ri, base;
+    uint32_t p, d, mlen;
+    if (c->follow_mode != SQ_FM_MELODY || !(m->style & 31u) || !SQ_THP_NOTES(m) || s->note[0] > 127u || idx < c->start ||
+        sq_th_mate_family(m->func) != SQ_FUNC_CHORD) return 0u;
+    k = th_mate_track((uint8_t)t, m->func);
+    if (k < 0) return 0u;
+    mc = &project.track[k];
+    mrow = project.step[k][tr[k].pattern < SQ_PATTERNS ? tr[k].pattern : 0u];
+    mlen = (uint32_t)mc->length - mc->start;
+    p = (uint32_t)idx - c->start;
+    ms = &mrow[mc->start + p % mlen];
+    if ((ms->flags & SQ_STEP_ON) && ms->velocity >= 60u) return 0u;         /* (the chords play here: it is not an answer) */
+    for (d = 1u; d <= 3u && d <= p && !hit; d++) {
+        ms = &mrow[mc->start + (p - d) % mlen];
+        hit = (uint8_t)((ms->flags & SQ_STEP_ON) && ms->velocity >= 60u);
+    }
+    if (!hit) return 0u;
+    root = key_root_of(t); hs = sq_harm_scale(key_scale_of(t));
+    ri = sq_scale_index(60u, root, hs); base = ri - ((ri % 7) + 7) % 7;       /* (the home chord: sq_harm_tones) */
+    pc = (uint8_t)(key_note(t, (int32_t)s->note[0]) % 12u);
+    return (uint8_t)(pc == sq_scale_at(base, root, hs) % 12u || pc == sq_scale_at(base + 2, root, hs) % 12u || pc == sq_scale_at(base + 4, root, hs) % 12u);
+}
+static uint8_t th_note(uint8_t t, uint8_t func) { return sq_func_kind(func) != SQ_KIND_DRUM ? gen_root_note(t) : PEN(t); }
+/* 0.26: `gen` 1 - the part is made IN the bar `steps` / `beats` (0: in sixteens, as 0.25; whoever asked re-bars it);
+ * `notes` (only with gen) - its answers have notes */
+/* 0.26: a part made in the bar hears the part it answers a step each, as that one IS - so that one must be in the bar
+ * there is first. The engines' pattern it will hear, still in another metre (the service has not come to it yet), is
+ * made again in this one now - and the part THAT one answers before it (the bass, the tune, the chords: no further). */
+static void th_remetre(uint8_t t, uint8_t pat);
+static uint8_t th_ready_depth;
+static void th_mate_ready(uint8_t t, uint8_t pat, uint8_t func)
+{
+    int32_t k = th_mate_track(t, func);
+    const sq_thpat_t *m;
+    uint8_t pi;
+    if (k < 0 || th_ready_depth >= 2u) return;
+    pi = pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern;
+    m = &project.th.pat[k][pi];
+    if (!m->style || m->metre == metre_id_now() || (th_kept[k] & (1u << pi)) || track_tape((uint32_t)k) || track_break((uint32_t)k)) return;
+    th_ready_depth++;
+    th_remetre((uint8_t)k, pi);
+    th_ready_depth--;
+}
+static void th_set_x(sq_th_t *h, uint8_t style, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat, uint8_t func,
+                     uint8_t gen, uint8_t notes, uint8_t steps, uint32_t beats)
+{
+    if (gen) th_mate_ready(t, pat, func);
+    memset(h, 0, sizeof *h);
     h->style = style; h->energy = energy > 100u ? 100u : energy; h->vary = vary > 100u ? 100u : vary;
     h->scale = gen_scale();
     h->seed = seed; h->var = var;
-    h->kick = th_kick(t, pat, func);
-    h->mate = th_mate(t, pat, func);                     /* 0.25 */
+    h->gen = gen ? 1u : 0u;
+    if (gen) { h->bar_steps = steps; h->bar_beats = beats; }
+    h->kick = th_kick(t, pat, func, h->gen);
+    h->mate = th_mate(t, pat, func, h->gen);             /* 0.25 */
+    h->mate_nt = h->gen && notes && h->mate && th_mate_notes ? th_mate_nt : 0;   /* 0.26 */
 }
-static uint8_t th_note(uint8_t t, uint8_t func) { return sq_func_kind(func) != SQ_KIND_DRUM ? gen_root_note(t) : PEN(t); }
+/* THE ENGINES A PATTERN IS MADE BY (0.26). One made NEW - BEAT, a band, the dice, a seed chosen - is made by the engines
+ * of now: in the bar there is, its answers with notes (th_set, th_make). One made AGAIN from what the engines keep of it
+ * - the energy, a variation, another genre's style, the answer to a part that changed, UNDO - is made the way it was
+ * (th_set_as, th_again: SQ_THP_V26, SQ_THPV_NOTES say how), so a project of 0.25 plays what it played. The METRE
+ * changing is between the two: the pattern is made again IN THE NEW BAR - rhythms born in seven, in five - and its
+ * answers stay as they were (th_remetre); back in 4/4 it is the pattern it was, to the note.
+ * In 4/4 a pattern made in the bar and one made in sixteens are the same thing: without notes in its answers it is kept,
+ * and made, as 0.25 did. A bar divided from outside has no number a pattern could keep: as 0.25 too. */
+static uint8_t th_gen_now(uint8_t gen, uint8_t notes) { return (uint8_t)(gen && metre_id_now() != 255u && (notes || !metre_44())); }
+/* for a pattern made NOW (a preview of one) */
+static void th_set(sq_th_t *h, uint8_t style, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat, uint8_t func)
+{
+    th_set_x(h, style, seed, var, vary, energy, t, pat, func, th_gen_now(1u, 1u), 1u, bar_st(), bar_bt());
+}
+/* the bar a pattern of the engines was made in when it was made in one; the steps it was made of (its bars of that
+ * metre); whether it can be made again as it is in the bar there is now, a step each */
+static void th_rec_bar(const sq_thpat_t *m, sq_th_t *h)
+{
+    uint8_t st = 16u;
+    uint32_t bt = SQ_BEATS_44;
+    h->gen = (uint8_t)((m->style & SQ_THP_V26) && sq_metre_of(m->metre, &st, &bt));
+    h->bar_steps = h->gen ? st : 0u; h->bar_beats = h->gen ? bt : 0u;
+}
+static uint8_t th_rec_len(const sq_thpat_t *m)
+{
+    sq_th_t h;
+    memset(&h, 0, sizeof h);
+    th_rec_bar(m, &h);
+    return h.gen ? sq_th_steps(&h, (uint8_t)(SQ_THP_LEN(m) / 16u)) : SQ_THP_LEN(m);
+}
+static uint8_t th_rec_here(const sq_thpat_t *m)
+{
+    if (m->style & SQ_THP_V26) return (uint8_t)(m->metre == metre_id_now());
+    return (uint8_t)(metre_44() && m->metre == 0u);
+}
+/* for a pattern the engines keep, AS IT WAS MADE (in which bar, its answers with or without notes) - with another
+ * variation, another energy if asked: what makes it again without changing what it is */
+static void th_set_as(sq_th_t *h, const sq_thpat_t *m, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat)
+{
+    sq_th_t b;
+    memset(&b, 0, sizeof b);
+    th_rec_bar(m, &b);
+    th_set_x(h, SQ_THP_STYLE(m), m->seed, var, vary, energy, t, pat, m->func, b.gen, SQ_THP_NOTES(m), b.bar_steps, b.bar_beats);
+}
+/* ... its steps, into `row`, as it was made (in its bars; a pattern of 0.25: in sixteens, re-barred for the bar there is) */
+static uint8_t th_load_as(sq_step_t *row, const sq_th_t *h, const sq_thpat_t *m, uint8_t t)
+{
+    if (h->gen) return sq_th_load(row, h, m->func, th_rec_len(m), th_note(t, m->func));
+    return made_rebar(row, sq_th_load(row, h, m->func, SQ_THP_LEN(m), th_note(t, m->func)));
+}
 /* a pattern written whole by something else (a tool, the library, the Pi): it is not the engines' any more */
 static void th_forget(uint8_t t, uint8_t pat) { if (t < SQ_TRACKS && pat < SQ_PATTERNS) project.th.pat[t][pat].style = 0u; }
-/* the part `func` made into pattern `pat` of track t; what it was made from is kept with the pattern. Returns its steps */
-static uint8_t th_make(uint8_t t, uint8_t pat, uint8_t style, uint8_t func, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t len)
+/* the part `func` made into pattern `pat` of track t; what it was made from is kept with the pattern. Returns its steps
+ * (th_make_x: `gen` in the bar, `notes` its answers have notes - where the bar allows: th_gen_now) */
+static uint8_t th_make_x(uint8_t t, uint8_t pat, uint8_t style, uint8_t func, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t len,
+                         uint8_t gen, uint8_t notes)
 {
     sq_th_t h;
     sq_thpat_t *m = &project.th.pat[t][pat];
     uint8_t n;
-    th_set(&h, style, seed, var, vary, energy, t, pat, func);
+    gen = th_gen_now(gen, notes);
+    notes = (uint8_t)(gen && notes);
+    th_set_x(&h, style, seed, var, vary, energy, t, pat, func, gen, notes, bar_st(), bar_bt());
+    if (h.gen) len = sq_th_steps(&h, (uint8_t)(len / 16u));          /* 0.26: so many BARS OF THE METRE (16, 32, 64 in 4/4, as ever) */
     n = sq_th_load(project.step[t][pat], &h, func, len, th_note(t, func));
     if (!n) return 0u;
-    m->seed = seed; m->style = SQ_THP_PACK(style, n); m->func = func; m->var = var; m->vary = h.vary; m->energy = h.energy;
-    m->metre = metre_id_now();                           /* 0.25: the metre it is made in (its bars: made_fit) */
+    m->seed = seed; m->func = func; m->var = var; m->energy = h.energy;
+    m->vary = (uint8_t)(h.vary | (notes ? SQ_THPV_NOTES : 0u));
+    m->style = h.gen ? (uint8_t)(SQ_THP_PACK(style, (uint8_t)(16u * (n / bar_st()))) | SQ_THP_V26) : SQ_THP_PACK(style, n);
+    m->metre = metre_id_now();                           /* 0.25: the metre it is made in (0.26: its bars are that metre's; a pattern of 0.25: made_fit re-bars it) */
     th_kept[t] &= (uint8_t)~(1u << pat);
     return n;
 }
-/* the pattern the engines made, made again as it is kept (after its seed or its variation was changed by hand) */
+static uint8_t th_make(uint8_t t, uint8_t pat, uint8_t style, uint8_t func, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t len)
+{
+    return th_make_x(t, pat, style, func, seed, var, vary, energy, len, 1u, 1u);
+}
+/* ... made again by the engines it was made by (what the pattern keeps says which), in another style if asked */
+static uint8_t th_make_as(uint8_t t, uint8_t pat, uint8_t style, uint8_t func)
+{
+    const sq_thpat_t *m = &project.th.pat[t][pat];
+    return th_make_x(t, pat, style, func, m->seed, m->var, SQ_THP_VARY(m), vg_energy_now(), made_len(t),
+                     (uint8_t)((m->style & SQ_THP_V26) ? 1u : 0u), SQ_THP_NOTES(m));
+}
+/* the pattern the engines made, made again as it is kept (after its variation was changed by hand, for the part it
+ * answers that changed) */
 static uint8_t th_again(uint8_t t, uint8_t pat)
 {
     sq_thpat_t *m = &project.th.pat[t][pat];
     uint8_t n;
     if (!m->style) return 0u;
-    n = th_make(t, pat, SQ_THP_STYLE(m), m->func, m->seed, m->var, m->vary, vg_energy_now(), made_len(t));   /* 0.24: for the track as it is now */
+    n = th_make_as(t, pat, SQ_THP_STYLE(m), m->func);    /* 0.24: for the track as it is now; 0.26: by the engines it was made by */
     made_fit(t, pat, n);
     return n;
 }
@@ -1593,19 +1772,22 @@ static void th_remetre(uint8_t t, uint8_t pat)
     sq_thpat_t *m = &project.th.pat[t][pat];
     sq_step_t *row = project.step[t][pat];
     sq_th_t h;
-    uint8_t os = 16u, n, same = 1u, style = SQ_THP_STYLE(m), func = m->func, var = m->var, vary = m->vary;
+    uint8_t os = 16u, n, same = 1u, style = SQ_THP_STYLE(m), func = m->func, var = m->var, vary = SQ_THP_VARY(m), notes = SQ_THP_NOTES(m);
     uint16_t seed = m->seed;
     uint32_t ob = SQ_BEATS_44, i;
-    th_set(&h, style, seed, var, vary, m->energy, t, pat, func);
+    th_set_as(&h, m, var, vary, m->energy, t, pat);                        /* (0.26: as it was made - by which engines, in which bar) */
     if (!sq_th_minds_kick(&h, func) && !h.mate && sq_metre_of(m->metre, &os, &ob)) {   /* (nor one that answers another part: that one is another now) */
-        n = sq_th_load(th_row_a, &h, func, SQ_THP_LEN(m), th_note(t, func));
-        sq_rebar(th_row_a, (uint8_t)(n / 16u), os, ob);
-        n = sq_rebar_len(n, os, ob);
+        if (h.gen) n = sq_th_load(th_row_a, &h, func, th_rec_len(m), th_note(t, func));
+        else {
+            n = sq_th_load(th_row_a, &h, func, SQ_THP_LEN(m), th_note(t, func));
+            sq_rebar(th_row_a, (uint8_t)(n / 16u), os, ob);
+            n = sq_rebar_len(n, os, ob);
+        }
         for (i = 0; i < n && same; i++) same = (uint8_t)!memcmp(&row[i], &th_row_a[i], sizeof(sq_step_t));
         if (!n) same = 0u;
     }
     if (!same) { th_kept[t] |= (uint8_t)(1u << pat); return; }
-    n = th_make(t, pat, style, func, seed, var, vary, vg_energy_now(), made_len(t));
+    n = th_make_x(t, pat, style, func, seed, var, vary, vg_energy_now(), made_len(t), 1u, notes);   /* 0.26: IN the new bar; its answers as they were */
     if (!n) { th_kept[t] |= (uint8_t)(1u << pat); return; }
     made_fit(t, pat, n);
     activate_row(t, row);
@@ -1651,9 +1833,10 @@ static void th_service(void)
         return;
     }
     row = project.step[t][pat];
-    th_set(&from, SQ_THP_STYLE(m), m->seed, m->var, m->vary, m->energy, t, pat, m->func);
+    th_set_as(&from, m, m->var, SQ_THP_VARY(m), m->energy, t, pat);       /* (0.26: as it was made) */
     to = from; to.energy = e;
-    if (sq_th_remake_bar(row, &from, &to, m->func, SQ_THP_LEN(m), th_note(t, m->func), th_row_a, th_row_b, bar_st(), bar_bt())) {
+    if (from.gen ? sq_th_remake(row, &from, &to, m->func, th_rec_len(m), th_note(t, m->func), th_row_a, th_row_b)
+                 : sq_th_remake_bar(row, &from, &to, m->func, SQ_THP_LEN(m), th_note(t, m->func), th_row_a, th_row_b, bar_st(), bar_bt())) {
         activate_row(t, row);
         ui_dirty = grid_dirty = 1u;
     }
@@ -1667,7 +1850,7 @@ static uint32_t th_knob_ms;
 static void th_knobs(uint32_t t, int32_t d1, int32_t d2, int32_t d3, int32_t d4, int32_t f2, int32_t f3)
 {
     char *p = msg_buf;
-    uint8_t pat = tr[t].pattern;
+    uint8_t pat = tr[t].pattern, again = 0u;
     sq_thpat_t *m = &project.th.pat[t][pat];
     if (d1) {
         project.th.src = change_u8(project.th.src, d1, 0u, SQ_SRCS - 1u);
@@ -1685,15 +1868,24 @@ static void th_knobs(uint32_t t, int32_t d1, int32_t d2, int32_t d3, int32_t d4,
     }
     if (th_knob_t != t || th_knob_pat != pat || time_due(fm1_ms, th_knob_ms)) { undo_begin(); undo_add((uint8_t)t, pat); }
     th_knob_t = (uint8_t)t; th_knob_pat = pat; th_knob_ms = fm1_ms + 2000u;
-    if (d3) { m->seed = (uint16_t)kstep(m->seed, d3, f3, 0, (int32_t)SQ_TH_SEEDS - 1); m->var = 0u; m->vary = 0u; }
-    if (d4) { m->var = (uint8_t)clamp_i32((int32_t)m->var + d4, 0, 99); m->vary = (uint8_t)(m->var ? tool_heat : 0u); }
-    if (th_again((uint8_t)t, pat)) {
+    if (d3) {                                            /* another seed: a new pattern, made by the engines of now */
+        uint8_t n = th_make((uint8_t)t, pat, SQ_THP_STYLE(m), m->func, (uint16_t)kstep(m->seed, d3, f3, 0, (int32_t)SQ_TH_SEEDS - 1), 0u, 0u,
+                            vg_energy_now(), made_len(t));
+        made_fit(t, pat, n);
+        again = n;
+    }
+    if (d4) {                                            /* another variation of it: by the engines it was made by */
+        m->var = (uint8_t)clamp_i32((int32_t)m->var + d4, 0, 99);
+        m->vary = (uint8_t)((m->vary & SQ_THPV_NOTES) | (m->var ? tool_heat : 0u));
+        again = th_again((uint8_t)t, pat);
+    }
+    if (again) {
         activate_row(t, project.step[t][pat]);
         if (tr[t].step >= project.track[t].length) tr[t].step = 0u;
         th_made |= (uint16_t)(1u << t);                  /* (0.25: another seed, another variation: the parts that answer it too) */
     }
     p = put_s(p, sq_func_name(m->func)); p = put_s(p, " SEED "); p = put_u(p, (uint32_t)m->seed + 1u);
-    if (m->var) { p = put_s(p, " VAR "); p = put_u(p, m->var); p = put_s(p, " ("); p = put_u(p, m->vary); p = put_s(p, " %)"); }
+    if (m->var) { p = put_s(p, " VAR "); p = put_u(p, m->var); p = put_s(p, " ("); p = put_u(p, SQ_THP_VARY(m)); p = put_s(p, " %)"); }
     finish(p);
     status_msg(msg_buf);
 }
@@ -1722,7 +1914,7 @@ static uint8_t th_restyle(uint8_t t, uint8_t pat, uint8_t genre)
     if (project.th.src == SQ_SRC_FREE) return 1u;       /* the SOURCE is free of the genre: a change of genre leaves the engines' patterns as they are */
     fn = style == SQ_TH_FREE ? m->func : sq_genre_part_for(genre, m->func);
     if (fn == 255u || fn >= SQ_FUNCS) fn = m->func;
-    n = th_make(t, pat, style, fn, m->seed, m->var, m->vary, vg_energy_now(), made_len(t));
+    n = th_make_as(t, pat, style, fn);                   /* (0.26: by the engines it was made by) */
     if (!n) return 0u;
     made_fit(t, pat, n);
     beat_cfg_for(c, genre, fn, n, th_note(t, fn), &o);
@@ -1879,16 +2071,16 @@ static uint8_t cook_towards(uint8_t t)
             uint8_t vy = tool_heat, tries, found = 0u;
             if (wk->on && wk->pat == tr[t].pattern && wk->base == m->var && wk->seed == m->seed) {   /* the walk goes on */
                 next = wk->next; vy = wk->vary;
-                th_set(&h, SQ_THP_STYLE(m), m->seed, next, vy, m->energy, t, tr[t].pattern, m->func);
-                n = made_rebar(target, sq_th_load(target, &h, m->func, SQ_THP_LEN(m), th_note(t, m->func)));
+                th_set_as(&h, m, next, vy, m->energy, t, tr[t].pattern);       /* (0.26: the same engines, the same bar: only the variation moves) */
+                n = th_load_as(target, &h, m, t);
                 found = n ? 1u : 0u;
             }
             for (tries = 0; tries < 8u && !found; tries++) {
                 uint32_t r = sq_rng_state;               /* (looking only: the dice's numbers stay where they are) */
                 next = (uint8_t)(1u + ((uint32_t)m->var + tries % 3u) % 250u);
                 vy = (uint8_t)(tries < 3u ? tool_heat : tries < 6u ? (tool_heat > 60u ? tool_heat : 60u) : 100u);
-                th_set(&h, SQ_THP_STYLE(m), m->seed, next, vy, m->energy, t, tr[t].pattern, m->func);
-                n = made_rebar(target, sq_th_load(target, &h, m->func, SQ_THP_LEN(m), th_note(t, m->func)));   /* (0.25: in the metre's bars) */
+                th_set_as(&h, m, next, vy, m->energy, t, tr[t].pattern);
+                n = th_load_as(target, &h, m, t);                         /* (0.25: in the metre's bars) */
                 if (!n) break;
                 for (i = n; i < len; i++) target[i] = target[i % n];
                 if (sq_row_approach(row, target, len, 0u, &r)) found = 1u;
@@ -1898,7 +2090,7 @@ static uint8_t cook_towards(uint8_t t)
                 steps = (uint8_t)(1u + ((uint32_t)tool_heat * len) / 800u);
                 left = sq_row_approach(row, target, len, steps, &sq_rng_state);
                 wk->on = left ? 1u : 0u; wk->pat = tr[t].pattern; wk->base = m->var; wk->next = next; wk->vary = vy; wk->seed = m->seed;
-                if (!left) { m->var = next; m->vary = h.vary; m->metre = metre_id_now(); sq_row_again(row, 0u, n, len); }   /* (there: the pattern and its copies again) */
+                if (!left) { m->var = next; m->vary = (uint8_t)((m->vary & SQ_THPV_NOTES) | h.vary); if (!h.gen) m->metre = metre_id_now(); sq_row_again(row, 0u, n, len); }   /* (there: the pattern and its copies again; 0.26: one made in its bar keeps its metre) */
                 p = put_s(p, "COOK "); p = put_s(p, sq_func_name(m->func)); p = put_s(p, " VAR "); p = put_u(p, next);
                 if (left) { p = put_s(p, ": "); p = put_u(p, left); p = put_s(p, " TO GO"); }
                 else p = put_s(p, " REACHED");
@@ -2891,22 +3083,26 @@ static void song_clear(void)
  * last entry. */
 static void song_seek(uint32_t ticks)
 {
-    uint32_t bar = ticks / bar_ticks(), total = 0u, i, b = 0u;   /* (0.25: the metre's bars) */
+    sq_song_pos_t o;
+    uint8_t moved = 0u;
+    /* (0.25: the metre's bars; 0.26: each entry the bars of the metre its scene brings - sq_song_locate walks them from
+     *  the song's start, which is taken to be in the bar there is now when its first scene brings none) */
     if (!song_on || !project.song.len) return;
-    for (i = 0; i < project.song.len; i++) total += project.song.e[i].bars;
-    if (!total) return;
-    if (bar >= total) bar = project.song.loop ? bar % total : total - 1u;
-    for (i = 0; i < project.song.len; i++) {
-        if (bar < b + project.song.e[i].bars) break;
-        b += project.song.e[i].bars;
-    }
-    if (i >= project.song.len) i = (uint32_t)project.song.len - 1u;
+    if (!sq_song_locate(&project.song, project.ext.scene_metre_on ? project.ext.scene_metre : 0, bar_st(), bar_bt(), ticks, &o)) return;
     song_wait = 0u;
-    song_pos = (uint8_t)i;
-    apply_scene(project.song.e[i].scene);
+    song_pos = o.entry;
+    if (o.steps != bar_st() || o.beats != bar_bt()) {  /* 0.26: the bar there, and the tracks that are bars long with it */
+        bar_pend_steps = 0u;
+        metre_put(o.steps, o.beats);
+        metre_say(0u, "");
+        moved = 1u;
+    }
+    apply_scene(project.song.e[o.entry].scene);
     pending_scene = SQ_NO_PENDING;
-    song_bar = (uint8_t)(bar - b);
-    song_skip_bar = (ticks % bar_ticks()) == 0u ? 1u : 0u;
+    song_bar = o.bar;
+    song_skip_bar = o.on_line;
+    bar_origin = o.line; bar_base = o.bars_before;     /* the bar lines are the entry's (the same lines as ever while no scene brings a metre) */
+    if (o.metre_from || moved) seek_tracks(o.metre_from, ticks);   /* every track began again where the metre last changed (and is as long as its bars are now) */
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -2938,6 +3134,7 @@ static void gen_reset(void)
     evo_run = 0u;
     temp_on = 0u;
     song_on = 0u; song_wait = 0u; song_pos = 0u; song_bar = 0u; song_skip_bar = 0u;
+    kb_chord_on = 0u;                               /* 0.26: no chord of the keyboard's */
     undo_clear();
 }
 

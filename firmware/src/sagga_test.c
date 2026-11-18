@@ -156,6 +156,14 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("genre", g->genre); pr_ku("gmode", g->genre_mode); pr_ku("bfunc", g->func); pr_ku("bvar", g->var);
     pr_ku("harm", g->harm_on); pr_ku("hlock", g->harm_lock); pr_ku("hgenre", g->harm_genre); pr_ku("hprog", g->harm_prog);
     pr_ku("hbars", g->harm_bars); pr_ku("hrhythm", g->harm_rhythm); pr_ku("hmood", g->harm_mood); pr_k("chord"); pr_s(nm);
+    {   /* 0.26: the notes of the chord that plays, a bit a pitch class (what FOLLOW MELODY takes a tune's notes to) */
+        sq_hchord_t hc;
+        uint8_t pc[SQ_POLY_OUT], n = 0u, k;
+        uint32_t mask = 0u;
+        if (harm_chord(&hc, 0)) n = sq_harm_tones(project.key_root, project.key_scale, &hc, pc);
+        for (k = 0; k < n; k++) mask |= 1u << (pc[k] % 12u);
+        pr_k("cpc"); pr_x(mask, 3u);
+    }
     pr_ku("key", project.key_cur); pr_ku("root", project.key_root); pr_ku("scale", project.key_scale);
     pr_k("shift"); pr_d(project.key_shift); pr_k("mute"); pr_x(mute_mask, 4u); pr_k("solo"); pr_x(solo_mask, 4u);
     pr_ku("scene", scene_cursor); pr_k("snap"); pr_d(snap_cur == 255u ? -1 : (int32_t)snap_cur);
@@ -163,6 +171,8 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
     pr_ku("thsrc", project.th.src); pr_ku("thseed", project.th.seed); pr_ku("en", vg_energy_now());   /* 0.23 THEORY: the SOURCE, the next seed, the energy applied now */
     pr_ku("bar", bar_st()); pr_k("beats"); pr_x(bar_bt(), 8u); pr_ku("barpend", bar_pend_steps); pr_ku("mid", metre_id_now());      /* 0.25 THE METRE: the bar in 16ths, its beats, the bar that waits */
+    pr_ku("kbc", kb_chord_on); pr_ku("cnt", cnt_on); pr_ku("clk", clk_count); pr_ku("clkl", clk_last); pr_ku("clkt", clk_last_tick);   /* 0.26: the keyboard's chord is the harmony; the count runs; the clicks so far, the last one */
+    pr_kh("set26#", &project.ext.click, 6u); pr_kh("smetre#", project.ext.scene_metre, sizeof project.ext.scene_metre);                /* ... the click's settings and SCENE METRE; the scenes' metres */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);
     pr_kh("song#", &project.song, sizeof project.song); pr_kh("snaps#", project.snap, sizeof project.snap);
@@ -194,9 +204,11 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_k("gh"); pr_s(tst_copies_ok(t)); pr_ku("own", sq_row_own(project.step[t][tr[t].pattern], c->start, c->length));   /* 0.24: the copies in order, the pattern's own length */
         {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
             const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
-            pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(m->vary); pr_c('/'); pr_u(m->energy);
+            pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(SQ_THP_VARY(m)); pr_c('/'); pr_u(m->energy);
             pr_ku("thm", m->metre);                                  /* (0.25: the metre it was made in - G's mid: the metre now -, */
             pr_ku("thk", (th_kept[t] >> tr[t].pattern) & 1u);        /*  and whether it stays in it: the player changed it by hand) */
+            pr_ku("thv", ((m->style & 31u) && (m->style & SQ_THP_V26) ? 1u : 0u) + (SQ_THP_NOTES(m) && (m->style & 31u) ? 2u : 0u));   /* 0.26: 1 made in the bar, 3 and its answers have notes */
+            pr_ku("thl", (m->style & 31u) ? th_rec_len(m) : 0u);     /* (... the steps it was made of) */
         }
         pr_kh("steps#", project.step[t][tr[t].pattern], sizeof project.step[t][0]);
         pr_kh("pats#", project.step[t], sizeof project.step[t]); pr_kh("cfg#", c, sizeof *c);

@@ -304,7 +304,7 @@ static void remote_cc(uint8_t cc, uint8_t v)
     }
     if (!on) return;
     switch (cc) {
-    case 20u: if (playing) transport_stop(); else transport_start(); break;
+    case 20u: if (playing) transport_stop(); else transport_start_ask(); break;   /* (0.26: after the COUNT IN) */
     case 21u: if (!playing) transport_continue(); break;
     case 22u: reload_request(); break;
     case 28u: scene_recall(scene_cursor ? (uint8_t)(scene_cursor - 1u) : 0u); break;

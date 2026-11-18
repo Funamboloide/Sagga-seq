@@ -49,7 +49,7 @@ BAR_MS = 4 * 24 * S.TICK_US / 1000.0          # a bar at 128 BPM, 1875 ms
 BTN_NAME = {S.OCT_DOWN: "OCT-", S.OCT_UP: "OCT+", S.FX: "FX", S.SEL: "SEL", S.ENV: "ENV", S.LFO: "LFO", S.EDIT: "EDIT",
             S.GLO: "GLO", S.HOME: "HOME", S.SAVE: "SAVE", S.ARP: "ARP", S.SEQ: "SEQ", S.PLAY: "PLAY", S.REC: "REC"}
 ENC_NAME = {S.E_SEL: "SELECT", S.E_ALG: "ALG", S.K1: "K1", S.K2: "K2", S.K3: "K3", S.K4: "K4", S.E_PRE: "PRESETS"}
-PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 4}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
+PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 5, S.GLO: 4}   # 0.26: SAVE 5 THE CLICK; 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
 MODS = [S.HOME, S.SEQ, S.ENV, S.LFO, S.ARP, S.SAVE, S.FX, S.SEL, S.EDIT, S.GLO]
 SEL_MODS = (S.HOME, S.SEQ, S.EDIT, S.FX, S.GLO, S.SAVE)    # the groups with SEL + knob variants (0.12: EDIT notes, FX throws, GLO tempo, SAVE 3 reconnect)
 
@@ -681,6 +681,21 @@ def sit_025_54(s):
     return _play(s, t + 100)
 
 
+def sit_026(s):
+    """0.26: a bar of 20 steps (5/4); the SOURCE on FREE: a band the engines make IN five, its answers with notes (the
+    bass under the arpeggio, the lead over the chords, FOLLOW MELODY); the scenes bring their metre (GLO 4 K3); THE
+    CLICK while it plays, a note on MIDI channel 10 (SAVE 5); the keyboard's chords are the harmony (SAVE 4: CHORDS);
+    in play"""
+    t = S.pg(s, 200, S.GLO, 3, [(S.K1, 4), (S.K3, 1)])      # the bar: 20; SCENE METRE: BRING IT
+    t = S.pg(s, t, S.SEQ, 7, [(S.K1, 2)])                   # LIBRARY -> THEORY -> FREE
+    t = _band(s, t)
+    t = S.pg(s, t, S.SAVE, 4, [(S.K1, 2), (S.K3, 10)])      # SAVE 5: CLICK PLAY, CLICK OUT channel 10
+    t = S.pg(s, t, S.SAVE, 3, [(S.K2, 3)])                  # SAVE 4: KEYBOARD CHORDS
+    t = S.pg(s, t, S.SAVE, 0)
+    t = S.pg(s, t, S.SEQ, 0)
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -745,6 +760,8 @@ SITUAZIONI = [
                lens={3: (5, 5), 5: (16, 16)}),
     Situazione("0.25 la melodia conosce l'accordo: band FREE dei motori, armonia USER 3+3+2, il LEAD (traccia 8) in MELODY, in play", sit_025_melody,
                want={8: {"fm": 3, "follow": 1}, "G": {"harm": 1, "hlock": 0}}),
+    Situazione("0.26 i motori nella battuta: 5/4, band FREE nata in cinque, il CLICK su un canale MIDI, KEYBOARD CHORDS, le scene portano il metro, in play", sit_026,
+               lens={1: (20, 20), 5: (20, 20)}, want={8: {"fm": 3, "thv": 3}, 5: {"thv": 3}, "G": {"harm": 1}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -1283,6 +1300,8 @@ def pass_coppie(sits, gestures, jobs, findings, rnd, n_pairs):
             elif re.match(r"^(finestra )?SEQ\+(SEL\+)?nero [1-5]$", x.name) and (y.kind == "sfoglia" or re.search(r"OCT|ALG", y.name) or
                                                                          (y.name.split(" ")[0] in ("SEQ", "HOME", "ARP", "LFO", "ENV", "SAVE", "GLO") and re.match(r"^\w+ \d", y.name))):   # (0.12: the window's DICE too; a page reached with OCT)
                 yy = Gesto(y.name, "dado", y.do, y.tags)                # (a dice waits: OCT keeps or puts it back, ALG goes through the rolls)
+            elif after_a.get("G", {}).get("vg") == "1" and re.match(r"^ALG [+-]1$", y.name):
+                yy = Gesto(y.name, "comando", y.do, y.tags)             # (0.26: A opened the MOSSE - there ALG says WHEN a move waits for: a command, not a page turned)
             check_branch(sit, yy, after_a, br, alone, local, label="%s, poi %s" % (x.name, y.name), off=T_AFTER)
             count[0] += 1
         return local

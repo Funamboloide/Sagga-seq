@@ -5,6 +5,264 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.25
+
+Six things the sequencer could not do.
+
+* **The bar has a metre** (GLO 4). A bar was sixteen 16ths whatever the tracks did. It is now 3 to 32 steps, divided
+  in beats the way you choose - 7/8 as 2+2+3, 5/4, 6/8, 9/8, 15/16 - and everything that waits for the bar or counts
+  bars follows it: the lengths, a queued pattern, QUANTISE, WHEN and EVERY, the MOSSE and their phrase, the song, the
+  harmony's chords, LOOP and REPEAT, EXPO, MOTION, the tape. The library's patterns and the engines' are made in the
+  metre's bars. The whole of it: [The metre](#the-metre-025) below.
+* **True polyrhythms** (HOME 1 K3, past 1/32T; the grid's TRACK row 4, pads 15 and 16). Six more steps: `1/4 5:4`,
+  `1/8 5:4`, `1/16 5:4`, `1/4 7:4`, `1/8 7:4`, `1/16 7:4` - five, or seven, steps in the time of four of that value.
+  A track at 1/16 5:4 plays five steps in a quarter; at 1/4 5:4, five in a bar of 4/4 (a loop of five steps: five
+  hits against the kick's four, for good). The clock has 24 ticks a quarter and a fifth of a quarter is 4.8 of them:
+  the FM-1 plays each of these steps at its own time between two ticks, so the five are even and the track comes back
+  on the bar line exactly, bar after bar. Swing, GROOVE, the ratchets, the ARP, a nudge work on them as on any step.
+* **TURING as long as its track** (SEQ 2, B turned past 16: `TRACK`). A TURING's phrase was its register, sixteen
+  steps at most, going round inside the track. On TRACK the register is as long as the track (up to 64 steps): the
+  whole written rhythm is its loop, and it grows and shrinks with the track. **NUMERIC fits the bar**: its sixteen
+  rhythms were written for 16 steps, and a shorter loop played their beginning. Now a rhythm is laid on the steps it
+  has - the metre's bar, or a loop shorter than a bar - each hit at its place in proportion (one that would fall on
+  the hit before it, or right beside it, is left out: the rhythm keeps its rests); 16 steps play as they did.
+* **The engines' parts listen to each other.** Until 0.24 every part was made alone (the kick apart: a rumble avoids
+  it, a sub leans on it). Now a **lead, a voice and an arpeggio answer the chords**: they stay away from the places
+  where the chords strike and fall right after them more often. **The percussion answers the snare** the same way,
+  and **a bass leaves room under the lead**. It works whatever order the parts were made in: when the part they
+  answer is made again (BEAT, a seed turned, the dice, UNDO), the parts that answer it are made again within a moment
+  from their own seed. A part that answers nobody (the kick, the snare, the hats, the chords) is what it was in 0.24.
+* **The melody knows the chord**: FOLLOW has a fourth way, **MELODY** (ARP 4 K1, past LEGATO). A riff under FOLLOW is
+  moved whole with every chord, and so was a lead: the same tune a third down, a fourth up. In MELODY a tune stays
+  where it is written, and its **strong notes** - on a beat of the metre, or longer than a step - go to the nearest
+  note of the chord playing (of two as near, the lower). The short notes between the beats play as written: passing
+  notes of the key. A note held through a change of chord slides to the new chord's nearest note, as LEGATO does. A
+  step of two notes or more is a chord and moves as ever. **A LEAD or a VOX that BEAT, BAND, the dice or the engines
+  make follows as a MELODY** by itself; any other part on that track later puts it back to HOLD (RETRIG and LEGATO, if
+  you chose them, stay). A lead made before 0.25 is on HOLD until you turn the knob or make it again.
+* **LONGER and SHORTER from the tablet**: two taps on SAGGA Live (channel 12 CC 61 / 60): every track twice or half
+  as long, at the next bar while it plays, at once when stopped; the other one takes it back.
+
+And on the Pi: **the grid bridge leaves the FM-1 alone while it is being updated** (it took the update loader,
+"Felucca Update", for the FM-1 and sent it a message a second through an install); **the editor shows the copies while
+you type a length**, before Save, as the FM-1 would make them; the editor has the metre (Project: the bar and its
+beats, the marks of the beats on every row), the six new steps, FOLLOW's MELODY; a MIDI file is written and read in
+the project's metre.
+
+A project of 0.25 read by 0.24: the metre is 4/4, a polyrhythm step is 1/16, a TURING on TRACK is 16 steps long, a
+MELODY track is on HOLD. Nothing else is lost.
+
+## What is new in 0.24
+
+**The length is the track's.** A track's LENGTH (HOME 1 K2, the grid, the pages, the moves) is the player's, and its
+eight patterns fit it: a pattern shorter than its track goes round again in what the track has more, one longer keeps
+what the track does not play. Nothing that brings a pattern changes the length any more. The whole of it is in
+[The length of a track](#the-length-of-a-track-and-its-patterns-024) below; in short:
+
+* **A length that changes lands on the bar line.** While it plays a new length waits for the bar, as since 0.11 - but
+  the step ON that bar line was still the old loop's (the track was put in line a tick later): a track of 19 steps
+  made 32 at a bar played its step 11 there. It now plays the step the clock asks for, from that tick. The same for
+  everything else that changes a loop on a bar line (a snapshot, a pattern with other settings, the Pi's phrase).
+* **16, then 19, then 32: on the rails again.** A longer track repeats the PATTERN, whatever lengths came before.
+  0.11 repeated "the length when the knob began to turn": 16 made 19 at a bar (a polymetre, fine) and then 32 was the
+  nineteen going on - a second bar that began with steps 1 2 3 again and stayed three steps off for good. Now 32 is
+  the 16 steps twice. The steps the track has more are the pattern's **COPIES**: they follow it (change a step, its
+  copies change), until one of them is written - then they are all steps of yours (`THE COPIES ARE YOUR STEPS NOW`),
+  and the pattern is as long as the track. The screen says `LENGTH 32: THE 16 STEPS REPEAT`; the grid shows the
+  copies in a colour of their own.
+* **Shorter and back.** A track made shorter keeps its pattern whole after the loop, with a mark where it ends. Made
+  16 again, a pattern of 16 with a silent last quarter is as it was (0.11 - 0.23 wrote its first four steps there);
+  made 32 from 12, it is the pattern twice. Every pattern of the track fits a new length, not only the one that plays.
+* **Silence when you ask for it.** What you write after the loop is part of the pattern, and the pattern then ends
+  with the round of itself your last step is in: write the 64th step alone and a longer track stays silent up to it
+  (turn it off before the cursor gets there: 64 steps, 48 of them silent); write a second bar while the track loops
+  the first, and 64 steps are those two bars twice.
+* **A pattern that comes keeps the track's length.** BEAT, KIT, BAND, the dice, the proposals, GENRE LIVE, the Pi's
+  patterns, the engines: on a track of 32 a pattern of 16 comes with its copies, on a track of 17 with its first step
+  again, on a track of 12 its first twelve play and the rest waits. (Until 0.23 the pattern made the track as long as
+  itself.) SAVE 2 K4 was LIBRARY LEN and is **LONG PATTERNS**: COPY (a one-bar variation repeats) or PHRASE (the long
+  form of 0.10: the next variation in the last bar, the genre's fill). The variations the library has written over
+  two or four bars come whole on a track that long either way.
+* **LONGER / SHORTER, two moves.** On the MOSSE, SEL + black 6 (DOUBLE) and SEL + black 5 (HALF); on the grid's VIAGGIO
+  view SHIFT + those pads: every track twice or half as long, at the phrase's end (stopped: at once). SHORTER after
+  LONGER gives every pattern back as it was.
+* **The generators make a phrase for the length.** RANDOM and the dice on a track of 32 or 64 steps no longer fill it
+  with chance: a bar, its answer (the bar with another ending), the bar, the turn. COOK walks to the next variation
+  as a phrase as long as the track. The THEORY engines make the bars the track has (16, 32 or 64 steps) and the rest
+  is copies; a seed turned (SEQ 8 K3) makes the pattern again for the track as it is now.
+* **The Pi and the grid.** The grid's light role 18, GHOST, is a copy that plays (the bridge of 0.24 has its colour;
+  an older bridge shows it dim). The editor shows the copies and, when it saves, the Pi's converter puts them in
+  order as the FM-1 would: a track made longer there has its patterns go round, a copy changed there makes them steps.
+* **The project file.** That a step is a copy is not in the step: a list after the steps says which are (chunk 3).
+  A copied rest costs nothing; SAGGA SEQ 0.23 reads a 0.24 project and finds plain steps where the copies were.
+* Smaller things: a move that cancels its opposite in the queue says so (`CANCELLED: LONGER`, `CANCELLED: HALF`); a
+  phrase from the Pi's regia that changes a track's length puts the track in time; the explorers have a rule for the
+  copies (COPIE).
+
+## What is new in 0.23.2
+
+The Pi and the grid, read again from end to end; one change in the FM-1.
+
+* **The tablet's A on a CELL picks the even rules.** On SAGGA Live, A set a CELL's rule spread over 0-255: the knob's
+  128 places gave the even rules up to 126 and the odd ones from 129, and the rules to start from - 170 and 240 (the
+  rhythm slides), 204 (it stays), 184 and 226, 150 - could not be had from the tablet. Now the rule is twice the
+  knob (85 is 170, 102 is 204, 120 is 240): every one of the grid's sixteen rule pads but 51 and 105, which stay the
+  panel's and the grid's. The knob's place the FM-1 says back was already the rule halved.
+* **The Pi keeps out of the music.** RaspiMIDIHub takes its whole matrix down and up again whenever an ALSA client
+  comes or goes on the Pi (its hotplug scan: the notes that sound are ended, every road is away for a moment), and a
+  program that looks at the list of MIDI ports makes two such clients. Three things of SAGGA did that while you
+  played: the hub's page asked the FM-1 who it was the first time it was opened and every ten minutes after; the
+  bridge without its two Launchpads looked at the ports every 3 s; the bridge without the FM-1 ended and was started
+  again every 2 s, with a look each time. Now the page's service asks the FM-1 only when the FM-1 itself came back
+  (its USB appearance changed), from a thread of its own, and the bridge waits on `/proc` - a look only when a device
+  came or went. A fourth, for who keeps the synths' patches with the snapshots (`patches.json`): a snapshot that
+  brought its patches back opened and closed a port for every synth, in the music; the synths' ports are now opened
+  when the bridge starts (or when a synth is plugged in) and stay open. Nothing of SAGGA makes an ALSA client while
+  you play.
+* **The bridge notices an FM-1 that restarted in half a second.** It watched the ALSA clients once a second, by number
+  and name; the user's own log shows the FM-1 gone and back in 0.44 s under the same number: the bridge sat there
+  with connections that were not there any more, the grid dead until something restarted it. It now watches its own
+  connections too (in `/proc/asound/seq/clients`). And a bridge that is stopped (the banco does it, and a shutdown)
+  switches the Launchpads off and tells the FM-1: the grid no longer stays lit and still, looking alive.
+* **The Pi's clock is not trusted.** A Pi has no clock of its own: with no internet it falls behind (the user's bench
+  files of 17 November are dated 26 October), and it can start at a moment already past. The editor's versions and the
+  bench runs kept on the SD were ordered by their time: a new one could count as the oldest. A version's name is now always later than the newest there; the run just made always stays.
+* **The piano roll of 0.11 is gone; the editor's Tape tab is the piano roll.** The old page (the "piano roll" link by
+  each project) saved through a MIDI file, and what came back was not the project: a TAPE track on another MIDI
+  channel was written onto the track of that channel's number (a step track there became an emptied TAPE, and the
+  TAPE track itself kept its old notes); a transposed TAPE track was transposed once more; a loop of one bar came
+  back four bars long, its notes repeated (a note changed stayed the old one in the other three). Save alone did it,
+  with nothing touched. The editor's Tape tab (0.15) writes the events as they are kept, track by track. The link is
+  away; an old `/roll/...` address opens the editor on its Tape tab.
+* **BREAK IN SLICE says when the loop is not in the file.** A BPM too slow for the file, or too many bars, made a
+  loop longer than the file: the zip came back with its last slices empty (WAV files with no sound, keys that played
+  nothing) and not a word. Now the page says how long the file is and what tempo it would be. Bars that give a tempo
+  that cannot be (four bars said of a one-bar file: 544 BPM) are refused too.
+* Smaller things: the hub's page refuses a POST that comes from a page of another site; `install_hub.sh` checks that
+  the root is writable before every block of writes; a light role the bridge does not know is DIM, not dark; the
+  editor's note on a THEORY pattern names the parts whose hand-written steps do not stay (a RUMBLE or a SUB that
+  follows the kick); the banco's log (and the matrix check's) carries the bridge's own last lines, and what it says
+  when it starts again.
+
+## What is new in 0.23.1
+
+Two things that were there and could not be used, put right; and the PC test counts what the FM-1 sends.
+
+* **NUMERIC is sixteen rhythms.** The third rhythm family of EUCLID LIVE (SEQ 1 K3) laid the binary digits of the n-th
+  prime number over the steps: most values of K1 gave nearly every step, none a rhythm one would write (a misreading
+  of the Numeric Repetitor, whose "prime rhythms" are rhythms chosen by hand). Now **K1 picks one of sixteen base
+  rhythms** of 16 steps, from the straight to the syncopated, and **K2 turns it** a step at a time, as in the other
+  families. Each has a hit on the first step, 4 to 7 hits, never two in a row; none is another one turned. Over 32 or
+  64 steps the sixteen come round again; past 16, K1 comes round too. The screen says `NUMERIC READY 7 OF 16`, the
+  message gives the rhythm's shape as the steps from each hit to the next: `NUMERIC LIVE T1: 7 = 3-3-4-2-4 ROT 2`.
+  Turning K3 says what K1 and K2 do in the family chosen. **A project that plays a NUMERIC rhythm sounds different
+  from 0.23**: choose the rhythm again.
+
+  | K1 | the rhythm | its shape | |
+  |---|---|---|---|
+  | 1 | `x...x...x...x...` | 4-4-4-4 | four on the floor |
+  | 2 | `x...x...x.....x.` | 4-4-6-2 | the last beat late |
+  | 3 | `x..x....x...x...` | 3-5-4-4 | |
+  | 4 | `x..x....x..x....` | 3-5-3-5 | |
+  | 5 | `x...x...x...x.x.` | 4-4-4-2-2 | four and a pickup |
+  | 6 | `x..x..x.x...x...` | 3-3-2-4-4 | a tresillo, then two beats |
+  | 7 | `x..x..x...x.x...` | 3-3-4-2-4 | the son clave |
+  | 8 | `x..x...x..x.x...` | 3-4-3-2-4 | the rumba clave |
+  | 9 | `x..x..x...x..x..` | 3-3-4-3-3 | the bossa nova |
+  | 10 | `x.x.x...x.x.x...` | 2-2-4-2-2-4 | |
+  | 11 | `x..x..x.x...x.x.` | 3-3-2-4-2-2 | a tresillo, a beat and a pickup |
+  | 12 | `x..x..x.x..x..x.` | 3-3-2-3-3-2 | the tresillo, twice |
+  | 13 | `x..x..x..x..x.x.` | 3-3-3-3-2-2 | |
+  | 14 | `x.x.x.x.x.x.x...` | 2-2-2-2-2-2-4 | |
+  | 15 | `x.x.x.x.x.x..x..` | 2-2-2-2-2-3-3 | |
+  | 16 | `x..x.x.x..x.x.x.` | 3-2-2-3-2-2-2 | |
+
+* **CELL comes back to what you wrote.** CELL (SEQ 2) turns the track's rhythm into a new row every bar by a fixed
+  rule. When a row came out empty - it does with more than a hundred of the 256 rules - it started again from a single
+  hit in the middle of the bar, and the rhythm you wrote never returned. Now **an empty row is the written rhythm
+  again**: many rules become a phrase of a few bars that always comes home (rule 90 on 16 cells: at most eight rows, then
+  yours). Nothing written: the single hit, as before.
+* **The screen says what a rule does.** Turning RULE or CELLS (K2, K3; the grid's pads; the tablet's A and B) says
+  what the rule makes of this track's rhythm from here on - from the row that plays, or from the written rhythm while
+  it is READY: `T1 CELL RULE 204: THE RHYTHM STAYS AS IT IS`, `... SLIDES 1 STEP LATER EVERY ROW`,
+  `... A LOOP OF 8 ROWS`, `... AFTER 4 ROWS A LOOP OF 4`, `... AFTER 1 ROW EVERY STEP PLAYS`,
+  `... KEEPS CHANGING FOR A LONG TIME`. The 256 numbers have no names; the screen reads them for you.
+* **The grid's sixteen rule pads go from the calm to the wild** (TRACK 3, row 5): 204 the row stays as it is (a tap
+  while a CELL plays holds the row of that bar), 170 and 240 it slides a step earlier / later, 184 it slides and the
+  hits in a row open up, 51 hits and rests swap, 90 150 105 60 loops of a few rows through the written rhythm, 54 thin
+  and thick in turn, 18 22 126 122 110 longer stories, 30 no loop in sight. (They were 30 45 54 60 73 90 105 110 122
+  126 150 18 22 57 62 184, in no order.) From the tablet the A knob reached one rule in two (128 places for 256
+  rules: not 170, 240, 184, 204, 51, 150 - and 171 and 241, its nearest, fill the holes of three steps or more before
+  they slide); 0.23.2: the tablet's A is the even rule, twice the knob.
+* **The PC test counts.** The FM-1 counts what its program hands to the USB, by port and kind (clock ticks, note-ons,
+  note-offs, control changes, the rest, the bytes), and the output ring keeps its own account; the test's DIAG says
+  them, a new **QUIET** stops the FM-1 and leaves it silent. The Pi's banco asks before each session and after it and
+  compares with what it heard, and with what the Pi's USB driver received: when a message the FM-1 sent is not heard,
+  the log says so and **where it was lost** (inside the FM-1, on the way, or in the Pi). The 0.23 banco had six such
+  messages in 28 sessions and could not tell.
+* **Corrected in the sheets**: "a step written by hand in an engine's pattern stays when the energy changes" is true
+  of every part but the ones that follow the kick - RUMBLE in TECHNO and HARDTECHNO, SUB in DRUM+BASS, DUBSTEP,
+  JUNGLE, GRIME, BASSLINE, FOOTWORK, PHONK, UK DRILL and BAILE FUNK: those are made again around the kicks, whole.
+
+## What is new in 0.23
+
+**The THEORY engines.** Until 0.22 a part was LOADED: the library holds up to twelve written patterns for each part of
+each genre. With **SOURCE THEORY** (the new SEQ page 8, K1) a part is **MADE** when you ask for it, from the rules of
+the genre and a number, the **SEED**; one more click, **SOURCE FREE**, and it is made by the rules of **no genre**,
+whatever the genre is. SOURCE LIBRARY is 0.22 as it was; the three can be switched at any time, in play too. The whole
+of it, in Italian: [TEORIA.md](TEORIA.md) (what each engine does, why, which existing instrument it is
+like) and [TEORIA-GENERI.md](TEORIA-GENERI.md) (the rules of 21 genres, counted from the library).
+
+* **A seed is a band.** The same seed gives the same parts; another seed another band of the same genre; 999 seeds a
+  genre. All **25 genres** have a style, and **FREE** is a style with no genre: the metre and what a family of parts
+  does. The engines make drums, bass lines, chords, arpeggios, motifs (LEAD, VOX) and progressions.
+* **Free of the genre.** **SOURCE FREE** (SEQ 8 K1, past THEORY) is the engines' own free mode: BAND, KIT, BEAT, the
+  dice and DICE PROG work by FREE's rules whatever the genre and its mode, and a change of genre leaves the engines'
+  patterns as they are (with GENRE LIVE too: only the library's tracks follow it, from the library). The machine's **GENRE FREE** (SEQ 6 K4) frees the engines with
+  everything else while the SOURCE is THEORY; **HARMONY FREE** (ARP 4 K2) frees DICE PROG alone.
+* **The same gestures.** BEAT, KIT, BAND make the pattern from NEXT SEED (pressed again: the next seed); SEQ + ALG is
+  the seed where it was the library's variation; **COOK** walks the pattern to the next VARIATION of its own seed, HEAT
+  being its size (EVERY + COOK: it evolves); DICE SEQ rolls seeds (OCT+ keeps, OCT- puts back); DICE PROG makes a
+  progression by the genre's rules into the dice's slot; GENRE LIVE makes the engines' patterns again in the new
+  genre from the same seeds. **SEQ 8**: K1 SOURCE, K2 NEXT SEED, K3 the SEED of the pattern the track plays (turned:
+  another part at once), K4 its VARIATION.
+* **The ENERGY is the engines' own.** The machine's ENERGY (GLO 3 K1, the grid, RISER, DROP, the remote) fills and
+  empties what the engines made: a service makes one pattern a pass again at the new energy, the kicks first, and
+  writes only the steps that differ - a step written by hand stays (not in a part that follows the kick, a RUMBLE or
+  a SUB: that one is made again around the kicks, whole). A higher energy only ADDS: the hits of a lower one
+  are all there, and a note that stays keeps its pitch. The journey's own thinning leaves these patterns alone.
+* **The rules.** TECHNO, HOUSE, DRUM+BASS, DUBSTEP and FREE are written by hand (`sagga_theory.c`). The other 21 genres
+  are **counted from the library itself** (`tools/theory/gen_rules.py` -> `sagga_theory_data.h`, the way of GESMI): the
+  variations of a part that are one pattern are a family; what nearly all of them play is always there (half of it at
+  every energy, the rest from energy 25), what some play has a weight; a variation of two bars gives a rule for the
+  bar and one for its answer; the levels and the rolls are the place's own; the tones of a bass are fitted to the
+  library's counts; the six progressions of a genre give the way its chords move. Measured against the library at
+  energy 50 (`tools/theory/compare.py`): 218 of 229 parts fall where the library's fall, a made bar is half a 16th from
+  the nearest written one on average, two bars of three are bars the library has.
+* **A project remembers** the SOURCE, the next seed and, for each pattern the engines made, what it was made from
+  (8 bytes: seed, style, part, variation and its size, energy): image chunk 2, written only when there is something
+  to say; a 0.22 firmware skips it and plays the patterns as written ones. UNDO, the dice's BACK, RELOAD and a copy
+  of a pattern keep it; a pattern pasted, doubled, cleared or loaded from the library is nobody's again.
+* **The grid**: the BEAT view's third row shows seeds where it showed variations (pads 11-16 six seeds, pad 10 the next
+  six; SHIFT: what the seed would make). **The tablet** (channel 12): CC 56 SOURCE (0 LIBRARY, 1 THEORY, 2 FREE), 57
+  NEXT SEED, 58 the track's SEED, 59 its VARIATION, with their values back to the hub; SAGGA Live has a row for them. **The Pi's editor** keeps the
+  records, marks a track whose pattern is the engines' with its seed, and forgets a record when it empties or moves
+  the pattern.
+* **A snapshot that brought a track's DIRECTION back left it off the bar.** Recalling a snapshot put a track in time
+  when its length, start or division changed, not when its DIRECTION did: BACKWARD played, a snapshot with FORWARD
+  recalled, and the track stayed a step away from where the bar says until the next STOP. So since 0.11, when a
+  snapshot learned to land in time. The explorer's random sessions found it; a test now.
+* **The explorer** explores the engines: five situations (TECHNO; REGGAETON with GENRE LIVE; SOURCE FREE with
+  four-bar patterns; AMAPIANO with the tablet and the grid; HOUSE on the MOSSE), the tablet's four new
+  commands, SEQ page 8, and a rule of its own (MOTORI: stopped, every pattern the engines know is at the machine's
+  energy) - checked by breaking the service on purpose.
+
+Not verified on an FM-1: everything here ran in the simulator (the firmware itself, built for a computer). GitHub's
+build of 0.23: the image 441,544 B of 581,564 (0.22: 390,132; +51 KB, the engines and their counted rules), RAM
+.data + .bss 68,736 B of 98,304 (+464), the pool 326,416 B of 344,064 (+3,332: the engines' rows and the records).
+
+What was new in 0.22 and before: [storia/NOVITA.md](storia/NOVITA.md).
+
 ## What is new in 0.22
 
 0.22 is the dig down to the first version: the parts no test could see (the USB's ring, the panel's wait, the

@@ -42,7 +42,7 @@ cp tools/hub/sagga_fw.py tools/hub/sagga_pc_host.py tools/hub/usbmidi_pkt.py too
    tools/hub/sagga_editor.py tools/hub/editor.html tools/hub/sagga_celle.py tools/hub/sagga-fw.service tools/hub/sagga-pc-link.service tools/hub/sagga-virmidi.service "$H/hub/"
 cp tools/hub/sagga_banco.py tools/hwtest/sagga_testport.py tools/hwtest/sagga_hw_test.py tools/hwtest/sagga_hw_explore.py "$H/hub/"   # 0.20.3: the banco's explorer
 python3 tests/sagga_explore.py --banco-piano "$H/hub/banco_piano.json"            # ... and its plan (made now, from the explorer)
-python3 tests/sagga_explore.py --hw-piano "$H/hub/fm1_piano.json" --sessioni 24 --hw-tablet 4   # ... and the whole FM-1's (every situation)
+python3 tests/sagga_explore.py --hw-piano "$H/hub/fm1_piano.json" --hw-tablet 4   # ... and the whole FM-1's: EVERY situation once (0.26: the count is the explorer's - it was written here, 24, and the situations of 0.25 were not in the plan), then four with the tablet
 mkdir -p "$H/hub/patterns" && cp tools/hub/patterns/*.txt "$H/hub/patterns/"      # 0.11: the stock patterns of the genres
 mkdir -p "$H/hub/progressions" && cp tools/hub/progressions/*.txt "$H/hub/progressions/"   # 0.11: the stock progressions of the genres
 cp -r tools/hub/rp2040/. "$H/rp2040/"

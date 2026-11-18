@@ -9,6 +9,7 @@ the MIDI the firmware sends is read back from the log and checked.
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -284,7 +285,7 @@ def group(name):
 
 
 # ------------------------------------------------------------------------------------------------ helpers of the new tests
-PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 4, GLO: 3, LFO: 6, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
+PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 5, GLO: 3, LFO: 6, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
 
 
 def pg(s, t, btn, page, encs=(), keys=(), sel=False):
@@ -5502,7 +5503,7 @@ def harm11(log):
 SQ_HR_BARS, SQ_HR_GENRE, SQ_HR_PUSH16, SQ_HR_PUSH8, SQ_HR_332, SQ_HR_HALF = range(6)
 SQ_MOOD_ANY, SQ_MOOD_SAD, SQ_MOOD_MELANCHOLY, SQ_MOOD_SATISFYING, SQ_MOOD_ENERGETIC, SQ_MOOD_EUPHORIC, SQ_MOOD_EPIC, \
     SQ_MOOD_DREAMY, SQ_MOOD_DARK, SQ_MOOD_TENSE, SQ_MOOD_SUSPENDED = range(11)
-SQ_FM_HOLD, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FM_MELODY = range(4)
+SQ_FM_HOLD, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FM_MELODY, SQ_FM_SMOOTH = range(5)
 
 
 
@@ -6290,7 +6291,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.25", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.26", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -6880,8 +6881,8 @@ def t013_motion():
     s.enc(300, K1, 2); s.enc(330, K2, 2); s.enc(360, K3, 3); s.enc(390, K4, 1); s.at(450, "ui"); s.release(500, SAVE)
     log = run(s, 600)
     sc = log.screens()
-    check(sc and sc[0]["cells"] == [("MOTION", "2 BARS"), ("KEYBOARD", "SPLIT C3"), ("KEYB CH", "3"), ("MIDI IN", "ALWAYS")] and sc[0]["lines"][2].startswith("SAVE 4/4"),
-          "SAVE 4/4 LIVE IN: MOTION, KEYBOARD, KEYB CH, MIDI IN (%s)" % (sc[0]["cells"] if sc else sc))
+    check(sc and sc[0]["cells"] == [("MOTION", "2 BARS"), ("KEYBOARD", "TRANS <C3"), ("KEYB CH", "3"), ("MIDI IN", "ALWAYS")] and sc[0]["lines"][2].startswith("SAVE 4/5"),
+          "SAVE 4/5 LIVE IN: MOTION, KEYBOARD (0.26: TRANSPOSE, TRANS <C3, then the chords), KEYB CH, MIDI IN (%s)" % (sc[0]["cells"] if sc else sc))
     check(not log.saves, "turning SAVE 4's knobs does not save (%s)" % log.saves)
 
 
@@ -10347,6 +10348,31 @@ def th_metres(log):
             for m in re.finditer(r"^\s*\d+ ms  thmetre T\d+ made (\d+) now (\d+) kept (\d+)$", log.text, re.M)]
 
 
+def th_made(log):
+    """0.26: the 'thmade' lines of the dumps: the pattern that plays was made IN the bar, its answers have notes, its steps"""
+    return [dict(bar=int(m.group(1)), notes=int(m.group(2)), steps=int(m.group(3)))
+            for m in re.finditer(r"^\s*\d+ ms  thmade T\d+ bar (\d+) notes (\d+) steps (\d+)$", log.text, re.M)]
+
+
+def theory_tool(tag):
+    """the engines on this computer (tools/theory/sagga_theory.c): text(style, seed, energy, ...) -> {part: (hits, notes)}"""
+    tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%s_%d" % (tag, os.getpid()))
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
+                    ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
+    def text(style, seed, energy, parts=None, n=64, var=0, vary=0, metre=None, flags=(), mate=None):
+        cmd = [tool] + list(flags) + (["--metre", metre] if metre else []) + (["--mate", mate[0], str(mate[1]), mate[2]] if mate else [])
+        cmd += [style, str(seed), str(var), str(vary), str(energy), str(n)] + list(parts or [])
+        out = subprocess.run(cmd, capture_output=True, text=True, check=True).stdout.splitlines()
+        return {l.split("\t")[0]: (l.split("\t")[1], l.split("\t")[2]) for l in out[1:]}
+    def done():
+        try: os.remove(tool)
+        except OSError: pass
+    return text, done
+
+
+def onoff(r): return "".join("." if c in ".-" else "x" for c in r)
+
+
 SRC_78 = [0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 14, 15]      # 7/8 as 2+2+3: the step of a 4/4 bar each of its 14 takes
 def rebar78(on16): return "".join(on16[k] for k in SRC_78)
 
@@ -10369,7 +10395,9 @@ def t025_metre_makers():
     check(d[1]["length"] == 28 and c[1]["own"] == 14 and d[1]["on"] == rebar78("x...x...x...x..x") * 2 and c[1]["row"][14:28] == rebar78("grrrgrrrgrrrgrrg"),
           "... KICK #2 on a track of two bars (28): the bar of 14 and its copy, the pickup in the last beat (%s, own %s)" % (_bars14(d[1]["on"]), c[1]["own"]))
 
-    # the THEORY engines: the part of seed 1 made in 4/4, and made in 7/8: the same part, re-barred
+    # the THEORY engines: the part of seed 1 made in 4/4, and made in 7/8 (0.26: IN the bar of 14, not the 4/4 one
+    # re-barred: what the engines make of seed 1 in 7/8 - a kick on every beat of it)
+    text, done = theory_tool("mm")
     out = {}
     for name, pre in (("4/4", []), ("7/8", [(K1, -2)])):
         s = Script()
@@ -10379,10 +10407,13 @@ def t025_metre_makers():
         log = run(s, t + 100)
         out[name] = (log.dumps[0], log.copies[0], th_dumps(log)[0], th_metres(log)[0], log.states[0]["msg"])
     d4, d7 = out["4/4"], out["7/8"]
-    check(d4[4] == "TECHNO KICK SEED 1" and d7[4] == d4[4] and d7[0]["length"] == 14 and d7[1]["own"] == 14 and d7[0]["on"] == rebar78(d4[0]["on"]) and "x" in d7[0]["on"],
-          "THEORY, BEAT in 7/8: the kick of seed 1 as in 4/4, in the bar of 14 (%s <- %s)" % (d7[0]["on"], d4[0]["on"]))
+    want7 = onoff(text("TECHNO", 0, d7[2]["now"], parts=["KICK"], n=16, metre="7/8")["KICK"][0])
+    done()
+    check(d4[4] == "TECHNO KICK SEED 1" and d7[4] == d4[4] and d7[0]["length"] == 14 and d7[1]["own"] == 14 and d7[0]["on"] == want7 and len(want7) == 14
+          and all(d7[0]["on"][k] == "x" for k in (0, 4, 8)),
+          "THEORY, BEAT in 7/8: the kick of seed 1 made in the bar of 14 - on its three beats (%s; in 4/4 %s)" % (d7[0]["on"], d4[0]["on"]))
     check(d4[3]["made"] == 0 and d7[3]["made"] == d7[3]["now"] and d7[3]["made"] != 0 and d7[2]["len"] == 16,
-          "... the pattern keeps the metre it was made in (4/4: %s; 7/8: %s, made in one sixteen)" % (d4[3]["made"], d7[3]["made"]))
+          "... the pattern keeps the metre it was made in (4/4: %s; 7/8: %s, one bar)" % (d4[3]["made"], d7[3]["made"]))
 
     # THE ENGINES' PATTERNS FOLLOW THE METRE: a kick made in 4/4; the bar is 14: it is made again, in 7/8 (the one above);
     # the bar is 16 again: the pattern it was. One the player changed by hand stays as it is, cut by the loop, and back
@@ -10444,13 +10475,13 @@ def t025_metre():
     s.release(t, GLO); t += 60
     log = run(s, t + 100)
     sc, d, c, m, me = log.screens(), log.dumps, log.copies, [x["msg"] for x in log.states], log.metre
-    check(len(sc) == 4 and sc[0]["cells"] == [("> BAR", "16"), ("BEATS", "4x2"), ("METRE", "4/4"), ("BAR.STEP", "--")] and sc[0]["lines"][2].startswith("GLO 4/4 METRE 4/4 = 4x2"),
+    check(len(sc) == 4 and sc[0]["cells"] == [("> BAR", "16"), ("BEATS", "4x2"), ("SCENE METRE", "OFF"), ("BAR.STEP", "--")] and sc[0]["lines"][2].startswith("GLO 4/4 METRE 4/4 = 4x2"),
           "GLO page 4, THE METRE: a bar of 16 steps in four quarters (the mark: the knob the keys would set) (%s | %s)" % (sc[0]["cells"] if sc else sc, sc[0]["lines"][2] if sc else None))
-    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("METRE", "7/8")] and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
+    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("SCENE METRE", "OFF")] and sc[1]["lines"][2].startswith("GLO 4/4 METRE 7/8 = 2+2+3") and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
           "K1 two down, stopped: a bar of 14 at once, 7/8 as 2+2+3, the sixteen tracks follow (%s | %s)" % (sc[1]["cells"][:3], m[1]))
     check(me[1]["bar"] == 14 and me[1]["beats"] == 0x111 and me[1]["sig"] == "7/8" and d[1]["length"] == 14 and c[1]["own"] == 14 and c[1]["row"][:17] == "x" * 16 + "r",
           "... the track is 14 long, its pattern keeps the two steps it does not play (and the mark of its end) (%s %X, %s, %s)" % (me[1]["bar"], me[1]["beats"], d[1]["length"], c[1]["row"][:18]))
-    check(sc[2]["cells"][:3] == [("BAR", "14"), ("> BEATS", "2+3+2"), ("METRE", "7/8")] and me[2]["beats"] == 0x411 and m[2] == "BAR 14: 7/8 2+3+2" and d[2]["length"] == 14,
+    check(sc[2]["cells"][:3] == [("BAR", "14"), ("> BEATS", "2+3+2"), ("SCENE METRE", "OFF")] and me[2]["beats"] == 0x411 and m[2] == "BAR 14: 7/8 2+3+2" and d[2]["length"] == 14,
           "K2: the next way, 2+3+2 (the beats on steps 1, 5, 11); no track moves (%s | %X | %s)" % (sc[2]["cells"][:3], me[2]["beats"], m[2]))
     check(me[3]["beats"] == 0x441 and me[3]["split"] == "3+2+2", "K2 turned far: the last way, 3+2+2: the beats on steps 1, 7, 11 (%X %s)" % (me[3]["beats"], me[3]["split"]))
     check(me[4]["bar"] == 16 and me[4]["raw"] == 0 and me[4]["beats"] == 0x1111 and m[4] == "BAR 16: 4/4 4x2, 16 TRACKS FOLLOW" and d[4]["length"] == 16 and d[4]["on"] == "x" * 16
@@ -10518,6 +10549,836 @@ def t025_metre():
 
 
 
+
+# ------------------------------------------------------------------------------------------------ 0.26
+def probes(log):
+    """the probes of a run (a script's "probe" lines): [{'t': ms, 'G': {...}, 'T1': {...} ...}]"""
+    out = []
+    for line in log.text.splitlines():
+        m = re.match(r"^\s*(\d+) ms  PROBE (G|T\d+|H) (.*)$", line)
+        if not m:
+            continue
+        rest, d = m.group(3), {}
+        if " msg=" in rest:
+            rest, d["msg"] = rest.split(" msg=", 1)
+        for kv in rest.split():
+            k, _, v = kv.partition("=")
+            d[k] = v
+        if m.group(2) == "G":
+            out.append({"t": int(m.group(1)), "G": d})
+        elif out:
+            out[-1][m.group(2)] = d
+    return out
+
+
+def clicks(log):
+    """the FM-1's own clicks the simulator was asked for: [(the ms it must sound at, 'bar' | 'beat', the clock tick)]"""
+    return [(int(m.group(1)) + int(m.group(4)) / 1000.0, m.group(2), int(m.group(3)))
+            for m in re.finditer(r"^\s*(\d+) ms  CLICK (bar|beat) tick (\d+) in (-?\d+) us$", log.text, re.M)]
+
+
+def wav_clicks(path):
+    """the clicks in the sound the simulator wrote: [(ms, peak, zero crossings in its first 10 ms)]"""
+    import wave, struct
+    w = wave.open(path)
+    n = w.getnframes()
+    d = struct.unpack("<%dh" % (2 * n), w.readframes(n))
+    w.close()
+    out, i = [], 0
+    while i < n:
+        if abs(d[2 * i]) > 200:
+            pk, zc = 0, 0
+            for j in range(i, min(n, i + 1400)):
+                pk = max(pk, abs(d[2 * j]))
+                if j > i and j < i + 441 and (d[2 * j] < 0) != (d[2 * j - 2] < 0):
+                    zc += 1
+            out.append((i * 1000.0 / 44100, pk, zc))
+            i += 1500
+        else:
+            i += 1
+    return out
+
+
+def click_knobs(s, t, encs, sel=False): return pg(s, t, SAVE, 4, encs, sel=sel)   # SAVE 5 CLICK: K1 CLICK, K2 COUNT IN, K3 OUT, K4 LEVEL (SEL + K4: the NOTE)
+
+
+def rownts(log):
+    """0.26: the 'rownt' lines of the dumps: a row's notes as the engines write them (0..f above the root, * a chord)"""
+    return [dict(track=int(m.group(1)), nt=m.group(2)) for m in re.finditer(r"^\s*\d+ ms  rownt T(\d+) NT:(.*)$", log.text, re.M)]
+
+
+def t026_engines():
+    group("0.26 THE ENGINES IN THE BAR, THE ANSWER WITH NOTES: a band made in 7/8 is made in seven (a kick on every beat of the bar) and fills with the ENERGY; a new metre makes the patterns again IN the new bar, the old one brings back what they were; a bass takes the notes of the tune it answers; a band of 0.25 is made again as 0.25 made it")
+    text, done = theory_tool("eng")
+    FREE = ["KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP", "LEAD"]
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    def longer2(s, t):                                           # every track four bars (the MOSSE's LONGER, twice)
+        t = vg_on(s, t, remote=False)
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        return vg_studio(s, t)
+    def look(s, t):
+        for k in range(8): s.at(t + 15 * k, "dump", k)
+        return t + 160
+    def looks(log):                                              # every look: eight tracks of (steps, theory, made, notes)
+        d, h, m, nt = log.dumps, th_dumps(log), th_made(log), rownts(log)
+        return [[(d[i + k], h[i + k], m[i + k], nt[i + k]["nt"]) for k in range(8)] for i in range(0, len(d), 8)]
+    def notes(part, chords=False):                               # the engines' text as the dump shows a row's notes
+        r, nt = part
+        return "".join("." if r[i] in ".-" else "*" if chords else nt[i] for i in range(len(r))) if nt != "-" else None
+    def same(got, want):                                         # the tracks that are not what the engines' text says: hits, and notes
+        bad = []
+        for k in range(8):
+            w = want[FREE[k]]
+            if got[k][0]["on"] != onoff(w[0]) or (notes(w) is not None and got[k][3] != notes(w, FREE[k] == "CHORD")): bad.append(FREE[k])
+        return bad
+    try:
+        # ---- a band BORN in 7/8 (2+2+3), four bars of 14 a track; the ENERGY empties and fills it
+        s = Script()
+        t = metre_knobs(s, 100, [(K1, -2)])
+        t = longer2(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                          # SOURCE FREE
+        t = band(s, t); t = look(s, t)
+        s.raw(t, "energy 10"); t += 500; t = look(s, t)
+        s.raw(t, "energy 95"); t += 500; t = look(s, t)
+        log = run(s, t + 300)
+        L = looks(log)
+        e0 = L[0][0][1]["now"]
+        check(len(L) == 3 and all(x[0]["length"] == 56 for x in L[0]) and all(x[2] == dict(bar=1, notes=1, steps=56) and x[1]["len"] == 64 for x in L[0]),
+              "BAND in 7/8: every part four bars of 14, made IN the bar, its answers with notes (%s, %s)" % ([x[0]["length"] for x in L[0]], L[0][4][2] if L else None))
+        for n, en in enumerate((e0, 10, 95)):
+            bad = same(L[n], text("FREE", 0, en, n=64, metre="7/8"))
+            check(not bad and all(x[1]["energy"] == en for x in L[n]), "... at energy %d every part is what the engines make in 7/8: hits and notes (%s)" % (en, bad))
+        kick = [x[0][0]["on"] for x in L]
+        check(all(k[b * 14] == "x" for k in kick for b in range(4)), "... the kick on the one of every bar of seven, at every energy (%s)" % kick[1][:28])
+        lo, hi = [x[0]["on"] for x in L[1]], [x[0]["on"] for x in L[2]]
+        check(all(a == "." or b == "x" for p, q in zip(lo, hi) for a, b in zip(p, q)) and sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2,
+              "... the ENERGY only adds: all of 10 is in 95, which is much fuller (%d hits, %d)" % (sum(r.count("x") for r in lo), sum(r.count("x") for r in hi)))
+        want44 = text("FREE", 0, e0, n=64)
+        check(L[0][0][0]["on"][:14] != onoff(want44["KICK"][0])[:14] or L[0][1][0]["on"][:14] != onoff(want44["SNARE"][0])[:14],
+              "... and it is not the 4/4 band cut short (kick %s, in 4/4 %s)" % (L[0][0][0]["on"][:14], onoff(want44["KICK"][0])[:16]))
+
+        # ---- THE METRE CHANGES: a band of 0.26, and one of 0.25 (what the engines keep of it says so), made in 4/4;
+        # the bar is 14: made again IN it (the 0.25 one too: its answers stay of rhythm alone); the bar is 16 again:
+        # the patterns they were, to the note
+        res = {}
+        for old in (0, 1):
+            s = Script()
+            t = longer2(s, 100)
+            t = pg(s, t, SEQ, 7, [(K1, 2)])
+            t = band(s, t)
+            if old: s.raw(t, "thold"); t += 200
+            t = look(s, t)
+            t = metre_knobs(s, t, [(K1, -2)]); t += 700; t = look(s, t)
+            t = metre_knobs(s, t, [(K1, 2)]); t += 700; t = look(s, t)
+            s.raw(t, "energy 90"); t += 500; t = look(s, t)
+            log = run(s, t + 300)
+            res[old] = looks(log)
+        N, O = res[0], res[1]
+        e0 = N[0][0][1]["now"]
+        bad = same(N[0], text("FREE", 0, e0, n=64))
+        check(not bad and all(x[2] == dict(bar=1, notes=1, steps=64) for x in N[0]), "a band of 0.26 in 4/4: what the engines make now, hits and notes (%s)" % bad)
+        bad = same(O[0], text("FREE", 0, e0, n=64, flags=["--v25"]))
+        check(not bad and all(x[2] == dict(bar=0, notes=0, steps=64) for x in O[0]), "a band of 0.25 in 4/4: what 0.25 made, hits and notes (%s)" % bad)
+        diff = [FREE[k] for k in range(8) if N[0][k][0]["hash"] != O[0][k][0]["hash"]]
+        check("BASS" in diff and "KICK" not in diff and "CHORD" not in diff,
+              "... the two differ where a part answers another: the bass hears the arpeggio as it is, and takes its notes (%s)" % diff)
+        bad = same(N[1], text("FREE", 0, e0, n=64, metre="7/8"))
+        check(not bad and all(x[0]["length"] == 56 and x[2] == dict(bar=1, notes=1, steps=56) for x in N[1]), "the bar is 14: the band of 0.26 made again in 7/8 (%s)" % bad)
+        bad = same(O[1], text("FREE", 0, e0, n=64, metre="7/8", flags=["--no-notes"]))
+        check(not bad and all(x[0]["length"] == 56 and x[2] == dict(bar=1, notes=0, steps=56) for x in O[1]),
+              "... the band of 0.25 too: IN the bar of seven, its answers still of rhythm alone (%s, %s)" % (bad, O[1][4][2]))
+        check(all(N[2][k][0]["hash"] == N[0][k][0]["hash"] and N[2][k][2] == N[0][k][2] for k in range(8)), "the bar is 16 again: the band of 0.26 is what it was")
+        check(all(O[2][k][0]["hash"] == O[0][k][0]["hash"] and O[2][k][2] == dict(bar=0, notes=0, steps=64) for k in range(8)),
+              "... and the band of 0.25 is what 0.25 made, to the note: kept as 0.25 kept it (%s)" % [FREE[k] for k in range(8) if O[2][k][0]["hash"] != O[0][k][0]["hash"]])
+        bad = same(O[3], text("FREE", 0, 90, n=64, flags=["--v25"]))
+        check(not bad and all(x[1]["energy"] == 90 for x in O[3]), "... the ENERGY at 90 fills it as 0.25 did (%s)" % bad)
+        bad = same(N[3], text("FREE", 0, 90, n=64))
+        check(not bad, "... and the band of 0.26 as 0.26 does (%s)" % bad)
+
+        # ---- THE ANSWER HAS NOTES, in the rows: the bass of the 0.26 band plays, off the beat, notes the arpeggio it
+        # answers has just played (heard at half the energy: the tool's ARP at 50 with its chords)
+        heard = text("FREE", 0, 50, n=64, parts=["CHORD", "ARP"])["ARP"]
+        b25, b26 = O[0][4][3], N[0][4][3]
+        took = []
+        for i in range(64):
+            if b26[i] in ".*?" or (i < len(b25) and b25[i] == b26[i] and O[0][4][0]["on"] == N[0][4][0]["on"]): continue
+            src = [heard[1][i - d] for d in (2, 4, 1, 3) if i - d >= 0 and heard[0][i - d] not in ".-"]
+            if i % 4 and heard[0][i] in ".-" and src and any(int(c, 16) % 12 == int(b26[i], 16) % 12 for c in src): took.append(i)
+        check(len(took) >= 1 and b26 != b25, "the bass of 0.26 takes notes of the arpeggio it answers, off the beat, right after them (steps %s: %s under %s)" % (took, b26, heard[1]))
+
+        # ---- a part WRITTEN BY HAND is heard as its steps are: the band's CHORD track cleared, three chords written on
+        # it by hand (steps 1, 7 and 13); the LEAD made again (its seed turned) answers THOSE. Then the same lead as
+        # 0.25 would make it (the same steps heard, answers of rhythm alone): the same rhythm - and the notes that
+        # differ are the answers: right after a chord, where the chords are silent, its third, its fifth, its root
+        s = Script()
+        t = longer2(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])
+        t = band(s, t)
+        s.enc(t, E_SEL, 5); t += 80                             # track 6: the CHORD
+        s.press(t, SEQ); s.tap_key(t + 40, wk(0)); s.release(t + 120, SEQ); t += 200     # CLEAR
+        t = s.steps(t, [0, 6, 12]); t += 60
+        s.enc(t, E_SEL, 2); t += 80                             # track 8: the LEAD
+        t = pg(s, t, SEQ, 7, [(K3, 3)])                         # another seed: made by the engines of now, hearing the chords there are
+        s.at(t, "dump", 5); s.at(t + 20, "dump", 7); t += 80
+        s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 7); t += 80
+        log = run(s, t + 300)
+        d, nt, md = log.dumps, rownts(log), th_made(log)
+        ch, l26, n26, l25, n25 = d[0]["on"], d[1]["on"], nt[1]["nt"], d[2]["on"], nt[2]["nt"]
+        hits = [i for i in range(64) if l26[i] == "x"]
+        diff = [i for i in hits if n26[i] != n25[i] and i != hits[-1]]
+        good = []
+        for i in diff:
+            dd = [k for k in (1, 2, 3) if i - k >= 0 and ch[i - k] == "x"]
+            if ch[i] == "." and dd and i % 16 and int(n26[i], 16) % 12 in ({3, 4}, {7}, {0})[dd[0] - 1]: good.append(i)
+        check(ch[:16] == "x.....x.....x..." and md[1] == dict(bar=1, notes=1, steps=64) and md[2] == dict(bar=0, notes=0, steps=64) and l26 == l25,
+              "a lead made over chords written by hand hears their steps: the same rhythm with and without notes in its answers (%s / %s over %s)" % (l26[:16], l25[:16], ch[:16]))
+        check(len(diff) >= 1 and good == diff, "... and its answers are the chords' notes: the third right after a chord, then the fifth, then the root (steps %s of %s: %s, without %s)" % (good, diff, n26[:16], n25[:16]))
+
+        # ---- ... and a TUNE written by hand: the band's ARP track (the one the bass answers) cleared, a tune of fifths
+        # written on it off the beats (the project in C major; the pen seven semitones up; steps 2, 6, 10, 14); the BASS
+        # made again takes THAT note where it answers - and as 0.25 would make it, hearing the same steps, it has only
+        # its own
+        s = Script()
+        t = kp(s, 100, [(K2, 1), (K4, 1)])                      # C major, IN KEY
+        t = longer2(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])
+        t = band(s, t)
+        s.enc(t, E_SEL, 6); t += 80                             # track 7: the ARP
+        s.press(t, SEQ); s.tap_key(t + 40, wk(0)); s.release(t + 120, SEQ); t += 200     # CLEAR
+        t = pen_turn(s, t, 7)
+        t = s.steps(t, [1, 5, 9, 13]); t += 60
+        s.enc(t, E_SEL, -2); t += 80                            # track 5: the BASS
+        t = pg(s, t, SEQ, 7, [(K3, 2)])                         # another seed: the engines of now
+        s.at(t, "dump", 6); s.at(t + 20, "dump", 4); t += 80
+        s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 4); t += 80
+        log = run(s, t + 300)
+        d, nt = log.dumps, rownts(log)
+        tune, tn, b26, n26, b25, n25 = d[0]["on"], nt[0]["nt"], d[1]["on"], nt[1]["nt"], d[2]["on"], nt[2]["nt"]
+        hits = [i for i in range(64) if b26[i] == "x"]
+        diff = [i for i in hits if n26[i] != n25[i] and i < 62]
+        note = tn[1]                                            # (the tune's note above the key's root: the pen's)
+        good = [i for i in diff if n26[i] == note and i % 4 and tune[i] == "." and any(i - k >= 0 and tune[i - k] == "x" for k in (1, 2, 3, 4))]
+        check(tune[:16] == ".x...x...x...x.." and note not in ".0*?" and tn[:16] == ".%s...%s...%s...%s.." % ((note,) * 4) and b26 == b25,
+              "a bass made under a tune written by hand hears its steps: the same rhythm with and without notes in its answers (%s / %s under %s, its notes %s)" % (b26[:16], b25[:16], tune[:16], tn[:16]))
+        check(len(diff) >= 1 and good == diff, "... and where it answers it plays the tune's note (steps %s of %s: %s, without %s; the tune's note %s)" % (good, diff, n26[:32], n25[:32], note))
+    finally:
+        done()
+
+
+def t026_tune_answers():
+    group("0.26 THE ANSWER HAS NOTES, when it plays: a tune of the engines plays a note of the chord right after the chord - and when the progression has moved FOLLOW MELODY takes that note to the chord that plays; a tune of 0.25 plays as it is written there")
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    BARS = 12
+    HOME = re.compile(r"^[Ii](?![IiVv])")
+    res = {}
+    for old in (0, 1):
+        s = Script()
+        t = vg_on(s, 100, remote=False)
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        t = vg_studio(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                          # SOURCE FREE: KICK SNARE HAT PERC BASS CHORD ARP LEAD
+        t = band(s, t)
+        t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8), (K2, 1), (K3, 1)])   # USER 1: home, the fifth's chord, home - a bar each: three bars
+        t = harm_knobs(s, t, [(K2, 6)])                          #  against the pattern's four: every step is heard on both chords
+        if old: s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 5); s.at(t + 20, "dump", 7); t += 80
+        s.tap_btn(t, PLAY); p0 = t
+        for k in range(BARS * 8): s.raw(p0 + int((2 * k + 0.5) * STEP_MS), "probe")     # the chord, every 8th
+        log = run(s, p0 + int(BARS * 16 * STEP_MS) - 30)
+        d, nt, pr = log.dumps, rownts(log), probes(log)
+        chord_on, lead_on, lead_nt = d[0]["on"], d[1]["on"], nt[1]["nt"]
+        played = {}
+        for tm, d1, v in log.notes(ch=7, after=p0 - 5):
+            played.setdefault(int(round((tm - p0) / STEP_MS)), d1)
+        chord = [(pr[min(k // 2, len(pr) - 1)]["G"]["chord"], int(pr[min(k // 2, len(pr) - 1)]["G"]["cpc"], 16)) for k in range(BARS * 16)]
+        # the steps of the tune that answer a chord: a single note off the beat, the chords silent, struck one to three 16ths before
+        ans = [i for i in range(64) if lead_on[i] == "x" and lead_nt[i] not in ".*?" and i % 4 and chord_on[i] == "."
+               and any(i - k >= 0 and chord_on[i - k] == "x" for k in (1, 2, 3))]
+        home = {}
+        for k in sorted(played):                                 # (where a step is written: what it plays on the home chord)
+            if HOME.match(chord[k][0]) and k % 64 in ans: home.setdefault(k % 64, played[k])
+        away = [(k, played[k], home[k % 64], chord[k]) for k in sorted(played) if k % 64 in ans and k % 64 in home and not HOME.match(chord[k][0])]
+        res[old] = dict(ans=ans, away=away, made=th_made(log)[1], names=sorted(set(c[0] for c in chord)), home=home)
+    N, O = res[0], res[1]
+    moved = [x for x in N["away"] if x[1] != x[2]]
+    off = [x for x in moved if not (x[3][1] >> (x[1] % 12)) & 1]
+    check(N["made"] == dict(bar=1, notes=1, steps=64) and len(N["names"]) == 2 and len(N["ans"]) >= 2 and len(N["away"]) >= 2,
+          "the tune of a 0.26 band answers the chords, and is heard on both chords (%s; steps %s; %d times away from home)" % (N["names"], N["ans"], len(N["away"])))
+    check(len(moved) >= 1 and not off, "... away from home a note of the home chord right after the chord goes to the chord that plays (%d of %d moved; off the chord: %s)" % (len(moved), len(N["away"]), off[:3]))
+    o_moved = [x for x in O["away"] if x[1] != x[2]]
+    check(O["made"] == dict(bar=0, notes=0, steps=64) and len(O["away"]) >= 1 and not o_moved,
+          "the tune of a 0.25 band plays those notes where they are written, whatever the chord (%d of %d moved; steps %s)" % (len(o_moved), len(O["away"]), O["ans"]))
+
+
+def t026_gaps():
+    group("0.26, the technical check: what no test had run - the remote's scene before and scene after (channel 14, CC 28 and 29)")
+    s = Script()
+    s.raw(100, "probe")
+    remote(s, 200, 29); s.raw(300, "probe")
+    remote(s, 400, 29); s.raw(500, "probe")
+    remote(s, 600, 28); s.raw(700, "probe")
+    remote(s, 800, 28); remote(s, 900, 28); s.raw(1000, "probe")
+    for k in range(17): remote(s, 1100 + 60 * k, 29)
+    s.raw(2300, "probe")
+    log = run(s, 2500)
+    sc = [int(x["G"]["scene"]) for x in probes(log)]
+    check(sc == [0, 1, 2, 1, 0, 15], "the remote's CC 29 and 28: the scene after, the scene before - not before the first, not past the sixteenth (%s)" % sc)
+
+
+def t026_smooth():
+    group("0.26 THE CHORDS MOVE LITTLE: FOLLOW MODE SMOOTH - a chord's notes go to the nearest notes of the chord playing (the ones two chords share stay); held chords slide; the makers' PAD and PIANO follow so")
+    BAR = 16 * STEP_MS
+
+    def setup(s, fm, rhythm=0):
+        t = kp(s, 100, [(K2, 1), (K4, 1)])                             # C major, IN KEY
+        t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
+        t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])             # USER 1: I, V
+        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                       # HARMONY: USER 1, ON
+        if rhythm:
+            t = harm2_knobs(s, t, [(K4, rhythm)])
+        if fm:
+            t = harm2_knobs(s, t, [(K1, fm)])
+        return t
+
+    # C E G written on step 1; the chords: C a bar, G a bar. HOLD moves the whole hand a fourth down (G3 B3 D4); SMOOTH
+    # keeps the G and moves the other two by a step: B3 D4 G4 - and on C again it is the chord as written
+    res = {}
+    for fm in (SQ_FM_HOLD, SQ_FM_SMOOTH):
+        s = Script()
+        t = setup(s, fm)
+        s.press(t, SEL); s.keys(t + 30, KEY_C4 | KEY_E4 | KEY_G4); s.keys(t + 120, 0); s.release(t + 200, SEL); t += 300
+        s.at(t, "dump", 0)
+        s.tap_btn(t + 20, PLAY); p0 = t + 20
+        log = run(s, p0 + int(3 * BAR) - 30)
+        bars = [sorted(set(d1 for tm, d1, _ in log.notes(ch=0, after=p0 + int(b * BAR) - 10) if tm < p0 + (b + 1) * BAR - 10)) for b in range(3)]
+        res[fm] = (bars, harm11(log)[0]["fm"], [x["msg"] for x in log.states])
+    check(res[SQ_FM_HOLD][0] == [[60, 64, 67], [55, 59, 62], [60, 64, 67]], "HOLD (as ever): the whole hand moves - C E G, then G B D a fourth down (%s)" % res[SQ_FM_HOLD][0])
+    check(res[SQ_FM_SMOOTH][1] == SQ_FM_SMOOTH and "CHORDS MOVE LITTLE: THE NEAREST NOTES" in res[SQ_FM_SMOOTH][2],
+          "ARP 4 K1 past MELODY: SMOOTH, and the FM-1 says what it is (%s)" % res[SQ_FM_SMOOTH][1])
+    check(res[SQ_FM_SMOOTH][0] == [[60, 64, 67], [59, 62, 67], [60, 64, 67]],
+          "SMOOTH: on G the chord is B D G - the G stays, C and E move a step; on C again as written (%s)" % res[SQ_FM_SMOOTH][0])
+
+    # a chord held through the change (sixteen steps long, the chords change at the half bar): the G is not struck
+    # again nor stopped; B and D come on before C and E end
+    s = Script()
+    t = setup(s, SQ_FM_SMOOTH, SQ_HR_HALF)
+    s.press(t, SEL); s.keys(t + 30, KEY_C4 | KEY_E4 | KEY_G4); s.keys(t + 120, 0); s.release(t + 200, SEL); t += 300
+    s.raw(t, "attach"); t += 100
+    s.at(t, "pad", 0, 0, 100); s.at(t + 300, "pad", 15, 0, 100); s.at(t + 360, "pad", 15, 0, 0); s.at(t + 400, "pad", 0, 0, 0); t += 500
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    log = run(s, p0 + int(BAR) - 30)
+    ons = [(tm - p0, d1) for tm, st, d1, d2 in log.msgs if st == 0x90 and d2 and tm >= p0]
+    offs = [(tm - p0, d1) for tm, st, d1, d2 in log.msgs if (st == 0x80 or (st == 0x90 and not d2)) and tm >= p0]
+    new_on = [tm for tm, d in ons if d in (59, 62)]
+    old_off = [tm for tm, d in offs if d in (60, 64)]
+    check(sorted(d for _, d in ons) == [59, 60, 62, 64, 67] and len(new_on) == 2 and len(old_off) == 2 and max(new_on) <= min(old_off) and
+          abs(min(old_off) - 8 * STEP_MS) < 8 and not [1 for tm, d in offs if d == 67],
+          "a chord held through the change: the G goes on, B and D come before C and E end (%s %s)" % (ons, offs))
+
+    # the makers: HOUSE has a PIANO and a PAD - made by BAND they follow SMOOTH; its lead a MELODY; the bass as ever
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    s = Script()
+    s.press(100, SEQ); s.enc(130, E_PRE, 3); s.release(180, SEQ)       # the genre: HOUSE
+    t = pg(s, 300, SEQ, 7, [(K1, 1)])                                  # the SOURCE on THEORY
+    t = band(s, t)
+    for k in range(16):
+        s.at(t, "dump", k); t += 20
+    log = run(s, t + 200)
+    fm = {x["track"]: x["fm"] for x in harm11(log)}
+    fn = {x["track"]: x["func"] for x in th_dumps(log) if x["style"]}
+    ways = {f: fm[tk] for tk, f in fn.items()}
+    check((22 in ways or 23 in ways) and all(ways[f] == SQ_FM_SMOOTH for f in (22, 23) if f in ways),
+          "the band of HOUSE: its PAD and its PIANO follow SMOOTH (parts %s, ways %s)" % (sorted(fn.values()), ways))
+    check(all(ways[f] == SQ_FM_HOLD for f in (4, 21) if f in ways) and all(ways[f] == SQ_FM_MELODY for f in (24, 25) if f in ways),
+          "... the bass and a stab as ever, a lead and a voice as a MELODY (%s)" % ways)
+
+
+def log_kb(flash):
+    """the 'kb mode/channel' of the project a flash file boots with (a dump's line)"""
+    s = Script()
+    s.at(600, "dump", 0)
+    m = re.search(r" (kb \d+/\d+) thru", run(s, 800, flash=flash).text)
+    return m.group(1) if m else ""
+
+
+def t026_live_chords():
+    group("0.26 LIVE CHORDS: KEYBOARD CHORDS (SAVE 4 K2) - the notes held on the keyboard are the harmony's chord, whatever the progression; it stays until the next one; with the split the right hand plays; the keyboard given back, the progression is back")
+    BAR = 16 * STEP_MS
+
+    def setup(s, mode=3, harm=True):
+        t = kp(s, 100, [(K2, 1), (K4, 1)])                             # C major, IN KEY
+        t = s.steps(t, [0, 4, 8, 12])                                  # four Cs a bar
+        t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
+        if harm:
+            t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])         # USER 1: I, V a bar each
+            t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                   # HARMONY: USER 1, ON
+        t = pg(s, t, SAVE, 3, [(K2, mode)])                            # KEYBOARD: 3 CHORDS, 4 CHORDS <C3
+        return t
+
+    def chord(s, t, notes, hold=150):
+        for k, n in enumerate(notes):
+            s.at(t + k, "midi", "0x90", n, 100)
+        for k, n in enumerate(notes):
+            s.at(t + hold + k, "midi", "0x80", n, 0)
+        return t + hold + 20
+
+    def beats(log, p0, n):
+        got = {}
+        for tm, d1, _ in log.notes(ch=0, after=p0):
+            k = int(round((tm - p0) / (4 * STEP_MS)))
+            if k < n:
+                got.setdefault(k, d1)
+        return [got.get(k) for k in range(n)]
+
+    # the progression says C for a bar, then G. In the first bar the keyboard plays F A C: from the next beat the track
+    # is on F - and stays there in the second bar, where the progression has G: the keyboard's chord is the harmony
+    s = Script()
+    t = setup(s)
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    chord(s, p0 + int(5 * STEP_MS), [53, 57, 60])
+    s.raw(p0 + int(7 * STEP_MS), "probe")
+    chord(s, p0 + int(21 * STEP_MS), [57, 60, 64])                     # A C E in the second bar: A minor
+    s.raw(p0 + int(23 * STEP_MS), "probe")
+    t2 = pg(s, p0 + int(26 * STEP_MS), SAVE, 3, [(K2, -3)])            # the keyboard given back: the progression (G now)
+    s.raw(t2 + 10, "probe")
+    log = run(s, p0 + int(2 * BAR) - 30)
+    b = beats(log, p0, 8)
+    pr = probes(log)
+    check(b[:2] == [60, 60] and b[2:5] == [65, 65, 65], "F A C held on the keyboard: the track goes to F on the next beat and stays, the second bar too (%s)" % b)
+    check(b[5] == 65 and b[6] in (57, 69), "... A C E after the second bar's second beat: that beat still on F, the next on A (%s)" % b)
+    check(b[7] in (55, 67), "KEYBOARD back to OFF: the progression's chord again, G in its second bar (%s)" % b)
+    check(len(pr) == 3 and pr[0]["G"]["kbc"] == "1" and pr[0]["G"]["chord"] == "IV" and pr[1]["G"]["chord"] == "vi" and pr[2]["G"]["kbc"] == "0" and pr[2]["G"]["chord"] == "V",
+          "the FM-1 names the chord: IV, then vi; given back: the progression's V (%s)" % [(x["G"]["kbc"], x["G"]["chord"]) for x in pr])
+    check("CHORD IV (THE KEYBOARD'S)" in [x["G"].get("msg") for x in pr], "... and says it is the keyboard's (%s)" % [x["G"].get("msg") for x in pr])
+    check(not [1 for tm, d1, _ in log.notes(ch=0, after=p0) if d1 in (53, 57) and abs((tm - p0) / STEP_MS - round((tm - p0) / STEP_MS)) > 0.2],
+          "the notes of the chord are not played as notes")
+
+    # with the HARMONY off the keyboard's chord is the harmony all the same; before any chord: as written
+    s = Script()
+    t = setup(s, harm=False)
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    chord(s, p0 + int(5 * STEP_MS), [55, 59, 62])                      # G B D
+    log = run(s, p0 + int(BAR) - 30)
+    b = beats(log, p0, 4)
+    check(b[:2] == [60, 60] and b[2:] in ([55, 55], [67, 67]), "the HARMONY off: as written until a chord is held, then on it (%s)" % b)
+
+    # CHORDS <C3: under C3 the chord, above it the right hand plays the track (MIDI IN ALWAYS)
+    s = Script()
+    t = setup(s, mode=4)
+    t = pg(s, t, SAVE, 3, [(K4, 1)])                                   # MIDI IN ALWAYS
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    chord(s, p0 + int(5 * STEP_MS), [41, 45, 36])                      # F2 A2 C2 (C in the bass: F over C)
+    s.at(p0 + int(9 * STEP_MS) + 40, "midi", "0x90", 76, 90); s.at(p0 + int(9 * STEP_MS) + 90, "midi", "0x80", 76, 0)
+    s.raw(p0 + int(11 * STEP_MS), "probe")
+    log = run(s, p0 + int(BAR) - 30)
+    b = beats(log, p0, 4)
+    played = [d1 for tm, d1, _ in log.notes(ch=0, after=p0 + int(9 * STEP_MS)) if tm < p0 + int(10 * STEP_MS)]
+    check(b[2:] == [65, 65] and probes(log)[0]["G"]["chord"] == "IV", "CHORDS <C3: the left hand's F A C (over C) is the chord (%s, %s)" % (b, probes(log)[0]["G"]["chord"]))
+    check(76 in played and not [1 for tm, d1, _ in log.notes(ch=0, after=p0) if d1 in (41, 45, 36)], "... the right hand's note plays, the left hand's notes do not (%s)" % played)
+
+    # a project loaded: no chord of the keyboard's; the mode is saved with the project
+    d = tempfile.mkdtemp()
+    fl = os.path.join(d, "flash.bin")
+    s = Script()
+    t = setup(s)
+    chord(s, t + 50, [53, 57, 60]); t += 300
+    s.raw(t, "probe"); t += 20
+    s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE); t += 3000            # SAVE, SAVE: the project in its slot
+    pr0 = probes(run(s, t + 200, flash=fl))
+    check(pr0 and pr0[0]["G"]["kbc"] == "1", "(a chord of the keyboard's is held when the project is saved)")
+    s = Script()
+    s.raw(600, "probe")
+    log = run(s, 800, flash=fl)
+    pr = probes(log)
+    check(bool(pr) and pr[0]["G"]["kbc"] == "0" and pr[0]["G"]["chord"] == "I" and "kb 3/" in log_kb(fl),
+          "after a power cycle no chord is held - the harmony is the progression's - and KEYBOARD is still on CHORDS (%s)" % ([(x["G"]["kbc"], x["G"]["chord"]) for x in pr],))
+    shutil.rmtree(d, ignore_errors=True)
+
+
+def t026_scene_metre():
+    group("0.26 THE METRE WITH THE SCENE: SCENE METRE (GLO 4 K3) - a scene stored with it on keeps its metre and brings it: at once when stopped, on the bar line when it plays; the song changes metre with its scenes; off, a scene leaves the metre alone")
+    T16 = STEP_MS
+
+    def metre_dump(log): return [(x["bar"], x["sig"]) for x in log.metre]
+
+    def store(s, t, k): s.press(t, SEL); s.tap_key(t + 30, bk(k)); s.release(t + 100, SEL); return t + 160
+    def recall(s, t, k): s.tap_key(t, bk(k)); return t + 100
+
+    # scene 1 stored in 4/4, scene 2 in 7/8 (2+2+3), SCENE METRE on. Stopped: recalling a scene brings its bar at once
+    def setup(s, on=True):
+        t = s.steps(100, [0])                                          # a note on the one: a 16-step track follows the bar
+        if on:
+            t = metre_knobs(s, t, [(K3, 1)])                           # SCENE METRE: BRING IT
+        s.tap_btn(t, GLO); t += 80                                     # PERF
+        t = store(s, t, 0)                                             # scene 1: 4/4
+        s.tap_btn(t, GLO); t += 80
+        t = metre_knobs(s, t, [(K1, -2)])                              # the bar: 14 steps, 7/8 as 2+2+3
+        s.tap_btn(t, GLO); t += 80
+        t = store(s, t, 1)                                             # scene 2: 7/8
+        return t                                                       # (PERF is on: the black keys recall)
+
+    s = Script()
+    t = setup(s)
+    s.raw(t, "probe"); t += 20
+    t = recall(s, t, 0); s.raw(t, "probe"); s.at(t, "dump", 0); t += 40
+    t = recall(s, t, 1); s.raw(t, "probe"); s.at(t, "dump", 0); t += 40
+    log = run(s, t + 200)
+    pr = probes(log)
+    msgs = [x["msg"] for x in log.states]
+    check([x["G"]["bar"] for x in pr] == ["14", "16", "14"] and [x["T1"]["len"] for x in pr] == ["14", "16", "14"],
+          "stopped: scene 1 brings 4/4, scene 2 7/8 - the bar and the track that was a bar long (%s %s)" % ([x["G"]["bar"] for x in pr], [x["T1"]["len"] for x in pr]))
+    check(pr[0]["G"].get("msg") == "SCENE STORED 2 IN 7/8", "the FM-1 says the metre a scene is stored in (%s)" % pr[0]["G"].get("msg"))
+    check(metre_dump(log) == [(16, "4/4"), (14, "7/8")], "... 4/4, then 7/8 (%s)" % metre_dump(log))
+
+    # SCENE METRE off (as every project until 0.25): the scenes leave the metre alone, and store none
+    s = Script()
+    t = setup(s, on=False)
+    t = recall(s, t, 0); s.raw(t, "probe"); t += 40
+    log = run(s, t + 200)
+    pr = probes(log)
+    check(pr[0]["G"]["bar"] == "14" and pr[0]["G"]["smetre#"] == probes(run(Script().raw(300, "probe"), 400))[0]["G"]["smetre#"],
+          "SCENE METRE off: a scene recalled leaves the bar as it is, and no scene keeps a metre (%s)" % pr[0]["G"]["bar"])
+
+    # in play, QUANTISE AUTO: the scene comes on the bar line, and the new bar begins on that very line - the notes
+    # on the one are 16 steps apart in 4/4, 14 in 7/8
+    s = Script()
+    t = setup(s)
+    t = recall(s, t, 0)                                                # 4/4 to begin with
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    recall(s, p0 + int(5 * T16), 1)                                    # in the first bar: scene 2 queued for the bar
+    recall(s, p0 + int((16 + 14 + 5) * T16), 0)                        # in the second 7/8 bar: scene 1 for the next bar
+    log = run(s, p0 + int((16 + 14 + 14 + 16 + 16) * T16) - 30)
+    ones = [int(round((tm - p0) / T16)) for tm, d1, _ in log.notes(ch=0, after=p0)]
+    check(ones == [0, 16, 30, 44, 60], "in play: scene 2 comes at the bar and its bars are 14 steps from that line; scene 1 brings 16 back (%s)" % ones)
+
+    # the song: scene 1 for a bar, scene 2 for two, round again - the entries are bars of each scene's own metre
+    s = Script()
+    t = setup(s)
+    s.tap_btn(t, GLO); t += 80                                         # (out of PERF)
+    s.raw(t, "attach"); t += 50
+    view(s, t, GC_VPERF); view(s, t + 50, GC_VPERF); t += 100          # the grid's SONG
+    s.pad(t, 0, 1); s.pad(t + 50, 0, 2)                                # entry 1: scene 1, 1 bar
+    s.pad(t + 100, 1, 0); s.pad(t + 150, 1, 1); s.pad(t + 200, 1, 2)   # entry 2: scene 2, 2 bars
+    s.pad(t + 300, 0, 3); t += 400                                     # song on
+    s.tap_btn(t + 20, PLAY); p0 = t + 20
+    log = run(s, p0 + int((16 + 28 + 16 + 28 + 4) * T16) - 30)
+    ones = [int(round((tm - p0) / T16)) for tm, d1, _ in log.notes(ch=0, after=p0)]
+    check(ones == [0, 16, 30, 44, 60, 74, 88], "the song: a bar of 4/4, two of 7/8, a bar of 4/4, two of 7/8 ... (%s)" % ones)
+
+    # a song position from outside (a slave): bar 3 of the song's time is the second 7/8 bar - 16 + 14 steps in
+    s = Script()
+    t = setup(s)
+    s.tap_btn(t, GLO); t += 80
+    s.raw(t, "attach"); t += 50
+    view(s, t, GC_VPERF); view(s, t + 50, GC_VPERF); t += 100
+    s.pad(t, 0, 1); s.pad(t + 50, 0, 2)
+    s.pad(t + 100, 1, 0); s.pad(t + 150, 1, 1); s.pad(t + 200, 1, 2)
+    s.pad(t + 300, 0, 3); t += 400
+    s.press(t, HOME); s.tap_btn(t + 30, PLAY); s.release(t + 100, HOME); t += 200   # the clock: slave
+    spp = 16 + 14 + 3                                                  # 16ths: three steps into the second 7/8 bar
+    s.at(t, "midi", "0xF2", spp & 127, spp >> 7); t += 30
+    s.raw(t, "probe"); s.at(t, "dump", 0)
+    log = run(s, t + 200)
+    pr = probes(log)[0]
+    m = log.metre[-1]
+    check(pr["G"]["bar"] == "14" and pr["T1"]["step"] == "3" and m["no"] == 2 and m["into"] == 18,
+          "a song position in the second 7/8 bar: the bar is 14, the track on its step 4, bar 3 of the song (%s %s %s %s)" % (pr["G"]["bar"], pr["T1"]["step"], m["no"], m["into"]))
+
+
+def t026_click():
+    group("0.26 THE CLICK (SAVE 5): a metronome on the beats of the metre, the bar line louder - the FM-1's own sound or a MIDI note; COUNT IN: PLAY with REC on counts one or two bars first")
+    BEAT = 4 * STEP_MS
+
+    # CLICK PLAY, the FM-1's own sound: asked ahead, it falls on the beats; in the sound the simulator writes the
+    # bar line is the high tone (2000 Hz: about forty crossings in 10 ms), a beat the low one (1000 Hz: twenty)
+    d = tempfile.mkdtemp()
+    s = Script()
+    t = click_knobs(s, 200, [(K1, 2)])
+    s.tap_btn(t + 100, PLAY); p0 = t + 100
+    s.raw(p0 + int(9 * BEAT), "probe")
+    log = run(s, p0 + int(9 * BEAT) + 300, shots=d)
+    ck = clicks(log)
+    check([k for _, k, _ in ck][:9] == ["bar", "beat", "beat", "beat"] * 2 + ["bar"] and [tk for _, _, tk in ck][:9] == [24 * i for i in range(9)],
+          "CLICK PLAY: a click a beat, the first of four the bar line's (%s)" % [(k, tk) for _, k, tk in ck][:9])
+    check(all(abs(tm - (p0 + i * BEAT)) < 2.0 for i, (tm, _, _) in enumerate(ck[:9])), "... asked for the very moment of the beat (%s)" % [round(tm - p0 - i * BEAT, 2) for i, (tm, _, _) in enumerate(ck[:9])])
+    wc = wav_clicks(os.path.join(d, "o.wav"))
+    check(len(wc) >= 9 and all(abs(wc[i][0] - (p0 + i * BEAT)) < 2.5 for i in range(1, 9)),
+          "the sound: every click begins on its beat, within the simulator's two milliseconds (%s)" % [round(wc[i][0] - p0 - i * BEAT, 2) for i in range(min(9, len(wc)))])
+    check(all(36 <= wc[i][2] <= 44 for i in (0, 4, 8)) and all(17 <= wc[i][2] <= 23 for i in (1, 2, 3, 5, 6, 7)) and wc[0][1] > 8000,
+          "the bar line is the high tone, a beat the low one (%s)" % [(x[1], x[2]) for x in wc[:9]])
+    pr = probes(log)[0]["G"]
+    check(pr["cnt"] == "0" and int(pr["clk"]) >= 9 and pr["clkl"] in ("1", "2"), "the probe counts them (%s)" % pr["clk"])
+    shutil.rmtree(d, ignore_errors=True)
+
+    # the level: softer, louder (the default is 7)
+    peaks = {}
+    for lv in (-6, 3):
+        d = tempfile.mkdtemp()
+        s = Script()
+        t = click_knobs(s, 200, [(K1, 2), (K4, lv)])
+        s.tap_btn(t + 100, PLAY)
+        run(s, t + 100 + int(2 * BEAT), shots=d)
+        peaks[lv] = max(x[1] for x in wav_clicks(os.path.join(d, "o.wav")))
+        shutil.rmtree(d, ignore_errors=True)
+    check(peaks[-6] < 600 and peaks[3] > 28000, "LEVEL 1 is a whisper, 10 nearly full (%s)" % peaks)
+
+    # 7/8 as 2+2+3: three clicks a bar - on steps 1, 5, 9 of its fourteen
+    s = Script()
+    t = metre_knobs(s, 200, [(K1, -2)])
+    t = click_knobs(s, t, [(K1, 2)])
+    s.tap_btn(t + 100, PLAY); p0 = t + 100
+    log = run(s, p0 + int(28 * STEP_MS) + 100)
+    ck = [(k, tk // 6) for _, k, tk in clicks(log)]
+    check(ck[:7] == [("bar", 0), ("beat", 4), ("beat", 8), ("bar", 14), ("beat", 18), ("beat", 22), ("bar", 28)], "7/8: the beats of the metre, 2+2+3 (%s)" % ck[:7])
+
+    # a MIDI click: the note (claves, 75) on channel 10, the bar line louder; each ends after 40 ms; SEL + K4 the note
+    s = Script()
+    t = click_knobs(s, 200, [(K1, 2), (K3, 10)])
+    t = click_knobs(s, t, [(K4, -38)], sel=True)                       # the note: 37
+    s.tap_btn(t + 100, PLAY); p0 = t + 100
+    log = run(s, p0 + int(5 * BEAT) + 100)
+    on = [(tm, d1, d2) for tm, st, d1, d2 in log.msgs if st == 0x99 and d2]
+    off = [(tm, d1) for tm, st, d1, d2 in log.msgs if st == 0x89]
+    check([x[1:] for x in on[:5]] == [(37, 100), (37, 69), (37, 69), (37, 69), (37, 100)] and all(abs(on[i][0] - (p0 + i * BEAT)) < 2.0 for i in range(5)),
+          "a MIDI click: note 37 on channel 10 on every beat, the bar line louder (%s)" % [(round(x[0] - p0), x[1], x[2]) for x in on[:5]])
+    check(len(off) >= 4 and all(38 <= off[i][0] - on[i][0] <= 44 for i in range(4)), "... each 40 ms long (%s)" % [off[i][0] - on[i][0] for i in range(min(4, len(off)))])
+    check(not clicks(log), "... and the FM-1 makes no sound of its own")
+
+    # CLICK REC: only while REC is on
+    s = Script()
+    t = click_knobs(s, 200, [(K1, 1), (K3, 10)])
+    s.tap_btn(t + 100, PLAY); p0 = t + 100
+    s.tap_btn(p0 + int(4.5 * BEAT), REC)
+    s.tap_btn(p0 + int(8.5 * BEAT), REC)
+    log = run(s, p0 + int(12 * BEAT))
+    on = [int(round((tm - p0) / BEAT)) for tm, st, d1, d2 in log.msgs if st == 0x99 and d2]
+    check(on == [5, 6, 7, 8], "CLICK REC: the click only while REC is on (beats %s)" % on)
+
+    # COUNT IN 1 BAR, the click OFF: PLAY with REC on counts four beats (the bar line first), then the transport starts
+    # exactly a bar after the count's first click - the START, the clock, the track's first note; no click after it
+    def counted(s, t, bars=1, click=0, out=10):
+        t = s.steps(t, [0])
+        t = click_knobs(s, t, [(K1, click), (K2, bars), (K3, out)])
+        s.tap_btn(t, REC); t += 100
+        s.tap_btn(t, PLAY)
+        return t
+
+    s = Script()
+    t = counted(s, 100)
+    s.raw(t + int(2 * BEAT), "probe")
+    log = run(s, t + int(8 * BEAT) + 300)
+    on = [(tm, d2) for tm, st, d1, d2 in log.msgs if st == 0x99 and d2]
+    fa = [tm for tm, st, _, _ in log.msgs if st == 0xFA]
+    note = [tm for tm, d1, _ in log.notes(ch=0)]
+    clock = log.clock()
+    check(len(on) == 4 and [v for _, v in on] == [100, 69, 69, 69] and all(abs(on[i][0] - on[0][0] - i * BEAT) < 2.0 for i in range(4)),
+          "COUNT IN 1 BAR: four clicks a beat apart, the first the bar line's, and no more (%s)" % [(round(x[0] - on[0][0]), x[1]) for x in on])
+    check(len(fa) == 1 and abs(fa[0] - on[0][0] - 4 * BEAT) < 3.0 and note and abs(note[0] - fa[0]) < 3.0 and clock and clock[0] >= fa[0] - 1,
+          "... the transport starts a bar after the first click: START, the clock, the first note (%s after, the note %s)" % (fa[0] - on[0][0] if fa else None, note[0] - fa[0] if note and fa else None))
+    pr = probes(log)[0]["G"]
+    check(pr["cnt"] == "1" and pr["play"] == "0" and (pr.get("msg") or "").startswith("COUNT IN 1."), "while it counts the FM-1 is not playing, and the screen counts (%s)" % pr.get("msg"))
+
+    # two bars, the click PLAY, the FM-1's own sound: eight clicks of the count, then the click goes on with what plays -
+    # one a beat, none twice, the bar lines every four
+    s = Script()
+    t = counted(s, 100, bars=2, click=2, out=0)
+    log = run(s, t + int(14 * BEAT))
+    ck = clicks(log)
+    fa = [tm for tm, st, _, _ in log.msgs if st == 0xFA]
+    tms = [tm for tm, _, _ in ck]
+    check(len(ck) >= 13 and [k for _, k, _ in ck][:13] == (["bar", "beat", "beat", "beat"] * 4)[:13] and all(abs(tms[i] - tms[0] - i * BEAT) < 2.0 for i in range(13)),
+          "COUNT IN 2 BARS with CLICK PLAY: the count's eight clicks and the ones after, a beat apart, each once (%s)" % [round(x - tms[0]) for x in tms[:13]])
+    check(fa and abs(fa[0] - tms[8]) < 3.0, "... the transport starts on the ninth (%s)" % (fa[0] - tms[8] if fa else None))
+
+    # PLAY again while it counts: nothing starts; without REC there is no count; a slave has none either
+    s = Script()
+    t = counted(s, 100)
+    s.tap_btn(t + int(2.5 * BEAT), PLAY)
+    s.raw(t + int(3 * BEAT), "probe")
+    log = run(s, t + int(8 * BEAT))
+    pr = probes(log)[0]["G"]
+    check(not [1 for tm, st, _, _ in log.msgs if st == 0xFA] and pr["cnt"] == "0" and pr["play"] == "0" and len([1 for tm, st, d1, d2 in log.msgs if st == 0x99 and d2]) == 3,
+          "PLAY while it counts: the count stops, nothing starts (%s)" % pr.get("msg"))
+    s = Script()
+    t = s.steps(100, [0])
+    t = click_knobs(s, t, [(K2, 1), (K3, 10)])
+    s.tap_btn(t, PLAY)
+    log = run(s, t + int(2 * BEAT))
+    fa = [tm for tm, st, _, _ in log.msgs if st == 0xFA]
+    check(fa and fa[0] - t < 5 and not [1 for tm, st, d1, d2 in log.msgs if st == 0x99 and d2], "without REC: PLAY starts at once, no count")
+
+    # a note played while it counts sounds (MIDI IN ALWAYS) and is written nowhere
+    s = Script()
+    t = pg(s, 100, SAVE, 3, [(K4, 1)])
+    t = click_knobs(s, t, [(K2, 1), (K3, 10)])
+    s.tap_btn(t, REC); t += 100
+    s.tap_btn(t, PLAY)
+    s.at(t + int(1.5 * BEAT), "midi", "0x90", 64, 100); s.at(t + int(1.5 * BEAT) + 60, "midi", "0x80", 64, 0)
+    s.at(t + int(6 * BEAT), "dump", 0)
+    log = run(s, t + int(6 * BEAT) + 100)
+    check(64 in [d1 for tm, d1, _ in log.notes(ch=0)] and "x" not in log.dumps[0]["on"], "a note played during the count sounds and is not recorded (%s)" % log.dumps[0]["on"])
+
+    # the settings are the project's: saved, and back after a power cycle; a new page: SAVE has five
+    d = tempfile.mkdtemp()
+    fl = os.path.join(d, "flash.bin")
+    s = Script()
+    t = click_knobs(s, 200, [(K1, 1), (K2, 2), (K3, 5), (K4, 2)])
+    s.raw(t, "probe"); t += 30
+    s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE); t += 3000            # SAVE, SAVE
+    a = probes(run(s, t + 200, flash=fl))[0]["G"]["set26#"]
+    b = probes(run(Script().raw(600, "probe"), 800, flash=fl))[0]["G"]["set26#"]
+    c = probes(run(Script().raw(600, "probe"), 800))[0]["G"]["set26#"]
+    check(a == b and a != c, "the click's settings are saved with the project (%s %s, a new one %s)" % (a, b, c))
+    shutil.rmtree(d, ignore_errors=True)
+
+def t026_expression():
+    group("0.26 THE KEYBOARD'S EXPRESSION: the pedal, the wheels and the aftertouch go where the keyboard's notes go; recorded - the wheels in the lanes, the pedal as the length of the notes; nothing is left on a channel")
+    def outs(log, kinds=(0xB0, 0xE0, 0xD0, 0xA0), after=0):
+        return [(st, d1, d2) for tm, st, d1, d2 in log.msgs if (st & 0xF0) in kinds and tm >= after]
+
+    # MIDI IN ALWAYS, track 3 selected: what the keyboard sends on its channel 1 comes out on channel 3
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.raw(t, "midi 0xE0 0 96"); s.raw(t + 20, "midi 0xD0 80 0"); s.raw(t + 40, "midi 0xB0 1 64"); s.raw(t + 60, "midi 0xB0 64 127")
+    s.raw(t + 80, "midi 0x90 60 100"); s.raw(t + 100, "midi 0xA0 60 55"); s.raw(t + 120, "midi 0x80 60 0")
+    s.raw(t + 140, "midi 0xB0 64 0"); s.raw(t + 160, "midi 0xE0 0 64"); s.raw(t + 180, "midi 0xD0 0 0")
+    log = run(s, t + 400)
+    o = outs(log, after=t)
+    check(o == [(0xE2, 0, 96), (0xD2, 80, 0), (0xB2, 1, 64), (0xB2, 64, 127), (0xA2, 60, 55), (0xB2, 64, 0), (0xE2, 0, 64), (0xD2, 0, 0)],
+          "MIDI IN ALWAYS: the wheel, the aftertouch (the channel's, a key's), the modulation, the pedal go to the track's channel (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # ... with REC off and MIDI IN on REC ONLY nothing of it passes (as its notes do not)
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    s.raw(300, "midi 0xE0 0 96"); s.raw(320, "midi 0xD0 80 0"); s.raw(340, "midi 0xB0 1 64"); s.raw(360, "midi 0xB0 64 127"); s.raw(380, "midi 0xB0 64 0")
+    log = run(s, 600)
+    check(outs(log, after=250) == [], "MIDI IN with REC only, REC off: nothing passes (%s)" % outs(log, after=250))
+
+    # what was left on a channel is put back there: the pedal's release goes where its press went, a wheel off its
+    # centre is centred on the channel it bent when the next move goes to another track
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.raw(t, "midi 0xB0 64 127"); s.raw(t + 20, "midi 0xE0 0 100")
+    s.enc(t + 60, E_SEL, 2)                                            # track 5
+    s.raw(t + 120, "midi 0xB0 64 0"); s.raw(t + 140, "midi 0xE0 0 90")
+    log = run(s, t + 400)
+    o = outs(log, after=t)
+    check(o == [(0xB2, 64, 127), (0xE2, 0, 100), (0xB2, 64, 0), (0xE2, 0, 64), (0xE4, 0, 90)],
+          "the track changed with the pedal down and the wheel up: the release and the centre go to the old channel (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # a STOP lets the pedal go and centres the wheel on the channels they were left on
+    s = Script()
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.tap_btn(t, PLAY)
+    s.raw(t + 100, "midi 0xB0 64 127"); s.raw(t + 120, "midi 0xE0 0 20"); s.raw(t + 140, "midi 0xD0 70 0")
+    s.tap_btn(t + 400, PLAY)
+    log = run(s, t + 700)
+    o = outs(log, kinds=(0xB0, 0xE0, 0xD0), after=t + 390)
+    check((0xB0, 64, 0) in o and (0xE0, 0, 64) in o and (0xD0, 0, 0) in o, "STOP: the pedal let go, the wheel centred, the aftertouch off (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # RECORDED. REC and PLAY; the modulation wheel moves during steps 3, 4 and 5 (30, 60, 90): a free lane is taken for
+    # it - the last, with SLIDE - and the value is on the steps as they played; REC off: the next loop plays it back
+    BAR = 16 * STEP_MS
+    s = Script()
+    s.tap_btn(100, REC)
+    s.tap_btn(200, PLAY); p0 = 200
+    for k, v in ((2.5, 30), (3.5, 60), (4.5, 90)):
+        s.raw(p0 + int(k * STEP_MS), "midi 0xB0 1 %d" % v)
+    s.raw(p0 + int(5 * STEP_MS), "probe")
+    s.tap_btn(p0 + int(12 * STEP_MS), REC)
+    log = run(s, p0 + int(2 * BAR) + 40)
+    pr = probes(log)[0]
+    cc = {}
+    for tm, st, d1, d2 in log.msgs:
+        if st == 0xB0 and d1 == 1 and tm >= p0 + BAR - 10:
+            cc[int(round((tm - p0 - BAR) / STEP_MS))] = d2
+    check(pr["G"].get("msg") == "LANE 3 RECORDS CC 1", "REC: the wheel moves - the lane that sends it (a new track's third) records it, the screen says so (%s)" % pr["G"].get("msg"))
+    check(cc.get(3) == 30 and cc.get(4) == 60 and cc.get(5) == 90 and cc.get(6) == 90,
+          "... played back on the steps it was moved on: 30, 60, 90 on steps 4, 5, 6 (%s)" % sorted(cc.items()))
+    check(cc.get(10) is not None and 30 < cc[10] < 90, "... and it glides back between them (SLIDE) (%s)" % cc.get(10))
+
+    # the pitch wheel and the aftertouch have no lane on a new track: each takes one nobody ever wrote, from the last
+    # (never the first: the FILTER macro's); with none left the screen says so, and the control passes all the same
+    s = Script()
+    s.tap_btn(100, REC)
+    s.tap_btn(200, PLAY); p0 = 200
+    s.raw(p0 + 100, "midi 0xE0 0 80"); s.raw(p0 + 110, "probe")
+    s.raw(p0 + 120, "midi 0xD0 50 0"); s.raw(p0 + 130, "probe")
+    for k, c in enumerate((20, 21, 22)):
+        s.raw(p0 + 140 + 10 * k, "midi 0xB0 %d 99" % c)
+    s.raw(p0 + 180, "probe")
+    s.raw(p0 + 190, "midi 0xB0 23 77"); s.raw(p0 + 200, "probe")
+    s.raw(p0 + 210, "midi 0xB0 64 127"); s.raw(p0 + 220, "midi 0xB0 64 0"); s.raw(p0 + 230, "midi 0xB0 0 3"); s.raw(p0 + 240, "probe")
+    s.raw(p0 + 250, "midi 0xB0 74 5"); s.raw(p0 + 260, "probe")
+    log = run(s, p0 + 600)
+    m = [x["G"].get("msg") for x in probes(log)]
+    check(m[:4] == ["LANE 6 RECORDS THE PITCH WHEEL", "LANE 5 RECORDS THE AFTERTOUCH", "LANE 2 RECORDS CC 22", "NO FREE LANE FOR CC 23"] and (0xB0, 23, 77) in outs(log),
+          "the wheel, the aftertouch, three more controllers: five lanes taken; the next control has none, and passes all the same (%s)" % m[:4])
+    check(m[4] == "NO FREE LANE FOR CC 23" and m[5] == "LANE 1 RECORDS CC 74", "the pedal and the bank select never ask for a lane; lane 1 still records its own controller (%s)" % m[4:6])
+
+    # THE PEDAL IS THE LENGTH OF THE NOTES. A key tapped (0.4 steps) with the pedal down, the pedal let go 6 steps after
+    # the note began: recorded 6 steps long, and played back so with no pedal; without the pedal: a short gate
+    def gates(log, t0, ch=0):
+        ons = [(t - t0, n) for t, n, _ in log.notes(ch=ch, after=t0)]
+        offs = [(t - t0, n) for t, n in log.offs(ch=ch) if t >= t0]
+        return [(round(on / STEP_MS, 2), next((round(o - on) for o, mm in offs if mm == n and o > on), None)) for on, n in ons]
+    res = {}
+    for ped in (0, 1):
+        s = Script()
+        s.press(30, SEL); s.tap_btn(40, REC); s.release(80, SEL)       # REC FREE
+        s.tap_btn(90, REC)
+        s.tap_btn(100, PLAY)
+        t_on = 100 + int(2.1 * STEP_MS)
+        if ped:
+            s.raw(t_on - 30, "midi 0xB0 64 127")
+        s.raw(t_on, "midi 0x90 64 100"); s.raw(t_on + int(0.4 * STEP_MS), "midi 0x80 64 0")
+        if ped:
+            s.raw(t_on + int(6 * STEP_MS), "midi 0xB0 64 0")
+        s.tap_btn(100 + int(12 * STEP_MS), REC)
+        log = run(s, 100 + int(3 * BAR))
+        res[ped] = [x for x in gates(log, 100) if x[0] >= 16]
+    check(res[0] and res[0][0][1] is not None and res[0][0][1] < STEP_MS, "no pedal: the tapped note is recorded short (%s)" % res[0][:1])
+    check(res[1] and near(res[1][0][0], 18.1, 0.15) and near(res[1][0][1], 6 * STEP_MS, 14), "the pedal down: the note is recorded as long as it sounded, six steps (%s)" % res[1][:1])
+    check(not [1 for tm, st, d1, d2 in log.msgs if st == 0xB0 and d1 == 64 and tm >= 100 + BAR], "... and played back without any pedal")
+
+    # the same key struck twice under one pedal: two notes, the first as long as to the second, the second to the pedal's release
+    s = Script()
+    s.press(30, SEL); s.tap_btn(40, REC); s.release(80, SEL)
+    s.tap_btn(90, REC)
+    s.tap_btn(100, PLAY)
+    t_on = 100 + int(2.1 * STEP_MS)
+    s.raw(t_on - 30, "midi 0xB0 64 127")
+    s.raw(t_on, "midi 0x90 64 100"); s.raw(t_on + 40, "midi 0x80 64 0")
+    s.raw(t_on + int(3 * STEP_MS), "midi 0x90 64 100"); s.raw(t_on + int(3 * STEP_MS) + 40, "midi 0x80 64 0")
+    s.raw(t_on + int(7 * STEP_MS), "midi 0xB0 64 0")
+    s.tap_btn(100 + int(12 * STEP_MS), REC)
+    log = run(s, 100 + int(3 * BAR))
+    g = [x for x in gates(log, 100) if x[0] >= 16]
+    check(len(g) >= 2 and near(g[0][0], 18.1, 0.15) and near(g[1][0], 21.1, 0.15) and near(g[0][1], 3 * STEP_MS, 14) and near(g[1][1], 4 * STEP_MS, 14),
+          "one key twice under the pedal: three steps, then four (%s)" % g[:2])
+
+    # a TAPE keeps it too: the event is as long as the note sounded
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])                                          # the track: TAPE
+    s.tap_btn(t, REC); t += 60
+    s.tap_btn(t, PLAY); p0 = t
+    t_on = p0 + int(2 * STEP_MS)
+    s.raw(t_on - 30, "midi 0xB0 64 127")
+    s.raw(t_on, "midi 0x90 62 100"); s.raw(t_on + 40, "midi 0x80 62 0")
+    s.raw(t_on + int(5 * STEP_MS), "midi 0xB0 64 0")
+    s.tap_btn(p0 + int(12 * STEP_MS), REC)
+    s.at(p0 + int(13 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(14 * STEP_MS))
+    ev = log.tapes[0]["ev"] if log.tapes else []
+    check(len(ev) == 1 and ev[0][2] == 62 and abs(ev[0][1] - 5 * 96) < 14, "a TAPE: the note's event is five steps long (%s)" % ev)
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -10535,7 +11396,9 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t018_arp_slow, t018_tablet_track, t018_live_page, t0206_echo_ccs, t018_live_sweep,
          t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
-         t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody]
+         t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
+         t026_engines, t026_tune_answers, t026_gaps,
+    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

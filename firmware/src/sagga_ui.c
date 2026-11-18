@@ -254,14 +254,28 @@ static void ui_build(void)
 
     switch (mode) {
     case UM_SAVE:                                     /* SAVE: K1 the MASTER knob, K2 the remote, K3 snapshot tempo, slot; page 2; 0.12 page 3 SYSTEM; 0.13 page 4 LIVE IN */
+        if (save_page == 4u) {                        /* 0.26 CLICK: the metronome, the count before a recording, where it sounds, how loud */
+            const sq_ext_t *x = &project.ext;
+            static const char *const CK[SQ_CLICKS] = {"OFF", "REC", "PLAY"};
+            ui_cell(0, "CLICK", CK[x->click < SQ_CLICKS ? x->click : 0u], x->click ? (click_wanted() ? C_ON : C_ACCENT) : SQ_C_DIM);
+            ui_cell(1, "COUNT IN", !x->count_in ? "OFF" : x->count_in == 1u ? "1 BAR" : "2 BARS", cnt_on ? C_WARN : x->count_in ? C_ACCENT : SQ_C_DIM);
+            ui_cell(2, "CLICK OUT", x->click_out ? f_pre("CH ", x->click_out) : "FM-1", x->click_out ? C_ACCENT : C_WHITE);
+            ui_cell(3, "LEVEL", f_u(sq_click_level(x)), C_WHITE);
+            p = b; p = put_s(p, "SAVE 5/5  CLICK");
+            if (x->click_out) { char nm[5]; sq_note_name(sq_click_note(x), nm); p = put_s(p, "  NOTE "); p = put_s(p, nm); p = put_s(p, " (SEL+K4)"); }
+            else p = put_s(p, "  ON THE BEATS OF THE METRE");
+            finish(p);
+            ui_line(2, b, C_WARN);
+            break;
+        }
         if (save_page == 3u) {
             const sq_ext_t *x = &project.ext;
-            static const char *const KB[SQ_KBS] = {"OFF", "ALL", "SPLIT C3"};
+            static const char *const KB[SQ_KBS] = {"OFF", "TRANSPOSE", "TRANS <C3", "CHORDS", "CHORD <C3"};   /* (0.26: the chords; until 0.25 OFF ALL SPLIT C3. A cell holds nine letters) */
             ui_cell(0, "MOTION", x->motion_bars == 1u ? "1 BAR" : x->motion_bars == 2u ? "2 BARS" : x->motion_bars ? "4 BARS" : "OFF", x->motion_bars ? (record_arm ? C_WARN : C_ON) : SQ_C_DIM);
             ui_cell(1, "KEYBOARD", KB[x->kb_mode < SQ_KBS ? x->kb_mode : 0u], x->kb_mode ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "KEYB CH", x->kb_ch ? f_u(x->kb_ch) : "ANY", x->kb_mode ? C_WHITE : SQ_C_DIM);
             ui_cell(3, "MIDI IN", x->in_thru ? "ALWAYS" : "REC ONLY", x->in_thru ? C_ON : SQ_C_DIM);
-            ui_line(2, x->motion_bars && record_arm ? "SAVE 4/4  MOTION REC: FX + K" : "SAVE 4/4  LIVE IN", C_WARN);
+            ui_line(2, x->motion_bars && record_arm ? "SAVE 4/5  MOTION REC: FX + K" : "SAVE 4/5  LIVE IN", C_WARN);
             break;
         }
         if (save_page == 2u) {                        /* the USB link (was HOME + SEL), the button lights */
@@ -273,7 +287,7 @@ static void ui_build(void)
             p = b; p = put_u(p, u.queued); p = put_s(p, "/64"); finish(p);
             ui_cell(2, "OUT QUEUE", b, u.queued > 48u ? C_WARN : C_WHITE);
             ui_cell(3, "DROPPED", f_u(u.dropped), u.dropped ? C_WARN : C_WHITE);
-            p = b; p = put_s(p, "SAVE 3/4  MIDI OUT "); p = put_u(p, diag_out_ps); p = put_s(p, "/S IN "); p = put_u(p, diag_in_ps);
+            p = b; p = put_s(p, "SAVE 3/5  MIDI OUT "); p = put_u(p, diag_out_ps); p = put_s(p, "/S IN "); p = put_u(p, diag_in_ps);
             p = put_s(p, "/S WAIT "); p = put_u(p, u.wait_ms); finish(p);
             ui_line(2, b, C_WARN);
             break;
@@ -284,7 +298,7 @@ static void ui_build(void)
             ui_cell(1, "SONG TEMPO", f_onoff(project.live.song_tempo), project.live.song_tempo ? C_ON : SQ_C_DIM);
             ui_cell(2, f_pre("DEVICE CH", (uint32_t)ch + 1u), sq_device_name(project.device[ch]), project.device[ch] ? C_ACCENT : C_WHITE);
             ui_cell(3, "LONG PATTERNS", project.gen.lib_len == SQ_LL_PHRASE ? "PHRASE" : "COPY", project.gen.lib_len ? C_ACCENT : C_WHITE);
-            ui_line(2, "SAVE 2/4  LOCKS AHEAD, SONG TEMPO, SYNTH", C_WARN);
+            ui_line(2, "SAVE 2/5  LOCKS AHEAD, SONG TEMPO, SYNTH", C_WARN);
             break;
         }
         ui_cell(0, "MASTER KNOB", MK_NAME[project.live.master_fn < SQ_MKS ? project.live.master_fn : 0u], C_WHITE);
@@ -686,7 +700,7 @@ static void ui_build(void)
             if (g->harm_rhythm != SQ_HR_BARS) ui_cell(2, "RHYTHM", sq_hrhythm_name(g->harm_rhythm == SQ_HR_GENRE ? sq_genre_hrhythm(g->harm_genre) : g->harm_rhythm), C_ACCENT);
             else ui_cell(2, "BARS A CHORD", BB[g->harm_bars <= 8u ? g->harm_bars : 0u], C_WHITE);
             ui_cell(3, cfg->follow_mode == SQ_FM_RETRIG ? "FOLLOW RETRIG" : cfg->follow_mode == SQ_FM_LEGATO ? "FOLLOW LEGATO" :
-                       cfg->follow_mode == SQ_FM_MELODY ? "FOLLOW MELODY" : "FOLLOW",
+                       cfg->follow_mode == SQ_FM_MELODY ? "FOLLOW MELODY" : cfg->follow_mode == SQ_FM_SMOOTH ? "FOLLOW SMOOTH" : "FOLLOW",
                     f_onoff(cfg->flags & SQ_TF_FOLLOW), (cfg->flags & SQ_TF_FOLLOW) ? C_ON : SQ_C_DIM);
             {   sq_hchord_t hc;                         /* the chord playing, and which one of the progression */
                 uint8_t hi = 0u;
@@ -706,7 +720,7 @@ static void ui_build(void)
             ui_line(2, b, C_WARN);
         } else if (arp_page == 3u) {                 /* HARMONY 2: FOLLOW's way, the harmony's genre, the mood, the rhythm */
             const sq_gen_t *g = &project.gen;
-            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO", "MELODY"};   /* (0.25 MELODY: a tune that knows the chord) */
+            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO", "MELODY", "SMOOTH"};   /* (0.25 MELODY: a tune that knows the chord; 0.26 SMOOTH: chords that move little) */
             ui_cell(0, "FOLLOW MODE", FMN[cfg->follow_mode < SQ_FMS ? cfg->follow_mode : 0u], (cfg->flags & SQ_TF_FOLLOW) ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "HARM GENRE", g->harm_free ? "FREE" : sq_genre_name(g->harm_genre), g->harm_lock ? C_WARN : C_ACCENT);   /* (0.16 FREE) */
             ui_cell(2, "MOOD", g->harm_mood ? sq_mood_name(g->harm_mood) : "ANY", g->harm_mood ? C_ACCENT : SQ_C_DIM);
@@ -762,7 +776,7 @@ static void ui_build(void)
             sq_metre_sig(st, bt, sig); sq_metre_split(st, bt, spl);
             ui_cell(0, wait ? "BAR >" : "BAR", f_u(st), wait ? C_WARN : st != 16u ? C_ACCENT : C_WHITE);
             ui_cell(1, wait ? "BEATS >" : "BEATS", spl, wait ? C_WARN : bt != sq_metre_option(st, 0u) ? C_ACCENT : C_WHITE);
-            ui_cell(2, "METRE", sig, st != 16u || bt != SQ_BEATS_44 ? C_ACCENT : SQ_C_DIM);
+            ui_cell(2, "SCENE METRE", project.ext.scene_metre_on ? "BRING IT" : "OFF", project.ext.scene_metre_on ? C_ACCENT : SQ_C_DIM);   /* 0.26 (the metre's name: the line below) */
             p = b; if (playing) { p = put_u(p, bar_no() + 1u); p = put_s(p, "."); p = put_u(p, bar_into() / 6u + 1u); } else p = put_s(p, "--"); finish(p);
             ui_cell(3, "BAR.STEP", b, playing && bar_into() < 6u ? C_WARN : C_WHITE);
             p = b; p = put_s(p, perf_mode ? "PERF 4/4 METRE " : "GLO 4/4 METRE "); p = put_s(p, sig); p = put_s(p, " = "); p = put_s(p, spl); finish(p);

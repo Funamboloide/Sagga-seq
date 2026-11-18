@@ -1,9 +1,9 @@
-# SAGGA SEQ 0.25
+# SAGGA SEQ 0.26
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
 SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 16 tracks, 8 patterns of up to 64 steps per
-track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
+track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks; 0.26: the engines make a part IN that bar, a click on its beats, the scenes bring their metre), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
 variations a part in order of likeness, notes of their own length), the THEORY engines (0.23: a band MADE from the rules
 of a genre and a seed, in all 25 genres and in none, that the ENERGY fills and empties), live Euclidean rhythms and four algorithm slots per
 track, a harmony that the tracks follow (the genre's progressions or yours, on any root, with lengths in 16ths, pushes,
@@ -29,14 +29,15 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`, 0.26 is `FM-1_976`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.25.md](RELEASE-NOTES-0.25.md): what changed in this version (Italian): the metre, the polyrhythms, the engines' parts that listen to each other, the melody that knows the chord. 0.24's, the length is the track's: [docs/storia/RELEASE-NOTES-0.24.md](docs/storia/RELEASE-NOTES-0.24.md). 0.23's, the THEORY engines: [docs/storia/RELEASE-NOTES-0.23.md](docs/storia/RELEASE-NOTES-0.23.md); 0.23.1's (NUMERIC, CELL, the bench's account): [docs/storia/RELEASE-NOTES-0.23.1.md](docs/storia/RELEASE-NOTES-0.23.1.md); 0.23.2's (the Pi keeps out of the music): [docs/storia/RELEASE-NOTES-0.23.2.md](docs/storia/RELEASE-NOTES-0.23.2.md).
+* [RELEASE-NOTES-0.26.md](RELEASE-NOTES-0.26.md): what changed in this version (Italian): the click and the count-in, the keyboard's chords as the harmony, the scenes' metres, chords that move little, the keyboard's pedal and wheels, the engines in the bar of any metre, the answers with notes. 0.25's, the metre, the polyrhythms, the parts that listen, the melody that knows the chord: [docs/storia/RELEASE-NOTES-0.25.md](docs/storia/RELEASE-NOTES-0.25.md). 0.24's, the length is the track's: [docs/storia/RELEASE-NOTES-0.24.md](docs/storia/RELEASE-NOTES-0.24.md). 0.23's, the THEORY engines: [docs/storia/RELEASE-NOTES-0.23.md](docs/storia/RELEASE-NOTES-0.23.md); 0.23.1's (NUMERIC, CELL, the bench's account): [docs/storia/RELEASE-NOTES-0.23.1.md](docs/storia/RELEASE-NOTES-0.23.1.md); 0.23.2's (the Pi keeps out of the music): [docs/storia/RELEASE-NOTES-0.23.2.md](docs/storia/RELEASE-NOTES-0.23.2.md).
+* [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian, 0.26) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what could be joined or hidden (proposals: nothing is done).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 21 genres, counted from the library (Italian).
 * [docs/SAGGA-ESPLORATORE.md](docs/SAGGA-ESPLORATORE.md): the explorer, on a computer, on the FM-1 and on the banco (Italian).
@@ -65,7 +66,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.25         # identity FM-1_975
+./build.sh --release 0.26         # identity FM-1_976
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with

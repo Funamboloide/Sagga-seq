@@ -95,10 +95,10 @@ document.addEventListener('click', ev => {                  // 0.20: an arrow of
   commit(); render();
 });
 const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
-const FOLLOW = ['HOLD','RETRIG','LEGATO','MELODY'];   // 0.25 MELODY: a tune - it stays where it is written, its strong notes go to the chord
+const FOLLOW = ['HOLD','RETRIG','LEGATO','MELODY','SMOOTH'];   // 0.25 MELODY: a tune - it stays where it is written, its strong notes go to the chord
 const MASTERF = ['TEMPO','MORPH','FILTER'];
 const REMOTE = ['OFF','CH 14','13 + 14'];
-const KB = ['OFF','ALL','SPLIT C3'];
+const KB = ['OFF','TRANSPOSE','TRANS <C3','CHORDS','CHORD <C3'];   // 0.26: its chords are the harmony (all the keys, or the ones below C3)
 const CLOCK = ['MASTER','SLAVE'];
 const ARPRATE = ['ROLL','1','2','3','4','1/2','1/4'];   // 0.18: 5 = a note every 2 steps, 6 = every 4
 const MACROS = ['INTENSITY','GATE','SWING','FILTER'];
@@ -515,7 +515,7 @@ function rTraccia() {
 // 0.23: what the THEORY engines know of a pattern they made (null: not theirs, or a project of before 0.23). A pattern
 // emptied or moved here is no longer what they made: they forget it (else the FM-1's ENERGY would write into it again);
 // a copy onto another pattern of the same track takes what they know with it.
-const TH_F = ['seed', 'style', 'func', 'var', 'vary', 'energy'];
+const TH_F = ['seed', 'style', 'func', 'var', 'vary', 'energy', 'metre'];   // (0.26: the metre too - a pattern made in its bar says which)
 function thOf(t, p) { const m = P.thp && P.thp[t * 8 + p]; return m && (m.style & 31) ? m : null; }
 function thForget(t, p) { if (P.thp && P.thp[t * 8 + p]) for (const f of TH_F) set('thp', t * 8 + p, f, '-', 0); }
 function copyPat() {
@@ -644,6 +644,10 @@ function rProgetto() {
   for (let m = 0; m < 4; m++) o += L('macro ' + MACROS[m], num('live', '-', 'mac', m, [-63, -90, -25, -64][m], [63, 100, 25, 63][m]));
   o += '</div><h3>LIVE IN (SAVE 4)</h3><div class="grid">' + L('MOTION', sel('ext', '-', 'motion_bars', '-', [], 0, [[0, 'OFF'], [1, '1 BAR'], [2, '2 BARS'], [4, '4 BARS']])) +
     L('KEYBOARD', sel('ext', '-', 'kb_mode', '-', KB)) + L('KEYB CH', sel('ext', '-', 'kb_ch', '-', range(1, 16), 1, [[0, 'ANY']])) + L('MIDI IN', sel('ext', '-', 'in_thru', '-', ['REC ONLY', 'ALWAYS'])) +
+    '</div><h3>IL CLICK (SAVE 5)</h3><div class="grid">' + L('CLICK', sel('ext', '-', 'click', '-', ['OFF', 'REC', 'PLAY'])) +
+    L('COUNT IN', sel('ext', '-', 'count_in', '-', ['OFF', '1 BAR', '2 BARS'])) + L('CLICK OUT', sel('ext', '-', 'click_out', '-', range(1, 16), 1, [[0, 'FM-1']])) +
+    L('LEVEL (0: il solito, 7)', num('ext', '-', 'click_level', '-', 0, 10)) + L('la nota sul canale MIDI (0: la solita, 75)', num('ext', '-', 'click_note', '-', 0, 127)) +
+    L('le scene portano il metro', bit('ext', '-', 'scene_metre_on', '-', 1)) +
     '</div><h3>I SYNTH SUI CANALI</h3><div class="grid">';
   for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel(p, '-', 'device', ch, N.device || []));
   o += '</div><small>Nel progetto anche: ' + P.snaps.filter(x => x).length + ' snapshot e VIAGGIO: l\'editor non li tocca.</small>';

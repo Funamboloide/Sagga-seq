@@ -31,8 +31,9 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.25"
-#define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
+#define SQ_VERSION "0.26"
+#define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
+                                                * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -179,6 +180,10 @@ static void live_step_done(uint32_t t);
 static void live_loop_done(uint32_t t);
 static uint8_t harm_now(int8_t *deg, uint8_t *col);
 static uint8_t harm_chord(sq_hchord_t *c, uint8_t *idx);   /* sagga_gen.c: 0.11 the chord playing */
+/* 0.26 LIVE CHORDS (KEYBOARD: CHORDS, SAVE 4 K2; sagga_live3.c): the chord the keyboard holds, or held last, IS the
+ * harmony's chord - whatever the progression says, and with the HARMONY off too - until the keyboard is given back */
+static sq_hchord_t kb_chord;
+static uint8_t kb_chord_on;
 static void gen_custom_toggle(uint8_t t);
 static void song_bar_tick(void);
 static void song_start_hook(void);
@@ -245,6 +250,21 @@ static uint32_t tup_at[SQ_TRACKS];         /* ... and when (div_frac_x, tup_serv
  * was `global_clock % 96 == 0`. Its lines are counted from bar_origin (a line; 0 at PLAY and after a song position),
  * with bar_base bars before it: a bar changed while it plays begins on a line of the old one (metre_apply). */
 static uint32_t bar_origin, bar_base;
+/* 0.26 THE CLICK (sagga_click.c): what the main loop asks of the audio interrupt, the MIDI click's note that sounds,
+ * the count before a recording */
+static volatile uint8_t clk_req, clk_req_level;   /* a click of the FM-1's own sound waits: 1 a beat, 2 the bar line; how loud */
+static volatile uint32_t clk_req_at;       /* ... the moment it must begin, in the timer's ticks (fm1_ticks) */
+static sq_click_t clk_voice;               /* the click that sounds (the interrupt's alone) */
+static uint32_t clk_next;                  /* the first clock tick nobody has looked at yet for a click asked ahead */
+static uint8_t clk_off_ch = 255u, clk_off_note;   /* a MIDI click's note: its off ... */
+static uint32_t clk_off_us;                /* ... and when */
+static uint32_t clk_count, clk_last_tick;  /* the clicks since power-on, the tick the last was for (the probe) */
+static uint8_t clk_last;                   /* ... and what it was: 1 a beat, 2 the bar line */
+static uint8_t cnt_on;                     /* the count runs */
+static uint16_t cnt_pos, cnt_len;          /* its tick, its length in clock ticks */
+static uint32_t cnt_next_us, cnt_ahead;    /* when its next tick is due; the first of its ticks no click was asked for yet */
+static void click_tick(uint32_t now);
+static void click_quiet(void);
 static uint8_t bar_pend_steps;             /* a bar asked while it plays waits for the bar line (0: none) ... */
 static uint32_t bar_pend_beats;            /* ... with these beats */
 /* the project's metre as the machine uses it, read once when it changes - by a knob, a project loaded, anyone
@@ -768,6 +788,7 @@ static void project_runtime_reset(uint8_t boot)
         for (n = 0; n < SQ_HOLD_MAX; n++) { hold_note[t][n] = SQ_NOTE_NONE; hold_ch[t][n] = 0u; hold_off_us[t][n] = 0u; }
     }
     global_clock = 0u;
+    clk_next = 0u;                                     /* 0.26: no click asked yet */
     tup_wait = 0u;
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: the bars are counted from here */
     if (boot) { bar_pend_steps = 0u; bar_pend_beats = 0u; }
@@ -867,9 +888,11 @@ static void preview_note(uint32_t t, uint8_t note)          /* a short blip so y
     prev_off_ms = fm1_ms + 180u;
 }
 
+static void thru_expr_off(void);                 /* sagga_expr.c: 0.26 */
 static void thru_all_off(void)
 {
     uint32_t k;
+    thru_expr_off();                         /* 0.26: the keyboard's pedal let go, its wheel centred, on the channels they were left on */
     for (k = 0; k < 27u; k++)
         if (live_held & (1u << k)) midi_send(0x80u | live_ch[k], live_note[k], 0u);
     live_held = 0u;
@@ -911,6 +934,7 @@ static void panic_all_x(uint8_t sound)      /* sound: All Sound Off too (the PAN
     panic_service();
     bend_reset();
     porta_all_off();                         /* 0.13 SLIDE: the portamento we switched on */
+    click_quiet();                           /* 0.26: a click that waited, a MIDI click's note */
     aud_stop();                              /* 0.15: what the Pi's editor plays */
 }
 static void panic_all(void) { panic_all_x(0u); }
@@ -1254,7 +1278,9 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
  * playing), TURING moving the notes, then the voicing (not for an arpeggio PLAYED: the order is the player's).
  * 0.25 FOLLOW MELODY: a single note is a note of a tune: it is not moved with the chord; `strong` (it is on a beat of
  * the metre, or longer than its step, or held while the chord changes) it goes to the nearest tone of the chord playing,
- * else it plays as written. A step of two notes or more follows as ever. */
+ * else it plays as written. A step of two notes or more follows as ever.
+ * 0.26 FOLLOW SMOOTH: the chord is the one FOLLOW makes of it, its notes in the octaves nearest to the written ones
+ * (sq_harm_smooth): the notes two chords share stay, the others move a step or two. */
 static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_t strong)
 {
     const sq_track_cfg_t *c = &project.track[t];
@@ -1267,6 +1293,7 @@ static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_
         n = sq_chord_build(raw[0], c->chord, track_in_key(t) ? c->chord_key : (uint8_t)SQ_CK_FREE, root, scale, raw);
     if ((c->flags & SQ_TF_FOLLOW) && !(c->flags & SQ_TF_DRUM) && harm_chord(&hc, 0)) {   /* 0.11: a root and a shape too */
         if (n == 1u && c->follow_mode == SQ_FM_MELODY) { if (strong) raw[0] = sq_harm_melody(raw[0], root, scale, &hc); }
+        else if (c->follow_mode == SQ_FM_SMOOTH) n = sq_harm_smooth(raw, n, root, scale, &hc);   /* 0.26: the nearest notes of the chord */
         else n = sq_harm_apply_chord(raw, n, root, scale, &hc, n >= 2u);
     }
     {
@@ -1284,12 +1311,14 @@ static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_
 }
 static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out) { return step_notes_x(t, s, out, 1u); }   /* (a held note, a chord) */
 /* 0.25 FOLLOW MELODY: step `idx` of track t is a strong note of its tune: on a beat of the metre (the track's steps
- * counted from where its loop begins, as its row shows them), or longer than its step */
+ * counted from where its loop begins, as its row shows them), or longer than its step; 0.26: or a note of the chord
+ * that a tune of the engines plays right after the chord (tune_answers, sagga_gen.c) */
+static uint8_t tune_answers(uint32_t t, const sq_step_t *s, uint8_t idx);
 static uint8_t step_strong(uint32_t t, const sq_step_t *s, uint8_t idx)
 {
     uint8_t st = project.track[t].start;
     uint32_t k = idx >= st ? (uint32_t)idx - st : idx;
-    return (uint8_t)(s->length > 100u || ((bar_bt() >> (k % bar_st())) & 1u) != 0u);
+    return (uint8_t)(s->length > 100u || ((bar_bt() >> (k % bar_st())) & 1u) != 0u || tune_answers(t, s, idx));
 }
 
 /* start playing a step: slices (the ratchets, or the notes of the arpeggio) from first_us, span_us apart in all */
@@ -1676,6 +1705,7 @@ static void scene_send_pc(uint8_t s)
     }
 }
 
+static void scene_metre_bring(uint8_t s);  /* 0.26 (below, with the metre) */
 static void apply_scene_x(uint8_t s, uint8_t restart)
 {
     uint32_t t;
@@ -1691,6 +1721,7 @@ static void apply_scene_x(uint8_t s, uint8_t restart)
     scene_cursor = s;
     scene_send_pc(s);
     if (project.scene[s].key_slot < SQ_KEYS && project.scene[s].key_slot != project.key_cur) key_select_slot(project.scene[s].key_slot);   /* 0.10: the scene's key */
+    scene_metre_bring(s);                    /* 0.26: ... and its metre */
     morph_pos = 0u;                          /* MORPH starts again from the scene that plays (nothing is sent) */
     ui_dirty = grid_dirty = 1u;
 }
@@ -1917,6 +1948,7 @@ static void seq_clock_tick(uint32_t now)
         }
     }
     if (global_clock % 6u == 0u) { harm_tick(now); motion_tick(); link_16th(); }   /* 0.11: a chord that changes on this 16th moves the held notes that follow it; 0.13 MOTION */
+    click_tick(now);                                   /* 0.26: the metronome: this tick's beat, or the FM-1's own sound asked ahead */
     global_clock++;
 }
 
@@ -2261,16 +2293,23 @@ static void lfo_service(uint32_t now)
 }
 
 /* ---- transport */
-static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where every track is after `ticks` ticks */
+/* the tracks where they are at clock tick `ticks`, having begun at tick `from` (0: the start; 0.26: the bar line a
+ * song's scene brought another metre on - every track began again there) */
+static void seek_tracks(uint32_t from, uint32_t ticks)
 {
-    uint32_t t;
+    uint32_t t, el = ticks >= from ? ticks - from : 0u;
     for (t = 0; t < SQ_TRACKS; t++) {
-        tr[t].anchor = 0u;
-        if (track_tuplet(t)) { uint16_t num; uint8_t den; sq_div_frac(project.track[t].division, &num, &den); sq_track_seek_frac(&project.track[t], &tr[t], ticks, num, den); }
-        else sq_track_seek(&project.track[t], &tr[t], ticks, sq_div_ticks(project.track[t].division));
+        tr[t].anchor = from;
+        if (track_tuplet(t)) { uint16_t num; uint8_t den; sq_div_frac(project.track[t].division, &num, &den); sq_track_seek_frac(&project.track[t], &tr[t], el, num, den); }
+        else sq_track_seek(&project.track[t], &tr[t], el, sq_div_ticks(project.track[t].division));
         pre[t].state = 0u;
     }
+}
+static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where every track is after `ticks` ticks */
+{
+    seek_tracks(0u, ticks);
     global_clock = ticks;
+    clk_next = ticks;
     tup_wait = 0u;
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: a song position is counted in the bar as it is now, from the song's start */
 }
@@ -2278,6 +2317,7 @@ static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where 
 static void transport_reset(void)
 {
     uint32_t now;
+    cnt_on = 0u;                                       /* 0.26: a count that ran is over (whoever starts the transport) */
     panic_all();
     lfo_carry += global_clock;
     lfo_trig_seen = 0u;                                /* 0.13: the TRIG LFOs wait for their track's first hit */
@@ -2318,6 +2358,7 @@ static void transport_continue(void)             /* from where it stopped; the r
     }
     next_master_clock_us = now;
     last_master_tick_us = now;
+    cnt_on = 0u; clk_next = global_clock;        /* 0.26: no count; the click from this tick */
     realign_all();                               /* 0.11: what changed while it was stopped (a direction, settings put back)
                                                   * goes where the clock is: CONTINUE carries on in time (the explorer) */
     playing = 1u;
@@ -2795,13 +2836,10 @@ static void metre_say(uint8_t follow, const char *tail)
     finish(p);
     status_msg(msg_buf);
 }
-static void metre_apply(uint8_t steps, uint32_t beats)
+static uint8_t metre_put(uint8_t steps, uint32_t beats)   /* the bar, and the tracks that are a number of bars long -> how many of them followed */
 {
     uint8_t old = bar_st(), n = 0u;
     uint32_t t;
-    bar_pend_steps = 0u;
-    bar_base = bar_no();                               /* (the bars so far, counted in the old bar) */
-    bar_origin = global_clock;
     sq_bar_set(&project.gen, steps, beats);
     metre_sync();
     steps = bar_st();
@@ -2813,6 +2851,16 @@ static void metre_apply(uint8_t steps, uint32_t beats)
         length_apply((uint8_t)t, want);
         n++;
     }
+    return n;
+}
+static void metre_apply(uint8_t steps, uint32_t beats)
+{
+    uint8_t n;
+    uint32_t t;
+    bar_pend_steps = 0u;
+    bar_base = bar_no();                               /* (the bars so far, counted in the old bar) */
+    bar_origin = global_clock;
+    n = metre_put(steps, beats);
     if (playing) {
         loop_on = 0u; loop_latched = 0u; lp_held = 0u;
         for (t = 0; t < SQ_TRACKS; t++) track_restart(t);
@@ -2846,6 +2894,35 @@ static void metre_ask(uint8_t steps, uint32_t beats)   /* the knobs, the tablet:
 static void metre_bar_tick(void)                       /* every bar line: the bar that waited */
 {
     if (bar_pend_steps) metre_apply(bar_pend_steps, bar_pend_beats);
+}
+/* 0.26 THE METRE WITH THE SCENE (GLO 4 K3: SCENE METRE). A scene stored while it is on keeps the metre it was stored
+ * in (capture_scene), and brings it back when it comes: at once when nothing plays; on the bar line it comes at (a
+ * scene queued for the bar, an entry of the song) from that very bar; one that comes in the middle of a bar (QUANTISE
+ * NOW or BEAT, a pad of the grid) at the bar's end - the metre never begins in the middle of a bar. So a song changes
+ * metre with its scenes. Off (as every project until 0.25): a scene leaves the metre alone, and stores none. */
+static void scene_metre_bring(uint8_t s)
+{
+    uint8_t st = 16u, id;
+    uint32_t bt = SQ_BEATS_44;
+    if (s >= SQ_SCENES || !project.ext.scene_metre_on) return;
+    id = project.ext.scene_metre[s];
+    if (!id || !sq_metre_of((uint8_t)(id - 1u), &st, &bt)) return;
+    if (st == sq_bar_steps(&project.gen) && bt == sq_bar_beats(&project.gen)) { bar_pend_steps = 0u; return; }   /* (it is the bar already: none waits) */
+    if (!playing || bar_into() == 0u) metre_apply(st, bt);
+    else metre_ask(st, bt);
+}
+static uint8_t scene_metre_now(void)                   /* what a scene stored now keeps: the metre shown (the one that waits for the bar, if one does) */
+{
+    uint8_t id;
+    if (!project.ext.scene_metre_on) return 0u;
+    id = sq_metre_id(bar_shown(), beats_shown());
+    return (uint8_t)(id == 255u ? 0u : id + 1u);       /* (a bar divided from outside has no number: the scene leaves the metre) */
+}
+static void scene_metre_toggle(uint8_t on)
+{
+    project.ext.scene_metre_on = on ? 1u : 0u;
+    status_msg(on ? "SCENES BRING THEIR METRE (STORE THEM IN IT)" : "SCENES LEAVE THE METRE ALONE");
+    ui_dirty = 1u;
 }
 
 /* a pattern came from the library (or a snapshot, a scene) with a loop of its own: no length waits any more, the
@@ -3246,6 +3323,8 @@ static void rec_close_note(uint8_t src);
 #include "sagga_break.c"                              /* 0.12: the slices of a drum break */
 #include "sagga_live2.c"                              /* 0.12: TAKE, the THROWS, the step's notes by knob */
 #include "sagga_live3.c"                              /* 0.13: KEYBOARD, MIDI IN, MOTION, SLIDE, CHAIN LIST */
+#include "sagga_click.c"                              /* 0.26: THE CLICK - the metronome, the count before a recording */
+#include "sagga_expr.c"                               /* 0.26: the keyboard's pedal, wheels and aftertouch go where its notes go, and are recorded */
 
 /* EDIT + black 2 / 3 / 4: COPY, PASTE, CLEAR the cursor step (UNDO takes PASTE and CLEAR back); 5 PLAIN, 6 TIE, 7 SLIDE */
 static void step_tool(int bi)
@@ -3273,6 +3352,7 @@ static void step_tool(int bi)
     ui_dirty = grid_dirty = 1u;
 }
 
+static uint8_t scene_metre_now(void);
 static void capture_scene(uint8_t s)
 {
     uint32_t t;
@@ -3284,7 +3364,13 @@ static void capture_scene(uint8_t s)
         for (l = 0; l < SQ_LANES; l++) project.scene[s].lane[t][l] = project.track[t].lane_base[l];   /* for MORPH */
     }
     project.scene[s].key_slot = project.key_cur;                /* 0.10: the scene brings its key back */
-    status_num("SCENE STORED ", (uint32_t)s + 1u);
+    project.ext.scene_metre[s] = scene_metre_now();             /* 0.26: ... and its metre (SCENE METRE off: none) */
+    if (project.ext.scene_metre[s]) {
+        char sig[8], *p = msg_buf;
+        sq_metre_sig(bar_shown(), beats_shown(), sig);
+        p = put_s(p, "SCENE STORED "); p = put_u(p, (uint32_t)s + 1u); p = put_s(p, " IN "); p = put_s(p, sig); finish(p);
+        status_msg(msg_buf);
+    } else status_num("SCENE STORED ", (uint32_t)s + 1u);
 }
 
 static void scene_recall(uint8_t s)
@@ -3346,6 +3432,7 @@ static int record_note(uint8_t t, uint8_t note, uint8_t vel)   /* the step it we
     uint8_t stp, fresh = 1u;
     int8_t nudge = 0;
     if (!record_arm || t >= SQ_TRACKS) return -1;
+    if (cnt_on) return -1;                                          /* 0.26: a note played during the count is written nowhere */
     if (playing) {
         uint32_t now = sq_micros(), el = (uint32_t)(now - ev[t].slot_start_us), phase;
         phase = ev[t].slot_dur_us ? el * 100u / ev[t].slot_dur_us : 0u;
@@ -3471,6 +3558,9 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
             /* 0.8: CC CAPTURE took it into the snapshot */
         } else if ((st & 0xF0u) == 0xB0u) {
             if (!project.ext.kb_ch || (st & 15u) == project.ext.kb_ch - 1u) cc_in_val[d1 & 127u] = (uint8_t)(d2 & 127u);   /* 0.20: the MOD MATRIX's CC IN */
+            thru_ctl(st, d1, d2);                       /* 0.26: ... and it goes where the keyboard's notes go (the pedal, the wheel) */
+        } else if ((st & 0xF0u) == 0xE0u || (st & 0xF0u) == 0xD0u || (st & 0xF0u) == 0xA0u) {
+            thru_ctl(st, d1, d2);                       /* 0.26: the pitch wheel, the aftertouch (until 0.25: dropped) */
         } else if (st == 0xFAu && project.clock_mode == SQ_CLOCK_SLAVE) {
             transport_reset(); song_start_hook(); chain_start(); scene_send_pc(scene_cursor); playing = 1u;
             vg_transport_start(); regia_transport_start(); ui_dirty = 1u;    /* (0.9: as the master's start) */
@@ -3489,6 +3579,7 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
                 if (project.track[tt].flags & SQ_TF_DRUM) { uint8_t dt = drum_track_for_note(d1); if (dt < SQ_TRACKS) tt = dt; }
                 take_note_on(d1 & 127u, tt, d1 & 127u, d2);
             }
+            ped_release((uint8_t)(d1 & 127u));           /* 0.26: the key struck again while the pedal held its note: that note is over */
             if (record_arm || project.ext.in_thru) {     /* (0.13 MIDI IN ALWAYS: it plays without REC; REC records it) */
                 uint8_t t = (uint8_t)((vg_rec_t < SQ_TRACKS ? vg_rec_t : selected_track) & 15u), ch, out;   /* (0.9: a LOOP records on its track) */
                 if (project.track[t].flags & SQ_TF_DRUM) {          /* a drum pad controller: each note to its drum track */
@@ -3511,9 +3602,11 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
                 midi_send(0x80u | ext_ch[d1 & 127u], ext_out[d1 & 127u], 0u);
                 ext_ch[d1 & 127u] = 255u;
             }
-            rec_close_note(d1 & 127u);                 /* 0.10: the length it was held */
-            tape_rec_off(d1 & 127u);                   /* 0.11 */
-            take_note_off(d1 & 127u);                  /* 0.12 */
+            if (!ped_holds((uint8_t)(d1 & 127u))) {    /* 0.26: with the pedal down the note sounds on: its length is counted to the pedal's release */
+                rec_close_note(d1 & 127u);             /* 0.10: the length it was held */
+                tape_rec_off(d1 & 127u);               /* 0.11 */
+                take_note_off(d1 & 127u);              /* 0.12 */
+            }
         }
     }
 }
@@ -3992,6 +4085,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
             if (n < 2u) status_msg("THIS BAR HAS ONE WAY ONLY");
             else metre_ask(st, sq_metre_option(st, change_u8(i < n ? i : 0u, d2, 0u, (uint8_t)(n - 1u))));
         }
+        if (d3 && ((d3 > 0) != (project.ext.scene_metre_on != 0u))) scene_metre_toggle((uint8_t)(d3 > 0));   /* 0.26: the scenes bring their metre */
     } else if (page == 2u) {                       /* 3 the MOSSE (0.17; VIAGGIO until 0.16): energy, phrase, genre, key */
         if (d1) vg_energy_turn(d1 * f1);
         while (d2) { vg_bars_turn(d2 > 0 ? 1 : -1); d2 += d2 > 0 ? -1 : 1; }   /* (one step a detent: PICK turns it by several) */
@@ -4008,7 +4102,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
 #define HOME_PAGES 8u                                  /* 0.13: 8 CHAIN LIST */
 #define SEQ_PAGES 8u
 #define ARP_PAGES 6u
-#define SAVE_PAGES 4u                                  /* 0.13: 4 LIVE IN */
+#define SAVE_PAGES 5u                                  /* 0.13: 4 LIVE IN; 0.26: 5 CLICK */
 #define PERF_PAGES 4u                                  /* 0.25: 4 THE METRE */
 #define LFO_PAGES 6u                                   /* 0.13: 4 RATE SEQ; 0.20: 5 ENV, 6 MOD */
 #define LFO_PAGE_ENV 4u
@@ -4147,6 +4241,11 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
     }
     if (held & (1u << BTN_SAVE)) {                     /* SAVE: the slot, the MASTER knob, the remote, snapshot tempo; page 2: lead, song tempo, device */
         if (dp) save_turn(dp);
+        if (save_page == 4u) {                         /* 0.26 CLICK: the metronome, the count, where it sounds, how loud (SEL + K4: its note) */
+            click_knobs(d1, d2, d3, d4, (uint8_t)((held & (1u << BTN_SEL)) != 0u));
+            if (d1 || d2 || d3 || d4) { save_knob = 1u; ui_dirty = 1u; }
+            return;
+        }
         if (save_page == 3u) {                         /* 0.13 LIVE IN: MOTION, the KEYBOARD's transpose, its channel, MIDI IN */
             sq_ext_t *x = &project.ext;
             if (d1) {
@@ -4157,8 +4256,11 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
                 else { char *p = msg_buf; p = put_s(p, "MOTION "); p = put_u(p, x->motion_bars); p = put_s(p, x->motion_bars > 1u ? " BARS: REC + FX K" : " BAR: REC + FX K"); finish(p); status_msg(msg_buf); }
             }
             if (d2) {
+                static const char *const KBM[SQ_KBS] = {"KEYBOARD: NOTES AS NOTES", "KEYBOARD: ITS NOTES TRANSPOSE THE KEY", "KEYBOARD: BELOW C3 TRANSPOSES, ABOVE PLAYS",
+                                                        "KEYBOARD: ITS CHORDS ARE THE HARMONY", "KEYBOARD: CHORDS BELOW C3, ABOVE PLAYS"};
                 x->kb_mode = change_u8(x->kb_mode, d2, 0u, SQ_KBS - 1u);
-                status_msg(x->kb_mode == SQ_KB_ALL ? "KEYBOARD: ITS NOTES TRANSPOSE THE KEY" : x->kb_mode == SQ_KB_SPLIT ? "KEYBOARD: BELOW C3 TRANSPOSES, ABOVE PLAYS" : "KEYBOARD: NOTES AS NOTES");
+                if (!SQ_KB_IS_CHORD(x->kb_mode)) kb_chord_on = 0u;       /* 0.26: the harmony is the progression's again */
+                status_msg(KBM[x->kb_mode]);
             }
             if (d3) { x->kb_ch = change_u8(x->kb_ch, d3, 0u, 16u); if (x->kb_ch) status_num("KEYBOARD ON CHANNEL ", x->kb_ch); else status_msg("KEYBOARD: ANY CHANNEL"); }
             if (d4) { x->in_thru = d4 > 0 ? 1u : 0u; status_msg(x->in_thru ? "MIDI IN PLAYS THE TRACK, REC OR NOT" : "MIDI IN PLAYS WITH REC ONLY"); }
@@ -4685,7 +4787,7 @@ static void handle_buttons(void)
             if (vg_mosse_shown() && !playing) vg_seed();
             else if (!playing) transport_continue();
         } else if (playing) transport_stop();
-        else transport_start();
+        else transport_start_ask();                            /* (0.26: after the COUNT IN, when REC is on and one is asked) */
     }
     if (b & (1u << BTN_REC)) {
         rec_used = 1u;
@@ -4879,7 +4981,7 @@ static void update_leds(void)
     }
     /* the buttons: full when held or on; the others glow (the backlight, lights_apply) */
 #define HELD(btn) ((held >> (btn)) & 1u)
-    fm1_led_key(BTN_PLAY, playing || HELD(BTN_PLAY));
+    fm1_led_key(BTN_PLAY, playing || HELD(BTN_PLAY) || (cnt_on && ((fm1_ms / 125u) & 1u)));   /* (0.26: it blinks while the count runs) */
     fm1_led_key(BTN_REC, record_arm || HELD(BTN_REC));
     fm1_led_key(BTN_GLO, song_on ? blink : (perf_mode || HELD(BTN_GLO)));
     fm1_led_key(BTN_ARP, SQ_CHORD_MODE(project.track[selected_track].chord_mode) != SQ_CHORD_BLOCK || HELD(BTN_ARP));
@@ -4983,6 +5085,20 @@ static void app_host_theory(int packed, int seed)
     }
     ui_dirty = grid_dirty = 1u;
 }
+/* 0.26: the pattern every track plays becomes one that 0.25 made - what the engines keep of it says so (not made in
+ * the bar, no notes in its answers) and it is made again that way: a band of a project of 0.25, for the tests */
+static void app_host_thold(void)
+{
+    uint32_t t;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+        if (!(m->style & 31u)) continue;
+        m->style = (uint8_t)(m->style & 0x7Fu);
+        m->vary = (uint8_t)(m->vary & 127u);
+        if (th_again((uint8_t)t, tr[t].pattern)) activate_row(t, project.step[t][tr[t].pattern]);
+    }
+    ui_dirty = grid_dirty = 1u;
+}
 static void app_host_scene(int s, int prog)
 {
     if (prog >= 0 && prog < (int)SQ_UPROGS) harm_prog_set((uint8_t)(SQ_PROGS + (uint32_t)prog));
@@ -5013,6 +5129,14 @@ static void app_host_dump(int t)
      * plays, r a copy at rest - after the loop: the mark of the pattern's end) */
     printf("%6u ms  copies T%d own %u ROW:", fm1_ms, t + 1, (unsigned)sq_row_own(row, project.track[t].start, project.track[t].length));
     for (i = 0; i < SQ_STEPS; i++) putchar((row[i].flags & SQ_STEP_GHOST) ? ((row[i].flags & SQ_STEP_ON) ? 'g' : 'r') : (row[i].flags & SQ_STEP_ON) ? 'x' : '.');
+    putchar('\n');
+    /* 0.26: the row's notes as the engines write them - a step's note above the track's root (0..f), '*' a chord,
+     * '?' another note, '.' a step that does not play */
+    printf("%6u ms  rownt T%d NT:", fm1_ms, t + 1);
+    for (i = 0; i < project.track[t].length; i++) {
+        int32_t d = (int32_t)row[i].note[0] - (int32_t)gen_root_note((uint32_t)t);
+        putchar(!(row[i].flags & SQ_STEP_ON) || row[i].note[0] > 127u ? '.' : row[i].note[1] <= 127u ? '*' : d >= 0 && d < 16 ? "0123456789abcdef"[d] : '?');
+    }
     putchar('\n');
     {   /* 0.11: the tape of the track */
         uint16_t tf, tn, k;
@@ -5123,7 +5247,9 @@ static void app_host_dump(int t)
         const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
         printf("%6u ms  theory T%d P%u style %u len %u func %u seed %u var %u vary %u energy %u src %u next %u now %u\n", fm1_ms, t + 1,
                (unsigned)tr[t].pattern + 1u, (unsigned)(m->style & 31u), (unsigned)(m->style ? SQ_THP_LEN(m) : 0u), (unsigned)m->func, (unsigned)m->seed,
-               (unsigned)m->var, (unsigned)m->vary, (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+               (unsigned)m->var, (unsigned)SQ_THP_VARY(m), (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+        printf("%6u ms  thmade T%d bar %u notes %u steps %u\n", fm1_ms, t + 1, (unsigned)((m->style & 31u) && (m->style & SQ_THP_V26) ? 1u : 0u),   /* 0.26: made in the bar, its answers with notes */
+               (unsigned)((m->style & 31u) ? SQ_THP_NOTES(m) : 0u), (unsigned)((m->style & 31u) ? th_rec_len(m) : 0u));
         printf("%6u ms  thmetre T%d made %u now %u kept %u\n", fm1_ms, t + 1, (unsigned)m->metre, (unsigned)metre_id_now(),   /* 0.25: the metre it was made in */
                (unsigned)((th_kept[t] >> tr[t].pattern) & 1u));
     }
@@ -5139,10 +5265,7 @@ static void app_host_dump(int t)
 }
 #endif
 
-static void app_audio(int32_t *out, uint32_t n)
-{
-    (void)out; (void)n; /* MIDI-only firmware: deliberately silent */
-}
+/* (app_audio: sagga_click.c - 0.26: the metronome's click is the one sound this firmware makes) */
 
 static void app_main(void)
 {
@@ -5179,7 +5302,9 @@ static void app_main(void)
 
         /* Give the sequencer clock priority over UI/input work. */
         now = sq_micros();
+        count_service(now);                            /* 0.26: the count before a recording: its last tick starts the transport */
         service_master_clock(now);
+        click_service(now);                            /* 0.26: a MIDI click's note ends */
         lfo_service(now);
         service_track_events(now);
 

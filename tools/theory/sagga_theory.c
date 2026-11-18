@@ -1,7 +1,10 @@
 /* SPDX-License-Identifier: GPL-3.0-only
  * SAGGA SEQ: what the THEORY engines make, as text (the library's own notation), on a computer.
- *   sagga_theory STYLE SEED [VAR VARY ENERGY LEN] [PART ...]
+ *   sagga_theory [--metre N/D[:WAY]] [--v25 | --no-notes] STYLE SEED [VAR VARY ENERGY LEN] [PART ...]
  *   sagga_theory --rules        the rules of every style, a line each (tools/theory/regole.py writes them out in words)
+ * 0.26: what the FM-1 makes NOW - in the bar of the metre (--metre 7/8, 5/4, 6/8 ...: its usual division, :1 :2 another
+ * one), the answers with notes. --v25: as 0.25 made it (sixteens in 4/4, the answers of rhythm alone); --no-notes: in
+ * the bar, the answers of rhythm alone (what a pattern of 0.25 becomes when the metre changes).
  * STYLE: a genre of the FM-1 by its name (TECHNO, "UK GARAGE" or UKGARAGE, DNB ...) or its number 0..24, or FREE (25).
  * No PART: the style's band (sq_th_band) and its chords.
  *   cc -std=c11 -O2 -Ifirmware/src tools/theory/sagga_theory.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c \
@@ -113,20 +116,60 @@ static void rules(void)
     }
 }
 
+/* 0.26: a part as another hears it - what the FM-1 does (th_hear, sagga_gen.c): made at half the energy, and WITH the
+ * part it answers itself (the bass hears the tune that hears the chords; `deep`: no further). parts: the tracks in
+ * their order; k: the one heard. Returns 1 when it plays anything. */
+static uint8_t hear(const sq_th_t *base, const uint8_t *parts, uint8_t n, uint8_t k, uint8_t func, uint8_t len, uint8_t deep, uint8_t notes,
+                    uint8_t *lev, uint8_t *nt)
+{
+    static uint8_t lev2[SQ_STEPS], nt2[SQ_STEPS];
+    sq_th_t m = *base;
+    uint8_t fam = sq_th_mate_family(func), j, any = 0u;
+    m.energy = 50u; m.kick = 0; m.mate = 0; m.mate_nt = 0;
+    if (!base->gen) { sq_th_levels(&m, func, len, lev); for (j = 0; j < SQ_STEPS; j++) nt[j] = 255u; }   /* (0.25: its rhythm, and alone) */
+    else {
+        for (j = 0; j < n && !deep && fam != 255u; j++) {
+            if (j == k || sq_func_family(parts[j]) != fam) continue;
+            if (hear(base, parts, n, j, parts[j], len, 1u, notes, lev2, nt2)) { m.mate = lev2; if (notes) m.mate_nt = nt2; }
+            break;
+        }
+        sq_th_heard(&m, func, len, lev, nt);
+    }
+    for (j = 0; j < SQ_STEPS; j++) if (lev[j]) any = 1u;
+    return any;
+}
+
 int main(int argc, char **argv)
 {
     sq_th_t t;
     sq_uprog_t u;
-    uint8_t parts[SQ_TH_BAND_MAX + 8u], n = 0u, i, len = 64u, st;
-    char name[40];
+    uint8_t parts[SQ_TH_BAND_MAX + 8u], n = 0u, i, len = 64u, st, v25 = 0u, notes = 1u, bar_steps = 16u;
+    uint32_t bar_beats = SQ_BEATS_44;
+    char name[40], sig[8];
     const char *mate_style = 0, *mate_seed = 0, *mate_part = 0;
     if (argc == 2 && !strcmp(argv[1], "--rules")) { rules(); return 0; }
-    if (argc > 5 && !strcmp(argv[1], "--mate")) {        /* 0.25: the part the parts answer is of another style and seed (a track that was there) */
-        mate_style = argv[2]; mate_seed = argv[3]; mate_part = argv[4];
-        argv += 4; argc -= 4;
+    for (;;) {
+        if (argc > 2 && !strcmp(argv[1], "--v25")) { v25 = 1u; argv += 1; argc -= 1; }               /* as 0.25 made it: in sixteens, the answers of rhythm alone */
+        else if (argc > 2 && !strcmp(argv[1], "--no-notes")) { notes = 0u; argv += 1; argc -= 1; }  /* in the bar, the answers of rhythm alone (a pattern of 0.25 in a new metre) */
+        else if (argc > 3 && !strcmp(argv[1], "--metre")) {                                         /* 7/8, 5/4, 6/8 ...; 7/8:1 - another way to divide it */
+            unsigned num = 0, den = 0, opt = 0;
+            int got = sscanf(argv[2], "%u/%u:%u", &num, &den, &opt);
+            if (got < 2 || (den != 4u && den != 8u && den != 16u) || num * 16u / den < SQ_BAR_MIN || num * 16u / den > SQ_BAR_MAX ||
+                opt >= sq_metre_options((uint8_t)(num * 16u / den))) { fprintf(stderr, "no such metre: %s\n", argv[2]); return 2; }
+            bar_steps = (uint8_t)(num * 16u / den);
+            bar_beats = sq_metre_option(bar_steps, (uint8_t)opt);
+            argv += 2; argc -= 2;
+        }
+        else if (argc > 5 && !strcmp(argv[1], "--mate")) {   /* 0.25: the part the parts answer is of another style and seed (a track that was there) */
+            mate_style = argv[2]; mate_seed = argv[3]; mate_part = argv[4];
+            argv += 4; argc -= 4;
+        }
+        else break;
     }
-    if (argc < 3) { fprintf(stderr, "usage: sagga_theory STYLE SEED [VAR VARY ENERGY LEN] [PART ...]\n       sagga_theory --rules\n"
+    if (argc < 3) { fprintf(stderr, "usage: sagga_theory [--metre N/D[:WAY]] [--v25 | --no-notes] STYLE SEED [VAR VARY ENERGY LEN] [PART ...]\n       sagga_theory --rules\n"
                                     "the parts given (else the style's band) are the tracks in their order: each answers the first other one of the family it answers\n"
+                                    "LEN 16, 32, 64: one, two, four bars of the metre (as many as fit 64 steps)\n"
+                                    "--v25: as 0.25 made it (in sixteens, 4/4; the answers of rhythm alone); --no-notes: in the bar, the answers of rhythm alone\n"
                                     "       sagga_theory --mate STYLE SEED PART STYLE SEED ...   the part they answer is that one (a track of another band)\n"); return 2; }
     memset(&t, 0, sizeof t);
     st = style_of(argv[1]);
@@ -138,44 +181,44 @@ int main(int argc, char **argv)
     t.energy = (uint8_t)(argc > 5 ? atoi(argv[5]) : 60);
     if (argc > 6) len = (uint8_t)atoi(argv[6]);
     t.scale = sq_th_scale(&t);
+    if (v25) { notes = 0u; bar_steps = 16u; bar_beats = SQ_BEATS_44; }
+    else if (notes || !(bar_steps == 16u && sq_metre_fix(16u, bar_beats) == SQ_BEATS_44)) {   /* (the FM-1's th_gen_now: in 4/4, without notes, it is 0.25's) */
+        t.gen = 1u; t.bar_steps = bar_steps; t.bar_beats = bar_beats;
+        len = sq_th_steps(&t, (uint8_t)(len / 16u));
+    }
     if (argc > 7) {
         int a;
         for (a = 7; a < argc && n < sizeof parts; a++) { uint8_t f = func_of(argv[a]); if (f != 255u) parts[n++] = f; }
     } else n = sq_th_band(st, parts);
     sq_th_prog(&u, &t);
     sq_uprog_name(&u, t.scale, name, sizeof name);
+    sq_metre_sig(bar_steps, bar_beats, sig);
     {
         uint16_t lo, hi;
         sq_genre_bpm(sq_th_genre(st) != 255u ? sq_th_genre(st) : SQ_GENRE_TECHNO, &lo, &hi);
-        printf("# %s seed %u var %u vary %u energy %u: %u BPM, key %s %s, chords %s, %u bars a chord, push %u\n", sq_th_name(st), (unsigned)t.seed,
+        printf("# %s seed %u var %u vary %u energy %u: %u BPM, key %s %s, chords %s, %u bars a chord, push %u", sq_th_name(st), (unsigned)t.seed,
                (unsigned)t.var, (unsigned)t.vary, (unsigned)t.energy, (unsigned)(sq_th_genre(st) != 255u ? (lo + hi) / 2u : 120u),
                sq_root_name(sq_th_root(&t)), sq_scale_name(t.scale), name, (unsigned)u.bars, (unsigned)u.push[0]);
+        if (t.gen && !(bar_steps == 16u && sq_metre_fix(16u, bar_beats) == SQ_BEATS_44)) printf(", in %s (%u steps a bar, %u in all)", sig, (unsigned)bar_steps, (unsigned)len);
+        putchar('\n');
     }
     for (i = 0; i < n; i++) {
         char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
-        uint8_t lev[SQ_STEPS], fam = sq_th_mate_family(parts[i]), k;
+        static uint8_t lev[SQ_STEPS], mnt[SQ_STEPS];
+        uint8_t fam = sq_th_mate_family(parts[i]), k;
         /* 0.25 THE PARTS LISTEN: a part answers the first OTHER part of the list (the tracks, in their order) that is
-         * of the family it answers, as that one is at half the energy - what the FM-1 does with the tracks of a band.
-         * A part alone on the command line answers nobody. */
-        t.mate = 0;
+         * of the family it answers, as that one is at half the energy - what the FM-1 does with the tracks of a band
+         * (0.26: with the part IT answers, and its notes: hear). A part alone on the command line answers nobody. */
+        t.mate = 0; t.mate_nt = 0;
         if (mate_part && fam != 255u && func_of(mate_part) != 255u && sq_func_family(func_of(mate_part)) == fam && style_of(mate_style) != 255u) {
-            sq_th_t m;
-            uint8_t j, any = 0u;
-            memset(&m, 0, sizeof m);
-            m.style = style_of(mate_style); m.seed = (uint32_t)strtoul(mate_seed, 0, 0); m.energy = 50u; m.scale = t.scale;
-            sq_th_levels(&m, func_of(mate_part), len, lev);
-            for (j = 0; j < SQ_STEPS; j++) if (lev[j]) any = 1u;
-            if (any) t.mate = lev;
+            sq_th_t m = t;
+            m.style = style_of(mate_style); m.seed = (uint32_t)strtoul(mate_seed, 0, 0); m.var = 0u; m.vary = 0u;
+            if (hear(&m, parts, 0u, 255u, func_of(mate_part), len, 1u, notes, lev, mnt)) { t.mate = lev; if (t.gen && notes) t.mate_nt = mnt; }
             fam = 255u;
         }
         for (k = 0; k < n && fam != 255u; k++) {
-            sq_th_t m = t;
-            uint8_t j, any = 0u;
             if (k == i || sq_func_family(parts[k]) != fam) continue;
-            m.energy = 50u; m.kick = 0; m.mate = 0;
-            sq_th_levels(&m, parts[k], len, lev);
-            for (j = 0; j < SQ_STEPS; j++) if (lev[j]) any = 1u;
-            if (any) t.mate = lev;
+            if (hear(&t, parts, n, k, parts[k], len, 0u, notes, lev, mnt)) { t.mate = lev; if (t.gen && notes) t.mate_nt = mnt; }
             break;
         }
         if (!sq_th_part(&t, parts[i], len, r, nt)) continue;

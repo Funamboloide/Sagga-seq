@@ -36,6 +36,10 @@ cosa cambia) e `build/explore/rapporto.json`.
    battuta (3+3+2), il LEAD sulla traccia 8 in MELODY e selezionato, così le manopole della traccia girano sulla
    melodia. E il controllo "una situazione è quello che dice" adesso guarda anche altri valori promessi dal nome: la
    quarta situazione parte solo se la traccia 8 è davvero in MELODY con FOLLOW acceso, e l'armonia accesa e non su LOCK.
+   0.26: **una con le cose nuove**. Una battuta di 20 step (5/4), una band FREE dei motori **nata in cinque**, con le
+   risposte fatte di note; le scene portano il metro (GLO 4 K3); il CLICK acceso mentre suona, come nota sul canale
+   MIDI 10 (SAVE 5); KEYBOARD su CHORDS (SAVE 4). Il nome della situazione promette che il LEAD e il BASS sono pattern
+   fatti nel modo nuovo (`thv` 3), e viene controllato prima di cominciare.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -175,6 +179,19 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   provate rompendo il firmware in dodici punti, uno alla volta: tutte e dodici le rotture trovate. Le prove del
   simulatore di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore.
 
+* **Sulla 0.26** (il click, gli accordi dal vivo, il metro delle scene, SMOOTH, il pedale e le rotelle, i motori nella
+  battuta, le risposte con le note): una situazione nuova (sopra), e SAVE ha una pagina in più da sfogliare. Il giro
+  completo: **94.367 gesti da soli in 28 situazioni, 11.197 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
+  guardare**. Un falso allarme del giro della 0.25 è stato capito e tolto: nelle coppie, dopo un gesto che apre le
+  MOSSE, la manopola ALG non sfoglia niente: sceglie *quando* parte una mossa in coda (PHRASE, BAR, BEAT). L'esploratore
+  la trattava come "sfogliare" e segnalava che la musica era cambiata; adesso lì è un comando. Il piano per l'FM-1 vero
+  che va nello zip del Pi prende **ogni** situazione una volta (il numero era scritto a mano, 24, e le ultime
+  situazioni della 0.25 ne restavano fuori): 27 sessioni più 4 con il tablet. Il banco: 26.
+  Le prove fisse della 0.26 (`t026_*`, 83 controlli nel simulatore, più quelle del cuore e dei motori) sono state
+  provate rompendo il firmware in diciannove punti, uno alla volta: tutte e diciannove le rotture trovate. Le stesse
+  prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. L'analizzatore statico di clang su tutto il
+  firmware: quattro avvisi, nessuno vero (li ho guardati uno per uno).
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -232,7 +249,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 25 dalla 0.25, erano 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 26 dalla 0.26, erano 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

@@ -271,7 +271,7 @@ def t_page_lists():
         check(js(name) == c(anchor), '%s as the panel\'s (%s / %s)' % (name, js(name), c(anchor)))
     check(js('MFX') == c('static const char *const MFX_NAME[SQ_MFXS]'), 'MFX as the panel\'s')
     check(js('VOICE') == c('static const char *const VN[SQ_VOICES]'), 'VOICE as the panel\'s')
-    check(js('FOLLOW') == c('static const char *const FMN[SQ_FMS]') and js('FOLLOW')[-1] == 'MELODY', 'FOLLOW\'s ways as the panel\'s, MELODY the last (%s)' % js('FOLLOW'))   # 0.25
+    check(js('FOLLOW') == c('static const char *const FMN[SQ_FMS]') and js('FOLLOW')[-2:] == ['MELODY', 'SMOOTH'], 'FOLLOW\'s ways as the panel\'s: MELODY, and SMOOTH the last (%s)' % js('FOLLOW'))   # 0.25, 0.26
 
 
 class FakeBridge:
@@ -1270,13 +1270,44 @@ def t025_melody():
     check(r.returncode == 0 and [t['follow_mode'] for t in j['track'][:3]] == [3, 2, 0], 'MELODY (3) on track 1, LEGATO on 2 (%s)' % [t['follow_mode'] for t in j.get('track', [])[:3]])
     r = apply(a, ['track 0 follow_mode - 4'], b)
     j = read(b) if r.returncode == 0 else {}
+    check(r.returncode == 0 and [t['follow_mode'] for t in j['track'][:3]] == [4, 2, 0], '0.26: SMOOTH (4) on track 1 (%s)' % [t['follow_mode'] for t in j.get('track', [])[:3]])
+    r = apply(a, ['track 0 follow_mode - 5'], b)
+    j = read(b) if r.returncode == 0 else {}
     check(r.returncode == 0 and [t['follow_mode'] for t in j['track'][:3]] == [0, 2, 0], 'a way there is not: HOLD (%s)' % [t['follow_mode'] for t in j.get('track', [])[:3]])
+
+
+def t026_files():
+    group("0.26 in the files: THE CLICK and the scenes' metres (ext), the chords of the keyboard (kb_mode 3, 4), a pattern made in its bar with notes in its answers (thp: style's bit 7, vary's bit 7) - written, read back, put right")
+    d = tempfile.mkdtemp()
+    a, b = os.path.join(d, 'a.sgq'), os.path.join(d, 'b.sgq')
+    r = apply('new', ['ext - click - 2', 'ext - count_in - 2', 'ext - click_out - 10', 'ext - click_note - 76', 'ext - click_level - 9', 'ext - scene_metre_on - 1',
+                      'ext - scene_metre 3 10', 'ext - kb_mode - 4', 'metre - bar_steps - 14',
+                      'thp 19 style - %d' % (11 | 0x40 | 0x80), 'thp 19 seed - 7', 'thp 19 func - 4', 'thp 19 vary - %d' % (40 | 0x80), 'thp 19 metre - 9',
+                      'thp 20 style - 11', 'thp 20 seed - 7', 'thp 20 vary - %d' % (40 | 0x80), 'step 2,3,0 flags - 3', 'step 2,4,0 flags - 3'], a)
+    j = read(a) if r.returncode == 0 else {}
+    e = j.get('ext', {})
+    check(r.returncode == 0 and [e.get(k) for k in ('click', 'count_in', 'click_out', 'click_note', 'click_level', 'scene_metre_on', 'kb_mode')] == [2, 2, 10, 76, 9, 1, 4]
+          and e.get('scene_metre', [])[3] == 10 and len(e.get('scene_metre', [])) == 16, 'the click, the count, the scenes\' metres, CHORDS <C3 come back (%s %s)' % (e, r.stderr))
+    check(j.get('thp', [{}] * 20)[19] == {'seed': 7, 'style': 11 | 0x40 | 0x80, 'func': 4, 'var': 0, 'vary': 40 | 0x80, 'energy': 0, 'metre': 9},
+          'a pattern made in its bar, its answers with notes: kept as it is (%s)' % j.get('thp', [{}] * 20)[19])
+    check(j.get('thp', [{}] * 21)[20]['vary'] == 100 and j['thp'][20]['style'] == 11, 'the notes\' bit on a pattern of 0.25 is no bit: a variation too large, put right (%s)' % j.get('thp', [{}] * 21)[20])
+    r = apply(a, ['ext - click - 9', 'ext - count_in - 7', 'ext - click_out - 40', 'ext - click_level - 30', 'ext - click_note - 200', 'ext - scene_metre 3 250', 'ext - kb_mode - 9',
+                  'thp 19 metre - 250', 'thp 19 vary - %d' % (120 | 0x80)], b)
+    j2 = read(b) if r.returncode == 0 else {}
+    e = j2.get('ext', {})
+    check(r.returncode == 0 and e.get('click', 9) <= 2 and e.get('count_in', 9) <= 2 and e.get('click_out', 99) <= 16 and e.get('click_level', 99) <= 10 and e.get('click_note', 200) <= 127
+          and e.get('scene_metre', [0] * 4)[3] == 0 and e.get('kb_mode') == 0, 'values there are not are put right as the FM-1 does (%s)' % e)
+    check(j2.get('thp', [{}] * 20)[19].get('style') == 0, 'a pattern made in the bar of a metre there is not: nobody\'s (%s)' % j2.get('thp', [{}] * 20)[19])
+    # a project of 0.25 (an image without the new fields at its end): read with the click off, the scenes leaving the metre alone
+    img = open(a, 'rb').read()
+    j3 = read(a)
+    check(len(img) > 1000 and j3['ext']['click'] == 2, 'the image is written whole (%d B)' % len(img))
 
 
 def main():
     build()
     for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
-              t025_metre, t025_melody):
+              t025_metre, t025_melody, t026_files):
         try:
             t()
         except Exception as e:

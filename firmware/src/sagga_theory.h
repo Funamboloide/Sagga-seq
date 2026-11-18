@@ -40,6 +40,16 @@ typedef struct {
                                   * attack of the other (the next 16th, or the one after) it is likelier: the answer comes
                                   * after the call. What a part always plays stays (it is still itself). Who answers whom:
                                   * sq_th_mate_family; a part that answers nobody takes no notice of it. */
+    /* 0.26 (all 0: the engines of 0.25, bit for bit) */
+    uint8_t gen;                 /* 1: the engines of 0.26 - the part is made IN the bar of the metre (bar_steps, bar_beats;
+                                  * until 0.25 it was made in sixteens and re-barred by whoever asked), and an answer has
+                                  * NOTES (mate_nt). 0: as 0.25 - what a project keeps of a pattern says which made it
+                                  * (SQ_THP_V26), so that it is made again the way it was */
+    uint8_t bar_steps;           /* the bar in 16ths (0, or 16 with four quarters: 4/4) ... */
+    uint32_t bar_beats;          /* ... and its beats: a bit a step that begins one (0: the bar's usual way) */
+    const uint8_t *mate_nt;      /* the NOTES of the part it answers, a step each as sq_th_notes gives them (0: none: the
+                                  * answer is of rhythm alone). A line under a tune takes the tune's notes, an 8th or a beat
+                                  * after it; a tune over chords outlines the chord that has just been struck. */
 } sq_th_t;
 /* the family (SQ_FUNC_KICK .. SQ_FUNC_ARP) of the part that part `func` answers; 255: it answers nobody. An arpeggio, a
  * lead, a voice: the chords (the stab, the pad, the piano). The percussion: the snare, the clap. A bass: the lead. */
@@ -47,6 +57,14 @@ uint8_t sq_th_mate_family(uint8_t func);
 /* the rhythm of a part alone, a level a 16th (as `kick` and `mate` want it): lev holds SQ_STEPS; the len 16ths are
  * the part's, the rest of the SQ_STEPS the same again */
 void sq_th_levels(const sq_th_t *t, uint8_t func, uint8_t len, uint8_t *lev);
+/* 0.26: ... and its notes (what `mate_nt` wants): a step each - a line, a tune: the semitones above the root, 0..15;
+ * chords: 16 + the kind (0 major, 1 minor, 2 a dominant seventh, 3 a major seventh, 4 a minor seventh, 5 a sus4, 6 a
+ * power chord); 255 where nothing begins. sq_th_heard: the levels and the notes of a part made once (lev may be 0). */
+void sq_th_notes(const sq_th_t *t, uint8_t func, uint8_t len, uint8_t *nts);
+void sq_th_heard(const sq_th_t *t, uint8_t func, uint8_t len, uint8_t *lev, uint8_t *nts);
+/* 0.26: the steps a part of `bars` bars is (1, 2 or 4: three count as two, more as four; as many as fit SQ_STEPS): in
+ * 4/4 16, 32, 64; in the bar of t (gen 1) so many of its bars. The `len` sq_th_part and the others take. */
+uint8_t sq_th_steps(const sq_th_t *t, uint8_t bars);
 
 uint8_t sq_th_style(uint8_t genre);          /* the style of a library genre (255: not a genre) */
 uint8_t sq_th_genre(uint8_t style);          /* ... and back: the genre whose band and feel a style uses (FREE: 255) */
@@ -58,7 +76,8 @@ uint8_t sq_th_root(const sq_th_t *t);        /* ... and a root, 0..11 */
 /* The part `func` (SQ_FUNC_*) of the style, `len` steps (16, 32 or 64), as the library writes one: r the hits ('.', 'x',
  * 'X', 'o', 'g', '2'-'4', '-'), nt the notes (hex semitones above the root, or the kind of chord; a drum: nt[0] = 0).
  * Both hold len + 1 characters. Returns len, 0 if the part cannot be made (PROG, KIT). A part the style has no rules
- * for is made by FREE's rules for its family. */
+ * for is made by FREE's rules for its family. 0.26 (gen 1, a bar that is not 4/4): `len` is one to four bars of that
+ * bar (sq_th_steps), and the part is made in it - no re-barring after. */
 uint8_t sq_th_part(const sq_th_t *t, uint8_t func, uint8_t len, char *r, char *nt);
 /* ... and straight into a row, as sq_beat_load_text does (`note`: the track's own note) */
 uint8_t sq_th_load(sq_step_t *row, const sq_th_t *t, uint8_t func, uint8_t len, uint8_t note);
