@@ -17,12 +17,12 @@ Vanno installati tutti e due. I progetti di prima si aprono come sono, e suonano
 
 | cosa avevi chiesto | adesso |
 | --- | --- |
-| **correggi l'arpeggio** | senza tonalità, ogni parte dei motori parte dalla fondamentale del progetto: l'arpeggio della BAND non suona più una quinta sopra |
+| **correggi l'arpeggio** | senza tonalità, una parte scritta su una traccia nuova parte dalla fondamentale del progetto: l'arpeggio della BAND non suona più una quinta sopra |
 | **un profilo che nasconde** | SAVE + K4 ora va FULL, **SEMPLICE**, PALCO. SEMPLICE nasconde le pagine SEQ 2 e SEQ 3 finché non suonano |
 | **RANDOM come un dado** | RANDOM aspetta come un dado: con OCT+ lo tieni, con OCT- torni indietro, con ALG rivedi i tiri |
 | **DRIFT dentro EVOLVE** | EVOLVE ha una manopola nuova, **RETURN**: 100 resta vicino al pattern di partenza, 0 è DRIFT, in mezzo torna un po' |
 | **lo schermo dice chi sta agendo** | DENSITY, CHANCE, ENERGIA, THIN e SWELL dicono su cosa lavorano: questa traccia, o tutto il set |
-| in più: **un errore vecchio** | ENV K1 girato su un passo vuoto, senza scrivere niente, guastava il passo (vedi il punto 6) |
+| in più: **un errore vecchio** | ENV K1 girato verso il basso su un passo senza lock non scriveva niente, ma guastava il passo (il punto 6) |
 
 ## 1. L'arpeggio senza tonalità
 
@@ -110,12 +110,12 @@ riaccendilo.
 
 | la prova | quanto |
 | --- | --- |
-| le prove nuove, delle cinque cose | 27 controlli nel simulatore, più quelle del cuore e dell'editor: 0 errori |
-| 21 errori messi apposta nelle parti nuove, uno alla volta | le prove li trovano tutti e 21 |
-| il cuore del sequencer | 30.938.178 controlli, 0 errori |
+| le prove nuove, delle cinque cose e dell'errore vecchio | 32 controlli nel simulatore, più quelle del cuore e dell'editor: 0 errori |
+| 23 errori messi apposta nelle parti nuove, uno alla volta | le prove li trovano tutti e 23 |
+| il cuore del sequencer | 30.938.200 controlli, 0 errori |
 | i motori THEORY, in 4/4 e in altre 18 battute | 215.628.289 controlli, 0 errori |
-| il simulatore (il firmware vero che gira sul computer) | 1.518 controlli, 0 errori |
-{{ESPLORA}}
+| il simulatore (il firmware vero che gira sul computer) | 1.523 controlli, 0 errori |
+| l'esploratore: ogni gesto del pannello, in 29 situazioni | 97.380 gesti da soli, 11.597 coppie di gesti, 200 sessioni a caso: 0 errori (al primo giro: l'errore vecchio del punto 6) |
 | l'editor del Pi | 249 controlli, 0 errori |
 | il bridge del grid, la pagina del Pi, le pagine SAGGA | 325 + 176 + 80 controlli, 0 errori |
 | gli errori di memoria (gesti a caso, con i rilevatori accesi) | 26 giri, 0 errori; anche le prove nuove: 0 errori |
@@ -134,7 +134,7 @@ Sullo schermo, dopo l'aggiornamento: `SAGGA SEQ 0.27` per tre secondi.
 2. **RANDOM**: SEQ + bianco 5, ascolta; ancora SEQ + bianco 5; gira ALG per tornare al primo tiro; OCT+ per tenerlo.
 3. **RETURN**: accendi EVOLVE (SEQ + nero 9), vai su SEQ 3, tieni SEL e gira K2 fino a 50. Ascolta per qualche
    battuta: cambia, ma non si perde.
-4. **SEMPLICE**: SAVE + K4 di uno scatto. Con SEQ tenuto, OCT+ salta da SEQ 1 a SEQ 4.
+4. **SEMPLICE**: SAVE + K4 (sulla pagina SAVE 1) di uno scatto. Con SEQ tenuto, OCT+ salta da SEQ 1 a SEQ 4.
 
 ## Da sapere
 

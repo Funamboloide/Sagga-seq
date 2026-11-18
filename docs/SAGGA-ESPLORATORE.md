@@ -196,6 +196,21 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. L'analizzatore statico di clang su tutto il
   firmware: quattro avvisi, nessuno vero (li ho guardati uno per uno).
 
+* **Sulla 0.27** (il profilo SEMPLICE, RANDOM come un dado, il RETURN di EVOLVE, chi sta agendo, l'arpeggio senza
+  tonalità): una situazione nuova (sopra). Il primo giro completo ha trovato **un errore vecchio**, della 0.24, in una
+  sessione della HOUSE dei motori sulle MOSSE, ridotta a tre gesti: la traccia uno step più corta del suo pattern
+  (HOME 1 K2 -1: il pattern aspetta intero dopo il loop, con il segno della sua fine), la finestra EDIT e OCT+ (il
+  cursore sul segno), ENV 5 K1 -1. Due battute dopo le copie erano fuori posto (regola COPIE). ENV K1 girato verso il
+  basso su un passo senza lock non scriveva niente, ma segnava il passo come scritto: il segno non era più un segno, e
+  un passo così, acceso dopo con un tasto, suonava la nota 60 e non la penna della traccia (su una cassa, un altro
+  suono). Corretto: sono i test `t027_mark` (il simulatore) e `test_v027_mark` (il cuore). La stessa sequenza con un
+  lock vero (ENV 5 K1 +1) o con EDIT K1 sul segno falliva sulla 0.26 e passa sulla 0.27. Il giro completo, a errore
+  corretto: **97.380 gesti da soli in 29 situazioni, 11.597 coppie, 200 sessioni da 60 gesti, nessun errore, niente
+  da guardare**. Le prove fisse della 0.27 (`t027_*`, 32 controlli nel simulatore, più quelle del cuore e
+  dell'editor) sono state provate rompendo il firmware in ventitré punti, uno alla volta: tutte e ventitré le rotture
+  trovate. Le stesse prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. Il piano del banco: 27
+  sessioni.
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -253,7 +268,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 26 dalla 0.26, erano 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 27 dalla 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
