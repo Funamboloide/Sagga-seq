@@ -10829,6 +10829,172 @@ def t026_gaps():
     check(sc == [0, 1, 2, 1, 0, 15], "the remote's CC 29 and 28: the scene after, the scene before - not before the first, not past the sixteenth (%s)" % sc)
 
 
+def t026_octave_patterns():
+    group("0.26, the technical check: the OCTAVE MIDI FX's other three ways (HOME 6 K3: RANDOM, 3RD, 4TH), which no test had played")
+    # eight steps of C4, OCTAVE +1: 3RD moves the third of every three steps (the track's steps 3 and 6), 4TH the fourth of
+    # every four (4 and 8); RANDOM half of them, by the step and the loop - not the same steps every loop
+    res = {}
+    for k, name in ((2, "3RD"), (3, "4TH"), (1, "RANDOM")):
+        s = Script()
+        t = s.steps(100, tuple(range(8)))
+        t = home_page(s, t, 5, [(K1, 2), (K3, k)])                     # OCTAVE READY, +1, the way
+        t = seq_page(s, t, 0, keys=[wk(5)])                            # ... in the chain
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        log = run(s, p + int(64 * STEP_MS) - 20)
+        loops = []
+        for lp in range(4):
+            a = p + lp * 16 * STEP_MS - STEP_MS / 2
+            loops.append([round((tm - a) / STEP_MS - 0.5) for tm, d1, _ in log.notes(ch=0, after=a) if tm < a + 16 * STEP_MS and d1 == 72])
+        res[name] = (loops, sorted(set(d1 for _, d1, _ in log.notes(ch=0, after=p))))
+    check(res["3RD"][0][0] == [2, 5] and res["3RD"][1] == [60, 72], "3RD: the 3rd and the 6th step an octave up, the rest as written (%s)" % (res["3RD"][:2],))
+    check(res["4TH"][0][0] == [3, 7] and res["4TH"][1] == [60, 72], "4TH: the 4th and the 8th step an octave up (%s)" % (res["4TH"][:2],))
+    r = res["RANDOM"][0]
+    check(all(0 < len(x) < 8 for x in r) and len(set(tuple(x) for x in r)) > 1,
+          "RANDOM: in every loop some steps up and some not, and not the same steps every loop (%s)" % r)
+
+
+def t026_lfo_dests():
+    group("0.26, the technical check: an LFO on CHANCE and an LFO on SWING (LFO page 2 K1), which no test had played")
+
+    def lfo_run(clicks, bars=4):
+        s = Script()
+        end = s.steps(100, list(range(16)))
+        s.press(end + 50, LFO); s.tap_key(end + 80, wk(0)); s.tap_btn(end + 130, OCT_UP, hold=20); s.enc(end + 200, K1, clicks); s.release(end + 300, LFO)
+        p = end + 500
+        s.tap_btn(p, PLAY)
+        return p, run(s, p + int(bars * 16 * STEP_MS) - 20)
+    # CHANCE: the LFO takes up to half the chance away and gives it back - of 64 steps at 100 %% some are silent, most play
+    p, log = lfo_run(3)
+    n = len(log.notes(ch=0, after=p))
+    check(24 < n < 62, "LFO on CHANCE: of 64 steps some do not play, most do (%d)" % n)
+    # SWING: 0 .. +25 on the track's swing - the steps on the eighths stay where they are, the ones between are late by
+    # an amount that goes up and down with the LFO
+    p, log = lfo_run(5)
+    tms = [tm for tm, _, _ in log.notes(ch=0, after=p)]
+    d = [tm - p - k * STEP_MS for k, tm in enumerate(tms)]
+    base = sorted(d[0::2])[len(d[0::2]) // 2] if d else 0
+    on8 = [x - base for x in d[0::2]]
+    off8 = [x - base for x in d[1::2]]
+    check(len(tms) == 64 and on8 and max(abs(x) for x in on8) < 0.08 * STEP_MS, "LFO on SWING: the steps on the eighths stay on the grid (%d notes, %s)" % (len(tms), [round(x, 1) for x in on8[:4]]))
+    check(off8 and max(off8) > 0.2 * STEP_MS and max(off8) - min(off8) > 0.1 * STEP_MS and min(off8) > -0.08 * STEP_MS,
+          "... the ones between are late, by an amount that moves with the LFO (%.1f .. %.1f ms)" % (min(off8) if off8 else 0, max(off8) if off8 else 0))
+
+
+def t026_song_entries():
+    group("0.26, the technical check: the song's own tempo (SAVE 2 K2 SONG TEMPO) and HOME + PERF black 10 (the last entry "
+          "away), which no test had run")
+
+    def tap(s, t, gap):                                                # tap tempo: HOME + REC four times (taps 2 s
+        t += 2100                                                      # apart or less go on with the last ones)
+        s.press(t, HOME)
+        for i in range(4):
+            s.tap_btn(t + 100 + gap * i, REC)
+        s.release(t + 200 + 3 * gap, HOME)
+        return t + 400 + 3 * gap
+
+    def append(s, t, keys):                                            # PERF, HOME + the black keys
+        s.tap_btn(t, GLO); s.press(t + 50, HOME)
+        for i, k in enumerate(keys):
+            s.tap_key(t + 100 + 100 * i, bk(k))
+        s.release(t + 200 + 100 * len(keys), HOME); s.tap_btn(t + 300 + 100 * len(keys), GLO)
+        return t + 500 + 100 * len(keys)
+
+    res = {}
+    for on in (1, 0):
+        s = Script()
+        t = tap(s, 100, 500)                                           # 120 BPM: entry 1, scene 1
+        t = append(s, t, [0])
+        t = tap(s, t, 400)                                             # 150 BPM: entries 2 and 3, scenes 2 and 3 ...
+        t = append(s, t, [1, 2, 9])                                    # ... and black 10: entry 3 goes
+        if on:
+            s.press(t, SAVE); s.tap_btn(t + 50, OCT_UP); s.enc(t + 150, K2, 1); s.release(t + 250, SAVE); t += 400
+        t = tap(s, t, 600)                                             # 100 BPM now
+        s.raw(t, "probe")
+        s.press(t + 100, HOME); s.tap_btn(t + 150, GLO); s.release(t + 250, HOME)   # the song on (stopped: entry 1)
+        s.raw(t + 400, "probe")
+        p = t + 500
+        s.tap_btn(p, PLAY)
+        s.raw(p + 8000 + 600, "probe")                                 # 4 bars at 120: entry 2
+        s.raw(p + 8000 + 6400 + 600, "probe")                          # 4 bars at 150: entry 1 again (entry 3 went)
+        log = run(s, p + 8000 + 6400 + 800)
+        res[on] = [int(x["G"]["bpm"]) for x in probes(log)]
+    check(res[1] == [100, 120, 150, 120], "SONG TEMPO on: each entry brings the tempo it was added at - 120, 150, then 120 again: "
+          "the third entry was taken away by HOME + black 10 (%s)" % res[1])
+    check(res[0][:2] == [100, 100] and all(b == res[0][1] for b in res[0][1:]), "SONG TEMPO off: the tempo stays (%s)" % res[0])
+
+
+def t026_cook_lfo():
+    group("0.26, the technical check: COOK with the LFOs among the targets (SEQ 3 K1 on ALL) cooks the LFO aimed at the "
+          "track, which no test had run")
+    res = {}
+    for cook in (0, 1):
+        s = Script()
+        t = s.steps(100, list(range(16)))
+        s.press(t + 50, LFO); s.tap_key(t + 80, wk(0)); s.tap_btn(t + 130, OCT_UP, hold=20); s.enc(t + 200, K3, -54)
+        s.release(t + 300, LFO); t += 400                              # LFO 1 on: CC 20 (no lane's), channel 1
+        t = seq_page(s, t, 2, encs=[(K1, 5)])                          # the targets: ALL
+        t = seq_page(s, t, 0, encs=[(K4, 20)])                         # HEAT up
+        if cook:
+            for _ in range(6):
+                t = seq_page(s, t, 0, keys=[wk(8)])                    # COOK, six times
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        log = run(s, p + 2 * 1875 + 100)
+        res[cook] = [v for tm, st, d1, v in log.msgs if st == 0xB0 and d1 == 20 and tm >= p]
+    check(len(res[0]) > 20 and len(res[1]) > 20 and res[0] != res[1],
+          "six COOKs with ALL: the LFO aimed at the track is cooked too - its CC 20 is not the same wave (%d, %d values; %s / %s)"
+          % (len(res[0]), len(res[1]), res[0][:6], res[1][:6]))
+
+
+def t026_tablet_retrig():
+    group("0.26, the technical check: the tablet's RETRIG (SAGGA Live, channel 12 CC 30), which no test had played")
+    res = {}
+    for rt in (0, 1):
+        s = Script()
+        t = remote13_on(s, 100)
+        t = usb2(s, t)
+        t = program(s, t, [60, 61, 62, 63, 64, 65, 66, 67])            # steps 1-8: C4 .. G4
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        if rt:
+            s.raw(int(p + 5.5 * STEP_MS), "midi 0xBB 30 127 2")        # RETRIG of the tablet's track (T1), in the 6th step
+        log = run(s, p + int(9 * STEP_MS))
+        res[rt] = [d1 for _, d1, _ in log.notes(ch=0, after=p)][:9]
+    check(res[0][:8] == [60, 61, 62, 63, 64, 65, 66, 67], "without: the eight steps in a row (%s)" % res[0])
+    check(res[1][:9] == [60, 61, 62, 63, 64, 65, 60, 61, 62], "RETRIG in the 6th step: the track starts again from its first step at the next one (%s)" % res[1])
+
+
+def t026_take_poly():
+    group("0.26, the technical check: TAKE on a track at 1/4 5:4 (five steps in a bar), which no test had run")
+    # five steps a bar, step 1 written: a MIDI-in note just after the third step starts (6.4 sixteenths in) - TAKE puts it
+    # on the third step, the one it fell in
+    s = Script()
+    t = s.steps(100, [0])
+    t = home_page(s, t, 0, [(K2, 5 - 16), (K3, 3)])                    # LENGTH 5; the division down to 1/32T ...
+    t = home_page(s, t, 0, [(K3, 1)])                                  # ... and one past it: 1/4 5:4
+    s.tap_btn(t, PLAY); p0 = t
+    s.raw(p0 + int(6.4 * STEP_MS) + 15, "midi 0x90 67 100"); s.raw(p0 + int(7.4 * STEP_MS), "midi 0x80 67 0")
+    s.press(p0 + int(14 * STEP_MS), REC); s.release(p0 + int(14 * STEP_MS) + 700, REC)
+    s.at(p0 + int(14 * STEP_MS) + 750, "dump", 0)
+    log = run(s, p0 + int(14 * STEP_MS) + 900)
+    check(log.dumps[0]["on"][:5] == "x.x.." and log.states[0]["msg"].startswith("TAKE: 1 NOTES INTO T1"),
+          "TAKE at 1/4 5:4: the note goes on the third of the five steps (%s %r)" % (log.dumps[0]["on"][:5], log.states[0]["msg"]))
+    # the loop TAKE looks back over is the polyrhythm's: at 1/16 5:4 five steps are a quarter, 24 ticks - not five whole
+    # ticks-steps of 4 (20). TAKE comes when REC has been held 0.6 s (31 ticks at 128 BPM): pressed at tick 120, it takes
+    # at tick 150 or so - a note at tick 128 is in the last loop: taken
+    s = Script()
+    t = s.steps(100, [0])
+    t = home_page(s, t, 0, [(K2, 5 - 16), (K3, 3)])
+    t = home_page(s, t, 0, [(K3, 3)])                                  # 1/16 5:4
+    s.tap_btn(t, PLAY); p0 = t
+    s.raw(p0 + int(128 * STEP_MS / 6), "midi 0x90 67 100"); s.raw(p0 + int(129.5 * STEP_MS / 6), "midi 0x80 67 0")
+    s.press(p0 + int(20 * STEP_MS), REC); s.release(p0 + int(20 * STEP_MS) + 700, REC)
+    s.at(p0 + int(20 * STEP_MS) + 750, "dump", 0)
+    log = run(s, p0 + int(20 * STEP_MS) + 900)
+    check(log.states[0]["msg"].startswith("TAKE: 1 NOTES INTO T1"), "... it looks back over the polyrhythm's loop (at 1/16 5:4 a quarter): a note 22 ticks before TAKE is taken (%r)" % log.states[0]["msg"])
+
+
 def t026_smooth():
     group("0.26 THE CHORDS MOVE LITTLE: FOLLOW MODE SMOOTH - a chord's notes go to the nearest notes of the chord playing (the ones two chords share stay); held chords slide; the makers' PAD and PIANO follow so")
     BAR = 16 * STEP_MS
@@ -11397,7 +11563,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
-         t026_engines, t026_tune_answers, t026_gaps,
+         t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

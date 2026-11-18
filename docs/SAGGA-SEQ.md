@@ -4,8 +4,10 @@ A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platfor
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
 tracks**, eight patterns of up to 64 steps per track, **sixteen scenes**, eight **snapshots**, a song of **64
 entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
-steps), the **THEORY engines** that make a band from a seed in each of them (0.23), a bar in **any metre** and tracks in **five or seven against four** (0.25), a **click** and the keyboard's chords, pedal and wheels (0.26), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
-phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
+steps), the **THEORY engines** that make a band from a seed in each of them, in the bar of its metre, a bar in **any
+metre** and tracks in **five or seven against four**, a **click** with a count-in, the keyboard's chords as the harmony,
+its pedal and wheels recorded, and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page)
+queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
 The screen says `SAGGA SEQ 0.26` for three seconds after power-on: that is how you know the update took.
@@ -20,7 +22,7 @@ Seven things, and the technical check of 0.23 - 0.25. The projects of before ope
 
 * **THE CLICK** (SAVE 5, a new page): a metronome on the beats **of the metre** - the bar line higher and louder -,
   OFF / while it RECords / while it PLAYs; the FM-1's own sound, or a note on a MIDI channel (CLICK OUT); and a
-  **COUNT IN** of one or two bars before a recording. See [The click](#the-click-026).
+  **COUNT IN** of one or two bars before a recording. See [The click](#the-click).
 * **The keyboard's chords are the harmony**: KEYBOARD (SAVE 4 K2) has two more ways, **CHORDS** and **CHORD <C3**. The
   chord you hold (two notes or more; below C3 only, in the second) is the harmony's chord from that moment - every
   FOLLOW track goes to it, as when the progression changes chord -, with the HARMONY off too, until the next one.
@@ -33,11 +35,11 @@ Seven things, and the technical check of 0.23 - 0.25. The projects of before ope
   a step or two (C E G on IV: C F A). The PADs and PIANOs the makers write follow so.
 * **The keyboard's expression**: the pedal, the pitch wheel, the aftertouch (a key's own too) and every controller of a
   keyboard played through the FM-1 go where its notes go; with REC on they are recorded - the wheels in the track's
-  LANES, the pedal as the length of the notes. See [The keyboard's expression](#the-keyboards-expression-026).
+  LANES, the pedal as the length of the notes. See [The keyboard's expression](#the-keyboards-expression).
 * **The engines make a part IN the bar**: in 7/8, in 5/4 a part of the THEORY engines is made in seven, in five - every
   step of the bar has its place in the metre - and no longer a 4/4 re-barred.
 * **An answer has notes**: a bass takes the notes of the tune it answers, a tune plays the notes of the chord it
-  answers. Both: [THEORY](#theory-the-engines-023). In 4/4 the engines make what 0.25 made, bit for bit; a pattern of
+  answers. Both: [THEORY](#theory-the-engines). In 4/4 the engines make what 0.25 made, bit for bit; a pattern of
   0.25 is made again as 0.25 made it.
 
 On the Pi: the editor and the converter know all of it (Project: IL CLICK, the two new ways of KEYBOARD, SMOOTH).
@@ -155,7 +157,7 @@ next variation. A BASS or ARP loaded while HARMONY is on gets FOLLOW; **0.25: a 
 GENRE LIVE reloads it from the new genre at the bar line. The tools apply to the scope (the screen says on how many
 tracks). **0.23, SOURCE THEORY** (SEQ 8 K1): the part is not loaded, the engines make it from NEXT SEED in the genre's
 style (pressed again: the next seed; SOURCE FREE, or GENRE FREE: the style of no genre); COOK walks to the next variation of the
-pattern's own seed; the machine's ENERGY fills and empties it ([THEORY](#theory-the-engines-023)).
+pattern's own seed; the machine's ENERGY fills and empties it ([THEORY](#theory-the-engines)).
 
 ### Other controls
 
@@ -187,7 +189,7 @@ move on a grid of that step: from an odd value (set by the grid or the remote) t
 multiple, so 0 and the round values are always reached. Turned fast (detents under 45 ms apart) a knob moves 2x after
 3 detents and 4x after 6; the first detent after a pause and every change of direction is one step.
 
-### ARP pages (0.12: the notes, the chords, the harmony)
+### ARP pages (the notes, the chords, the harmony)
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
@@ -198,7 +200,7 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 | 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8 |
 | 6 USER PROG 2 | **MOOD** (GUESSED: the machine's) | the lengths of a RHYTHM written into the chords | **the chord's length**: 1-64 16ths (0: the HARMONY's rhythm) | **PUSH** 0-4 16ths |
 
-### GLO pages (0.12: the live; GLO + OCT- / OCT+, or tap GLO for PERF: OCT- / OCT+ alone turn them)
+### GLO pages (the live; GLO + OCT- / OCT+, or tap GLO for PERF: OCT- / OCT+ alone turn them)
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
@@ -225,7 +227,7 @@ the bar's steps (white 1 = 3 steps), or the ways it divides.
 SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot; SAVE tapped twice saves; HOME + SAVE twice loads;
 **SAVE + REC twice clears the slot** (0.15). Page 1 shows the slot's project name and the one in the FM-1 (0.15).
 
-### PICK: the keys set the knobs (0.12)
+### PICK: the keys set the knobs
 
 Hold a group button (HOME, GLO, SEQ, ARP, EDIT, ENV, LFO) - **or open its window with a tap** - and SEL: the keys set
 the knob **in focus** of the page shown, the one turned last on that page (K1 at first); the screen marks it with `>`
@@ -251,7 +253,7 @@ the sixteen tracks (a tap: that track gets the value; SHIFT + a tap: the FM-1 go
 | a note (EDIT + SEL: NOTE 1-4 of the step, the one in focus) | the key is the note, with the keyboard's octave (SEL + OCT); the gate and the condition stay on EDIT's knobs |
 | a CC number (a lane's, an LFO's) | 26 common CCs: 1 MOD 2 BREATH 5 PORTA 7 VOL 10 PAN 11 EXPR 12 13 71 RES 72 REL 73 ATT 74 CUTOFF 75 DEC 76 77 78 (whites); 64 SUSTAIN 65 PORTA ON 91 REV 93 CHO 16-19 GP 128 BEND 129 AFTERTOUCH (blacks) |
 
-### BREAK: a drum break in slices (0.12)
+### BREAK: a drum break in slices
 
 A sampler (an M8, a Digitakt, Simpler ...) has the break on consecutive notes, a slice a note, from the track's **PEN**
 note (SEL + K4). A track in mode **BREAK** (HOME 4 K1) plays slices: every step is one (its number in the NOTE cell,
@@ -279,7 +281,7 @@ with the swing, while held; each repeat rings for half its time), 3 HALF (every 
 channel 13 notes 36-51 or CC 76-91) and the grid's STEP view note row. With 8 or 32 SLICES the slices wrap on the
 notes the break has.
 
-### TAKE and THROWS (0.12, from Skiff)
+### TAKE and THROWS (from Skiff)
 
 **TAKE** (REC held 0.6 s, or CC 107 on channel 13): the FM-1 always remembers the last 96 notes played on the keys, the
 Pi's pads or sent in over MIDI since PLAY (the step each began on and where in it). TAKE writes the ones from the last
@@ -308,7 +310,7 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
   move the rhythm more, melodic ones the notes; on FOLLOW tracks the beats get chord tones of the tonic, the steps
   between move by step. A locked step (EDIT + black 1) never changes.
 
-## The click (0.26)
+## The click
 
 SAVE page 5. The click sounds on the **beats of the metre** (GLO 4): in 7/8 as 2+2+3 three clicks a bar, the bar line
 higher (2000 Hz against 1000) and louder. All of it is saved with the project; a new project has the click OFF.
@@ -323,7 +325,7 @@ higher (2000 Hz against 1000) and louder. All of it is saved with the project; a
 The FM-1's own sound is asked for a few milliseconds ahead, so that it lands on the beat; the audio output is otherwise
 silent, as since 0.22.
 
-## The keyboard's expression (0.26)
+## The keyboard's expression
 
 Until 0.25 a keyboard played through the FM-1 (MIDI IN) lost everything but its notes. Now, whenever its notes are played
 through - REC on, or MIDI IN ALWAYS (SAVE 4 K4):
@@ -336,7 +338,7 @@ through - REC on, or MIDI IN ALWAYS (SAVE 4 K4):
 | recorded: the pedal | not a lane: the notes played while it is down are recorded **as long as they sound** - to the pedal's release -, on a track of steps, on a TAPE and in TAKE. Played back they need no pedal |
 | a TAPE track | the wheel and the controllers pass and are not kept: a tape keeps notes |
 
-## The length of a track, and its patterns (0.24)
+## The length of a track, and its patterns
 
 A track has ONE length (1-64 steps) and a loop start, for its eight patterns; a pattern is 64 steps of storage. What
 plays is steps START .. LENGTH of the pattern.
@@ -377,7 +379,7 @@ What each generator makes of a track longer than a bar:
 | the HARMONY, FOLLOW | by bars (0.25: of the metre): a track of 64 steps in 4/4 hears four bars of chords |
 | a BREAK's chops | written over the track's loop |
 
-## The metre (0.25)
+## The metre
 
 The bar is N **steps** (16ths), 3 to 32, and its **beats** are groups of those steps. GLO page 4 (PERF: its fourth
 page) sets both: K1 the bar, K2 the way it divides. Sixteen steps in four quarters is 4/4, as it always was, and a
@@ -396,7 +398,7 @@ project that never touches the page is as it was.
 | NUMERIC, EUCLID | NUMERIC's rhythm is fit to the bar; EUCLID spreads its pulses over the loop, as ever |
 | saved | with the project (the bar and a mask of its beats; 4/4 is written as nothing at all). The editor on the Pi has both (Project: METRO), the marks of the beats on every row, and a MIDI file carries the time signature |
 
-## THEORY: the engines (0.23)
+## THEORY: the engines
 
 SEQ 8 K1 chooses where BEAT, KIT, BAND, the dice and the proposals take a pattern from: the **LIBRARY** (the written
 variations, as until 0.22), the **THEORY** engines, which make it from the rules of the genre and a seed, or the engines
@@ -424,7 +426,7 @@ cleared, recorded over by a tool that writes it whole or loaded from the library
 it alone. A TAPE or BREAK track's pattern is never the engines'. With SOURCE LIBRARY the patterns the engines made
 earlier still follow the energy. The SOURCE is saved with the project (0 LIBRARY, 1 THEORY, 2 FREE).
 
-## The journey and the MOSSE (VIAGGIO until 0.16)
+## The journey and the MOSSE
 
 **The journey always runs** (0.17): there is nothing to switch on. **SEL + GLO** opens PERF on its third page, **the
 MOSSE**; SEL + GLO again goes back to the studio; GLO + OCT reaches the page too, and GLO held on it gives its black
