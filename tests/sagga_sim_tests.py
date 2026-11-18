@@ -10706,6 +10706,64 @@ def t026_engines():
             src = [heard[1][i - d] for d in (2, 4, 1, 3) if i - d >= 0 and heard[0][i - d] not in ".-"]
             if i % 4 and heard[0][i] in ".-" and src and any(int(c, 16) % 12 == int(b26[i], 16) % 12 for c in src): took.append(i)
         check(len(took) >= 1 and b26 != b25, "the bass of 0.26 takes notes of the arpeggio it answers, off the beat, right after them (steps %s: %s under %s)" % (took, b26, heard[1]))
+
+        # ---- a part WRITTEN BY HAND is heard as its steps are: the band's CHORD track cleared, three chords written on
+        # it by hand (steps 1, 7 and 13); the LEAD made again (its seed turned) answers THOSE. Then the same lead as
+        # 0.25 would make it (the same steps heard, answers of rhythm alone): the same rhythm - and the notes that
+        # differ are the answers: right after a chord, where the chords are silent, its third, its fifth, its root
+        s = Script()
+        t = longer2(s, 100)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])
+        t = band(s, t)
+        s.enc(t, E_SEL, 5); t += 80                             # track 6: the CHORD
+        s.press(t, SEQ); s.tap_key(t + 40, wk(0)); s.release(t + 120, SEQ); t += 200     # CLEAR
+        t = s.steps(t, [0, 6, 12]); t += 60
+        s.enc(t, E_SEL, 2); t += 80                             # track 8: the LEAD
+        t = pg(s, t, SEQ, 7, [(K3, 3)])                         # another seed: made by the engines of now, hearing the chords there are
+        s.at(t, "dump", 5); s.at(t + 20, "dump", 7); t += 80
+        s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 7); t += 80
+        log = run(s, t + 300)
+        d, nt, md = log.dumps, rownts(log), th_made(log)
+        ch, l26, n26, l25, n25 = d[0]["on"], d[1]["on"], nt[1]["nt"], d[2]["on"], nt[2]["nt"]
+        hits = [i for i in range(64) if l26[i] == "x"]
+        diff = [i for i in hits if n26[i] != n25[i] and i != hits[-1]]
+        good = []
+        for i in diff:
+            dd = [k for k in (1, 2, 3) if i - k >= 0 and ch[i - k] == "x"]
+            if ch[i] == "." and dd and i % 16 and int(n26[i], 16) % 12 in ({3, 4}, {7}, {0})[dd[0] - 1]: good.append(i)
+        check(ch[:16] == "x.....x.....x..." and md[1] == dict(bar=1, notes=1, steps=64) and md[2] == dict(bar=0, notes=0, steps=64) and l26 == l25,
+              "a lead made over chords written by hand hears their steps: the same rhythm with and without notes in its answers (%s / %s over %s)" % (l26[:16], l25[:16], ch[:16]))
+        check(len(diff) >= 1 and good == diff, "... and its answers are the chords' notes: the third right after a chord, then the fifth, then the root (steps %s of %s: %s, without %s)" % (good, diff, n26[:16], n25[:16]))
+
+        # ---- ... and a TUNE written by hand: the band's ARP track (the one the bass answers) cleared, a tune of fifths
+        # written on it off the beats (the project in C major; the pen seven semitones up; steps 2, 6, 10, 14); the BASS
+        # made again takes THAT note where it answers - and as 0.25 would make it, hearing the same steps, it has only
+        # its own
+        s = Script()
+        t = kp(s, 100, [(K2, 1), (K4, 1)])                      # C major, IN KEY
+        t = longer2(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])
+        t = band(s, t)
+        s.enc(t, E_SEL, 6); t += 80                             # track 7: the ARP
+        s.press(t, SEQ); s.tap_key(t + 40, wk(0)); s.release(t + 120, SEQ); t += 200     # CLEAR
+        t = pen_turn(s, t, 7)
+        t = s.steps(t, [1, 5, 9, 13]); t += 60
+        s.enc(t, E_SEL, -2); t += 80                            # track 5: the BASS
+        t = pg(s, t, SEQ, 7, [(K3, 2)])                         # another seed: the engines of now
+        s.at(t, "dump", 6); s.at(t + 20, "dump", 4); t += 80
+        s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 4); t += 80
+        log = run(s, t + 300)
+        d, nt = log.dumps, rownts(log)
+        tune, tn, b26, n26, b25, n25 = d[0]["on"], nt[0]["nt"], d[1]["on"], nt[1]["nt"], d[2]["on"], nt[2]["nt"]
+        hits = [i for i in range(64) if b26[i] == "x"]
+        diff = [i for i in hits if n26[i] != n25[i] and i < 62]
+        note = tn[1]                                            # (the tune's note above the key's root: the pen's)
+        good = [i for i in diff if n26[i] == note and i % 4 and tune[i] == "." and any(i - k >= 0 and tune[i - k] == "x" for k in (1, 2, 3, 4))]
+        check(tune[:16] == ".x...x...x...x.." and note not in ".0*?" and tn[:16] == ".%s...%s...%s...%s.." % ((note,) * 4) and b26 == b25,
+              "a bass made under a tune written by hand hears its steps: the same rhythm with and without notes in its answers (%s / %s under %s, its notes %s)" % (b26[:16], b25[:16], tune[:16], tn[:16]))
+        check(len(diff) >= 1 and good == diff, "... and where it answers it plays the tune's note (steps %s of %s: %s, without %s; the tune's note %s)" % (good, diff, n26[:32], n25[:32], note))
     finally:
         done()
 
@@ -10754,6 +10812,21 @@ def t026_tune_answers():
     o_moved = [x for x in O["away"] if x[1] != x[2]]
     check(O["made"] == dict(bar=0, notes=0, steps=64) and len(O["away"]) >= 1 and not o_moved,
           "the tune of a 0.25 band plays those notes where they are written, whatever the chord (%d of %d moved; steps %s)" % (len(o_moved), len(O["away"]), O["ans"]))
+
+
+def t026_gaps():
+    group("0.26, the technical check: what no test had run - the remote's scene before and scene after (channel 14, CC 28 and 29)")
+    s = Script()
+    s.raw(100, "probe")
+    remote(s, 200, 29); s.raw(300, "probe")
+    remote(s, 400, 29); s.raw(500, "probe")
+    remote(s, 600, 28); s.raw(700, "probe")
+    remote(s, 800, 28); remote(s, 900, 28); s.raw(1000, "probe")
+    for k in range(17): remote(s, 1100 + 60 * k, 29)
+    s.raw(2300, "probe")
+    log = run(s, 2500)
+    sc = [int(x["G"]["scene"]) for x in probes(log)]
+    check(sc == [0, 1, 2, 1, 0, 15], "the remote's CC 29 and 28: the scene after, the scene before - not before the first, not past the sixteenth (%s)" % sc)
 
 
 def t026_smooth():
@@ -11324,7 +11397,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
-         t026_engines, t026_tune_answers,
+         t026_engines, t026_tune_answers, t026_gaps,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

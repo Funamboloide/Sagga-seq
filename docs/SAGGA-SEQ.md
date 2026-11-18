@@ -10,7 +10,7 @@ grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on th
 
 The screen says `SAGGA SEQ 0.26` for three seconds after power-on: that is how you know the update took.
 
-This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
+This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.25.
 

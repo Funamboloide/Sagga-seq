@@ -174,13 +174,24 @@ Come sempre: prima il Pi (`sagga-hub-0.26.zip`), poi l'FM-1 (`sagga-0.26.fwsc`).
 * **Sotto un arpeggio** il basso riprende le note dell'accordo che l'arpeggio sta girando, non sempre la nota esatta
   appena suonata: un arpeggio cambia ordine con l'energia.
 
+## La mappa dei generatori
+
+Mi avevi chiesto di occuparmi delle "troppe strade per la stessa cosa". **La mappa è fatta**: è il file
+`MAPPA-GENERATORI.md` che ti consegno insieme agli altri. Dice cosa fa ogni generatore, dove due strade fanno la stessa
+cosa (ne ho trovate nove), e ti propone quattro cose da unire o nascondere.
+
+**Non ho unito né nascosto niente**: sono scelte tue. Dimmi quali proposte vuoi e le faccio nella prossima versione.
+In fondo alla mappa c'è una tabella "Voglio... uso..." che vale già oggi.
+
 ## Cosa manca ancora
 
-Due cose che mi avevi chiesto **non sono in questa consegna**, e una è fatta a metà:
-
-* **la mappa dei generatori** (RANDOM, dadi, COOK, EVOLVE, DRIFT, EUCLID, gli algoritmi, i motori, le mosse) per
-  decidere cosa unire o nascondere: non è fatta;
-* **il manuale riscritto** "com'è adesso": il manuale è aggiornato con le novità della 0.26, ma non è riscritto da
-  capo;
-* **il controllo tecnico** è fatto per la parte più importante (quanto è provato, le righe mai eseguite, gli errori
-  trovati). Mancano i controlli di stile sul codice del Pi e la misura dei tempi dei motori sullo strumento.
+* **Il manuale riscritto da capo** "com'è adesso": non è fatto. Il manuale è **aggiornato** alla 0.26 (le sette cose
+  nuove sono nei loro capitoli, le tabelle e i nomi dei file sono a posto), ma non è riscritto. Nella guida di
+  riferimento in inglese i capitoli "cosa c'è di nuovo" delle versioni vecchie sono passati nella storia.
+* **Il nome del manuale** nell'elenco dei tuoi documenti dice ancora 0.25: da qui non riesco a cambiarlo, lo puoi
+  rinominare tu. Dentro, il titolo è già 0.26.
+* **Il controllo tecnico**: fatta la parte più importante (quanto è provato, le righe mai eseguite, gli errori
+  trovati, le prove rotte apposta). Mancano i controlli di stile sul codice del Pi e alcune prove su parti vecchie
+  che nessuna prova tocca (la song con il tempo per riga, due motivi dell'OCTAVE, due comandi del remoto).
+* **I tempi sullo strumento**: rifare una parte costa, sul computer, circa una volta e mezza la 0.25 in 4/4 e il
+  doppio in un metro dispari. Sull'FM-1 va misurato.
