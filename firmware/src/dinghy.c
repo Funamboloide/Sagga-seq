@@ -888,9 +888,11 @@ static void preview_note(uint32_t t, uint8_t note)          /* a short blip so y
     prev_off_ms = fm1_ms + 180u;
 }
 
+static void thru_expr_off(void);                 /* sagga_expr.c: 0.26 */
 static void thru_all_off(void)
 {
     uint32_t k;
+    thru_expr_off();                         /* 0.26: the keyboard's pedal let go, its wheel centred, on the channels they were left on */
     for (k = 0; k < 27u; k++)
         if (live_held & (1u << k)) midi_send(0x80u | live_ch[k], live_note[k], 0u);
     live_held = 0u;
@@ -3320,6 +3322,7 @@ static void rec_close_note(uint8_t src);
 #include "sagga_live2.c"                              /* 0.12: TAKE, the THROWS, the step's notes by knob */
 #include "sagga_live3.c"                              /* 0.13: KEYBOARD, MIDI IN, MOTION, SLIDE, CHAIN LIST */
 #include "sagga_click.c"                              /* 0.26: THE CLICK - the metronome, the count before a recording */
+#include "sagga_expr.c"                               /* 0.26: the keyboard's pedal, wheels and aftertouch go where its notes go, and are recorded */
 
 /* EDIT + black 2 / 3 / 4: COPY, PASTE, CLEAR the cursor step (UNDO takes PASTE and CLEAR back); 5 PLAIN, 6 TIE, 7 SLIDE */
 static void step_tool(int bi)
@@ -3553,6 +3556,9 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
             /* 0.8: CC CAPTURE took it into the snapshot */
         } else if ((st & 0xF0u) == 0xB0u) {
             if (!project.ext.kb_ch || (st & 15u) == project.ext.kb_ch - 1u) cc_in_val[d1 & 127u] = (uint8_t)(d2 & 127u);   /* 0.20: the MOD MATRIX's CC IN */
+            thru_ctl(st, d1, d2);                       /* 0.26: ... and it goes where the keyboard's notes go (the pedal, the wheel) */
+        } else if ((st & 0xF0u) == 0xE0u || (st & 0xF0u) == 0xD0u || (st & 0xF0u) == 0xA0u) {
+            thru_ctl(st, d1, d2);                       /* 0.26: the pitch wheel, the aftertouch (until 0.25: dropped) */
         } else if (st == 0xFAu && project.clock_mode == SQ_CLOCK_SLAVE) {
             transport_reset(); song_start_hook(); chain_start(); scene_send_pc(scene_cursor); playing = 1u;
             vg_transport_start(); regia_transport_start(); ui_dirty = 1u;    /* (0.9: as the master's start) */
@@ -3571,6 +3577,7 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
                 if (project.track[tt].flags & SQ_TF_DRUM) { uint8_t dt = drum_track_for_note(d1); if (dt < SQ_TRACKS) tt = dt; }
                 take_note_on(d1 & 127u, tt, d1 & 127u, d2);
             }
+            ped_release((uint8_t)(d1 & 127u));           /* 0.26: the key struck again while the pedal held its note: that note is over */
             if (record_arm || project.ext.in_thru) {     /* (0.13 MIDI IN ALWAYS: it plays without REC; REC records it) */
                 uint8_t t = (uint8_t)((vg_rec_t < SQ_TRACKS ? vg_rec_t : selected_track) & 15u), ch, out;   /* (0.9: a LOOP records on its track) */
                 if (project.track[t].flags & SQ_TF_DRUM) {          /* a drum pad controller: each note to its drum track */
@@ -3593,9 +3600,11 @@ static void midi_in_one(uint32_t now, uint8_t st, uint8_t d1, uint8_t d2, uint8_
                 midi_send(0x80u | ext_ch[d1 & 127u], ext_out[d1 & 127u], 0u);
                 ext_ch[d1 & 127u] = 255u;
             }
-            rec_close_note(d1 & 127u);                 /* 0.10: the length it was held */
-            tape_rec_off(d1 & 127u);                   /* 0.11 */
-            take_note_off(d1 & 127u);                  /* 0.12 */
+            if (!ped_holds((uint8_t)(d1 & 127u))) {    /* 0.26: with the pedal down the note sounds on: its length is counted to the pedal's release */
+                rec_close_note(d1 & 127u);             /* 0.10: the length it was held */
+                tape_rec_off(d1 & 127u);               /* 0.11 */
+                take_note_off(d1 & 127u);              /* 0.12 */
+            }
         }
     }
 }

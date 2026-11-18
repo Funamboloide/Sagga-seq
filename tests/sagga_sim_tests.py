@@ -6881,8 +6881,8 @@ def t013_motion():
     s.enc(300, K1, 2); s.enc(330, K2, 2); s.enc(360, K3, 3); s.enc(390, K4, 1); s.at(450, "ui"); s.release(500, SAVE)
     log = run(s, 600)
     sc = log.screens()
-    check(sc and sc[0]["cells"] == [("MOTION", "2 BARS"), ("KEYBOARD", "SPLIT C3"), ("KEYB CH", "3"), ("MIDI IN", "ALWAYS")] and sc[0]["lines"][2].startswith("SAVE 4/4"),
-          "SAVE 4/4 LIVE IN: MOTION, KEYBOARD, KEYB CH, MIDI IN (%s)" % (sc[0]["cells"] if sc else sc))
+    check(sc and sc[0]["cells"] == [("MOTION", "2 BARS"), ("KEYBOARD", "TRANS <C3"), ("KEYB CH", "3"), ("MIDI IN", "ALWAYS")] and sc[0]["lines"][2].startswith("SAVE 4/5"),
+          "SAVE 4/5 LIVE IN: MOTION, KEYBOARD (0.26: TRANSPOSE, TRANS <C3, then the chords), KEYB CH, MIDI IN (%s)" % (sc[0]["cells"] if sc else sc))
     check(not log.saves, "turning SAVE 4's knobs does not save (%s)" % log.saves)
 
 
@@ -10445,13 +10445,13 @@ def t025_metre():
     s.release(t, GLO); t += 60
     log = run(s, t + 100)
     sc, d, c, m, me = log.screens(), log.dumps, log.copies, [x["msg"] for x in log.states], log.metre
-    check(len(sc) == 4 and sc[0]["cells"] == [("> BAR", "16"), ("BEATS", "4x2"), ("METRE", "4/4"), ("BAR.STEP", "--")] and sc[0]["lines"][2].startswith("GLO 4/4 METRE 4/4 = 4x2"),
+    check(len(sc) == 4 and sc[0]["cells"] == [("> BAR", "16"), ("BEATS", "4x2"), ("SCENE METRE", "OFF"), ("BAR.STEP", "--")] and sc[0]["lines"][2].startswith("GLO 4/4 METRE 4/4 = 4x2"),
           "GLO page 4, THE METRE: a bar of 16 steps in four quarters (the mark: the knob the keys would set) (%s | %s)" % (sc[0]["cells"] if sc else sc, sc[0]["lines"][2] if sc else None))
-    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("METRE", "7/8")] and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
+    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("SCENE METRE", "OFF")] and sc[1]["lines"][2].startswith("GLO 4/4 METRE 7/8 = 2+2+3") and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
           "K1 two down, stopped: a bar of 14 at once, 7/8 as 2+2+3, the sixteen tracks follow (%s | %s)" % (sc[1]["cells"][:3], m[1]))
     check(me[1]["bar"] == 14 and me[1]["beats"] == 0x111 and me[1]["sig"] == "7/8" and d[1]["length"] == 14 and c[1]["own"] == 14 and c[1]["row"][:17] == "x" * 16 + "r",
           "... the track is 14 long, its pattern keeps the two steps it does not play (and the mark of its end) (%s %X, %s, %s)" % (me[1]["bar"], me[1]["beats"], d[1]["length"], c[1]["row"][:18]))
-    check(sc[2]["cells"][:3] == [("BAR", "14"), ("> BEATS", "2+3+2"), ("METRE", "7/8")] and me[2]["beats"] == 0x411 and m[2] == "BAR 14: 7/8 2+3+2" and d[2]["length"] == 14,
+    check(sc[2]["cells"][:3] == [("BAR", "14"), ("> BEATS", "2+3+2"), ("SCENE METRE", "OFF")] and me[2]["beats"] == 0x411 and m[2] == "BAR 14: 7/8 2+3+2" and d[2]["length"] == 14,
           "K2: the next way, 2+3+2 (the beats on steps 1, 5, 11); no track moves (%s | %X | %s)" % (sc[2]["cells"][:3], me[2]["beats"], m[2]))
     check(me[3]["beats"] == 0x441 and me[3]["split"] == "3+2+2", "K2 turned far: the last way, 3+2+2: the beats on steps 1, 7, 11 (%X %s)" % (me[3]["beats"], me[3]["split"]))
     check(me[4]["bar"] == 16 and me[4]["raw"] == 0 and me[4]["beats"] == 0x1111 and m[4] == "BAR 16: 4/4 4x2, 16 TRACKS FOLLOW" and d[4]["length"] == 16 and d[4]["on"] == "x" * 16
@@ -10978,6 +10978,149 @@ def t026_click():
     check(a == b and a != c, "the click's settings are saved with the project (%s %s, a new one %s)" % (a, b, c))
     shutil.rmtree(d, ignore_errors=True)
 
+def t026_expression():
+    group("0.26 THE KEYBOARD'S EXPRESSION: the pedal, the wheels and the aftertouch go where the keyboard's notes go; recorded - the wheels in the lanes, the pedal as the length of the notes; nothing is left on a channel")
+    def outs(log, kinds=(0xB0, 0xE0, 0xD0, 0xA0), after=0):
+        return [(st, d1, d2) for tm, st, d1, d2 in log.msgs if (st & 0xF0) in kinds and tm >= after]
+
+    # MIDI IN ALWAYS, track 3 selected: what the keyboard sends on its channel 1 comes out on channel 3
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.raw(t, "midi 0xE0 0 96"); s.raw(t + 20, "midi 0xD0 80 0"); s.raw(t + 40, "midi 0xB0 1 64"); s.raw(t + 60, "midi 0xB0 64 127")
+    s.raw(t + 80, "midi 0x90 60 100"); s.raw(t + 100, "midi 0xA0 60 55"); s.raw(t + 120, "midi 0x80 60 0")
+    s.raw(t + 140, "midi 0xB0 64 0"); s.raw(t + 160, "midi 0xE0 0 64"); s.raw(t + 180, "midi 0xD0 0 0")
+    log = run(s, t + 400)
+    o = outs(log, after=t)
+    check(o == [(0xE2, 0, 96), (0xD2, 80, 0), (0xB2, 1, 64), (0xB2, 64, 127), (0xA2, 60, 55), (0xB2, 64, 0), (0xE2, 0, 64), (0xD2, 0, 0)],
+          "MIDI IN ALWAYS: the wheel, the aftertouch (the channel's, a key's), the modulation, the pedal go to the track's channel (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # ... with REC off and MIDI IN on REC ONLY nothing of it passes (as its notes do not)
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    s.raw(300, "midi 0xE0 0 96"); s.raw(320, "midi 0xD0 80 0"); s.raw(340, "midi 0xB0 1 64"); s.raw(360, "midi 0xB0 64 127"); s.raw(380, "midi 0xB0 64 0")
+    log = run(s, 600)
+    check(outs(log, after=250) == [], "MIDI IN with REC only, REC off: nothing passes (%s)" % outs(log, after=250))
+
+    # what was left on a channel is put back there: the pedal's release goes where its press went, a wheel off its
+    # centre is centred on the channel it bent when the next move goes to another track
+    s = Script()
+    s.enc(100, E_SEL, 2)
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.raw(t, "midi 0xB0 64 127"); s.raw(t + 20, "midi 0xE0 0 100")
+    s.enc(t + 60, E_SEL, 2)                                            # track 5
+    s.raw(t + 120, "midi 0xB0 64 0"); s.raw(t + 140, "midi 0xE0 0 90")
+    log = run(s, t + 400)
+    o = outs(log, after=t)
+    check(o == [(0xB2, 64, 127), (0xE2, 0, 100), (0xB2, 64, 0), (0xE2, 0, 64), (0xE4, 0, 90)],
+          "the track changed with the pedal down and the wheel up: the release and the centre go to the old channel (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # a STOP lets the pedal go and centres the wheel on the channels they were left on
+    s = Script()
+    t = pg(s, 200, SAVE, 3, [(K4, 1)])
+    s.tap_btn(t, PLAY)
+    s.raw(t + 100, "midi 0xB0 64 127"); s.raw(t + 120, "midi 0xE0 0 20"); s.raw(t + 140, "midi 0xD0 70 0")
+    s.tap_btn(t + 400, PLAY)
+    log = run(s, t + 700)
+    o = outs(log, kinds=(0xB0, 0xE0, 0xD0), after=t + 390)
+    check((0xB0, 64, 0) in o and (0xE0, 0, 64) in o and (0xD0, 0, 0) in o, "STOP: the pedal let go, the wheel centred, the aftertouch off (%s)" % [("%02X" % a, b, c) for a, b, c in o])
+
+    # RECORDED. REC and PLAY; the modulation wheel moves during steps 3, 4 and 5 (30, 60, 90): a free lane is taken for
+    # it - the last, with SLIDE - and the value is on the steps as they played; REC off: the next loop plays it back
+    BAR = 16 * STEP_MS
+    s = Script()
+    s.tap_btn(100, REC)
+    s.tap_btn(200, PLAY); p0 = 200
+    for k, v in ((2.5, 30), (3.5, 60), (4.5, 90)):
+        s.raw(p0 + int(k * STEP_MS), "midi 0xB0 1 %d" % v)
+    s.raw(p0 + int(5 * STEP_MS), "probe")
+    s.tap_btn(p0 + int(12 * STEP_MS), REC)
+    log = run(s, p0 + int(2 * BAR) + 40)
+    pr = probes(log)[0]
+    cc = {}
+    for tm, st, d1, d2 in log.msgs:
+        if st == 0xB0 and d1 == 1 and tm >= p0 + BAR - 10:
+            cc[int(round((tm - p0 - BAR) / STEP_MS))] = d2
+    check(pr["G"].get("msg") == "LANE 3 RECORDS CC 1", "REC: the wheel moves - the lane that sends it (a new track's third) records it, the screen says so (%s)" % pr["G"].get("msg"))
+    check(cc.get(3) == 30 and cc.get(4) == 60 and cc.get(5) == 90 and cc.get(6) == 90,
+          "... played back on the steps it was moved on: 30, 60, 90 on steps 4, 5, 6 (%s)" % sorted(cc.items()))
+    check(cc.get(10) is not None and 30 < cc[10] < 90, "... and it glides back between them (SLIDE) (%s)" % cc.get(10))
+
+    # the pitch wheel and the aftertouch have no lane on a new track: each takes one nobody ever wrote, from the last
+    # (never the first: the FILTER macro's); with none left the screen says so, and the control passes all the same
+    s = Script()
+    s.tap_btn(100, REC)
+    s.tap_btn(200, PLAY); p0 = 200
+    s.raw(p0 + 100, "midi 0xE0 0 80"); s.raw(p0 + 110, "probe")
+    s.raw(p0 + 120, "midi 0xD0 50 0"); s.raw(p0 + 130, "probe")
+    for k, c in enumerate((20, 21, 22)):
+        s.raw(p0 + 140 + 10 * k, "midi 0xB0 %d 99" % c)
+    s.raw(p0 + 180, "probe")
+    s.raw(p0 + 190, "midi 0xB0 23 77"); s.raw(p0 + 200, "probe")
+    s.raw(p0 + 210, "midi 0xB0 64 127"); s.raw(p0 + 220, "midi 0xB0 64 0"); s.raw(p0 + 230, "midi 0xB0 0 3"); s.raw(p0 + 240, "probe")
+    s.raw(p0 + 250, "midi 0xB0 74 5"); s.raw(p0 + 260, "probe")
+    log = run(s, p0 + 600)
+    m = [x["G"].get("msg") for x in probes(log)]
+    check(m[:4] == ["LANE 6 RECORDS THE PITCH WHEEL", "LANE 5 RECORDS THE AFTERTOUCH", "LANE 2 RECORDS CC 22", "NO FREE LANE FOR CC 23"] and (0xB0, 23, 77) in outs(log),
+          "the wheel, the aftertouch, three more controllers: five lanes taken; the next control has none, and passes all the same (%s)" % m[:4])
+    check(m[4] == "NO FREE LANE FOR CC 23" and m[5] == "LANE 1 RECORDS CC 74", "the pedal and the bank select never ask for a lane; lane 1 still records its own controller (%s)" % m[4:6])
+
+    # THE PEDAL IS THE LENGTH OF THE NOTES. A key tapped (0.4 steps) with the pedal down, the pedal let go 6 steps after
+    # the note began: recorded 6 steps long, and played back so with no pedal; without the pedal: a short gate
+    def gates(log, t0, ch=0):
+        ons = [(t - t0, n) for t, n, _ in log.notes(ch=ch, after=t0)]
+        offs = [(t - t0, n) for t, n in log.offs(ch=ch) if t >= t0]
+        return [(round(on / STEP_MS, 2), next((round(o - on) for o, mm in offs if mm == n and o > on), None)) for on, n in ons]
+    res = {}
+    for ped in (0, 1):
+        s = Script()
+        s.press(30, SEL); s.tap_btn(40, REC); s.release(80, SEL)       # REC FREE
+        s.tap_btn(90, REC)
+        s.tap_btn(100, PLAY)
+        t_on = 100 + int(2.1 * STEP_MS)
+        if ped:
+            s.raw(t_on - 30, "midi 0xB0 64 127")
+        s.raw(t_on, "midi 0x90 64 100"); s.raw(t_on + int(0.4 * STEP_MS), "midi 0x80 64 0")
+        if ped:
+            s.raw(t_on + int(6 * STEP_MS), "midi 0xB0 64 0")
+        s.tap_btn(100 + int(12 * STEP_MS), REC)
+        log = run(s, 100 + int(3 * BAR))
+        res[ped] = [x for x in gates(log, 100) if x[0] >= 16]
+    check(res[0] and res[0][0][1] is not None and res[0][0][1] < STEP_MS, "no pedal: the tapped note is recorded short (%s)" % res[0][:1])
+    check(res[1] and near(res[1][0][0], 18.1, 0.15) and near(res[1][0][1], 6 * STEP_MS, 14), "the pedal down: the note is recorded as long as it sounded, six steps (%s)" % res[1][:1])
+    check(not [1 for tm, st, d1, d2 in log.msgs if st == 0xB0 and d1 == 64 and tm >= 100 + BAR], "... and played back without any pedal")
+
+    # the same key struck twice under one pedal: two notes, the first as long as to the second, the second to the pedal's release
+    s = Script()
+    s.press(30, SEL); s.tap_btn(40, REC); s.release(80, SEL)
+    s.tap_btn(90, REC)
+    s.tap_btn(100, PLAY)
+    t_on = 100 + int(2.1 * STEP_MS)
+    s.raw(t_on - 30, "midi 0xB0 64 127")
+    s.raw(t_on, "midi 0x90 64 100"); s.raw(t_on + 40, "midi 0x80 64 0")
+    s.raw(t_on + int(3 * STEP_MS), "midi 0x90 64 100"); s.raw(t_on + int(3 * STEP_MS) + 40, "midi 0x80 64 0")
+    s.raw(t_on + int(7 * STEP_MS), "midi 0xB0 64 0")
+    s.tap_btn(100 + int(12 * STEP_MS), REC)
+    log = run(s, 100 + int(3 * BAR))
+    g = [x for x in gates(log, 100) if x[0] >= 16]
+    check(len(g) >= 2 and near(g[0][0], 18.1, 0.15) and near(g[1][0], 21.1, 0.15) and near(g[0][1], 3 * STEP_MS, 14) and near(g[1][1], 4 * STEP_MS, 14),
+          "one key twice under the pedal: three steps, then four (%s)" % g[:2])
+
+    # a TAPE keeps it too: the event is as long as the note sounded
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])                                          # the track: TAPE
+    s.tap_btn(t, REC); t += 60
+    s.tap_btn(t, PLAY); p0 = t
+    t_on = p0 + int(2 * STEP_MS)
+    s.raw(t_on - 30, "midi 0xB0 64 127")
+    s.raw(t_on, "midi 0x90 62 100"); s.raw(t_on + 40, "midi 0x80 62 0")
+    s.raw(t_on + int(5 * STEP_MS), "midi 0xB0 64 0")
+    s.tap_btn(p0 + int(12 * STEP_MS), REC)
+    s.at(p0 + int(13 * STEP_MS), "dump", 0)
+    log = run(s, p0 + int(14 * STEP_MS))
+    ev = log.tapes[0]["ev"] if log.tapes else []
+    check(len(ev) == 1 and ev[0][2] == 62 and abs(ev[0][1] - 5 * 96) < 14, "a TAPE: the note's event is five steps long (%s)" % ev)
+
 
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
@@ -10997,7 +11140,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
-         t026_smooth, t026_live_chords, t026_scene_metre, t026_click]
+         t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

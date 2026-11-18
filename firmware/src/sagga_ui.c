@@ -270,7 +270,7 @@ static void ui_build(void)
         }
         if (save_page == 3u) {
             const sq_ext_t *x = &project.ext;
-            static const char *const KB[SQ_KBS] = {"OFF", "TRANSPOSE", "TRANSP <C3", "CHORDS", "CHORDS <C3"};   /* (0.26: the chords; until 0.25 OFF ALL SPLIT C3) */
+            static const char *const KB[SQ_KBS] = {"OFF", "TRANSPOSE", "TRANS <C3", "CHORDS", "CHORD <C3"};   /* (0.26: the chords; until 0.25 OFF ALL SPLIT C3. A cell holds nine letters) */
             ui_cell(0, "MOTION", x->motion_bars == 1u ? "1 BAR" : x->motion_bars == 2u ? "2 BARS" : x->motion_bars ? "4 BARS" : "OFF", x->motion_bars ? (record_arm ? C_WARN : C_ON) : SQ_C_DIM);
             ui_cell(1, "KEYBOARD", KB[x->kb_mode < SQ_KBS ? x->kb_mode : 0u], x->kb_mode ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "KEYB CH", x->kb_ch ? f_u(x->kb_ch) : "ANY", x->kb_mode ? C_WHITE : SQ_C_DIM);
