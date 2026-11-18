@@ -181,12 +181,16 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
 
 * **Sulla 0.26** (il click, gli accordi dal vivo, il metro delle scene, SMOOTH, il pedale e le rotelle, i motori nella
   battuta, le risposte con le note): una situazione nuova (sopra), e SAVE ha una pagina in più da sfogliare. Il giro
-  completo: **91.354 gesti da soli in 27 situazioni, 10.797 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
+  completo: **94.367 gesti da soli in 28 situazioni, 11.197 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
   guardare**. Un falso allarme del giro della 0.25 è stato capito e tolto: nelle coppie, dopo un gesto che apre le
   MOSSE, la manopola ALG non sfoglia niente: sceglie *quando* parte una mossa in coda (PHRASE, BAR, BEAT). L'esploratore
   la trattava come "sfogliare" e segnalava che la musica era cambiata; adesso lì è un comando. Il piano per l'FM-1 vero
   che va nello zip del Pi prende **ogni** situazione una volta (il numero era scritto a mano, 24, e le ultime
   situazioni della 0.25 ne restavano fuori): 27 sessioni più 4 con il tablet. Il banco: 26.
+  Le prove fisse della 0.26 (`t026_*`, 83 controlli nel simulatore, più quelle del cuore e dei motori) sono state
+  provate rompendo il firmware in diciannove punti, uno alla volta: tutte e diciannove le rotture trovate. Le stesse
+  prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. L'analizzatore statico di clang su tutto il
+  firmware: quattro avvisi, nessuno vero (li ho guardati uno per uno).
 
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.

@@ -127,12 +127,17 @@ con le note.
 ## Il controllo tecnico
 
 Mi avevi detto "assolutamente sì". Ho misurato quanta parte del programma viene davvero eseguita dalle prove:
-il 99% del firmware. Le righe mai eseguite le ho guardate una per una.
+fra il 95 e il 99% del firmware, secondo la parte. Le righe mai eseguite le ho guardate una per una.
 
 * **Un errore trovato e corretto**: in una tonalità minore l'accordo di nona sul secondo grado veniva scritto, nei
   file per il Pi, come un semplice diminuito.
 * **Un falso allarme dell'esploratore corretto**: sulla pagina delle MOSSE la manopola ALG sceglie *quando* parte una
   mossa. L'esploratore la prendeva per un cambio di pagina e segnalava un errore che non c'era.
+* **Il piano di prova per l'FM-1 vero** (quello nello zip del Pi) lasciava fuori le situazioni più nuove: il numero
+  era scritto a mano. Adesso le prende tutte.
+* **La memoria di lavoro**: i motori nuovi ne usano di più. Ho misurato il caso peggiore: circa un terzo di quella
+  che l'FM-1 ha. C'è margine.
+* L'analizzatore del compilatore su tutto il firmware: quattro avvisi, guardati uno per uno. Nessuno è un errore vero.
 * Ho aggiunto le prove per le parti nuove e per quelle che nessuna prova toccava.
 
 ## Come è stato provato
@@ -140,10 +145,14 @@ il 99% del firmware. Le righe mai eseguite le ho guardate una per una.
 | la prova | quanto |
 | --- | --- |
 | il cuore del sequencer | 30.938.169 controlli, 0 errori |
-| i motori THEORY, in 4/4 e in altri 19 metri | 215.628.289 controlli, 0 errori |
+| i motori THEORY, in 4/4 e in altre 18 battute (7/8, 5/4, 5/8, 9/8, 11/8, 7/4...) | 215.628.289 controlli, 0 errori |
 | i motori della 0.25, confrontati uno a uno | 1.213.056 parti: identiche |
-| il simulatore (il firmware vero che gira sul computer) | 1.476 controlli, 0 errori |
+| il simulatore (il firmware vero che gira sul computer) | 1.478 controlli, 0 errori |
+| l'esploratore: ogni gesto del pannello, in 28 situazioni | 94.367 gesti da soli, 11.197 coppie di gesti, 200 sessioni a caso: 0 errori |
 | l'editor del Pi | 245 controlli, 0 errori |
+| il bridge del grid, la pagina del Pi, le pagine SAGGA | 325 + 176 + 80 controlli, 0 errori |
+| gli errori di memoria (gesti a caso, con i rilevatori accesi) | 26 giri, 0 errori |
+| 19 errori messi apposta nel programma | le prove li trovano tutti e 19 |
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
 
@@ -173,6 +182,10 @@ Come sempre: prima il Pi (`sagga-hub-0.26.zip`), poi l'FM-1 (`sagga-0.26.fwsc`).
   fatti nel modo nuovo (non li riempie più con l'energia) e dimentica le impostazioni del click.
 * **Sotto un arpeggio** il basso riprende le note dell'accordo che l'arpeggio sta girando, non sempre la nota esatta
   appena suonata: un arpeggio cambia ordine con l'energia.
+* **Una cosa vecchia che ho visto adesso** (c'è almeno dalla 0.23, non l'ho toccata): in un progetto **senza
+  tonalità** (scala CHROMATIC, com'è un progetto nuovo) l'arpeggio di una BAND viene scritto una quinta sopra le altre
+  parti. Se scegli una tonalità (HOME 3: K2 la tonica, K3 la scala) è giusto. Si può correggere nella prossima
+  versione: dimmi se lo vuoi.
 
 ## La mappa dei generatori
 
@@ -191,7 +204,7 @@ In fondo alla mappa c'è una tabella "Voglio... uso..." che vale già oggi.
 * **Il nome del manuale** nell'elenco dei tuoi documenti dice ancora 0.25: da qui non riesco a cambiarlo, lo puoi
   rinominare tu. Dentro, il titolo è già 0.26.
 * **Il controllo tecnico**: fatta la parte più importante (quanto è provato, le righe mai eseguite, gli errori
-  trovati, le prove rotte apposta). Mancano i controlli di stile sul codice del Pi e alcune prove su parti vecchie
-  che nessuna prova tocca (la song con il tempo per riga, due motivi dell'OCTAVE, due comandi del remoto).
+  trovati, le prove rotte apposta, i controlli sul codice del Pi: nessun errore vero). Mancano alcune prove su parti
+  vecchie che nessuna prova tocca (la song con il tempo per riga, due motivi dell'OCTAVE, l'LFO su CHANCE e SWING).
 * **I tempi sullo strumento**: rifare una parte costa, sul computer, circa una volta e mezza la 0.25 in 4/4 e il
   doppio in un metro dispari. Sull'FM-1 va misurato.
