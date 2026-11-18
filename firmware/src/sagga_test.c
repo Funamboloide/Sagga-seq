@@ -163,6 +163,8 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
     pr_ku("thsrc", project.th.src); pr_ku("thseed", project.th.seed); pr_ku("en", vg_energy_now());   /* 0.23 THEORY: the SOURCE, the next seed, the energy applied now */
     pr_ku("bar", bar_st()); pr_k("beats"); pr_x(bar_bt(), 8u); pr_ku("barpend", bar_pend_steps); pr_ku("mid", metre_id_now());      /* 0.25 THE METRE: the bar in 16ths, its beats, the bar that waits */
+    pr_ku("kbc", kb_chord_on); pr_ku("cnt", cnt_on); pr_ku("clk", clk_count); pr_ku("clkl", clk_last); pr_ku("clkt", clk_last_tick);   /* 0.26: the keyboard's chord is the harmony; the count runs; the clicks so far, the last one */
+    pr_kh("set26#", &project.ext.click, 6u); pr_kh("smetre#", project.ext.scene_metre, sizeof project.ext.scene_metre);                /* ... the click's settings and SCENE METRE; the scenes' metres */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);
     pr_kh("song#", &project.song, sizeof project.song); pr_kh("snaps#", project.snap, sizeof project.snap);

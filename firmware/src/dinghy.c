@@ -32,7 +32,8 @@
  */
 #define APP_NAME "SAGGA SEQ"
 #define SQ_VERSION "0.25"
-#define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
+#define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
+                                                * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
 #include "sagga_seq_core.c"
 #include "sagga_beats.c"
@@ -249,6 +250,21 @@ static uint32_t tup_at[SQ_TRACKS];         /* ... and when (div_frac_x, tup_serv
  * was `global_clock % 96 == 0`. Its lines are counted from bar_origin (a line; 0 at PLAY and after a song position),
  * with bar_base bars before it: a bar changed while it plays begins on a line of the old one (metre_apply). */
 static uint32_t bar_origin, bar_base;
+/* 0.26 THE CLICK (sagga_click.c): what the main loop asks of the audio interrupt, the MIDI click's note that sounds,
+ * the count before a recording */
+static volatile uint8_t clk_req, clk_req_level;   /* a click of the FM-1's own sound waits: 1 a beat, 2 the bar line; how loud */
+static volatile uint32_t clk_req_at;       /* ... the moment it must begin, in the timer's ticks (fm1_ticks) */
+static sq_click_t clk_voice;               /* the click that sounds (the interrupt's alone) */
+static uint32_t clk_next;                  /* the first clock tick nobody has looked at yet for a click asked ahead */
+static uint8_t clk_off_ch = 255u, clk_off_note;   /* a MIDI click's note: its off ... */
+static uint32_t clk_off_us;                /* ... and when */
+static uint32_t clk_count, clk_last_tick;  /* the clicks since power-on, the tick the last was for (the probe) */
+static uint8_t clk_last;                   /* ... and what it was: 1 a beat, 2 the bar line */
+static uint8_t cnt_on;                     /* the count runs */
+static uint16_t cnt_pos, cnt_len;          /* its tick, its length in clock ticks */
+static uint32_t cnt_next_us, cnt_ahead;    /* when its next tick is due; the first of its ticks no click was asked for yet */
+static void click_tick(uint32_t now);
+static void click_quiet(void);
 static uint8_t bar_pend_steps;             /* a bar asked while it plays waits for the bar line (0: none) ... */
 static uint32_t bar_pend_beats;            /* ... with these beats */
 /* the project's metre as the machine uses it, read once when it changes - by a knob, a project loaded, anyone
@@ -772,6 +788,7 @@ static void project_runtime_reset(uint8_t boot)
         for (n = 0; n < SQ_HOLD_MAX; n++) { hold_note[t][n] = SQ_NOTE_NONE; hold_ch[t][n] = 0u; hold_off_us[t][n] = 0u; }
     }
     global_clock = 0u;
+    clk_next = 0u;                                     /* 0.26: no click asked yet */
     tup_wait = 0u;
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: the bars are counted from here */
     if (boot) { bar_pend_steps = 0u; bar_pend_beats = 0u; }
@@ -915,6 +932,7 @@ static void panic_all_x(uint8_t sound)      /* sound: All Sound Off too (the PAN
     panic_service();
     bend_reset();
     porta_all_off();                         /* 0.13 SLIDE: the portamento we switched on */
+    click_quiet();                           /* 0.26: a click that waited, a MIDI click's note */
     aud_stop();                              /* 0.15: what the Pi's editor plays */
 }
 static void panic_all(void) { panic_all_x(0u); }
@@ -1926,6 +1944,7 @@ static void seq_clock_tick(uint32_t now)
         }
     }
     if (global_clock % 6u == 0u) { harm_tick(now); motion_tick(); link_16th(); }   /* 0.11: a chord that changes on this 16th moves the held notes that follow it; 0.13 MOTION */
+    click_tick(now);                                   /* 0.26: the metronome: this tick's beat, or the FM-1's own sound asked ahead */
     global_clock++;
 }
 
@@ -2286,6 +2305,7 @@ static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where 
 {
     seek_tracks(0u, ticks);
     global_clock = ticks;
+    clk_next = ticks;
     tup_wait = 0u;
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: a song position is counted in the bar as it is now, from the song's start */
 }
@@ -2293,6 +2313,7 @@ static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where 
 static void transport_reset(void)
 {
     uint32_t now;
+    cnt_on = 0u;                                       /* 0.26: a count that ran is over (whoever starts the transport) */
     panic_all();
     lfo_carry += global_clock;
     lfo_trig_seen = 0u;                                /* 0.13: the TRIG LFOs wait for their track's first hit */
@@ -2333,6 +2354,7 @@ static void transport_continue(void)             /* from where it stopped; the r
     }
     next_master_clock_us = now;
     last_master_tick_us = now;
+    cnt_on = 0u; clk_next = global_clock;        /* 0.26: no count; the click from this tick */
     realign_all();                               /* 0.11: what changed while it was stopped (a direction, settings put back)
                                                   * goes where the clock is: CONTINUE carries on in time (the explorer) */
     playing = 1u;
@@ -3297,6 +3319,7 @@ static void rec_close_note(uint8_t src);
 #include "sagga_break.c"                              /* 0.12: the slices of a drum break */
 #include "sagga_live2.c"                              /* 0.12: TAKE, the THROWS, the step's notes by knob */
 #include "sagga_live3.c"                              /* 0.13: KEYBOARD, MIDI IN, MOTION, SLIDE, CHAIN LIST */
+#include "sagga_click.c"                              /* 0.26: THE CLICK - the metronome, the count before a recording */
 
 /* EDIT + black 2 / 3 / 4: COPY, PASTE, CLEAR the cursor step (UNDO takes PASTE and CLEAR back); 5 PLAIN, 6 TIE, 7 SLIDE */
 static void step_tool(int bi)
@@ -3404,6 +3427,7 @@ static int record_note(uint8_t t, uint8_t note, uint8_t vel)   /* the step it we
     uint8_t stp, fresh = 1u;
     int8_t nudge = 0;
     if (!record_arm || t >= SQ_TRACKS) return -1;
+    if (cnt_on) return -1;                                          /* 0.26: a note played during the count is written nowhere */
     if (playing) {
         uint32_t now = sq_micros(), el = (uint32_t)(now - ev[t].slot_start_us), phase;
         phase = ev[t].slot_dur_us ? el * 100u / ev[t].slot_dur_us : 0u;
@@ -4067,7 +4091,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
 #define HOME_PAGES 8u                                  /* 0.13: 8 CHAIN LIST */
 #define SEQ_PAGES 8u
 #define ARP_PAGES 6u
-#define SAVE_PAGES 4u                                  /* 0.13: 4 LIVE IN */
+#define SAVE_PAGES 5u                                  /* 0.13: 4 LIVE IN; 0.26: 5 CLICK */
 #define PERF_PAGES 4u                                  /* 0.25: 4 THE METRE */
 #define LFO_PAGES 6u                                   /* 0.13: 4 RATE SEQ; 0.20: 5 ENV, 6 MOD */
 #define LFO_PAGE_ENV 4u
@@ -4206,6 +4230,11 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
     }
     if (held & (1u << BTN_SAVE)) {                     /* SAVE: the slot, the MASTER knob, the remote, snapshot tempo; page 2: lead, song tempo, device */
         if (dp) save_turn(dp);
+        if (save_page == 4u) {                         /* 0.26 CLICK: the metronome, the count, where it sounds, how loud (SEL + K4: its note) */
+            click_knobs(d1, d2, d3, d4, (uint8_t)((held & (1u << BTN_SEL)) != 0u));
+            if (d1 || d2 || d3 || d4) { save_knob = 1u; ui_dirty = 1u; }
+            return;
+        }
         if (save_page == 3u) {                         /* 0.13 LIVE IN: MOTION, the KEYBOARD's transpose, its channel, MIDI IN */
             sq_ext_t *x = &project.ext;
             if (d1) {
@@ -4747,7 +4776,7 @@ static void handle_buttons(void)
             if (vg_mosse_shown() && !playing) vg_seed();
             else if (!playing) transport_continue();
         } else if (playing) transport_stop();
-        else transport_start();
+        else transport_start_ask();                            /* (0.26: after the COUNT IN, when REC is on and one is asked) */
     }
     if (b & (1u << BTN_REC)) {
         rec_used = 1u;
@@ -4941,7 +4970,7 @@ static void update_leds(void)
     }
     /* the buttons: full when held or on; the others glow (the backlight, lights_apply) */
 #define HELD(btn) ((held >> (btn)) & 1u)
-    fm1_led_key(BTN_PLAY, playing || HELD(BTN_PLAY));
+    fm1_led_key(BTN_PLAY, playing || HELD(BTN_PLAY) || (cnt_on && ((fm1_ms / 125u) & 1u)));   /* (0.26: it blinks while the count runs) */
     fm1_led_key(BTN_REC, record_arm || HELD(BTN_REC));
     fm1_led_key(BTN_GLO, song_on ? blink : (perf_mode || HELD(BTN_GLO)));
     fm1_led_key(BTN_ARP, SQ_CHORD_MODE(project.track[selected_track].chord_mode) != SQ_CHORD_BLOCK || HELD(BTN_ARP));
@@ -5201,10 +5230,7 @@ static void app_host_dump(int t)
 }
 #endif
 
-static void app_audio(int32_t *out, uint32_t n)
-{
-    (void)out; (void)n; /* MIDI-only firmware: deliberately silent */
-}
+/* (app_audio: sagga_click.c - 0.26: the metronome's click is the one sound this firmware makes) */
 
 static void app_main(void)
 {
@@ -5241,7 +5267,9 @@ static void app_main(void)
 
         /* Give the sequencer clock priority over UI/input work. */
         now = sq_micros();
+        count_service(now);                            /* 0.26: the count before a recording: its last tick starts the transport */
         service_master_clock(now);
+        click_service(now);                            /* 0.26: a MIDI click's note ends */
         lfo_service(now);
         service_track_events(now);
 

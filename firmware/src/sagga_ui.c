@@ -254,6 +254,20 @@ static void ui_build(void)
 
     switch (mode) {
     case UM_SAVE:                                     /* SAVE: K1 the MASTER knob, K2 the remote, K3 snapshot tempo, slot; page 2; 0.12 page 3 SYSTEM; 0.13 page 4 LIVE IN */
+        if (save_page == 4u) {                        /* 0.26 CLICK: the metronome, the count before a recording, where it sounds, how loud */
+            const sq_ext_t *x = &project.ext;
+            static const char *const CK[SQ_CLICKS] = {"OFF", "REC", "PLAY"};
+            ui_cell(0, "CLICK", CK[x->click < SQ_CLICKS ? x->click : 0u], x->click ? (click_wanted() ? C_ON : C_ACCENT) : SQ_C_DIM);
+            ui_cell(1, "COUNT IN", !x->count_in ? "OFF" : x->count_in == 1u ? "1 BAR" : "2 BARS", cnt_on ? C_WARN : x->count_in ? C_ACCENT : SQ_C_DIM);
+            ui_cell(2, "CLICK OUT", x->click_out ? f_pre("CH ", x->click_out) : "FM-1", x->click_out ? C_ACCENT : C_WHITE);
+            ui_cell(3, "LEVEL", f_u(sq_click_level(x)), C_WHITE);
+            p = b; p = put_s(p, "SAVE 5/5  CLICK");
+            if (x->click_out) { char nm[5]; sq_note_name(sq_click_note(x), nm); p = put_s(p, "  NOTE "); p = put_s(p, nm); p = put_s(p, " (SEL+K4)"); }
+            else p = put_s(p, "  ON THE BEATS OF THE METRE");
+            finish(p);
+            ui_line(2, b, C_WARN);
+            break;
+        }
         if (save_page == 3u) {
             const sq_ext_t *x = &project.ext;
             static const char *const KB[SQ_KBS] = {"OFF", "TRANSPOSE", "TRANSP <C3", "CHORDS", "CHORDS <C3"};   /* (0.26: the chords; until 0.25 OFF ALL SPLIT C3) */
@@ -261,7 +275,7 @@ static void ui_build(void)
             ui_cell(1, "KEYBOARD", KB[x->kb_mode < SQ_KBS ? x->kb_mode : 0u], x->kb_mode ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "KEYB CH", x->kb_ch ? f_u(x->kb_ch) : "ANY", x->kb_mode ? C_WHITE : SQ_C_DIM);
             ui_cell(3, "MIDI IN", x->in_thru ? "ALWAYS" : "REC ONLY", x->in_thru ? C_ON : SQ_C_DIM);
-            ui_line(2, x->motion_bars && record_arm ? "SAVE 4/4  MOTION REC: FX + K" : "SAVE 4/4  LIVE IN", C_WARN);
+            ui_line(2, x->motion_bars && record_arm ? "SAVE 4/5  MOTION REC: FX + K" : "SAVE 4/5  LIVE IN", C_WARN);
             break;
         }
         if (save_page == 2u) {                        /* the USB link (was HOME + SEL), the button lights */
@@ -273,7 +287,7 @@ static void ui_build(void)
             p = b; p = put_u(p, u.queued); p = put_s(p, "/64"); finish(p);
             ui_cell(2, "OUT QUEUE", b, u.queued > 48u ? C_WARN : C_WHITE);
             ui_cell(3, "DROPPED", f_u(u.dropped), u.dropped ? C_WARN : C_WHITE);
-            p = b; p = put_s(p, "SAVE 3/4  MIDI OUT "); p = put_u(p, diag_out_ps); p = put_s(p, "/S IN "); p = put_u(p, diag_in_ps);
+            p = b; p = put_s(p, "SAVE 3/5  MIDI OUT "); p = put_u(p, diag_out_ps); p = put_s(p, "/S IN "); p = put_u(p, diag_in_ps);
             p = put_s(p, "/S WAIT "); p = put_u(p, u.wait_ms); finish(p);
             ui_line(2, b, C_WARN);
             break;
@@ -284,7 +298,7 @@ static void ui_build(void)
             ui_cell(1, "SONG TEMPO", f_onoff(project.live.song_tempo), project.live.song_tempo ? C_ON : SQ_C_DIM);
             ui_cell(2, f_pre("DEVICE CH", (uint32_t)ch + 1u), sq_device_name(project.device[ch]), project.device[ch] ? C_ACCENT : C_WHITE);
             ui_cell(3, "LONG PATTERNS", project.gen.lib_len == SQ_LL_PHRASE ? "PHRASE" : "COPY", project.gen.lib_len ? C_ACCENT : C_WHITE);
-            ui_line(2, "SAVE 2/4  LOCKS AHEAD, SONG TEMPO, SYNTH", C_WARN);
+            ui_line(2, "SAVE 2/5  LOCKS AHEAD, SONG TEMPO, SYNTH", C_WARN);
             break;
         }
         ui_cell(0, "MASTER KNOB", MK_NAME[project.live.master_fn < SQ_MKS ? project.live.master_fn : 0u], C_WHITE);

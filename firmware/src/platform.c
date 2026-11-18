@@ -311,6 +311,10 @@ static int32_t abuf[2u * HALF_WORDS] __attribute__((aligned(4)));
 static volatile int32_t master_q12 = 2048;
 static volatile uint32_t fm1_knob = 512;       /* the MASTER knob, 0..1023, smoothed (SAGGA SEQ: the tempo) */
 static void app_audio(int32_t *out, uint32_t n);
+#ifdef APP_SILENT
+static uint8_t app_audio_wants(void);           /* 0.26: 1 while a silent app has a sound to make after all (its click) */
+static volatile uint8_t abuf_written;           /* ... the halves of abuf it wrote (a bit each): to be cleared when it is over */
+#endif
 static void app_main(void);
 static void app_usb_early(void);                /* the app's USB choices (dinghy.c: the settings), before usb_start */
 
@@ -323,9 +327,30 @@ void fm1_alnk0_irq(void)                       /* via isr_alnk0 (hal/fm1_isr.S) 
 #ifdef APP_SILENT
     /* SAGGA SEQ 0.22: an app that makes no sound. abuf is zero from the start (.bss) and nothing writes it, so the half
      * the codec has played is only acknowledged. Until 0.21 it was cleared, scaled by the MASTER knob and shifted every
-     * 5.8 ms: 1536 turns of three loops for a silence, with the USB's poll put off meanwhile (in_audio) */
-    if (p & FM1_AUDIO_HALF)
+     * 5.8 ms: 1536 turns of three loops for a silence, with the USB's poll put off meanwhile (in_audio).
+     * 0.26: but while the app has a sound to make (app_audio_wants: the metronome's click, 30 ms of it): then the half
+     * is made as in any app - cleared, rendered, clipped - and remembered as written, so that it is cleared once when
+     * the sound is over (a half left written would come round again every 11.6 ms). The MASTER knob is no volume here
+     * (it is the tempo): the click has its own level. */
+    if (p & FM1_AUDIO_HALF) {
+        uint32_t h = fm1_audio_free_half(), i;
+        int32_t *o = &abuf[h * HALF_WORDS];
+        if (app_audio_wants()) {
+            for (i = 0; i < HALF_WORDS; i++)
+                o[i] = 0;
+            app_audio(o, HALF_FRAMES);
+            for (i = 0; i < HALF_WORDS; i++) {
+                int32_t v = o[i];
+                o[i] = (v > 32767 ? 32767 : v < -32767 ? -32767 : v) * 128;
+            }
+            abuf_written |= (uint8_t)(1u << h);
+        } else if (abuf_written & (1u << h)) {
+            for (i = 0; i < HALF_WORDS; i++)
+                o[i] = 0;
+            abuf_written &= (uint8_t)~(1u << h);
+        }
         fm1_audio_ack_half();
+    }
 #else
     if (p & FM1_AUDIO_HALF) {
         int32_t *o = &abuf[fm1_audio_free_half() * HALF_WORDS];

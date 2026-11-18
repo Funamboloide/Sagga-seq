@@ -282,7 +282,7 @@ static void gr_ctl(uint8_t id, uint8_t down)
     if (id == GC_PLAY) {
         if (shift) { if (!playing) transport_continue(); }                  /* SHIFT + PLAY: carry on from where it stopped */
         else if (playing) transport_stop();
-        else transport_start();
+        else transport_start_ask();                                         /* (0.26: after the COUNT IN, as the panel's PLAY) */
     } else if (id == GC_REC) {
         if (shift) gr_set_view(g_view == GV_PROJ ? GV_LIB : GV_PROJ);              /* PROJ again: LIB */
         else { rec_toggle(); ui_dirty = 1u; }
