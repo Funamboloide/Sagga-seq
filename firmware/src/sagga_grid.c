@@ -1587,7 +1587,7 @@ static void gr_render_beat(void)
         if (th) {                                       /* 0.23: what the engines would make of the seed */
             sq_th_t h;
             th_set(&h, st, project.th.seed, 0u, 0u, vg_energy_now(), selected_track, tr[selected_track].pattern, beat_func);
-            text = sq_th_part(&h, beat_func, 32u, thr, thn) ? thr : 0;
+            text = sq_th_part(&h, beat_func, h.gen ? sq_th_steps(&h, 2u) : 32u, thr, thn) ? thr : 0;   /* (0.26: two bars of the metre) */
         }
         for (i = 0; i < 32u; i++) {
             char c = (text && !end) ? text[i] : '\0';

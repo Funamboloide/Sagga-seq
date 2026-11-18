@@ -1311,12 +1311,14 @@ static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_
 }
 static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out) { return step_notes_x(t, s, out, 1u); }   /* (a held note, a chord) */
 /* 0.25 FOLLOW MELODY: step `idx` of track t is a strong note of its tune: on a beat of the metre (the track's steps
- * counted from where its loop begins, as its row shows them), or longer than its step */
+ * counted from where its loop begins, as its row shows them), or longer than its step; 0.26: or a note of the chord
+ * that a tune of the engines plays right after the chord (tune_answers, sagga_gen.c) */
+static uint8_t tune_answers(uint32_t t, const sq_step_t *s, uint8_t idx);
 static uint8_t step_strong(uint32_t t, const sq_step_t *s, uint8_t idx)
 {
     uint8_t st = project.track[t].start;
     uint32_t k = idx >= st ? (uint32_t)idx - st : idx;
-    return (uint8_t)(s->length > 100u || ((bar_bt() >> (k % bar_st())) & 1u) != 0u);
+    return (uint8_t)(s->length > 100u || ((bar_bt() >> (k % bar_st())) & 1u) != 0u || tune_answers(t, s, idx));
 }
 
 /* start playing a step: slices (the ratchets, or the notes of the arpeggio) from first_us, span_us apart in all */
@@ -5223,7 +5225,9 @@ static void app_host_dump(int t)
         const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
         printf("%6u ms  theory T%d P%u style %u len %u func %u seed %u var %u vary %u energy %u src %u next %u now %u\n", fm1_ms, t + 1,
                (unsigned)tr[t].pattern + 1u, (unsigned)(m->style & 31u), (unsigned)(m->style ? SQ_THP_LEN(m) : 0u), (unsigned)m->func, (unsigned)m->seed,
-               (unsigned)m->var, (unsigned)m->vary, (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+               (unsigned)m->var, (unsigned)SQ_THP_VARY(m), (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+        printf("%6u ms  thmade T%d bar %u notes %u steps %u\n", fm1_ms, t + 1, (unsigned)((m->style & 31u) && (m->style & SQ_THP_V26) ? 1u : 0u),   /* 0.26: made in the bar, its answers with notes */
+               (unsigned)((m->style & 31u) ? SQ_THP_NOTES(m) : 0u), (unsigned)((m->style & 31u) ? th_rec_len(m) : 0u));
         printf("%6u ms  thmetre T%d made %u now %u kept %u\n", fm1_ms, t + 1, (unsigned)m->metre, (unsigned)metre_id_now(),   /* 0.25: the metre it was made in */
                (unsigned)((th_kept[t] >> tr[t].pattern) & 1u));
     }

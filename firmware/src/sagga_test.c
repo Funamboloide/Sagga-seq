@@ -196,9 +196,11 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_k("gh"); pr_s(tst_copies_ok(t)); pr_ku("own", sq_row_own(project.step[t][tr[t].pattern], c->start, c->length));   /* 0.24: the copies in order, the pattern's own length */
         {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
             const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
-            pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(m->vary); pr_c('/'); pr_u(m->energy);
+            pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(SQ_THP_VARY(m)); pr_c('/'); pr_u(m->energy);
             pr_ku("thm", m->metre);                                  /* (0.25: the metre it was made in - G's mid: the metre now -, */
             pr_ku("thk", (th_kept[t] >> tr[t].pattern) & 1u);        /*  and whether it stays in it: the player changed it by hand) */
+            pr_ku("thv", ((m->style & 31u) && (m->style & SQ_THP_V26) ? 1u : 0u) + (SQ_THP_NOTES(m) && (m->style & 31u) ? 2u : 0u));   /* 0.26: 1 made in the bar, 3 and its answers have notes */
+            pr_ku("thl", (m->style & 31u) ? th_rec_len(m) : 0u);     /* (... the steps it was made of) */
         }
         pr_kh("steps#", project.step[t][tr[t].pattern], sizeof project.step[t][0]);
         pr_kh("pats#", project.step[t], sizeof project.step[t]); pr_kh("cfg#", c, sizeof *c);

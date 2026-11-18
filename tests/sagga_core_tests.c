@@ -3802,7 +3802,9 @@ static void test_v023_theory_chunk(void)
     b.th.src = 9u; b.th.seed = 1000u; b.th.reserved = 7u;
     b.th.pat[1][1].style = 0x1Bu; b.th.pat[1][1].seed = 3u;          /* a style past the last (27) */
     b.th.pat[2][2].style = 0x61u;                                      /* a length that is none */
-    b.th.pat[3][3].style = 0x81u;
+    b.th.pat[3][3].style = 0x81u; b.th.pat[3][3].metre = 255u;         /* (0.26: bit 7 - made in its metre's bars - with a metre that has no number) */
+    b.th.pat[6][6].style = 0x81u; b.th.pat[6][6].seed = 5u; b.th.pat[6][6].metre = 9u;   /* (... with one: a pattern of the 0.26 engines, it stays) */
+    b.th.pat[7][7].style = 0xC2u; b.th.pat[7][7].seed = 6u;            /* (... in 4/4, four bars) */
     b.th.pat[0][0].vary = 200u; b.th.pat[0][0].energy = 101u; b.th.pat[0][0].func = 200u; b.th.pat[0][0].metre = 230u;   /* (0.25: no metre has that number) */
     b.th.pat[15][7].metre = 9u;                                        /* (... this one is a metre: it stays) */
     b.th.pat[5][5].seed = 77u; b.th.pat[5][5].var = 2u;                /* (style 0: not the engines', nothing kept) */
@@ -3811,6 +3813,8 @@ static void test_v023_theory_chunk(void)
     CHECK(b.th.pat[1][1].style == 0u && b.th.pat[1][1].seed == 0u && b.th.pat[2][2].style == 0u && b.th.pat[3][3].style == 0u);
     CHECK(b.th.pat[0][0].vary == 100u && b.th.pat[0][0].energy == 100u && b.th.pat[0][0].style == a.th.pat[0][0].style && b.th.pat[0][0].func == 0u && b.th.pat[0][0].metre == 0u);
     CHECK(b.th.pat[5][5].seed == 0u && b.th.pat[5][5].var == 0u);
+    CHECK(b.th.pat[6][6].style == 0x81u && b.th.pat[6][6].seed == 5u && b.th.pat[6][6].metre == 9u && (b.th.pat[6][6].style & SQ_THP_V26));
+    CHECK(b.th.pat[7][7].style == 0xC2u && b.th.pat[7][7].seed == 6u && SQ_THP_LEN(&b.th.pat[7][7]) == 64u && SQ_THP_STYLE(&b.th.pat[7][7]) == 1u);
     CHECK(b.th.pat[15][7].style == a.th.pat[15][7].style && b.th.pat[15][7].seed == 999u && b.th.pat[15][7].metre == 9u);
 }
 

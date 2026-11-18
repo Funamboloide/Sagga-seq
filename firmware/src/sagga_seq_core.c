@@ -2172,12 +2172,16 @@ void sq_theory_default(sq_theory_t *h)
 }
 void sq_thpat_sanitize(sq_thpat_t *m)
 {
-    if (!(m->style & 31u) || (m->style & 31u) > SQ_TH_STYLES || (m->style & 0x80u) || ((m->style >> 5) & 3u) > 2u) {
+    if (!(m->style & 31u) || (m->style & 31u) > SQ_TH_STYLES || ((m->style >> 5) & 3u) > 2u ||
+        ((m->style & SQ_THP_V26) && m->metre > SQ_METRE_IDS)) {            /* (0.26: bit 7 - made in its metre's bars: a metre it must have) */
         m->seed = 0u; m->style = 0u; m->func = 0u; m->var = 0u; m->vary = 0u; m->energy = 0u; m->metre = 0u;   /* not the engines': nothing kept */
         return;
     }
     if (m->func >= 64u) m->func = 0u;                    /* (the library checks the rest: a part the engines cannot make is not made) */
-    if (m->vary > 100u) m->vary = 100u;
+    if (m->style & SQ_THP_V26) {                         /* 0.26: bit 7 of the variation's size - its answers have notes */
+        uint8_t notes = (uint8_t)(m->vary & SQ_THPV_NOTES), v = (uint8_t)(m->vary & 127u);
+        m->vary = (uint8_t)((v > 100u ? 100u : v) | notes);
+    } else if (m->vary > 100u) m->vary = 100u;
     if (m->energy > 100u) m->energy = 100u;
     if (m->metre > SQ_METRE_IDS && m->metre != 255u) m->metre = 0u;    /* (0.25: the metre it was made in; 0: 4/4, as every older one) */
 }

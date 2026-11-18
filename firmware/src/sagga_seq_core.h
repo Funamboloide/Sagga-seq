@@ -606,13 +606,24 @@ enum { SQ_SRC_LIBRARY = 0,      /* the patterns are loaded from the library */
 typedef struct __attribute__((packed)) {
     uint16_t seed;               /* the seed it was made from */
     uint8_t style;               /* 0: not the engines' (written by hand, loaded from the library). Else bits 0-4: 1 +
-                                  * the style; bits 5-6: the length it was made at, 0 = 16 steps, 1 = 32, 2 = 64 */
+                                  * the style; bits 5-6: the length it was made at, 0 = 16 steps, 1 = 32, 2 = 64 (0.26, with
+                                  * bit 7, SQ_THP_V26: one, two, four bars of its metre) */
     uint8_t func;                /* the part it is: SQ_FUNC_* (sagga_beats.h) */
     uint8_t var;                 /* the variation of the seed it is (0: the seed's own; COOK walks to the next) */
-    uint8_t vary;                /* how large that variation is, 0..100 % */
+    uint8_t vary;                /* how large that variation is, 0..100 % (SQ_THP_VARY; 0.26, bit 7: SQ_THPV_NOTES) */
     uint8_t energy;              /* the energy it was made at, 0..100 */
     uint8_t metre;               /* 0.25: the metre it was made in (sq_metre_id; 0: 4/4) - made again when the bar is another */
 } sq_thpat_t;                    /* 8 bytes */
+#define SQ_THP_V26 0x80u         /* 0.26, bit 7 of `style`: made IN the bar of its metre by the engines of 0.26 - its length is one,
+                                  * two or four bars OF THAT METRE, not sixteens re-barred. A pattern without it is made again
+                                  * the way 0.25 made it. (A 0.25 firmware does not know the bit: it takes the pattern for one
+                                  * written by hand, and leaves it as it is.) */
+#define SQ_THPV_NOTES 0x80u      /* 0.26, bit 7 of `vary`, only with SQ_THP_V26: its ANSWERS HAVE NOTES (sq_th_t.mate_nt). Every
+                                  * pattern made new by 0.26 has both; a pattern of 0.25 made again in another metre is made in
+                                  * the bar and keeps its answers as they were (so that back in 4/4 it is what it was: there a
+                                  * pattern with neither bit - made in the bar and made in sixteens are the same thing) */
+#define SQ_THP_VARY(m)  ((uint8_t)((m)->vary & 127u))                    /* how large its variation is, 0..100 */
+#define SQ_THP_NOTES(m) ((uint8_t)((((m)->style & SQ_THP_V26) && ((m)->vary & SQ_THPV_NOTES)) ? 1u : 0u))
 #define SQ_THP_STYLE(m) ((uint8_t)(((m)->style & 31u) - 1u))            /* the style of a pattern the engines made */
 #define SQ_THP_LEN(m)   ((uint8_t)(16u << (((m)->style >> 5) & 3u)))    /* 16, 32, 64 */
 #define SQ_THP_PACK(style, len) ((uint8_t)(((style) + 1u) | ((len) >= 64u ? 0x40u : (len) >= 32u ? 0x20u : 0u)))
