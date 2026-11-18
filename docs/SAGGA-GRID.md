@@ -323,8 +323,8 @@ length, dim red a muted track's hits.
 | 1 | the 16 tools: CLEAR, REVERSE, SHIFT <, SHIFT >, RANDOM, **EUCLID LIVE on / off**, **WRITE LIVE**, UNDO, COOK (0.11: towards the next variation; **SHIFT: the random COOK**), BEAT, PROG, COPY, PASTE, DOUBLE, INVERT, HUMANIZE, on the scope (their settings: BEAT view) |
 | 2 | arp mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY); octaves 1-3 (14-16) |
 | 3 | swing 50 .. 75 % (1-8); direction FWD, REV, PING, RND (9-12); transpose -12, -1, +1, +12 (13-16; SHIFT: back to 0) |
-| 4 | division 1/1 .. 1/32T (1-13); the track FREE / IN KEY (cyan) / DRUM (amber) / BREAK (0.12) (14; a TAPE: HOME 4 K1 on the FM-1). (Mute and solo: the PERF view) |
-| 5 | length 4, 8 .. 64 (0.11: playing, at the bar; **0.24**: a longer track has the pattern go round again in its new steps - the copies, whatever lengths came before - and a shorter one keeps the pattern whole after the loop). SHIFT: the loop start 1, 5 .. 61 |
+| 4 | division 1/1 .. 1/32T (1-13); the track FREE / IN KEY (cyan) / DRUM (amber) / BREAK (0.12) (14; a TAPE: HOME 4 K1 on the FM-1); **0.25, the polyrhythms: five (15) or seven (16) steps in the time of four** - a tap: of the value the track had (four quarters from 1/4, four eighths from 1/8, else four 16ths); again: the next of the three; violet, white the one that is on; a pad 1-13 goes back to a plain step. (Mute and solo: the PERF view) |
+| 5 | length 4, 8 .. 64 (0.11: playing, at the bar - 0.25: the metre's bar, GLO 4 on the FM-1 -; **0.24**: a longer track has the pattern go round again in its new steps - the copies, whatever lengths came before - and a shorter one keeps the pattern whole after the loop). SHIFT: the loop start 1, 5 .. 61 |
 | 6 | humanise: timing 0 .. 50 % (1-8), velocity 0 .. 50 (9-16) |
 | 7 | velocity offset -63 .. +63 (the middle pad: 0) |
 | 8 | nudge of the cursor step -50 .. +50 % (left of the middle: early) |
@@ -496,7 +496,7 @@ The colour of a bar is its page: green 1-16, cyan 17-32, blue 33-48, violet 49-6
 | 3 | ECHO time 1/32 .. 1/4 (1-8; OCTAVE: ALT, RANDOM, 3RD, 4TH); how much each ECHO keeps / the HARM voice's velocity 20 .. 100 % (9-16); 0.20, a new effect: its K3 on 1-8 and its K4 on 9-16, each over its range (a short range: a value a pad) |
 | 4 | algorithm OFF, TURING, CELL, ACCENT, DENSITY (1-5) of the slot shown (**0.16: a tap READY, orange; again: it starts with what rows 5-6 set, white; a tap on the one playing stops it**); FOLLOW (6); EUCLID LIVE (7); **the slot 1-4** (8, 0.11: tap for the next); C (9-16): TURING rhythm / notes / both, CELL every 1 / 2 / 4 bars / loop, ACCENT offset |
 | 5 | A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels, 0 .. 200 %) — of the READY algorithm if there is one, else of the one playing. **0.23.1, the sixteen CELL rules from the calm to the wild**: 204 (the row stays as it is: a tap while a CELL plays holds the row of that bar), 170 (it slides a step earlier every row), 240 (a step later), 184 (it slides, hits in a row open up), 51 (hits and rests swap), 90, 150, 105, 60 (loops of a few rows through the written rhythm), 54 (thin and thick in turn), 18, 22, 126, 122, 110 (longer stories), 30 (no loop in sight). A tap says on the FM-1's screen what that rule makes of the track's rhythm (`T1 CELL RULE 90: A LOOP OF 8 ROWS`); so does a pad of row 6 on a CELL |
-| 6 | B: TURING length 2-16, CELL cells, ACCENT amount, DENSITY the ghosts' velocity |
+| 6 | B: TURING length 2-16 (pads 1-15; **0.25, pad 16: TRACK** - as long as the track, and it follows it), CELL cells, ACCENT amount, DENSITY the ghosts' velocity |
 | 7 | the cursor step's long gate: 1.5, 2 .. 6, 8 .. 16, 20 .. 64 steps — a whole four-bar pattern (SHIFT: 17 .. 32 one by one) |
 | 8 | the MIDI channel 1-16 (15 and 16 need two USB ports) |
 
@@ -541,6 +541,10 @@ keeps it there too; RELOAD works from it while nothing else has used the FM-1's 
 * *The bridge says "no FM-1 ... the bridge waits for it"* (0.23.2). The FM-1 is off or not plugged in: the bridge
   waits, without looking at the ports again until a device comes (it used to end, and the service started it again
   every two seconds - each start disturbed RaspiMIDIHub's matrix). The same without two Launchpads ("no grid ...").
+* *While a firmware is being installed* (0.25). The FM-1 in update mode is another device, "Felucca Update". Until
+  0.24 the bridge (and the keeper of the pages' cells) took it for the FM-1: it attached to it and sent it its
+  keep-alive every second through the install. Now the update loader is not the FM-1: the bridge says "no FM-1 ... the
+  bridge waits for it" and comes back when the FM-1 restarts with the new firmware.
 * *The Launchpads are dark and the FM-1 said GRID LOST* (0.23.2). The bridge was stopped: the Pi's banco stops it for
   a prova and starts it again at the end, and so does a shutdown. A stopped bridge switches the lights off (until
   0.23.1 the grid stayed lit and still, as if it were alive).

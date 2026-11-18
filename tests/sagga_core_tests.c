@@ -140,9 +140,57 @@ static void test_expo(void)
 static void test_divisions(void)
 {
     uint8_t prev = 255u, d;
-    for (d = 0; d < SQ_DIV_COUNT; d++) {
+    for (d = 0; d < SQ_DIV_PLAIN; d++) {        /* (0.25: the plain divisions; the polyrhythms come after them) */
         CHECK(sq_div_ticks(d) < prev);          /* longest first */
         prev = sq_div_ticks(d);
+    }
+    {   /* 0.25 THE POLYRHYTHMS: five or seven steps in the time of four - a step is num / den ticks */
+        static const uint16_t NUM[6] = {96u, 48u, 24u, 96u, 48u, 24u};
+        static const uint8_t DEN[6] = {5u, 5u, 5u, 7u, 7u, 7u};
+        uint16_t num;
+        uint8_t den;
+        uint32_t bad = 0u, n, k;
+        CHECK(SQ_DIV_PLAIN == 13u && SQ_DIV_COUNT == 19u && SQ_DIV_1_4Q5 == 13u && SQ_DIV_1_16Q7 == 18u);
+        for (d = 0; d < SQ_DIV_PLAIN; d++) {
+            sq_div_frac(d, &num, &den);
+            if (sq_div_tuplet(d) || den != 1u || num != sq_div_ticks(d)) bad++;
+        }
+        for (d = SQ_DIV_PLAIN; d < SQ_DIV_COUNT; d++) {
+            sq_div_frac(d, &num, &den);
+            if (sq_div_tuplet(d) != DEN[d - SQ_DIV_PLAIN] || den != DEN[d - SQ_DIV_PLAIN] || num != NUM[d - SQ_DIV_PLAIN] || sq_div_ticks(d) != num / den) bad++;
+        }
+        sq_div_frac(200u, &num, &den);
+        CHECK(!bad && sq_div_tuplet(19u) == 0u && sq_div_tuplet(255u) == 0u && num == 6u && den == 1u);
+        {   /* a track counted tick by tick as the firmware does (the next step is `acc` / den ticks away: under den, it
+             * begins before the next tick) is where sq_track_seek_frac says, at every tick; with den 1 the step is
+             * sq_track_seek's */
+            sq_track_cfg_t c;
+            sq_track_rt_t a, b;
+            sq_track_default(&c, 0u);
+            for (d = SQ_DIV_PLAIN, bad = 0u; d < SQ_DIV_COUNT; d++)
+                for (k = 0; k < 3u; k++) {
+                    uint32_t acc = 0u, steps = 0u;
+                    c.length = (uint8_t)(k == 0u ? 16u : k == 1u ? 5u : 64u); c.start = (uint8_t)(k == 2u ? 3u : 0u);
+                    sq_div_frac(d, &num, &den);
+                    for (n = 0; n < 3000u; n++) {
+                        memset(&a, 0, sizeof a);
+                        sq_track_seek_frac(&c, &a, n, num, den);
+                        if (a.div_accum != acc || a.step != c.start + steps % (uint32_t)(c.length - c.start) || a.loop_count != steps / (uint32_t)(c.length - c.start)) bad++;
+                        if (acc < den) { steps++; acc += num; }
+                        acc -= den;
+                    }
+                    if (steps != (3000u * den + num - 1u) / num) bad++;      /* (3000 ticks: 156.25 steps of 96/5 -> 157 begun) */
+                }
+            CHECK(!bad);
+            for (n = 0, bad = 0u; n < 500u; n++)
+                for (d = 0; d < SQ_DIV_PLAIN; d++) {
+                    memset(&a, 0, sizeof a); memset(&b, 0, sizeof b);
+                    sq_track_seek(&c, &a, n, sq_div_ticks(d));
+                    sq_track_seek_frac(&c, &b, n, sq_div_ticks(d), 1u);
+                    if (a.step != b.step || a.loop_count != b.loop_count) bad++;
+                }
+            CHECK(!bad);
+        }
     }
     CHECK(sq_div_ticks(SQ_DIV_1_16) == 6u);
     CHECK(sq_div_ticks(SQ_DIV_1_4) == 24u);
@@ -1591,7 +1639,7 @@ static void test_v08(void)
         c.mfx = SQ_MFX_OCTAVE; c.mfx_amt = 8; c.mfx_time = 30u; c.mfx_fb = 0u; c.euc_pulses = 0u; c.euc_rot = 99u; c.pen = 200u;
         c.channel = 15u; c.flags = SQ_TF_DRUM | SQ_TF_FOLLOW | SQ_TF_EUC;
         sq_track_sanitize(&c);
-        CHECK(c.algo_a == 100u && c.algo_b == 16u && c.algo_c == SQ_TM_RHYTHM);
+        CHECK(c.algo_a == 100u && c.algo_b == SQ_TM_LEN_TRACK && c.algo_c == SQ_TM_RHYTHM);   /* (0.25: past 16 is TRACK, 17) */
         CHECK(c.mfx_amt == 2 && c.mfx_time == 6u && c.mfx_fb == 10u && c.euc_pulses == 1u && c.euc_rot == 0u && c.pen == 60u);
         CHECK(c.channel == 15u && c.flags == (SQ_TF_DRUM | SQ_TF_EUC));   /* a drum does not follow; 16 channels kept */
         c.mfx = SQ_MFX_ECHO; c.mfx_amt = -3; sq_track_sanitize(&c); CHECK(c.mfx_amt == 0);
@@ -2096,6 +2144,174 @@ static void test_v024_copies(void)
 
 /* 0.24: the copies in the image: the flag is not in the steps (a 0.23 firmware reads plain steps, a copied rest costs
  * nothing), chunk 3 says which steps; the library's patterns for a track's length */
+/* 0.25 THE METRE: the bar of N steps, its beats, the ways it divides, the names; a bar of 4/4 folded onto it; the
+ * tracks that follow a new bar; the image keeps it */
+static void test_v025_metre(void)
+{
+    static uint8_t img[0x10000];
+    uint32_t n, i, tot = 0u, bad = 0u, names = 0u, mono = 0u, src_bad = 0u;
+    uint8_t len[SQ_BAR_GROUPS], k, s;
+    char a[8], b[SQ_SPLIT_TEXT], prev[SQ_SPLIT_TEXT + 8];
+    sq_step_t row[SQ_STEPS], d;
+    sq_gen_t g;
+    sq_step_default(&d);
+    for (n = SQ_BAR_MIN; n <= SQ_BAR_MAX; n++) {
+        uint8_t ways = sq_metre_options((uint8_t)n);
+        tot += ways;
+        prev[0] = 0;
+        for (i = 0; i < ways; i++) {
+            uint32_t m = sq_metre_option((uint8_t)n, (uint8_t)i), sum = 0u, j, odd = 0u;
+            char nm[SQ_SPLIT_TEXT + 8];
+            k = sq_metre_groups((uint8_t)n, m, len);
+            for (j = 0; j < k; j++) { sum += len[j]; if (len[j] < 2u || len[j] > 6u) bad++; if (len[j] & 1u) odd++; }
+            if (sum != n || !(m & 1u) || (n < 32u && (m >> n)) || sq_metre_index((uint8_t)n, m) != i || sq_metre_fix((uint8_t)n, m) != m) bad++;
+            if ((n & 1u) ? !odd : odd) bad++;                       /* an even bar has even beats, an odd one an odd beat */
+            sq_metre_sig((uint8_t)n, m, a); sq_metre_split((uint8_t)n, m, b);
+            if (!a[0] || !b[0] || strlen(a) > 5u || strlen(b) > 15u) bad++;
+            strcpy(nm, a); strcat(nm, " "); strcat(nm, b);
+            if (!strcmp(nm, prev)) names++;                          /* (two ways never read the same) */
+            strcpy(prev, nm);
+            for (s = 0; s < n; s++) {                                /* a chord's time never goes back; a step's source is a step of the bar */
+                uint8_t v = sq_metre_virt16((uint8_t)n, m, s), r = sq_rebar_src((uint8_t)n, m, s);
+                if (v > 15u || (s && v < sq_metre_virt16((uint8_t)n, m, (uint8_t)(s - 1u))) || (!s && v)) mono++;
+                if (r > 15u || (!s && r) || (sq_metre_beat((uint8_t)n, m, s) != ((m >> s) & 1u))) src_bad++;
+            }
+        }
+    }
+    CHECK(tot == 217u && !bad && !names && !mono && !src_bad);
+    CHECK(sq_metre_options(16u) == 4u && sq_metre_option(16u, 0u) == SQ_BEATS_44 && sq_metre_options(14u) == 3u && sq_metre_options(12u) == 2u && sq_metre_options(32u) == 37u);
+    sq_metre_sig(16u, SQ_BEATS_44, a); sq_metre_split(16u, SQ_BEATS_44, b);
+    CHECK(!strcmp(a, "4/4") && !strcmp(b, "4x2"));
+    sq_metre_sig(14u, sq_metre_option(14u, 0u), a); sq_metre_split(14u, sq_metre_option(14u, 0u), b);
+    CHECK(!strcmp(a, "7/8") && !strcmp(b, "2+2+3") && sq_metre_option(14u, 0u) == 0x111u && sq_metre_option(14u, 2u) == 0x441u);
+    sq_metre_sig(12u, sq_metre_option(12u, 1u), a); sq_metre_split(12u, sq_metre_option(12u, 1u), b);
+    CHECK(!strcmp(a, "6/8") && !strcmp(b, "3+3"));
+    sq_metre_sig(12u, sq_metre_option(12u, 0u), a);
+    CHECK(!strcmp(a, "3/4"));
+    sq_metre_sig(20u, sq_metre_option(20u, 0u), a);
+    CHECK(!strcmp(a, "5/4"));
+    sq_metre_sig(15u, sq_metre_option(15u, 0u), a); sq_metre_split(15u, sq_metre_option(15u, 0u), b);
+    CHECK(!strcmp(a, "15/16") && !strcmp(b, "4+4+4+3/16"));
+    /* a mask from outside is put right; nothing said is the usual way; a bar that is no bar is sixteen steps */
+    CHECK(sq_metre_fix(14u, 0u) == 0x111u && sq_metre_fix(14u, 1u) == 0x111u && sq_metre_fix(14u, 0xFFFFC110u) == 0x111u);
+    CHECK(sq_metre_fix(16u, 0x0003u) == 0x1111u /* (a beat of one step: gone, and then nothing is said) */ && sq_metre_fix(16u, 0x8101u) == 0x0101u && sq_metre_fix(99u, 0u) == SQ_BEATS_44);
+    k = sq_metre_groups(16u, 0x0101u, len);
+    CHECK(k == 2u && len[0] == 8u && len[1] == 8u);
+    /* in the project: 4/4 is zeros (an old image's bytes), anything else is written; sanitize puts it right */
+    sq_gen_default(&g);
+    CHECK(g.bar_steps == 0u && !g.bar_beats[0] && !g.bar_beats[1] && sq_bar_steps(&g) == 16u && sq_bar_beats(&g) == SQ_BEATS_44);
+    sq_bar_set(&g, 14u, sq_metre_option(14u, 1u));
+    CHECK(g.bar_steps == 14u && sq_bar_steps(&g) == 14u && sq_bar_beats(&g) == 0x411u);
+    sq_bar_set(&g, 16u, SQ_BEATS_44);
+    CHECK(g.bar_steps == 0u && g.bar_beats[0] == 0u && g.bar_beats[1] == 0u);
+    sq_bar_set(&g, 16u, sq_metre_option(16u, 3u));                    /* 3+3+2 on sixteen steps: a metre of its own */
+    CHECK(g.bar_steps == 16u && sq_bar_beats(&g) == 0x1041u);
+    sq_bar_set(&g, 77u, 0u);
+    CHECK(sq_bar_steps(&g) == 16u && g.bar_steps == 0u);
+    sq_project_init(&proj_a);
+    proj_a.gen.bar_steps = 200u; proj_a.gen.bar_beats[0] = 0xFFu;
+    sq_project_sanitize(&proj_a);
+    CHECK(sq_bar_steps(&proj_a.gen) == 16u && sq_bar_beats(&proj_a.gen) == SQ_BEATS_44);
+    sq_bar_set(&proj_a.gen, 20u, sq_metre_option(20u, 3u));
+    n = sq_serialize(&proj_a, img, sizeof img);
+    CHECK(n && sq_deserialize(&proj_b, img, n) == 0 && sq_bar_steps(&proj_b.gen) == 20u && sq_bar_beats(&proj_b.gen) == sq_metre_option(20u, 3u));
+    /* the tracks that follow a new bar: a number of bars is that number of the new ones, as many as fit */
+    CHECK(sq_metre_follow(16u, 0u, 16u, 14u) == 14u && sq_metre_follow(32u, 0u, 16u, 14u) == 28u && sq_metre_follow(64u, 0u, 16u, 20u) == 60u);
+    CHECK(sq_metre_follow(19u, 0u, 16u, 14u) == 0u && sq_metre_follow(16u, 0u, 16u, 16u) == 0u && sq_metre_follow(20u, 4u, 16u, 12u) == 16u);
+    CHECK(sq_metre_follow(14u, 0u, 14u, 16u) == 16u && sq_metre_follow(56u, 0u, 14u, 16u) == 64u);
+    CHECK(sq_metre_follow(64u, 0u, 16u, 32u) == 0u && sq_metre_follow(48u, 0u, 16u, 24u) == 0u);   /* (four bars of 16 are two of 32: the same steps - it stays) */
+    /* RE-BARRING. A bar numbered 0..15 in its velocities (1-based) */
+    for (i = 0; i < SQ_STEPS; i++) { sq_step_default(&row[i]); if (i < 32u) { row[i].flags = SQ_STEP_ON | SQ_STEP_SET; row[i].velocity = (uint8_t)(1u + i); } }
+    sq_rebar(row, 2u, 16u, SQ_BEATS_44);
+    for (i = 0, bad = 0u; i < 32u; i++) if (row[i].velocity != 1u + i) bad++;
+    CHECK(!bad);                                                      /* 4/4: nothing changes */
+    sq_rebar(row, 2u, 14u, sq_metre_option(14u, 0u));                 /* 7/8, 2+2+3: two bars of 14 */
+    {
+        static const uint8_t W[14] = {0, 1, 2, 3, 4, 5, 6, 7, 12, 13, 14, 15, 14, 15};
+        for (i = 0, bad = 0u; i < 28u; i++) if (row[i].velocity != 1u + (i / 14u) * 16u + W[i % 14u] || !(row[i].flags & SQ_STEP_ON)) bad++;
+        for (i = 28u; i < SQ_STEPS; i++) if (memcmp(&row[i], &d, sizeof d)) bad++;
+        CHECK(!bad);                  /* the first two beats, then the last (the turn) with its second eighth again; the rest cleared */
+    }
+    for (i = 0; i < SQ_STEPS; i++) { sq_step_default(&row[i]); if (i < 48u) { row[i].flags = SQ_STEP_ON; row[i].velocity = (uint8_t)(1u + i); } }
+    sq_rebar(row, 3u, 20u, sq_metre_option(20u, 0u));                 /* 5/4: three bars of 20 = 60 steps, longer than the 48 they were */
+    {
+        static const uint8_t W[20] = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 4, 5, 6, 7, 12, 13, 14, 15};
+        for (i = 0, bad = 0u; i < 60u; i++) if (row[i].velocity != 1u + (i / 20u) * 16u + W[i % 20u]) bad++;
+        for (i = 60u; i < SQ_STEPS; i++) if (memcmp(&row[i], &d, sizeof d)) bad++;
+        CHECK(!bad);                  /* first, second, third, second again, last: K S K S S' */
+    }
+    for (i = 0; i < SQ_STEPS; i++) { sq_step_default(&row[i]); row[i].flags = SQ_STEP_ON; row[i].velocity = (uint8_t)(1u + i); }
+    sq_rebar(row, 4u, 20u, sq_metre_option(20u, 0u));                 /* four bars of 20 do not fit 64 steps: three are made */
+    CHECK(row[0].velocity == 1u && row[20].velocity == 17u && row[40].velocity == 33u && row[59].velocity == 48u && !memcmp(&row[60], &d, sizeof d) && !memcmp(&row[63], &d, sizeof d));
+    for (i = 0; i < SQ_STEPS; i++) { sq_step_default(&row[i]); if (i < 16u) { row[i].flags = SQ_STEP_ON; row[i].velocity = (uint8_t)(1u + i); } }
+    sq_rebar(row, 1u, 12u, sq_metre_option(12u, 1u));                 /* 6/8: two beats of three eighths - the first and the last */
+    {
+        static const uint8_t W[12] = {0, 1, 2, 3, 2, 3, 12, 13, 14, 15, 14, 15};
+        for (i = 0, bad = 0u; i < 12u; i++) if (row[i].velocity != 1u + W[i]) bad++;
+        for (i = 12u; i < 16u; i++) if (memcmp(&row[i], &d, sizeof d)) bad++;
+        CHECK(!bad);
+    }
+    /* the harmony's time: 4/4 as it is; 5/4 never goes back (its second beat waits at the end of the first quarter) */
+    for (s = 0, bad = 0u; s < 16u; s++) if (sq_metre_virt16(16u, SQ_BEATS_44, s) != s) bad++;
+    CHECK(!bad && sq_metre_virt16(20u, sq_metre_option(20u, 0u), 4u) == 3u && sq_metre_virt16(20u, sq_metre_option(20u, 0u), 8u) == 4u && sq_metre_virt16(20u, sq_metre_option(20u, 0u), 19u) == 15u);
+    CHECK(sq_metre_virt16(14u, sq_metre_option(14u, 0u), 8u) == 8u && sq_metre_virt16(12u, sq_metre_option(12u, 1u), 6u) == 8u);   /* the half of the bar is a beat's first step */
+    /* the metre's number, kept with what the engines made: 0 is 4/4, every other way of every bar has its own, and back */
+    {
+        static uint8_t seen[256];
+        uint32_t ids = 0u;
+        uint8_t os;
+        uint32_t ob;
+        memset(seen, 0, sizeof seen);
+        for (n = SQ_BAR_MIN, bad = 0u; n <= SQ_BAR_MAX; n++)
+            for (k = 0; k < sq_metre_options((uint8_t)n); k++) {
+                uint32_t m = sq_metre_option((uint8_t)n, k);
+                uint8_t id = sq_metre_id((uint8_t)n, m);
+                if (n == 16u && k == 0u) { if (id != 0u) bad++; continue; }
+                if (!id || id > SQ_METRE_IDS || seen[id]) bad++;
+                seen[id] = 1u; ids++;
+                if (!sq_metre_of(id, &os, &ob) || os != n || ob != m) bad++;
+            }
+        CHECK(!bad && ids == SQ_METRE_IDS - 1u);
+        CHECK(sq_metre_of(0u, &os, &ob) && os == 16u && ob == SQ_BEATS_44 && !sq_metre_of(218u, &os, &ob) && !sq_metre_of(255u, &os, &ob));
+        CHECK(sq_metre_id(14u, 0x1555u) == 255u && sq_metre_id(16u, 0u) == 0u && sq_metre_id(99u, 0u) == 0u);   /* (seven beats of two steps: a mask from outside) */
+    }
+    /* the sixteens a row made for 4/4 is in the metre's bars */
+    CHECK(sq_rebar_len(16u, 14u, 0x111u) == 14u && sq_rebar_len(64u, 14u, 0x111u) == 56u && sq_rebar_len(64u, 20u, 0u) == 60u && sq_rebar_len(32u, 32u, 0u) == 64u
+          && sq_rebar_len(64u, 32u, 0u) == 64u && sq_rebar_len(32u, 16u, SQ_BEATS_44) == 32u && sq_rebar_len(12u, 14u, 0x111u) == 12u && sq_rebar_len(0u, 14u, 0u) == 0u
+          && sq_rebar_len(16u, 16u, sq_metre_option(16u, 1u)) == 16u);
+    /* THE GRID OF THE BAR: 4/4 until someone says otherwise (i & 15, whatever the row's first step is said to be); in
+     * another metre the place re-barring gives the step, from the bar's step the row begins on */
+    for (i = 0, bad = 0u; i < 200u; i++) if (sq_g16(i) != (i & 15u)) bad++;
+    CHECK(!bad && sq_grid_from(7u) == 0u && sq_g16(1u) == 1u && sq_grid_from(0u) == 0u);
+    sq_grid_set(14u, sq_metre_option(14u, 0u));                       /* 7/8 as 2+2+3 */
+    for (i = 0, bad = 0u; i < 200u; i++) if (sq_g16(i) != sq_rebar_src(14u, sq_metre_option(14u, 0u), (uint8_t)(i % 14u))) bad++;
+    CHECK(!bad && sq_g16(8u) == 12u && sq_g16(12u) == 14u && sq_g16(14u) == 0u);
+    CHECK(sq_grid_from(8u) == 0u && sq_g16(0u) == 12u && sq_g16(6u) == 0u && sq_grid_from(0u) == 8u && sq_g16(0u) == 0u);
+    {   /* a KICK cooked in 7/8: the hits on ITS beats stay (steps 1, 5, 9), the one on step 13 - a beat of 4/4, the
+         * middle of the three here - comes and goes; in 4/4 that one stays too */
+        uint32_t rng = 11u, gone12 = 0u, gone048 = 0u, r;
+        for (r = 0; r < 40u; r++) {
+            for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
+            for (i = 0; i < 16u; i += 4u) { row[i].flags = SQ_STEP_ON | SQ_STEP_SET; row[i].velocity = 110u; }
+            sq_row_cook_role(row, 14u, 100u, SQ_ROLE_KICK, 0u, SQ_SC_MINOR, &rng);
+            if (!(row[12].flags & SQ_STEP_ON)) gone12++;
+            if (!(row[0].flags & SQ_STEP_ON) || !(row[4].flags & SQ_STEP_ON) || !(row[8].flags & SQ_STEP_ON)) gone048++;
+        }
+        CHECK(gone12 > 0u && gone048 == 0u);
+        CHECK(sq_density_hit(1u, 60u, 8u, 99u, &k) == 1u && sq_density_hit(1u, 60u, 12u, 99u, &k) == 0u);   /* the ENERGY: a beat goes last (step 9 is one, 13 is not) */
+        sq_grid_set(16u, SQ_BEATS_44);
+        for (r = 0, gone12 = 0u; r < 40u; r++) {
+            for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
+            for (i = 0; i < 16u; i += 4u) { row[i].flags = SQ_STEP_ON | SQ_STEP_SET; row[i].velocity = 110u; }
+            sq_row_cook_role(row, 14u, 100u, SQ_ROLE_KICK, 0u, SQ_SC_MINOR, &rng);
+            if (!(row[12].flags & SQ_STEP_ON)) gone12++;
+        }
+        CHECK(gone12 == 0u && sq_density_hit(1u, 60u, 12u, 99u, &k) == 1u);
+    }
+    for (i = 0, bad = 0u; i < 200u; i++) if (sq_g16(i) != (i & 15u)) bad++;
+    CHECK(!bad);                                                      /* (4/4 again: as it always was) */
+}
+
 static void test_v024_image(void)
 {
     static uint8_t img[0x10000], img2[0x10000];
@@ -2251,6 +2467,92 @@ static void test_v011_cook(void)
 }
 
 /* 0.11: the HARMONY's rows of chords (lengths in 16ths, PUSH, the rhythms), any root and shape, the names, the moods */
+/* 0.25 FOLLOW MELODY: the melody knows the chord - the chord's tones, the nearest one to a note */
+static void test_v025_melody(void)
+{
+    uint8_t pc[SQ_POLY_OUT], n, i;
+    uint32_t sc, root, note, deg, col, semi, sh;
+    /* the tones: C major, the tonic's triad; with its seventh; a sus4 has no third; A minor's VI is F A C */
+    {   sq_hchord_t x = {0, SQ_HC_TRIAD, 255u, 0u};
+        n = sq_harm_tones(0u, SQ_SC_MAJOR, &x, pc); CHECK(n == 3u && pc[0] == 0u && pc[1] == 4u && pc[2] == 7u);
+        x.col = SQ_HC_7; n = sq_harm_tones(0u, SQ_SC_MAJOR, &x, pc); CHECK(n == 4u && pc[3] == 11u);
+        x.col = SQ_HC_SUS4; n = sq_harm_tones(0u, SQ_SC_MAJOR, &x, pc); CHECK(n == 3u && pc[0] == 0u && pc[1] == 5u && pc[2] == 7u);
+        x.deg = 5; x.col = SQ_HC_TRIAD; n = sq_harm_tones(9u, SQ_SC_MINOR, &x, pc);
+        CHECK(n == 3u);
+        { uint32_t m = 0u; for (i = 0; i < n; i++) m |= 1u << pc[i]; CHECK(m == ((1u << 5) | (1u << 9) | (1u << 0))); }
+        x.deg = 4; x.col = SQ_HC_7; n = sq_harm_tones(0u, SQ_SC_MAJOR, &x, pc);                 /* G7: G B D F */
+        { uint32_t m = 0u; for (i = 0; i < n; i++) m |= 1u << pc[i]; CHECK(n == 4u && m == ((1u << 7) | (1u << 11) | (1u << 2) | (1u << 5))); }
+    }
+    {   sq_hchord_t x = {0, 0, 10u, SQ_HSHAPE_CH + SQ_CH_MAJ};                                  /* bVII out of C major: B flat, D, F */
+        uint32_t m = 0u;
+        n = sq_harm_tones(0u, SQ_SC_MAJOR, &x, pc);
+        for (i = 0; i < n; i++) m |= 1u << pc[i];
+        CHECK(n == 3u && m == ((1u << 10) | (1u << 2) | (1u << 5)));
+        CHECK(sq_harm_melody(71u, 0u, SQ_SC_MAJOR, &x) == 70u);                                 /* the B of the key: the chord's B flat */
+        CHECK(sq_harm_melody(72u, 0u, SQ_SC_MAJOR, &x) == 70u);                                 /* C: B flat and D are as near - the lower */
+        CHECK(sq_harm_melody(65u, 0u, SQ_SC_MAJOR, &x) == 65u);
+    }
+    /* the nearest tone. On the tonic of C major: C D E F G A B -> C C E E G G C' */
+    {   sq_hchord_t x = {0, SQ_HC_TRIAD, 255u, 0u};
+        static const uint8_t IN[7] = {60, 62, 64, 65, 67, 69, 71}, I[7] = {60, 60, 64, 64, 67, 67, 72};
+        static const uint8_t V[7] = {59, 62, 62, 67, 67, 67, 71}, IV[7] = {60, 60, 65, 65, 65, 69, 72}, V7[7] = {59, 62, 65, 65, 67, 67, 71};
+        for (i = 0; i < 7u; i++) CHECK(sq_harm_melody(IN[i], 0u, SQ_SC_MAJOR, &x) == I[i]);
+        x.deg = 4; for (i = 0; i < 7u; i++) CHECK(sq_harm_melody(IN[i], 0u, SQ_SC_MAJOR, &x) == V[i]);     /* G B D */
+        x.deg = 3; for (i = 0; i < 7u; i++) CHECK(sq_harm_melody(IN[i], 0u, SQ_SC_MAJOR, &x) == IV[i]);    /* F A C */
+        x.deg = 4; x.col = SQ_HC_7; for (i = 0; i < 7u; i++) CHECK(sq_harm_melody(IN[i], 0u, SQ_SC_MAJOR, &x) == V7[i]);   /* G B D F */
+        CHECK(sq_harm_melody(SQ_NOTE_NONE, 0u, SQ_SC_MAJOR, &x) == SQ_NOTE_NONE);
+    }
+    /* A minor, i VI III VII: a tune's A C E stays where it is and bends to each chord */
+    {   static const int8_t DEG[4] = {0, 5, 2, 6};
+        static const uint8_t WANT[4][3] = {{69, 72, 76}, {69, 72, 77}, {67, 72, 76}, {67, 71, 74}};
+        uint32_t k;
+        for (k = 0; k < 4u; k++) {
+            sq_hchord_t x = {DEG[k], SQ_HC_TRIAD, 255u, 0u};
+            CHECK(sq_harm_melody(69u, 9u, SQ_SC_MINOR, &x) == WANT[k][0] && sq_harm_melody(72u, 9u, SQ_SC_MINOR, &x) == WANT[k][1] &&
+                  sq_harm_melody(76u, 9u, SQ_SC_MINOR, &x) == WANT[k][2]);
+        }
+    }
+    /* every key, every chord of the key and every colour, every root and shape: the tones are tones of that chord (a
+     * step of the key: its root, its fifth, its third or what a sus has there, all in the key; a root and a shape:
+     * nothing the shape has not, its root among them); a note goes to one of them, never farther than a tritone (but
+     * at the ends of the keyboard), a tone of the chord stays where it is, and the note it went to stays too */
+    for (sc = 0; sc < SQ_SCALES; sc++) for (root = 0; root < 12u; root += 5u) {
+        for (deg = 0; deg < 7u; deg++) for (col = 0; col < SQ_HCS; col++) for (semi = 0; semi < 2u; semi++) for (sh = 0; sh < (semi ? SQ_CH_COUNT - 1u : 1u); sh++) {
+            sq_hchord_t x = {(int8_t)deg, (uint8_t)col, 255u, 0u};
+            uint8_t hs = sq_harm_scale((uint8_t)sc);
+            uint32_t tones = 0u, full = 0u, bad;
+            if (semi) { x.semi = (uint8_t)((deg * 5u + col) % 12u); x.shape = (uint8_t)(SQ_HSHAPE_CH + 1u + sh); }   /* a root and a shape */
+            n = sq_harm_tones((uint8_t)root, (uint8_t)sc, &x, pc);
+            CHECK(n >= 1u && n <= SQ_POLY_OUT);
+            for (i = 0; i < n; i++) { CHECK(pc[i] < 12u); tones |= 1u << pc[i]; }
+            if (semi) {
+                uint8_t shape[SQ_POLY_OUT], sn, k;
+                sn = sq_chord_build((uint8_t)(48u + (root + x.semi) % 12u), (uint8_t)(1u + sh), SQ_CK_FREE, (uint8_t)root, (uint8_t)sc, shape);
+                for (k = 0; k < sn; k++) full |= 1u << (shape[k] % 12u);
+                CHECK(tones & (1u << ((root + x.semi) % 12u)));              /* the chord's root */
+            } else {
+                uint32_t r = sq_scale_at((int32_t)deg, (uint8_t)root, hs) % 12u, f = sq_scale_at((int32_t)deg + 4, (uint8_t)root, hs) % 12u;
+                uint32_t th = sq_scale_at((int32_t)deg + (col == SQ_HC_SUS4 ? 3 : col == SQ_HC_SUS2 ? 1 : 2), (uint8_t)root, hs) % 12u;
+                uint32_t k;
+                for (k = 0; k < 12u; k++) if ((sq_scale_mask(hs) >> k) & 1u) full |= 1u << ((root + k) % 12u);   /* (the key) */
+                CHECK((tones & (1u << r)) && (tones & (1u << f)) && (tones & (1u << th)));
+                CHECK(n == (col == SQ_HC_7 || col == SQ_HC_9 || col == SQ_HC_6 ? 4u : 3u));
+            }
+            bad = tones & ~full;
+            CHECK(!bad);
+            if (bad) printf("  tones scale %u root %u deg %u col %u semi %u shape %u: %03x of %03x\n", (unsigned)sc, (unsigned)root, (unsigned)deg, (unsigned)col, (unsigned)x.semi, (unsigned)x.shape, (unsigned)tones, (unsigned)full);
+            for (note = 0; note < 128u; note++) {
+                uint8_t v = sq_harm_melody((uint8_t)note, (uint8_t)root, (uint8_t)sc, &x);
+                uint32_t d = v > note ? v - note : note - v;
+                CHECK(v < 128u && (tones & (1u << (v % 12u))));
+                CHECK(d <= 6u || n < 2u || note < 6u || note > 121u);
+                if (tones & (1u << (note % 12u))) CHECK(v == note);
+                CHECK(sq_harm_melody(v, (uint8_t)root, (uint8_t)sc, &x) == v);
+            }
+        }
+    }
+}
+
 static void test_v011_harmony(void)
 {
     static const int8_t DEG[4] = {0, 6, 5, 6};                 /* i VII VI VII */
@@ -2543,8 +2845,78 @@ static void test_v010(void)
     sq_rhythm(SQ_RF_NUMERIC, 12u, 32u, 0u, bits);                             /* (12: the tresillo twice) over 32 steps the 16 come twice */
     for (hits = 0u, i = 0; i < 16u; i++) hits += (uint8_t)(bits[i] == bits[i + 16u]);
     CHECK(hits == 16u && bits[0] && bits[3] && bits[6] && bits[8] && bits[11] && bits[14]);
-    sq_rhythm(SQ_RF_NUMERIC, 7u, 12u, 0u, bits);                              /* a shorter loop: its first 12 steps */
-    CHECK(bits[0] && bits[3] && bits[6] && bits[10] && !bits[11]);
+    sq_rhythm(SQ_RF_NUMERIC, 7u, 12u, 0u, bits);                              /* a loop shorter than a bar - 0.23.1: its first 12 steps, cut; */
+    for (hits = 0u, i = 0; i < 12u; i++) hits += bits[i];                     /* 0.25: the rhythm in 12 steps, the son clave of 12/8, 2-2-3-2-3 */
+    CHECK(hits == 5u && bits[0] && bits[2] && bits[4] && bits[7] && bits[9]);
+    sq_rhythm(SQ_RF_NUMERIC, 8u, 12u, 0u, bits);                              /* ... the rumba clave: 2-3-2-2-3 */
+    CHECK(bits[0] && bits[2] && bits[5] && bits[7] && bits[9] && !bits[4]);
+    sq_rhythm(SQ_RF_NUMERIC, 7u, 19u, 0u, bits);                              /* longer than a bar and not bars: the bar and the beginning of the next, as ever */
+    CHECK(bits[0] && bits[3] && bits[6] && bits[10] && bits[12] && bits[16] && !bits[17] && !bits[18]);
+    {   /* sq_numeric_fit: in any bar a hit on the first step, never two in a row (round the bar too), no more hits than
+         * the rhythm has; in 16 steps the rhythm itself; the shapes add up to the bar */
+        uint32_t bad = 0u, n, m, s, k2;
+        char gp[40];
+        for (k2 = 1; k2 <= SQ_NUMERIC_RHYTHMS; k2++) {
+            uint16_t w = sq_numeric_word((uint8_t)k2);
+            uint32_t base = 0u, own = 0u;
+            for (s = 0; s < 16u; s++) if ((w >> (15u - s)) & 1u) { base |= 1u << s; own++; }
+            if (sq_numeric_fit((uint8_t)k2, 16u) != base) bad++;
+            for (n = 1; n <= 32u; n++) {
+                uint32_t got = 0u, sum = 0u;
+                const char *q;
+                m = sq_numeric_fit((uint8_t)k2, (uint8_t)n);
+                if (!(m & 1u) || (n < 32u && (m >> n))) bad++;
+                for (s = 0; s < n; s++) {
+                    if (!((m >> s) & 1u)) continue;
+                    got++;
+                    if (n > 2u && ((m >> ((s + 1u) % n)) & 1u)) bad++;
+                }
+                if (got > own || (n >= 16u && got != own) || (n >= 4u && got < 2u)) bad++;   /* (3-5-3-5 in 8 steps is 4-4: two hits) */
+                sq_numeric_gaps_n((uint8_t)k2, (uint8_t)n, gp);
+                for (q = gp; *q; q++) { uint32_t v = 0u; while (*q >= '0' && *q <= '9') v = v * 10u + (uint32_t)(*q++ - '0'); sum += v; if (!*q) break; }
+                if (sum != n || strlen(gp) > 31u) bad++;
+            }
+        }
+        CHECK(!bad);
+        CHECK(sq_numeric_fit(7u, 14u) == ((1u << 0) | (1u << 2) | (1u << 5) | (1u << 8) | (1u << 10)));   /* the son clave in 7/8: 2-3-3-2-4 */
+        CHECK(sq_numeric_fit(7u, 8u) == ((1u << 0) | (1u << 3) | (1u << 5)) && sq_numeric_fit(7u, 4u) == 5u && sq_numeric_fit(7u, 1u) == 1u && sq_numeric_fit(7u, 0u) == 0u);
+        sq_numeric_gaps_n(7u, 12u, gp); CHECK(!strcmp(gp, "2-2-3-2-3"));
+        sq_numeric_gaps_n(7u, 16u, gp); CHECK(!strcmp(gp, "3-3-4-2-4"));
+        sq_numeric_gaps_n(1u, 32u, gp); CHECK(!strcmp(gp, "8-8-8-8"));
+        sq_numeric_gaps(7u, gp); CHECK(!strcmp(gp, "3-3-4-2-4"));
+        /* the unit: the bar (the metre's), or a loop shorter than one */
+        CHECK(sq_numeric_unit(16u) == 16u && sq_numeric_unit(64u) == 16u && sq_numeric_unit(19u) == 16u && sq_numeric_unit(12u) == 12u && sq_numeric_unit(0u) == 1u);
+        sq_grid_set(14u, sq_metre_option(14u, 0u));
+        CHECK(sq_numeric_unit(14u) == 14u && sq_numeric_unit(28u) == 14u && sq_numeric_unit(16u) == 14u && sq_numeric_unit(12u) == 12u);
+        sq_rhythm(SQ_RF_NUMERIC, 7u, 28u, 0u, bits);                          /* 7/8, a track of two bars: the clave of 14 steps, twice */
+        for (hits = 0u, i = 0; i < 14u; i++) hits += (uint8_t)(bits[i] == bits[i + 14u]);
+        CHECK(hits == 14u && bits[0] && bits[2] && bits[5] && bits[8] && bits[10] && !bits[12]);
+        for (i = 0, bad = 0u; i < 28u; i++) if (sq_rhythm_hit(SQ_RF_NUMERIC, 7u, 28u, 3u, (uint8_t)i) != bits[(i + 28u - 3u) % 28u]) bad++;
+        CHECK(!bad);
+        sq_grid_set(16u, SQ_BEATS_44);
+    }
+    {   /* 0.25 TURING, as long as a track: the 64-bit register moves as the 32-bit one does; with no mutation it comes
+         * round after its steps; made longer its loop goes round again, made shorter it keeps its first steps */
+        uint32_t r = 77u, bad = 0u, n, len;
+        uint64_t reg;
+        for (n = 0; n < 4000u; n++) {
+            uint32_t a = sq_rng_next(&r), rnd = sq_rng_next(&r), mut = sq_rng_next(&r) % 101u;
+            len = 2u + sq_rng_next(&r) % 31u;
+            if ((uint32_t)sq_turing_step64(a, (uint8_t)len, (uint8_t)mut, rnd) != sq_turing_step(a, (uint8_t)len, (uint8_t)mut, rnd)) bad++;
+        }
+        CHECK(!bad);
+        for (len = 2u; len <= 64u; len++) {
+            uint64_t first = ((uint64_t)sq_rng_next(&r) << 32 | sq_rng_next(&r)) & (len == 64u ? ~(uint64_t)0u : (((uint64_t)1u << len) - 1u));
+            reg = first;
+            for (n = 0; n < len; n++) { reg = sq_turing_step64(reg, (uint8_t)len, 0u, 5u); if (n + 1u < len && reg == first && len > 8u && first && (first & (first - 1u)) && 0) bad++; }
+            if (reg != first) bad++;
+        }
+        CHECK(!bad);
+        CHECK(sq_turing_resize(0x5u, 3u, 9u) == 0x16Du && sq_turing_resize(0x16Du, 9u, 3u) == 0x5u && sq_turing_resize(0x5u, 3u, 3u) == 0x5u);   /* 101 -> 101101101 */
+        CHECK(sq_turing_resize(0x8001u, 16u, 64u) == 0x8001800180018001ull && sq_turing_resize(1u, 0u, 4u) == 0xFu && sq_turing_resize(0xFFu, 8u, 0u) == 0u);
+        reg = sq_turing_step64(1u, 64u, 0u, 5u);
+        CHECK(reg == ((uint64_t)1u << 63) && sq_turing_step64(reg, 64u, 100u, 5u) == ((uint64_t)1u << 62) + ((uint64_t)1u << 63));   /* (the bit out is 0: mutated, 1 comes in) */
+    }
     {
         uint16_t seen[SQ_NUMERIC_RHYTHMS];
         uint8_t n, r, len, last_hits = 0u;
@@ -3010,14 +3382,15 @@ static void test_v023_theory_chunk(void)
     b.th.pat[1][1].style = 0x1Bu; b.th.pat[1][1].seed = 3u;          /* a style past the last (27) */
     b.th.pat[2][2].style = 0x61u;                                      /* a length that is none */
     b.th.pat[3][3].style = 0x81u;
-    b.th.pat[0][0].vary = 200u; b.th.pat[0][0].energy = 101u; b.th.pat[0][0].func = 200u; b.th.pat[0][0].reserved = 9u;
+    b.th.pat[0][0].vary = 200u; b.th.pat[0][0].energy = 101u; b.th.pat[0][0].func = 200u; b.th.pat[0][0].metre = 230u;   /* (0.25: no metre has that number) */
+    b.th.pat[15][7].metre = 9u;                                        /* (... this one is a metre: it stays) */
     b.th.pat[5][5].seed = 77u; b.th.pat[5][5].var = 2u;                /* (style 0: not the engines', nothing kept) */
     sq_project_sanitize(&b);
     CHECK(b.th.src == SQ_SRC_LIBRARY && b.th.seed == 0u && b.th.reserved == 0u);
     CHECK(b.th.pat[1][1].style == 0u && b.th.pat[1][1].seed == 0u && b.th.pat[2][2].style == 0u && b.th.pat[3][3].style == 0u);
-    CHECK(b.th.pat[0][0].vary == 100u && b.th.pat[0][0].energy == 100u && b.th.pat[0][0].style == a.th.pat[0][0].style && b.th.pat[0][0].func == 0u && b.th.pat[0][0].reserved == 0u);
+    CHECK(b.th.pat[0][0].vary == 100u && b.th.pat[0][0].energy == 100u && b.th.pat[0][0].style == a.th.pat[0][0].style && b.th.pat[0][0].func == 0u && b.th.pat[0][0].metre == 0u);
     CHECK(b.th.pat[5][5].seed == 0u && b.th.pat[5][5].var == 0u);
-    CHECK(b.th.pat[15][7].style == a.th.pat[15][7].style && b.th.pat[15][7].seed == 999u);
+    CHECK(b.th.pat[15][7].style == a.th.pat[15][7].style && b.th.pat[15][7].seed == 999u && b.th.pat[15][7].metre == 9u);
 }
 
 /* ---- 0.23.1 CELL: a dead row goes back to the written rhythm; what a rule makes of a row */
@@ -3173,6 +3546,8 @@ int main(void)
     test_v010();
     test_v024_copies();
     test_v024_image();
+    test_v025_metre();
+    test_v025_melody();
     test_v011_cook();
     test_v011_harmony();
     test_planes();

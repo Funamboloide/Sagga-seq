@@ -1,9 +1,12 @@
-# SAGGA SEQ 0.23 - i motori THEORY
+# SAGGA SEQ 0.25 - i motori THEORY
 
 Questo foglio spiega i motori THEORY: cosa sono, come si usano, cosa fa ognuno e perché, e a quali strumenti che
 esistono già somigliano. In fondo ci sono i dettagli, per chi li vuole.
 
 Le regole dei 21 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
+
+I motori sono nati nella 0.23. Dalla **0.25** le parti **si ascoltano fra loro**, la melodia **conosce l'accordo**, e i
+motori lavorano in **qualunque metro** (7/8, 5/4, 6/8...). Sono i punti 9, 10 e 11 più sotto.
 
 ## In breve
 
@@ -44,6 +47,8 @@ Puoi passare da una sorgente all'altra quando vuoi, anche suonando: quello che c
 | semi a caso | **DICE SEQ**: OCT+ tiene, OCT- rimette com'era. |
 | una progressione nuova | **DICE PROG**: è fatta con le regole del genere e va nello slot del dado. |
 | cambiare genere tenendo la band | **GENRE LIVE**: le parti vengono rifatte nel genere nuovo, dallo stesso seme. |
+| una melodia che resta al suo posto e segue gli accordi | È già così per i **LEAD** e i **VOX** fatti dai motori (0.25): la traccia ha FOLLOW su **MELODY** (ARP 4 K1). Su un lead di un progetto vecchio: gira ARP 4 K1 fino a MELODY. |
+| un altro metro | **GLO 4** (0.25): K1 la battuta in step, K2 come si divide. I pattern dei motori vengono rifatti nel metro nuovo. |
 | nessun genere | **SEQ 8 K1 su FREE**: BAND dà una band di otto parti fatta solo con il metro, e BEAT, KIT, i dadi e DICE PROG lavorano senza genere. Vedi "Liberi dal genere". |
 | parti di quattro battute | **La lunghezza della traccia** (dalla 0.24): portala a 64 **prima** di fare la parte (HOME, K2; o per tutte le tracce la mossa LONGER, SEL + nero 6 nelle MOSSE, due volte). Con 16 step la parte è una battuta, con 32 due (la seconda risponde alla prima), con 64 quattro, e l'ultima ha la chiusura. Una parte già fatta su 16 step, se allunghi la traccia dopo, si ripete uguale (le copie): per le risposte e la chiusura rifalla. (Fino alla 0.23 lo decideva SAVE 2 K4, LIBRARY LENGTH.) |
 
@@ -194,6 +199,97 @@ E l'energia può aggiungere una nota senza spostare le altre.
 **A cosa somiglia.** Alla *Turing Machine* di Music Thing Modular: una manopola che va da "sempre uguale" a "sempre
 diverso", e in mezzo cambia una nota ogni tanto.
 
+### 9. L'ascolto fra le parti (0.25)
+
+**Cosa fa.** Fino alla 0.24 ogni parte nasceva da sola. Solo la cassa veniva guardata: il rumble la evita, il sub la
+cerca. Dalla 0.25 una parte nasce **insieme alla parte a cui risponde**:
+
+| questa parte | risponde a |
+| --- | --- |
+| LEAD, VOX, ARP | gli **accordi** (la prima traccia con il ruolo CHORD, STAB, PAD o PIANO) |
+| PERC, CONGA, TOM, COWBELL | il **rullante** (la prima traccia con il ruolo SNARE, CLAP o RIM) |
+| BASS, SUB, RUMBLE, LOG DRUM | il **lead** (la prima traccia con il ruolo LEAD, VOX o ARP) |
+| cassa, rullante e clap, hat, shaker, ride, crash, accordi | nessuno: sono come nella 0.24 |
+
+L'altra traccia deve andare a sedicesimi (non a terzine o in un poliritmo), e non essere un TAPE o un BREAK.
+
+Rispondere vuol dire due cose. **Dove l'altra parte attacca**, questa tace due volte su tre (i colpi che il genere
+vuole sempre restano). **Subito dopo un attacco** dell'altra, un colpo di questa è più probabile. Così il lead non
+copre gli accordi e suona nei loro vuoti, e il basso lascia spazio sotto il lead.
+
+Funziona in qualunque ordine fai le parti. Se rifai gli accordi (BEAT, un altro seme, il dado, UNDO), dopo un attimo
+il lead e l'arpeggio vengono **rifatti da soli**, dal loro stesso seme, per rispondere agli accordi nuovi. L'altra
+parte può anche essere un pattern della libreria o uno scritto da te: i motori leggono i suoi step.
+
+**Perché.** In una band vera nessuno suona da solo. Due parti che attaccano sempre insieme si coprono; due parti che
+si alternano si sentono tutte e due. È la differenza fra otto loop messi uno sull'altro e un arrangiamento.
+
+**A cosa somiglia.** Al bassista dei Session Players di Logic Pro, che può seguire il ritmo di un'altra traccia. E al
+vecchio trucco del "call and response": una parte chiama, l'altra risponde nei vuoti.
+
+**Quanto.** Misurato su 60 semi per ognuno dei 26 stili:
+
+| | colpi sugli attacchi dell'altra | colpi subito dopo | colpi in tutto |
+| --- | --- | --- | --- |
+| lead, voci, arpeggi con gli accordi | 23 % in meno | 14 % in più | quasi uguali |
+| percussioni con il rullante | 28 % in meno | 18 % in più | uguali |
+| bassi con il lead | 28 % in meno | 15 % in più | 10 % in meno |
+
+Tre cose da sapere:
+
+* Una parte risponde a **una sola** altra parte, e solo con il **ritmo**. Le note non cambiano.
+* Quando la parte a cui risponde viene rifatta, anche lei viene rifatta **intera**: uno step scritto a mano lì sopra si
+  perde. Se ci tieni, incolla il pattern su se stesso (non è più dei motori).
+* L'altra parte viene ascoltata a energia media. Così muovere l'ENERGIA non rifà tutte le risposte a ogni passo.
+
+### 10. La melodia e l'accordo (0.25)
+
+**Cosa fa.** Un motivo è scritto sull'accordo di tonica. Fino alla 0.24 lo spostava FOLLOW, tutto intero, a ogni
+accordo: lo stesso disegno una terza sotto, una quarta sopra. Va bene per un riff di basso. Una melodia vera non fa
+così.
+
+Dalla 0.25 FOLLOW ha un quarto modo, **MELODY** (ARP 4 K1, dopo LEGATO), e i LEAD e i VOX fatti da BEAT, BAND, i dadi
+e i motori lo ricevono da soli:
+
+* la melodia **resta dove è scritta**, non salta con gli accordi;
+* le sue **note forti** vanno alla **nota più vicina dell'accordo che suona**. Sono forti le note su un tempo della
+  battuta e le note più lunghe di uno step. Se due note dell'accordo sono alla stessa distanza, vince quella sotto;
+* le **note corte fra i tempi** restano come sono scritte: sono note di passaggio, nella scala;
+* una **nota tenuta** mentre l'accordo cambia scivola alla nota più vicina dell'accordo nuovo (come LEGATO). Se è già
+  una nota dell'accordo nuovo, continua.
+
+Un esempio in LA minore, con gli accordi Am, F, C, G. Il motivo ha LA, DO, MI sui tempi. Su Am resta LA DO MI. Su F
+(FA LA DO) diventa LA DO **FA**. Su C (DO MI SOL) diventa **SOL** DO MI. Su G (SOL SI RE) diventa **SOL SI RE**. Ogni
+nota si è mossa di un tono al massimo: la linea è la stessa, e sta sempre dentro l'accordo.
+
+**Perché.** È quello che fa chi canta o suona un tema sopra un giro di accordi: tiene la linea e appoggia le note
+importanti su quelle dell'accordo. Le note corte in mezzo possono essere fuori dall'accordo, perché passano.
+
+**A cosa somiglia.** Alla "chord track" di Logic Pro e di Cubase, che porta le note di una melodia sulle note
+dell'accordo più vicine. E ai motivi dell'NDLR, che cambiano note con l'accordo senza cambiare registro.
+
+Vale per qualunque traccia, non solo per quelle dei motori: metti FOLLOW e MELODY su una melodia scritta da te.
+Un accordo (uno step con due note o più) su una traccia MELODY si sposta come sempre.
+
+### 11. Il metro (0.25)
+
+**Cosa fa.** I motori scrivono in sedicesimi, quattro tempi per battuta. Dalla 0.25 la battuta dell'FM-1 può avere
+**da 3 a 32 step**, divisi in tempi come vuoi (GLO 4): 7/8 come 2+2+3, 5/4, 6/8, 9/8. Il pattern dei motori viene
+**steso sulla battuta che suona**: ogni tempo della battuta prende un tempo del pattern scritto. Il primo prende il
+primo, l'ultimo prende l'ultimo, quelli in mezzo prendono a turno il secondo e il terzo. Un tempo lungo tre ottavi
+prende il quarto e ripete i suoi ultimi due sedicesimi.
+
+Se cambi metro, i pattern dei motori vengono **rifatti nel metro nuovo**, dal loro seme, uno alla volta. Un pattern
+dei motori che hai cambiato a mano resta com'è, nel suo metro: finché la battuta è un'altra, nemmeno l'ENERGIA lo
+tocca. (Fanno eccezione le parti che rispondono a un'altra parte o seguono la cassa: quelle vengono rifatte comunque.)
+L'ascolto fra le parti funziona in ogni metro.
+
+**Perché.** Un genere si riconosce da cosa cade sui tempi e da cosa cade fra i tempi. Portando ogni tempo scritto su
+un tempo vero della battuta, la cassa resta sui tempi e il levare resta levare, anche in sette.
+
+**Il limite.** Non è un ritmo pensato in sette: è un quattro quarti steso su sette. Per molti generi basta. Un aksak
+bulgaro o un 5/4 jazz veri hanno accenti loro, che i motori non conoscono.
+
 ## Da dove vengono le regole
 
 * **TECHNO, HOUSE, DRUM AND BASS, DUBSTEP**: scritte a mano, da quello che si legge su come si costruiscono questi
@@ -223,19 +319,22 @@ Misurato dal programma `tools/theory/compare.py`, 60 semi per genere, energia 50
 Detto chiaro: a energia 50, nei generi contati, i motori stanno **molto vicini alla libreria**. Il nuovo viene da come
 le battute si combinano fra le parti, dalle note (che non sono quelle scritte), dall'energia e dalle variazioni.
 
-E i controlli sul motore (36 milioni, su 150 semi per ognuno dei 26 stili): una parte non è mai vuota; salendo di
+E i controlli sul motore (43 milioni, su 150 semi per ognuno dei 26 stili): una parte non è mai vuota; salendo di
 energia nessun colpo si perde; una nota che resta tiene la sua altezza (ne cambiano 7 su diecimila, le ultime di un
-motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre.
+motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre. Dalla 0.25 anche: una parte che
+risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e resta uguale se non risponde a nessuno.
 
 ## Cosa non sanno fare
 
-* **Le parti non si ascoltano fra loro**, a parte la cassa: il rumble la evita, il sub la cerca. Il basso non lascia
-  spazio al lead, non c'è botta e risposta fra due parti.
-* **Solo sedicesimi in quattro quarti.** Le terzine ci sono solo come rullata. Lo swing e il GROOVE sono quelli che
+* **Una parte ascolta una sola altra parte, e solo il suo ritmo** (0.25). Il lead ascolta gli accordi ma non il
+  basso. Non c'è una vera botta e risposta di note: una parte non ripete o completa la frase dell'altra.
+* **Scrivono in quattro tempi di sedicesimi.** In un altro metro il pattern viene steso sulla battuta (0.25): non è
+  un ritmo pensato in sette o in cinque. Le terzine ci sono solo come rullata. Lo swing e il GROOVE sono quelli che
   l'FM-1 dà al genere.
 * **Una frase è di due battute.** Con quattro battute la terza ripete la prima e la quarta risponde come la seconda, con
   la chiusura. I break lunghi quattro battute della jungle diventano frasi di due.
-* **Un motivo è una voce sola** e non sa quale accordo sta suonando: lo sposta FOLLOW.
+* **Un motivo è una voce sola.** Dalla 0.25 conosce l'accordo (FOLLOW MELODY), ma solo con le note forti: una nota
+  corta fra i tempi resta quella scritta, e sopra un accordo preso da fuori scala può stridere per un sedicesimo.
 * **Le regole contate vengono dalla libreria**: un genere suona come la sua libreria, non meglio.
 * **Il seme arriva a 128 dal tablet** (una manopola MIDI ha 128 valori). Dall'FM-1 arrivi a 999.
 

@@ -24,7 +24,7 @@ static uint8_t track_tape(uint32_t t) { return (project.track[t].flags & SQ_TF_T
 /* the loop position in tape ticks for track t, now (between clock ticks too) */
 static uint32_t tape_pos(uint32_t t, uint32_t now)
 {
-    uint32_t len = sq_tape_len(&project.track[t].tape), clk = len / 16u;      /* the loop in clock ticks */
+    uint32_t len = sq_tape_len_p(&project, (uint8_t)t), clk = len / 16u;      /* the loop in clock ticks (0.25: bars of the metre) */
     uint32_t tick = clk ? tape_tick_index % clk : 0u, frac = 0u;
     if (tape_tick_interval) {
         uint32_t el = (uint32_t)(now - tape_tick_us);
@@ -61,14 +61,14 @@ static void tape_clock_tick(uint32_t now, uint32_t interval)
     uint32_t t, i, k;
     tape_tick_us = now;
     tape_tick_interval = interval;
-    tape_tick_index = global_clock;
+    tape_tick_index = global_clock - bar_origin;       /* (0.25: the loop begins on a bar line - the first, or the one a new metre began on) */
     for (t = 0; t < SQ_TRACKS; t++) {
         const sq_tape_cfg_t *c = &project.track[t].tape;
         uint32_t len, clk, pos;
         uint16_t first, n;
         if (!track_tape(t)) continue;
-        len = sq_tape_len(c); clk = len / 16u;
-        pos = (global_clock % clk) * 16u;
+        len = sq_tape_len_p(&project, (uint8_t)t); clk = len / 16u;
+        pos = (tape_tick_index % clk) * 16u;
         if (!track_audible(t) || (mute_mask & (1u << t))) continue;
         sq_tape_range(&project, (uint8_t)t, &first, &n);
         for (i = first; i < (uint32_t)first + n; i++) {
@@ -133,7 +133,7 @@ static void tape_rec_off(uint8_t src)
     if (i == TAPE_OPEN) return;
     tape_open[i].used = 0u;
     if (!playing || !track_tape(tape_open[i].t)) return;
-    len = sq_tape_len(&project.track[tape_open[i].t].tape);
+    len = sq_tape_len_p(&project, tape_open[i].t);
     now_tick = tape_pos(tape_open[i].t, sq_micros());
     on = tape_open[i].on_tick;
     dur = (now_tick + len - on) % len;
@@ -148,7 +148,7 @@ static void tape_rec_off(uint8_t src)
 static void tape_tool(uint8_t t, uint8_t tool)
 {
     sq_tape_cfg_t *c = &project.track[t].tape;
-    uint32_t len = sq_tape_len(c);
+    uint32_t len = sq_tape_len_p(&project, t);
     if (tool == TOOL_CLEAR) { status_num("TAPE CLEARED: NOTES ", sq_tape_clear(&project, t)); }
     else if (tool == TOOL_SHL) { sq_tape_shift(&project, t, -(int32_t)(SQ_TAPE_PPQ / 4u)); status_msg("TAPE: A 1/16 EARLIER"); }
     else if (tool == TOOL_SHR) { sq_tape_shift(&project, t, (int32_t)(SQ_TAPE_PPQ / 4u)); status_msg("TAPE: A 1/16 LATER"); }
@@ -173,7 +173,7 @@ static void tape_tool(uint8_t t, uint8_t tool)
 static void tape_grid_render(uint32_t t)
 {
     const sq_tape_cfg_t *c = &project.track[t].tape;
-    uint32_t len = sq_tape_len(c), pos = playing ? tape_pos(t, sq_micros()) : 0xFFFFFFFFu, x, y, i;
+    uint32_t len = sq_tape_len_p(&project, (uint8_t)t), pos = playing ? tape_pos(t, sq_micros()) : 0xFFFFFFFFu, x, y, i;
     uint16_t first, n;
     uint8_t role[64];
     for (i = 0; i < 64u; i++) role[i] = GL_FAINT;
@@ -195,7 +195,7 @@ static void tape_grid_render(uint32_t t)
 static void tape_grid_pad(uint32_t t, uint8_t x, uint8_t y)
 {
     sq_tape_cfg_t *c = &project.track[t].tape;
-    uint32_t len = sq_tape_len(c);
+    uint32_t len = sq_tape_len_p(&project, (uint8_t)t);
     if (y < 4u) {                                        /* erase what starts under the pad */
         uint32_t i = (uint32_t)y * 16u + x, a = i * len / 64u, b = (i + 1u) * len / 64u;
         uint32_t gone = sq_tape_erase(&project, (uint8_t)t, a, b);

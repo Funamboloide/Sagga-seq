@@ -43,7 +43,7 @@ static uint8_t algo_range(uint8_t a, uint8_t k, int32_t *lo, int32_t *hi)
 {
     static const uint8_t R[SQ_ALGOS][3][2] = {
         {{0, 0}, {0, 0}, {0, 0}},
-        {{0, 100}, {2, 16}, {0, SQ_TM_MODES - 1u}},                  /* TURING: mutation %, length, moves */
+        {{0, 100}, {2, SQ_TM_LEN_TRACK}, {0, SQ_TM_MODES - 1u}},     /* TURING: mutation %, length (0.25: 17 = TRACK), moves */
         {{0, 255}, {4, 64}, {0, 3}},                                 /* CELL: rule, cells, a new row every */
         {{0, 4}, {0, 63}, {0, 15}},                                  /* ACCENT: which, amount, start */
         {{0, 200}, {10, 100}, {0, 0}},                               /* DENSITY: density %, ghost velocity % */
@@ -225,6 +225,8 @@ static void live12_cc(uint8_t cc, uint8_t v)
     case 30u: track_retrig(t); break;
     case 31u: tab_tool(TOOL_COUNT); break;
     case 32u: tab_tool(TOOL_UNDO); break;
+    case 60u: lengths_ask(-1); break;                   /* 0.25: SHORTER, every track (at the bar) */
+    case 61u: lengths_ask(1); break;                    /* 0.25: LONGER */
     default: break;
     }
 }

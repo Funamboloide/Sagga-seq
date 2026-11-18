@@ -124,9 +124,9 @@ def t_converter():
                     'thp 19 energy - 60', 'thp 127 style - 26', 'thp 127 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)
     j7 = read(out2)
     check(r.returncode == 0 and j7.get('th') == {'src': 1, 'seed': 41} and len(j7.get('thp', [])) == 128
-          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60} and j7['thp'][127]['style'] == 26 and j7['thp'][127]['seed'] == 998,
+          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60, 'metre': 0} and j7['thp'][127]['style'] == 26 and j7['thp'][127]['seed'] == 998,
           '0.23 THEORY: the SOURCE, the next seed, the record of a pattern (track 3 pattern 4: REGGAETON, 64 steps, seed 8, variation 3) (%s %s)' % (j7.get('th'), r.stderr))
-    check(j7['thp'][5] == {'seed': 0, 'style': 0, 'func': 0, 'var': 0, 'vary': 0, 'energy': 0}, '... a style there is not: the record is put right - nobody\'s (%s)' % j7['thp'][5])
+    check(j7['thp'][5] == {'seed': 0, 'style': 0, 'func': 0, 'var': 0, 'vary': 0, 'energy': 0, 'metre': 0}, '... a style there is not: the record is put right - nobody\'s (%s)' % j7['thp'][5])
     out3 = os.path.join(d, 'th2.sgq')
     r = apply(out2, ['step 2,3,0 flags - 3', 'thp 127 style - 0'], out3)
     j8 = read(out3)
@@ -271,6 +271,7 @@ def t_page_lists():
         check(js(name) == c(anchor), '%s as the panel\'s (%s / %s)' % (name, js(name), c(anchor)))
     check(js('MFX') == c('static const char *const MFX_NAME[SQ_MFXS]'), 'MFX as the panel\'s')
     check(js('VOICE') == c('static const char *const VN[SQ_VOICES]'), 'VOICE as the panel\'s')
+    check(js('FOLLOW') == c('static const char *const FMN[SQ_FMS]') and js('FOLLOW')[-1] == 'MELODY', 'FOLLOW\'s ways as the panel\'s, MELODY the last (%s)' % js('FOLLOW'))   # 0.25
 
 
 class FakeBridge:
@@ -606,7 +607,7 @@ def t023_page():
             pg.click('#bsave')
             pg.wait_for_timeout(700)
             j = read(name)
-            check(j['thp'][16]['style'] == 0 and j['thp'][16]['seed'] == 0 and j['thp'][20] == {'seed': 7, 'style': 11, 'func': 1, 'var': 3, 'vary': 40, 'energy': 50}
+            check(j['thp'][16]['style'] == 0 and j['thp'][16]['seed'] == 0 and j['thp'][20] == {'seed': 7, 'style': 11, 'func': 1, 'var': 3, 'vary': 40, 'energy': 50, 'metre': 0}
                   and j['thp'][40]['seed'] == 20 and j['thp'][72]['style'] == 0 and j['th'] == {'src': 1, 'seed': 41},
                   'saved: the emptied pattern is nobody\'s, the copy and the other pattern are the engines\', the SOURCE stays (%s)' % [j['thp'][k] for k in (16, 20, 40)])
             pg.goto('http://127.0.0.1:%d/edit/libero.sgq' % port)                    # the SOURCE on FREE
@@ -956,15 +957,326 @@ def t024_copies():
             pg.wait_for_timeout(700)
             check(pg.evaluate('P.track[0].length') == 48 and copies(name, 0, 0) == list(range(32, 48)) and copies(name, 0, 1) == list(range(16, 48)),
                   'LENGTH 48 in the editor, saved: the pattern of 32 goes round (16 copies), the other one of 16 twice more (%s)' % len(copies(name, 0, 1)))
+            # 0.25: the copies BEFORE Save - LENGTH 56 typed: the picture is already what Save will make
+            row0 = "[...[...document.querySelectorAll('.tr')][0].querySelectorAll('.c')].map(c => c.className.replace(' sel', '')).join('|')"
+            pg.evaluate("V.s=50;set('track',0,'length','-',56);commit();render()")
+            before = pg.evaluate(row0)
+            gh = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.ghost').length")
+            note = pg.text_content('#main p.dim') or ''
+            check(gh == 24 and pg.evaluate('getStep(0,0,50).flags & 64') == 0 and copies(name, 0, 0) == list(range(32, 48)),
+                  'LENGTH 56 typed, not saved: the 8 new steps show as copies already, 24 in all (%s) - a picture: the project has the 16 it had' % gh)
+            check('Al Salva questo step sarà una' in note and 'dello step 19' in note, 'one of them selected: the page says what Save will make of it (%s)' % note[:70])
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            check(pg.evaluate(row0) == before and copies(name, 0, 0) == list(range(32, 56)) and pg.evaluate('getStep(0,0,50).flags & 64') == 64,
+                  'saved: the page is as it was a moment before, and the copies are in the file (%s)' % len(copies(name, 0, 0)))
+            pg.evaluate("set('track',0,'length','-',40);commit();render()")          # shorter, not saved: no copy shown after the loop
+            gh = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.ghost').length")
+            out = pg.evaluate("[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.out').length")
+            check(gh == 8 and out == 24, 'LENGTH 40 typed: 8 copies in the loop, the rest out of it (%s, %s)' % (gh, out))
+            pg.evaluate("undoOne()")
             check(not errs, 'no script errors (%s)' % errs[:2])
             br.close()
     finally:
         srv.shutdown()
 
 
+def t025_preview():
+    group("0.25 the editor shows the copies BEFORE Save: its picture (rowFit, in the page) is the core's sq_row_fit, step by step, on 4000 rows")
+    import random
+    import shutil
+    page = open(os.path.join(ROOT, 'tools', 'hub', 'editor.html'), encoding='utf-8').read()
+    a, b = page.find('//<fit>'), page.find('//</fit>')
+    check(0 < a < b and 'function rowFit(row, start, oldLen, newLen, def)' in page[a:b], 'the page has its rowFit between the marks')
+    check('const st = shownStep(t, V.pat, s)' in page and 'pvCache = null;' in page and 'function previewRow(t, p)' in page,
+          'the overview draws shownStep (the pattern as Save will make it), worked out again at every render')
+    check("if (tch.some(s => origStep(t, p, s).flags & GHOST)) rowKeep(row);" in page and "if (c.start !== o.start) rowKeep(row);" in page
+          and "rowFit(row, c.start, moved ? o.length : c.length, c.length, P.step_default);" in page,
+          "previewRow follows the converter's copies_after: a copy written or a start moved keeps them, then the fit from the saved length")
+    node = shutil.which('node')
+    if not node:
+        print("  (node non c'e': il confronto fra rowFit e sq_row_fit e' saltato)")
+        return
+    # the cases: rows as the FM-1 and the editor leave them, and rows of anything
+    rnd = random.Random(25)
+    cases = []
+    for n in range(4000):
+        start = rnd.choice([0, 0, 0, 0, 1, 3, 8])
+        old = rnd.randint(start + 1, 64)
+        new = rnd.randint(1, 64) if rnd.random() < 0.9 else old
+        row = [[0, 0] for _ in range(64)]                          # (flags, k: 0 = nothing of its own)
+        kind = n % 5
+        if kind < 3:                                               # a pattern, its copies, a mark, things written after
+            own = rnd.randint(start + 1, 64)
+            for i in range(start, own):
+                if rnd.random() < 0.45:
+                    row[i] = [1 | (2 if rnd.random() < 0.5 else 0), rnd.randint(1, 60)]
+            if own < old:
+                for i in range(own, old):
+                    s = row[start + (i - start) % (own - start)]
+                    row[i] = [s[0] | 64, s[1]]
+                if kind == 1 and old - own > 1:                    # one of them is not a copy any more
+                    row[rnd.randint(own, old - 1)][0] &= ~64
+            elif own > old and own < 64 and kind == 2:
+                row[own] = [64, 0]                                 # the mark of the pattern's end after the loop
+            if rnd.random() < 0.3:
+                for _ in range(rnd.randint(1, 3)):
+                    i = rnd.randint(min(63, max(own, old)), 63)
+                    row[i] = [1, rnd.randint(1, 60)]               # written after it
+        else:                                                      # anything
+            for i in range(64):
+                f = rnd.choice([0, 0, 0, 1, 1, 3, 64, 65, 67])
+                row[i] = [f, rnd.randint(1, 60) if (f & 1) or rnd.random() < 0.1 else 0]
+        cases.append((start, old, new, row))
+    text = "\n".join("%d %d %d %s" % (s, o, nw, " ".join("%d:%d" % (f, k) for f, k in row)) for s, o, nw, row in cases) + "\n"
+    with tempfile.TemporaryDirectory() as d:
+        csrc = os.path.join(d, 'fit.c')
+        with open(csrc, 'w') as f:
+            f.write(r"""
+#include <stdio.h>
+#include "sagga_seq_core.h"
+int main(void)
+{
+    unsigned st, ol, nw;
+    while (scanf("%u %u %u", &st, &ol, &nw) == 3) {
+        sq_step_t row[SQ_STEPS], d;
+        unsigned i, f, k;
+        sq_step_default(&d);
+        for (i = 0; i < SQ_STEPS; i++) {
+            if (scanf("%u:%u", &f, &k) != 2) return 1;
+            sq_step_default(&row[i]);
+            row[i].flags = (uint8_t)f;
+            if (k) row[i].chance = (uint8_t)k;                     /* (something of its own: 1..60, never the default 100) */
+        }
+        sq_row_fit(row, (uint8_t)st, (uint8_t)ol, (uint8_t)nw);
+        for (i = 0; i < SQ_STEPS; i++) printf("%u:%u%c", row[i].flags, row[i].chance == d.chance ? 0u : row[i].chance, i + 1 < SQ_STEPS ? ' ' : '\n');
+    }
+    return 0;
+}
+""")
+        exe = os.path.join(d, 'fit')
+        subprocess.run(['cc', '-std=c11', '-O2', '-I' + os.path.join(ROOT, 'firmware', 'src'), csrc,
+                        os.path.join(ROOT, 'firmware', 'src', 'sagga_seq_core.c'), os.path.join(ROOT, 'firmware', 'src', 'sagga_beats.c'), '-o', exe], check=True)
+        want = subprocess.run([exe], input=text, capture_output=True, text=True, check=True).stdout
+        js = os.path.join(d, 'fit.js')
+        with open(js, 'w') as f:
+            f.write("const ON = 1, GHOST = 64;\n" + page[a:b] + r"""
+const def = {flags: 0, chance: 100};
+const lines = require('fs').readFileSync(0, 'utf8').trim().split('\n');
+const out = [];
+for (const ln of lines) {
+  const w = ln.split(' ');
+  const row = w.slice(3).map(x => { const [f, k] = x.split(':').map(Number); return {flags: f, chance: k || 100}; });
+  rowFit(row, +w[0], +w[1], +w[2], def);
+  out.push(row.map(s => s.flags + ':' + (s.chance === 100 ? 0 : s.chance)).join(' '));
+}
+console.log(out.join('\n'));
+""")
+        got = subprocess.run([node, js], input=text, capture_output=True, text=True)
+    check(got.returncode == 0, 'the page\'s rowFit runs (%s)' % got.stderr.strip()[-200:])
+    gl, wl = got.stdout.strip().split('\n'), want.strip().split('\n')
+    bad = [i for i in range(min(len(gl), len(wl))) if gl[i] != wl[i]]
+    check(len(gl) == len(wl) == len(cases) and not bad,
+          "4000 rows fitted by the page and by the core: the same steps, the same copies (%d differ%s)" % (
+              len(bad), "; the first: start %d, %d -> %d" % cases[bad[0]][:3] if bad else ""))
+    changed = sum(1 for i, c in enumerate(cases) if wl[i] != " ".join("%d:%d" % (f, k) for f, k in c[3]))
+    check(changed > 1500, "... and the fit did change most of them (%d of %d: the comparison is not of rows left alone)" % (changed, len(cases)))
+
+
+def t025_metre():
+    group("0.25 THE METRE in the files and on the page: the bar and its beats in a patch, put right; the page's own reading of them is the core's; the bar typed on the page moves the tracks on it")
+    import shutil
+    d = tempfile.mkdtemp()
+    a, b, c2 = [os.path.join(d, n) for n in ('a.sgq', 'b.sgq', 'c.sgq')]
+    j0 = read(os.path.join(d, 'new.sgq')) if tool('new', os.path.join(d, 'new.sgq')).returncode == 0 else {}
+    ways = j0.get('names', {}).get('metre', {})
+    check(j0.get('metre') == {'bar_steps': 0, 'bar_beats': [0, 0, 0, 0]} and j0.get('metre_now') == {'steps': 16, 'beats': 0x1111, 'sig': '4/4', 'split': '4x2', 'id': 0},
+          'a new project: 4/4, written as nothing at all (%s %s)' % (j0.get('metre'), j0.get('metre_now')))
+    check(sorted(map(int, ways)) == list(range(3, 33)) and sum(len(v) for v in ways.values()) == 217
+          and ways.get('14') == [[0x111, '7/8', '2+2+3'], [0x411, '7/8', '2+3+2'], [0x441, '7/8', '3+2+2']] and ways.get('12') == [[0x111, '3/4', '2+2+2'], [0x41, '6/8', '3+3']],
+          'the names: every way every bar of 3 to 32 steps divides, 217 in all (14: %s)' % ways.get('14'))
+    check(['metre', 1, 0, 1] in j0['schema']['thp']['fields'] and j0['schema']['metre']['fields'] == [['bar_steps', 1, 0, 1], ['bar_beats', 1, 0, 4]],
+          'the schema: the metre, and the metre a pattern of the engines was made in')
+    r = apply('new', ['metre - bar_steps - 14', 'track 2 flags - 32'], a)
+    j = read(a)
+    check(r.returncode == 0 and j['metre_now']['sig'] == '7/8' and j['metre_now']['split'] == '2+2+3' and j['metre']['bar_steps'] == 14 and j['metre']['bar_beats'] == [0x11, 1, 0, 0]
+          and j['metre_now']['id'] not in (0, 255),
+          'bar_steps 14 in a patch: 7/8 in its usual way, the beats written out (%s %s)' % (j['metre'], j['metre_now']))
+    check(j['track'][0]['length'] == 16 and j['tape_len'][2] == 4 * 14 * 96, 'a patch of the bar alone moves no track; a tape\'s loop is bars of the metre (%s, %s ticks)' % (j['track'][0]['length'], j['tape_len'][2]))
+    r = apply(a, ['metre - bar_beats 0 17', 'metre - bar_beats 1 4'], b)
+    j = read(b)
+    check(r.returncode == 0 and j['metre_now']['split'] == '2+3+2' and j['metre_now']['beats'] == 0x411, 'the beats in a patch: 2+3+2 (%s)' % j['metre_now'])
+    for lines, want, why in ((['metre - bar_steps - 99'], ('4/4', '4x2', 0, [0, 0, 0, 0]), 'a bar there is not: 4/4'),
+                             (['metre - bar_steps - 14', 'metre - bar_beats 0 255', 'metre - bar_beats 1 63'], ('7/8', '7x1', 14, None), 'every step a beat: put right'),
+                             (['metre - bar_steps - 16'], ('8/8', '2+3+3', 16, [0x11, 4, 0, 0]), 'the bar alone, 16: the beats it had are beats of it - 8/8 as 2+3+3'),
+                             (['metre - bar_steps - 16', 'metre - bar_beats 0 0', 'metre - bar_beats 1 0'], ('4/4', '4x2', 0, [0, 0, 0, 0]), '16 and its usual beats: 4/4, nothing at all'),
+                             (['metre - bar_steps - 12', 'metre - bar_beats 0 65', 'metre - bar_beats 1 0'], ('6/8', '3+3', 12, [0x41, 0, 0, 0]), '12 as 3+3: 6/8')):
+        r = apply(b, lines, c2)
+        j = read(c2) if r.returncode == 0 else {}
+        mn, m = j.get('metre_now', {}), j.get('metre', {})
+        ok = r.returncode == 0 and mn.get('sig') == want[0] and m.get('bar_steps') == want[2] and (want[3] is None or m.get('bar_beats') == want[3]) and (want[1] == '7x1' or mn.get('split') == want[1])
+        if want[1] == '7x1':                                    # (no beat of one step is left: the mask is one sq_metre_fix made)
+            bt = mn.get('beats', 0)
+            ok = ok and bt & 1 and not any((bt >> s) & 1 and (bt >> (s + 1)) & 1 for s in range(13)) and not (bt >> 13) & 1 and mn.get('id') == 255
+        check(ok, '%s (%s %s)' % (why, m, mn))
+    # a tape event past sixteen bars: of the metre the project ends up with, wherever the patch says it
+    lim = 16 * 14 * 96
+    for lines, code, why in ((['tape 5,%d,96,60 add - 9' % (lim - 96)], 0, 'in the last 16th of the 16 bars of 7/8: taken'),
+                             (['tape 5,%d,96,60 add - 9' % lim], 4, 'past them: refused (in 4/4 it would fit)'),
+                             (['tape 5,%d,96,60 add - 9' % lim, 'metre - bar_steps - 16'], 0, 'the metre made 4/4 on a later line: taken'),
+                             (['tape 5,30000,96,60 add - 9', 'metre - bar_steps - 20'], 0, 'tick 30000 in a patch that makes the bar 20: taken (4/4: refused)')):
+        r = apply(a, ['track 5 flags - 32', 'track 5 tape_bars - 16'] + lines, c2)
+        check(r.returncode == code and (code == 0 or 'line 3' in r.stderr), '%s (%s %s)' % (why, r.returncode, r.stderr.strip()))
+
+    # the page's own reading of the metre (barSteps, barBeats, beatAt, metreFollow: between the marks) is the core's
+    page = open(os.path.join(ROOT, 'tools', 'hub', 'editor.html'), encoding='utf-8').read()
+    pa, pb = page.find('//<metre>'), page.find('//</metre>')
+    check(0 < pa < pb and 'function metreFollow(len, start, oldBar, newBar)' in page[pa:pb] and 'function beatAt(s)' in page[pa:pb], 'the page has its metre between the marks')
+    node = shutil.which('node')
+    if not node:
+        print("  (node non c'e': il confronto con il core e' saltato)")
+    else:
+        csrc, exe, js = os.path.join(d, 'm.c'), os.path.join(d, 'm'), os.path.join(d, 'm.js')
+        with open(csrc, 'w') as f:
+            f.write(r"""
+#include <stdio.h>
+#include "sagga_seq_core.h"
+int main(void)
+{
+    unsigned n, k, s, len, st, o, w;
+    for (n = SQ_BAR_MIN; n <= SQ_BAR_MAX; n++)
+        for (k = 0; k < sq_metre_options((uint8_t)n); k++) {
+            uint32_t m = sq_metre_option((uint8_t)n, (uint8_t)k);
+            printf("B %u %u ", n, k);
+            for (s = 0; s < 64; s++) putchar(sq_metre_beat((uint8_t)n, m, s) ? '1' : '0');
+            putchar('\n');
+        }
+    for (len = 1; len <= 64; len++) for (st = 0; st < len; st += (st < 4 ? 1 : 7)) for (o = SQ_BAR_MIN; o <= SQ_BAR_MAX; o++) {
+        printf("F %u %u %u", len, st, o);
+        for (w = SQ_BAR_MIN; w <= SQ_BAR_MAX; w++) printf(" %u", sq_metre_follow((uint8_t)len, (uint8_t)st, (uint8_t)o, (uint8_t)w));
+        putchar('\n');
+    }
+    return 0;
+}
+""")
+        subprocess.run(['cc', '-std=c11', '-O2', '-I' + os.path.join(ROOT, 'firmware', 'src'), csrc,
+                        os.path.join(ROOT, 'firmware', 'src', 'sagga_seq_core.c'), os.path.join(ROOT, 'firmware', 'src', 'sagga_beats.c'), '-o', exe], check=True)
+        want = subprocess.run([exe], capture_output=True, text=True, check=True).stdout
+        with open(js, 'w') as f:
+            f.write("let P = null;\nconst N = {metre: " + json.dumps(ways) + "};\n" + page[pa:pb] + r"""
+const out = [];
+for (let n = 3; n <= 32; n++) N.metre[n].forEach((w, k) => {
+  P = {metre: {bar_steps: n === 16 && k === 0 ? 0 : n, bar_beats: n === 16 && k === 0 ? [0, 0, 0, 0] : [0, 1, 2, 3].map(i => Math.floor(w[0] / 2 ** (8 * i)) % 256)}};
+  let s = 'B ' + n + ' ' + k + ' ';
+  for (let i = 0; i < 64; i++) s += beatAt(i) ? '1' : '0';
+  if (barSteps() !== n || barWayNow() !== k) s += ' WRONG';
+  out.push(s);
+});
+for (let len = 1; len <= 64; len++) for (let st = 0; st < len; st += (st < 4 ? 1 : 7)) for (let o = 3; o <= 32; o++) {
+  let s = 'F ' + len + ' ' + st + ' ' + o;
+  for (let w = 3; w <= 32; w++) s += ' ' + metreFollow(len, st, o, w);
+  out.push(s);
+}
+console.log(out.join('\n'));
+""")
+        got = subprocess.run([node, js], capture_output=True, text=True)
+        gl, wl = got.stdout.strip().split('\n'), want.strip().split('\n')
+        bad = [i for i in range(min(len(gl), len(wl))) if gl[i] != wl[i]]
+        check(got.returncode == 0 and len(gl) == len(wl) and len(wl) > 10000 and not bad,
+              "the beats of the 217 ways and %d lengths that follow a new bar: the page says what the core says (%d differ%s) %s" % (
+                  len(wl) - 217, len(bad), ": " + gl[bad[0]][:60] + " / " + wl[bad[0]][:60] if bad else "", got.stderr.strip()[-200:]))
+
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (the page: skipped, no playwright)')
+        return
+    import sagga_fw as FW
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    name = os.path.join(pr, 'metro.sgq')
+    lines = ['track 1 length - 32', 'track 2 length - 19', 'track 3 flags - 32']
+    for st in (0, 4, 8, 12):
+        lines += ['step 0,0,%d flags - 3' % st, 'step 0,0,%d note 0 60' % st]
+    apply('new', lines, name)
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            br = p.chromium.launch()
+            pg = br.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda x: errs.append(str(x)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/edit/metro.sgq' % port)
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.pat=0;V.t=0;V.s=0;V.listen=false;V.tab='tracce';render()")
+            marks = "[...document.querySelectorAll('.tr')][0].querySelectorAll('.c.bar').length + '/' + [...document.querySelectorAll('.tr')][0].querySelectorAll('.c.barl').length"
+            check(pg.evaluate(marks) == '16/4' and 'metro' not in (pg.text_content('#main .row small') or ''), '4/4: a mark every four steps, a wider one every sixteen (%s)' % pg.evaluate(marks))
+            pg.evaluate("V.tab='progetto';render()")
+            box = pg.locator('input[data-g="metre"][data-f="bar"]')
+            check(box.count() == 1 and box.input_value() == '16' and pg.locator('select[data-g="metre"][data-f="ways"] option').count() == 4,
+                  'the Progetto tab: the bar (16) and its four ways')
+            box.fill('14'); box.dispatch_event('change')
+            pg.wait_for_timeout(150)
+            waysel = pg.locator('select[data-g="metre"][data-f="ways"]')
+            check(pg.evaluate('barSteps()') == 14 and waysel.locator('option').count() == 3 and '7/8 = 2+2+3' in (waysel.locator('option:checked').text_content() or ''),
+                  'the bar typed, 14: 7/8, three ways, the usual one chosen (%s)' % (waysel.locator('option:checked').text_content() or ''))
+            lens = pg.evaluate('[0, 1, 2, 3].map(t => P.track[t].length)')
+            check(lens == [14, 28, 19, 16], 'the tracks on the bar follow (16 -> 14, 32 -> 28), the one of 19 stays, a TAPE track is not counted in steps (%s)' % lens)
+            pg.evaluate("V.tab='tracce';render()")
+            check(pg.evaluate(marks) == '14/4' and 'metro 7/8 (2+2+3)' in (pg.text_content('#main .row small') or ''),
+                  'the tracks: the marks are the beats of 7/8 and its bar lines; the metre is named (%s)' % pg.evaluate(marks))
+            first = pg.evaluate("[...[...document.querySelectorAll('.tr')][0].querySelectorAll('.c')].slice(0, 14).map(c => /barl/.test(c.className) ? 'L' : / bar/.test(c.className) ? 'b' : '.').join('')")
+            check(first == '...b...b.....L', '... 2+2+3: a mark after steps 4 and 8, the bar line after 14 (%s)' % first)
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            j = read(name)
+            check(j['metre_now']['sig'] == '7/8' and [j['track'][t]['length'] for t in range(4)] == [14, 28, 19, 16] and j['tape_len'][3] == 4 * 14 * 96,
+                  'saved: the file is in 7/8, the tracks as the page showed them (%s %s)' % (j['metre_now'], [j['track'][t]['length'] for t in range(4)]))
+            pg.evaluate("V.tab='progetto';render()")
+            pg.locator('select[data-g="metre"][data-f="ways"]').select_option('2')
+            pg.wait_for_timeout(150)
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            j = read(name)
+            check(j['metre_now']['split'] == '3+2+2' and pg.evaluate('metreText()') == '7/8 (3+2+2)', 'the third way chosen and saved: 3+2+2 (%s)' % j['metre_now'])
+            box = pg.locator('input[data-g="metre"][data-f="bar"]')
+            box.fill('16'); box.dispatch_event('change')
+            pg.wait_for_timeout(150)
+            pg.click('#bsave')
+            pg.wait_for_timeout(700)
+            j = read(name)
+            st = {(t, pp, s): x for t, pp, s, x in j['steps']}
+            check(j['metre'] == {'bar_steps': 0, 'bar_beats': [0, 0, 0, 0]} and [j['track'][t]['length'] for t in range(4)] == [16, 32, 19, 16]
+                  and all(st[(0, 0, s)]['flags'] == 3 for s in (0, 4, 8, 12)) and not any(x['flags'] & 64 for x in st.values()),
+                  'the bar 16 again, saved: 4/4, the tracks and the pattern as they were (%s)' % [j['track'][t]['length'] for t in range(4)])
+            check(not errs, 'no script errors (%s)' % errs[:2])
+            br.close()
+    finally:
+        srv.shutdown()
+
+
+def t025_melody():
+    group("0.25 FOLLOW MELODY in the files: the fourth way of FOLLOW is a way; one there is not is put right")
+    d = tempfile.mkdtemp()
+    a, b = os.path.join(d, 'a.sgq'), os.path.join(d, 'b.sgq')
+    r = apply('new', ['track 0 follow_mode - 3', 'track 1 follow_mode - 2'], a)
+    j = read(a) if r.returncode == 0 else {}
+    check(r.returncode == 0 and [t['follow_mode'] for t in j['track'][:3]] == [3, 2, 0], 'MELODY (3) on track 1, LEGATO on 2 (%s)' % [t['follow_mode'] for t in j.get('track', [])[:3]])
+    r = apply(a, ['track 0 follow_mode - 4'], b)
+    j = read(b) if r.returncode == 0 else {}
+    check(r.returncode == 0 and [t['follow_mode'] for t in j['track'][:3]] == [0, 2, 0], 'a way there is not: HOLD (%s)' % [t['follow_mode'] for t in j.get('track', [])[:3]])
+
+
 def main():
     build()
-    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies):
+    for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
+              t025_metre, t025_melody):
         try:
             t()
         except Exception as e:

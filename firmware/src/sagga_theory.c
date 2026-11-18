@@ -365,11 +365,14 @@ static void th_rhythm(const sq_th_t *t, uint8_t func, uint8_t bars, th_grid_t *g
 
 /* the rule of the bar a 16th of the pattern is in: bars 2 and 4 have their own when the family answers itself */
 static const th_rule_t *th_bar(const th_rule_t *q, uint32_t at) { return ((at >> 4) & 1u) && (q->kick & TH_K_TWO) ? q + 1 : q; }
-/* the weight of a hit on 16th `at` of the pattern (a sub leans on the kicks of its band) */
-static uint32_t th_weight(const th_rule_t *q, const th_grid_t *kick, uint32_t at)
+/* the weight of a hit on 16th `at` of the pattern (a sub leans on the kicks of its band). 0.25: and the part it answers
+ * (mate, n 16ths of it): on the 16th, or the two, right after an attack of that one - where it has just spoken and is
+ * silent now - the weight is three more (never an accent it was not): the answer comes after the call */
+static uint32_t th_weight(const th_rule_t *q, const th_grid_t *kick, const uint8_t *mate, uint32_t n, uint32_t at)
 {
     uint32_t w = th_nib(th_bar(q, at)->w, at & 15u);
     if ((q->kick & 15u) == TH_K_WITH && w && kick->lev[at] >= TH_X) w = w + 5u > 15u ? 15u : w + 5u;
+    if (mate && w && w < 11u && mate[at] < TH_O && (mate[(at + n - 1u) % n] >= TH_O || mate[(at + n - 2u) % n] >= TH_O)) w = w + 3u > 11u ? 11u : w + 3u;
     return w;
 }
 /* the level of a hit of weight w on 16th `at`: its place's own in a rule counted from the library, else by its weight */
@@ -391,6 +394,12 @@ static uint32_t th_key(const sq_th_t *t, const th_rule_t *q, uint32_t part, uint
     return ((b & 1u) && th_u(t, part, 0x400u + s, 9u) * 100u < (uint32_t)q->bar2 * 256u) ? 0x800u + s : s;
 }
 
+/* 0.25: 16th `at` is one the part leaves to the part it answers: that one attacks there, and this part's number for the
+ * place says so, two times in three (a number of the place: the same at every energy) */
+static uint32_t th_shy(const sq_th_t *t, uint32_t part, const uint8_t *mate, uint32_t at, uint32_t key)
+{
+    return mate && mate[at] >= TH_O && th_u(t, part, 0x500u + key, 8u) < 170u;
+}
 static void th_rhythm_rule(const sq_th_t *t, const th_rule_t *q, uint8_t func, uint8_t bars, th_grid_t *g)
 {
     uint32_t part = func, b, s, c, dens = th_en(t, q->d_lo, q->d_hi), share = th_en(t, q->cls_e0, 255u);
@@ -398,22 +407,41 @@ static void th_rhythm_rule(const sq_th_t *t, const th_rule_t *q, uint8_t func, u
     uint32_t i, n = (uint32_t)bars * 16u, any = 0u, some = 0u, best_c = 4u, best = 0xFFFFu, avoid = (q->kick & 15u) == TH_K_AVOID;
     uint16_t rk[SQ_STEPS];                               /* how late a hit comes in as the energy rises: its number against its
                                                           * weight (0: it is always there; 0xFFFF: no hit can be here) */
-    uint8_t con[4];
+    uint8_t con[4], opc[4] = {1u, 1u, 1u, 1u};
     th_grid_t kick;
+    const uint8_t *mate = sq_th_mate_family(func) != 255u ? t->mate : 0;   /* 0.25: the part this one answers (a part that answers nobody: nobody) */
     for (i = 0; i < SQ_STEPS; i++) { g->lev[i] = 0u; g->rat[i] = 0u; rk[i] = 0xFFFFu; kick.lev[i] = 0u; }
     if (q->kick & 15u) {                                 /* the kick that plays with it, else the seed's own */
         if (t->kick) for (i = 0; i < n; i++) kick.lev[i] = t->kick[i];
-        else if ((q->kick & 15u) == TH_K_WITH) {         /* (a part that leans on the kicks: on the ones that are there at every
-                                                          * energy - what it leans on must not move as the energy rises) */
+        else {                                           /* (a part that leans on the kicks: on the ones that are there at every
+                                                          * energy - what it leans on must not move as the energy rises; 0.25: the
+                                                          * kick answers nobody, whoever this part answers) */
             sq_th_t t0 = *t;
-            t0.energy = 0u;
+            t0.mate = 0;
+            if ((q->kick & 15u) == TH_K_WITH) t0.energy = 0u;
             th_rhythm(&t0, SQ_FUNC_KICK, bars, &kick);
-        } else th_rhythm(t, SQ_FUNC_KICK, bars, &kick);
+        }
+    }
+    if (mate) {                                          /* 0.25: the places this part can play on and does not leave to the part
+                                                          * it answers, class by class (whatever the energy). None at all: it
+                                                          * takes no notice of the other - a part is never empty */
+        uint32_t open = 0u;
+        opc[0] = opc[1] = opc[2] = opc[3] = 0u;
+        for (i = 0; i < n; i++) {
+            const th_rule_t *qb = th_bar(q, i);
+            uint32_t s16 = i & 15u, core = (uint32_t)(qb->fixA | qb->fixx) & TB(s16);
+            if ((qb->never & TB(s16)) || (avoid && kick.lev[i])) continue;
+            if (!core && !th_nib(qb->w, s16) && !q->cls[s16 & 3u] && !cyc_n) continue;
+            if (!core && th_shy(t, part, mate, i, th_key(t, q, part, i >> 4, s16))) continue;
+            open++; opc[s16 & 3u] = 1u;
+        }
+        if (!open) mate = 0;
     }
     for (c = 0; c < 4u; c++) {                           /* a class is there when its number, against its chance, is under the share */
         uint32_t x = q->cls[c] ? (q->cls_link ? link : th_ub(t, part, 0xC1u + c, 1u)) * 255u / q->cls[c] : 0xFFFFu;
         con[c] = (uint8_t)(q->cls[c] == 255u || x < share);
-        if (x < best) { best = x; best_c = c; }          /* (the one that comes in first as the energy rises) */
+        if (x < best && (!mate || opc[c])) { best = x; best_c = c; }   /* (the one that comes in first as the energy rises - 0.25:
+                                                                        *  of those with a place the part does not leave to the other) */
     }
     if (cyc_n) {                                         /* (the cycle is the part: the rest thins out; a low energy: every other hit of it) */
         cyc_on = th_ub(t, part, 0xCCu, 1u) < (uint32_t)(q->cyc >> 4) * 17u;
@@ -423,7 +451,7 @@ static void th_rhythm_rule(const sq_th_t *t, const th_rule_t *q, uint8_t func, u
     }
     for (b = 0; b < bars; b++)
         for (s = 0; s < 16u; s++) {
-            uint32_t at = b * 16u + s, key = th_key(t, q, part, b, s), w = th_weight(q, &kick, at), lev = 0u;
+            uint32_t at = b * 16u + s, key = th_key(t, q, part, b, s), w = th_weight(q, &kick, mate, n, at), lev = 0u, shy;
             const th_rule_t *qb = th_bar(q, at);
             uint32_t out = (qb->never & TB(s)) || (avoid && kick.lev[at]);
             c = s & 3u;
@@ -433,8 +461,13 @@ static void th_rhythm_rule(const sq_th_t *t, const th_rule_t *q, uint8_t func, u
             }
             if (con[c] && th_u(t, part, 0x100u + key, 2u) >= q->hole && 1u + ((q->cls_lev >> (2u * c)) & 3u) >= lev) { lev = 1u + ((q->cls_lev >> (2u * c)) & 3u); rk[at] = 0u; }
             if (cyc_on && at % cyc_per == cyc_ph && lev < TH_X) { lev = TH_X; rk[at] = 0u; }
+            /* 0.25 THE PARTS LISTEN: where the part it answers attacks, this one stays away two times in three (by its
+             * place: the same at every energy) - what the part ALWAYS plays, below, is there whatever (of a rule
+             * counted from the library: what every variation plays, not what half of them do) */
+            shy = th_shy(t, part, mate, at, key);
+            if (shy) { lev = 0u; rk[at] = 0xFFFFu; }
             if (q->kick & TH_K_LV) {                     /* (counted from the library: what is always there has its place's level) */
-                if (th_fix(t, q, at) & TB(s)) { lev = th_level(q, 15u, at); rk[at] = 0u; }
+                if ((shy ? (uint16_t)(qb->fixA | qb->fixx) : th_fix(t, q, at)) & TB(s)) { lev = th_level(q, 15u, at); rk[at] = 0u; }
             } else {
                 if ((q->fixx & TB(s)) && lev < TH_X) { lev = TH_X; rk[at] = 0u; }
                 if (q->fixA & TB(s)) { lev = TH_A; rk[at] = 0u; }
@@ -452,15 +485,15 @@ static void th_rhythm_rule(const sq_th_t *t, const th_rule_t *q, uint8_t func, u
                                                           * bass): its first ghost */
         uint32_t near = 0xFFFFu, soft = 0xFFFFu, pass, got = 0u;
         for (i = 0; i < n; i++) {
-            uint32_t w = th_weight(q, &kick, i);
+            uint32_t w = th_weight(q, &kick, mate, n, i);
             if (rk[i] == 0xFFFFu || !w) continue;
             if (th_level(q, w, i) >= TH_O) { if (rk[i] < near) near = rk[i]; }
             else if (rk[i] < soft) soft = rk[i];
         }
         for (pass = 0; pass < 2u && !got; pass++)        /* (a class whose every hit was left out: the class whole) */
             for (i = 0; i < n; i++) {
-                uint32_t w = th_weight(q, &kick, i);
-                if ((th_bar(q, i)->never & TB(i & 15u)) || (avoid && kick.lev[i])) continue;
+                uint32_t w = th_weight(q, &kick, mate, n, i);
+                if ((th_bar(q, i)->never & TB(i & 15u)) || (avoid && kick.lev[i]) || th_shy(t, part, mate, i, th_key(t, q, part, i >> 4, i & 15u))) continue;
                 if (near != 0xFFFFu) { if (w && rk[i] == near && th_level(q, w, i) >= TH_O) { g->lev[i] = (uint8_t)th_level(q, w, i); got = 1u; } }
                 else if (best_c < 4u) {
                     if ((i & 3u) == best_c && (pass || th_u(t, part, 0x100u + th_key(t, q, part, i >> 4, i & 15u), 2u) >= q->hole)) {
@@ -767,6 +800,27 @@ static void th_arp(const sq_th_t *t, uint32_t n, char *r, char *nt)
 }
 
 /* ------------------------------------------------------------------ a part */
+uint8_t sq_th_mate_family(uint8_t func)
+{
+    uint8_t fam;
+    if (func >= SQ_FUNCS || func == SQ_FUNC_PROG || func == SQ_FUNC_KIT || func == SQ_FUNC_CRASH) return 255u;
+    fam = sq_func_family(func);
+    if (fam == SQ_FUNC_ARP) return SQ_FUNC_CHORD;        /* an arpeggio, a lead, a voice answer the chords */
+    if (fam == SQ_FUNC_PERC) return SQ_FUNC_SNARE;       /* the percussion fills what the snare leaves */
+    if (fam == SQ_FUNC_BASS) return SQ_FUNC_ARP;         /* a bass makes room under the lead */
+    return 255u;
+}
+void sq_th_levels(const sq_th_t *t, uint8_t func, uint8_t len, uint8_t *lev)
+{
+    th_grid_t g;
+    uint32_t i;
+    if (len != 16u && len != 32u && len != 64u) len = 16u;
+    for (i = 0; i < SQ_STEPS; i++) g.lev[i] = 0u;
+    if (func < SQ_FUNCS && func != SQ_FUNC_PROG && func != SQ_FUNC_KIT) {
+        if (func == SQ_FUNC_CRASH) th_crash(t, (uint8_t)(len / 16u), &g); else th_rhythm(t, func, (uint8_t)(len / 16u), &g);
+    }
+    for (i = 0; i < SQ_STEPS; i++) lev[i] = g.lev[i % len];
+}
 uint8_t sq_th_part(const sq_th_t *t, uint8_t func, uint8_t len, char *r, char *nt)
 {
     th_grid_t g;
@@ -798,9 +852,20 @@ uint8_t sq_th_load(sq_step_t *row, const sq_th_t *t, uint8_t func, uint8_t len, 
 
 uint8_t sq_th_remake(sq_step_t *row, const sq_th_t *from, const sq_th_t *to, uint8_t func, uint8_t len, uint8_t note, sq_step_t *a, sq_step_t *b)
 {
+    return sq_th_remake_bar(row, from, to, func, len, note, a, b, 16u, SQ_BEATS_44);
+}
+uint8_t sq_th_minds_kick(const sq_th_t *t, uint8_t func) { return (uint8_t)((th_rule(t, func)->kick & 15u) && t->kick ? 1u : 0u); }
+uint8_t sq_th_remake_bar(sq_step_t *row, const sq_th_t *from, const sq_th_t *to, uint8_t func, uint8_t len, uint8_t note, sq_step_t *a, sq_step_t *b,
+                         uint8_t bar_steps, uint32_t bar_beats)
+{
     uint32_t i, k, changed = 0u, minds;
     if (sq_th_load(a, from, func, len, note) != len || sq_th_load(b, to, func, len, note) != len) return 0u;
-    minds = (th_rule(to, func)->kick & 15u) && to->kick ? 1u : 0u;
+    if (sq_rebar_len(len, bar_steps, bar_beats) != len || !(bar_steps == 16u && sq_metre_fix(16u, bar_beats) == SQ_BEATS_44)) {
+        sq_rebar(a, (uint8_t)(len / 16u), bar_steps, bar_beats);         /* 0.25: the two as the metre's bars, as the pattern was made */
+        sq_rebar(b, (uint8_t)(len / 16u), bar_steps, bar_beats);
+        len = sq_rebar_len(len, bar_steps, bar_beats);
+    }
+    minds = sq_th_minds_kick(to, func);
     for (i = 0; i < len; i++) {
         const uint8_t *pa = (const uint8_t *)&a[i], *pb = (const uint8_t *)&b[i], *pr = (const uint8_t *)&row[i];
         uint32_t diff = 0u, off = 0u;

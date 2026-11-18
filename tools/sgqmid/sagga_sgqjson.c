@@ -15,6 +15,11 @@
  * length (or loop start) changes has its eight patterns FIT it (sq_row_fit: copies made, taken away, the mark); a
  * pattern whose own steps change has its copies made again; a pattern with a COPY changed keeps all its copies as
  * steps (flag 64 off). The editor only shows them.
+ * 0.25: THE METRE - metre (bar_steps: the bar in 16ths, 3-32, 0 = sixteen; bar_beats 0-3: the four bytes of the mask of
+ * the steps that begin a beat, low byte first, all 0 = the usual way) - put right by sanitize; "metre_now" says what it
+ * is (steps, beats, sig, split, id) and names.metre every way every bar divides ([mask, sig, split] by the bar's
+ * steps). A patch of the bar alone moves no track: the editor writes the lengths it wants with it. thp has the metre a
+ * pattern of the engines was made in (metre: 0 = 4/4). A TAPE's loop is bars of the metre (tape_len).
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -24,7 +29,7 @@
  *   sagga_sgqjson new OUT.sgq                    a new project
  *
  * A PATCH is text, a change a line:   GROUP INDEXES FIELD ELEM VALUE
- *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc mfxd lfoe mod th thp (and tape, below)
+ *   GROUP    project key track step scene lfo lfox chain song song_e live ext mfxc mfxd lfoe mod th thp metre (and tape, below)
  *   INDEXES  "-" for project / song / live / ext, else the index (track, scene ...), "t,p,s" for a step
  *   FIELD    a field of the group (the names of the C structs); ELEM: "-", or which element of an array field
  *   VALUE    an integer in the field's type (u8, s8, u16)
@@ -124,7 +129,9 @@ static const fd_t F_MOD[] = {                                                   
 static const fd_t F_TH[] = { F(sq_theory_t, src, 0), F(sq_theory_t, seed, 0) };                                    /* 0.23 */
 static const fd_t F_THP[] = {
     F(sq_thpat_t, seed, 0), F(sq_thpat_t, style, 0), F(sq_thpat_t, func, 0), F(sq_thpat_t, var, 0), F(sq_thpat_t, vary, 0), F(sq_thpat_t, energy, 0),
+    F(sq_thpat_t, metre, 0),                                                                                        /* 0.25 */
 };
+static const fd_t F_METRE[] = { F(sq_gen_t, bar_steps, 0), A(sq_gen_t, bar_beats, uint8_t, 0, 4) };                 /* 0.25 */
 static const fd_t F_EXT[] = {
     F(sq_ext_t, motion_bars, 0), F(sq_ext_t, kb_mode, 0), F(sq_ext_t, kb_ch, 0), F(sq_ext_t, in_thru, 0),
     A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
@@ -149,6 +156,7 @@ static const grp_t G[] = {
     {"mod", PO(ext) + (uint32_t)offsetof(sq_ext_t, mod), {sizeof(sq_mod_t)}, {SQ_MODS}, F_MOD, NF(F_MOD)},          /* 0.20 the MOD MATRIX */
     {"th", PO(th), {0}, {0}, F_TH, NF(F_TH)},                                                                       /* 0.23 the THEORY engines: the SOURCE, the next seed */
     {"thp", PO(th) + (uint32_t)offsetof(sq_theory_t, pat), {sizeof(sq_thpat_t)}, {SQ_TRACKS * SQ_PATTERNS}, F_THP, NF(F_THP)},   /* ... a pattern's record: track * 8 + pattern */
+    {"metre", PO(gen), {0}, {0}, F_METRE, NF(F_METRE)},                                                             /* 0.25 THE METRE: the bar, its beats */
     {"step", PO(step), {sizeof(sq_step_t) * SQ_PATTERNS * SQ_STEPS, sizeof(sq_step_t) * SQ_STEPS, sizeof(sq_step_t)},
      {SQ_TRACKS, SQ_PATTERNS, SQ_STEPS}, F_STEP, NF(F_STEP)},
 };
@@ -222,7 +230,7 @@ static int cmd_read(const char *in)
     printf(",\"tape_cnt\":[");
     for (t = 0; t < SQ_TRACKS; t++) printf("%s%u", t ? "," : "", (unsigned)proj.tape_cnt[t]);
     printf("],\"tape_len\":[");
-    for (t = 0; t < SQ_TRACKS; t++) printf("%s%u", t ? "," : "", (unsigned)sq_tape_len(&proj.track[t].tape));
+    for (t = 0; t < SQ_TRACKS; t++) printf("%s%u", t ? "," : "", (unsigned)sq_tape_len_p(&proj, (uint8_t)t));   /* (0.25: bars of the metre) */
     printf("],\"tape\":[");                                  /* 0.15: [track, on, dur, note, vel], track by track, by start */
     for (t = 0; t < SQ_TRACKS; t++) {
         uint16_t first, cnt;
@@ -279,10 +287,33 @@ static int cmd_read(const char *in)
     put_names("device", sq_device_name, SQ_DEV_COUNT, 1);
     put_names("euc_fam", sq_rhythm_name, SQ_RF_COUNT, 1);
     put_names("groove", sq_groove_name, SQ_GROOVES, 1);
-    printf("}}\n");
+    printf(",\"metre\":{");                                /* 0.25: every way every bar divides: [mask, "7/8", "2+2+3"] */
+    for (i = SQ_BAR_MIN; i <= SQ_BAR_MAX; i++) {
+        uint8_t k, n = sq_metre_options((uint8_t)i);
+        printf("%s\"%u\":[", i > SQ_BAR_MIN ? "," : "", (unsigned)i);
+        for (k = 0; k < n; k++) {
+            char sig[8], spl[SQ_SPLIT_TEXT];
+            uint32_t m = sq_metre_option((uint8_t)i, k);
+            sq_metre_sig((uint8_t)i, m, sig); sq_metre_split((uint8_t)i, m, spl);
+            printf("%s[%lu,\"%s\",\"%s\"]", k ? "," : "", (unsigned long)m, sig, spl);
+        }
+        putchar(']');
+    }
+    printf("}}");
+    {   /* ... and what the project's is */
+        char sig[8], spl[SQ_SPLIT_TEXT];
+        uint8_t st = sq_bar_steps(&proj.gen);
+        uint32_t m = sq_bar_beats(&proj.gen);
+        sq_metre_sig(st, m, sig); sq_metre_split(st, m, spl);
+        printf(",\"metre_now\":{\"steps\":%u,\"beats\":%lu,\"sig\":\"%s\",\"split\":\"%s\",\"id\":%u}", (unsigned)st, (unsigned long)m, sig, spl,
+               (unsigned)sq_metre_id(st, m));
+    }
+    printf("}\n");
     return 0;
 }
 
+static unsigned long tape_far_on, tape_far_dur;      /* the latest start, the longest length a patch's tape lines asked for ... */
+static unsigned tape_far_no, tape_far_dno;           /* ... and the lines that did */
 /* 0.15: tape T clear - 0  /  tape T,ON,DUR,NOTE add - VEL */
 static int tape_line(char **tok, unsigned no)
 {
@@ -300,9 +331,13 @@ static int tape_line(char **tok, unsigned no)
     if (e == tok[4] || *e) { fprintf(stderr, "patch line %u: %s is not a number\n", no, tok[4]); return 4; }
     if (x[0] >= SQ_TRACKS) { fprintf(stderr, "patch line %u: no track %lu\n", no, x[0]); return 4; }
     if (n == 1) { sq_tape_clear(&proj, (uint8_t)x[0]); return 0; }
-    if (x[1] >= SQ_TAPE_BARS_MAX * SQ_TAPE_BAR || x[2] < 1u || x[2] > SQ_TAPE_BARS_MAX * SQ_TAPE_BAR || x[3] > 127u || v < 1 || v > 127) {
+    if (x[1] >= SQ_TAPE_BARS_MAX * SQ_BAR_MAX * (SQ_TAPE_PPQ / 4u) || x[2] < 1u || x[2] > SQ_TAPE_BARS_MAX * SQ_BAR_MAX * (SQ_TAPE_PPQ / 4u) || x[3] > 127u || v < 1 || v > 127) {
         fprintf(stderr, "patch line %u: a tape event out of range\n", no); return 4;
     }
+    /* (0.25: the longest loop of ANY metre here - the patch may set the metre on a later line; the longest loop of the
+     *  metre the project ends up with is checked when the patch is through: tape_far) */
+    if (!tape_far_no || x[1] > tape_far_on) { tape_far_on = x[1]; tape_far_no = no; }
+    if (!tape_far_dno || x[2] > tape_far_dur) { tape_far_dur = x[2]; tape_far_dno = no; }
     /* (added at the end of the track's events, in the patch's order; written before the loop is known: the order and
      * the loop are the core's to sort out when the patch is through) */
     if (proj.tape_n >= SQ_TAPE_MAX) { fprintf(stderr, "patch line %u: the tape is full (%u events)\n", no, (unsigned)SQ_TAPE_MAX); return 4; }
@@ -433,6 +468,11 @@ static int cmd_apply(const char *base, const char *patch, const char *out)
         if ((r = patch_line(line, no)) != 0) { fclose(f); return r; }
     }
     fclose(f);
+    {   /* a tape event past the sixteen bars of the metre the project has now: refused, as ever */
+        unsigned long lim = (unsigned long)SQ_TAPE_BARS_MAX * sq_bar_steps(&proj.gen) * (SQ_TAPE_PPQ / 4u);
+        if (tape_far_no && tape_far_on >= lim) { fprintf(stderr, "patch line %u: a tape event out of range\n", tape_far_no); return 4; }
+        if (tape_far_dno && tape_far_dur > lim) { fprintf(stderr, "patch line %u: a tape event out of range\n", tape_far_dno); return 4; }
+    }
     sq_project_sanitize(&proj);
     copies_after();
     return write_image(out);

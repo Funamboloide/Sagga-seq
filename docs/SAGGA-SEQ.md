@@ -1,18 +1,65 @@
-# SAGGA SEQ 0.24
+# SAGGA SEQ 0.25
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Sixteen
 tracks**, eight patterns of up to 64 steps per track, **sixteen scenes**, eight **snapshots**, a song of **64
 entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
-steps), the **THEORY engines** that make a band from a seed in each of them (0.23), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
+steps), the **THEORY engines** that make a band from a seed in each of them (0.23), a bar in **any metre** and tracks in **five or seven against four** (0.25), and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page) queue moves for the
 phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.24` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.25` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.22.
+
+## What is new in 0.25
+
+Six things the sequencer could not do.
+
+* **The bar has a metre** (GLO 4). A bar was sixteen 16ths whatever the tracks did. It is now 3 to 32 steps, divided
+  in beats the way you choose - 7/8 as 2+2+3, 5/4, 6/8, 9/8, 15/16 - and everything that waits for the bar or counts
+  bars follows it: the lengths, a queued pattern, QUANTISE, WHEN and EVERY, the MOSSE and their phrase, the song, the
+  harmony's chords, LOOP and REPEAT, EXPO, MOTION, the tape. The library's patterns and the engines' are made in the
+  metre's bars. The whole of it: [The metre](#the-metre-025) below.
+* **True polyrhythms** (HOME 1 K3, past 1/32T; the grid's TRACK row 4, pads 15 and 16). Six more steps: `1/4 5:4`,
+  `1/8 5:4`, `1/16 5:4`, `1/4 7:4`, `1/8 7:4`, `1/16 7:4` - five, or seven, steps in the time of four of that value.
+  A track at 1/16 5:4 plays five steps in a quarter; at 1/4 5:4, five in a bar of 4/4 (a loop of five steps: five
+  hits against the kick's four, for good). The clock has 24 ticks a quarter and a fifth of a quarter is 4.8 of them:
+  the FM-1 plays each of these steps at its own time between two ticks, so the five are even and the track comes back
+  on the bar line exactly, bar after bar. Swing, GROOVE, the ratchets, the ARP, a nudge work on them as on any step.
+* **TURING as long as its track** (SEQ 2, B turned past 16: `TRACK`). A TURING's phrase was its register, sixteen
+  steps at most, going round inside the track. On TRACK the register is as long as the track (up to 64 steps): the
+  whole written rhythm is its loop, and it grows and shrinks with the track. **NUMERIC fits the bar**: its sixteen
+  rhythms were written for 16 steps, and a shorter loop played their beginning. Now a rhythm is laid on the steps it
+  has - the metre's bar, or a loop shorter than a bar - each hit at its place in proportion (one that would fall on
+  the hit before it, or right beside it, is left out: the rhythm keeps its rests); 16 steps play as they did.
+* **The engines' parts listen to each other.** Until 0.24 every part was made alone (the kick apart: a rumble avoids
+  it, a sub leans on it). Now a **lead, a voice and an arpeggio answer the chords**: they stay away from the places
+  where the chords strike and fall right after them more often. **The percussion answers the snare** the same way,
+  and **a bass leaves room under the lead**. It works whatever order the parts were made in: when the part they
+  answer is made again (BEAT, a seed turned, the dice, UNDO), the parts that answer it are made again within a moment
+  from their own seed. A part that answers nobody (the kick, the snare, the hats, the chords) is what it was in 0.24.
+* **The melody knows the chord**: FOLLOW has a fourth way, **MELODY** (ARP 4 K1, past LEGATO). A riff under FOLLOW is
+  moved whole with every chord, and so was a lead: the same tune a third down, a fourth up. In MELODY a tune stays
+  where it is written, and its **strong notes** - on a beat of the metre, or longer than a step - go to the nearest
+  note of the chord playing (of two as near, the lower). The short notes between the beats play as written: passing
+  notes of the key. A note held through a change of chord slides to the new chord's nearest note, as LEGATO does. A
+  step of two notes or more is a chord and moves as ever. **A LEAD or a VOX that BEAT, BAND, the dice or the engines
+  make follows as a MELODY** by itself; any other part on that track later puts it back to HOLD (RETRIG and LEGATO, if
+  you chose them, stay). A lead made before 0.25 is on HOLD until you turn the knob or make it again.
+* **LONGER and SHORTER from the tablet**: two taps on SAGGA Live (channel 12 CC 61 / 60): every track twice or half
+  as long, at the next bar while it plays, at once when stopped; the other one takes it back.
+
+And on the Pi: **the grid bridge leaves the FM-1 alone while it is being updated** (it took the update loader,
+"Felucca Update", for the FM-1 and sent it a message a second through an install); **the editor shows the copies while
+you type a length**, before Save, as the FM-1 would make them; the editor has the metre (Project: the bar and its
+beats, the marks of the beats on every row), the six new steps, FOLLOW's MELODY; a MIDI file is written and read in
+the project's metre.
+
+A project of 0.25 read by 0.24: the metre is 4/4, a polyrhythm step is 1/16, a TURING on TRACK is 16 steps long, a
+MELODY track is on HOLD. Nothing else is lost.
 
 ## What is new in 0.24
 
@@ -245,7 +292,7 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | FX | the 16 effects while held | 1-8 LOOP (tap) / REPEAT (hold) 1/32 .. 4 bars, 9 RESTART, 10 STOP at the bar, 11 EXIT (a DJ loop, or the step loop of the selected track; SEL also held: the selected track only) | INTENSITY, GATE, SWING, FILTER (the macros, saved); **SEL + K1-K4 (0.12): the THROWS** (the same four, gliding back to 0 over a bar); FX + OCT-: to 0; FX + OCT+: ECHO ALL; **FX + ARP twice: BAKE**; **FX + HOME: PANIC** |
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
 | SAVE | slot 1-8; **white 16: the set played becomes scenes and the song** (SALVA VIAGGIO) | **1-8 SNAPSHOT** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (4); PRESETS: the slot |
-| GLO (PERF) | **0.12: mute 1-16 in any mode** (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (3); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
+| GLO (PERF) | **0.12: mute 1-16 in any mode** (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (4); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
 | **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE (0.24, with SEL: SHORTER, LONGER - every track's length), THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
 
 A group **held half a second** with nothing else shows the map of its keys on the screen's message lines, and what
@@ -255,7 +302,7 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 TRACK | MIDI channel (1-14; 1-16 with two USB ports) | length 1-64 (playing: at the bar, from the bar line; **0.24**: longer, the pattern goes round again in the new steps - its copies; shorter, it waits whole after the loop) | step: 1/1 .. 1/32T | transpose: IN KEY -24 .. +24 **steps of the scale**, FREE -48 .. +48 semitones |
+| 1 TRACK | MIDI channel (1-14; 1-16 with two USB ports) | length 1-64 (playing: at the bar - 0.25: the metre's -, from the bar line; **0.24**: longer, the pattern goes round again in the new steps - its copies; shorter, it waits whole after the loop) | step: 1/1 .. 1/32T, **0.25: then the polyrhythms** 1/4 5:4, 1/8 5:4, 1/16 5:4, 1/4 7:4, 1/8 7:4, 1/16 7:4 (five, seven steps in the time of four) | transpose: IN KEY -24 .. +24 **steps of the scale**, FREE -48 .. +48 semitones |
 | 2 PLAY | direction FWD REV PING RND | swing 50 % (straight) .. 75 % | **OCTAVE** -3 .. +3 | **FOLLOW** the harmony |
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
 | 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
@@ -278,7 +325,7 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**; **0.23.1, NUMERIC: one of sixteen rhythms**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC (turned: the screen says what K1 and K2 do in it) | heat (COOK, the dice) |
+| 1 EUCLID | pulses (this track; **0.16: EUCLID LIVE off: READY, SEQ + white 6 starts it**; **0.23.1, NUMERIC: one of sixteen rhythms**, **0.25: fit to the bar**) | rotation | **FAMILY**: EUCLID, TRESILLO, NUMERIC (turned: the screen says what K1 and K2 do in it) | heat (COOK, the dice) |
 | 2 ALGORITHM | OFF TURING CELL ACCENT DENSITY (the slot shown; **SEL + K1: the slot 1-4**; **0.16: READY, SEQ + white 6 starts / stops it**) | A (of the READY one, else the one playing) | B | C |
 | 3 EVOLVE | targets RHYTHM .. ALL | amount | every 1 2 4 8 16 bars | scope |
 | 4 EXPO | HITS 2-64 (SETTLE: RATE a beat) | CURVE -8 .. +8 (SETTLE: DEPTH) | SPAN STEP, BEAT, 2 BEATS, BAR, 2 BARS, 4 BARS | SHAPE OFF, RAMP, BOUNCE, SETTLE (**0.16: the one that starts it**; K1-K3 set it up while OFF) |
@@ -291,7 +338,7 @@ softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "W
 
 | algorithm | A | B | C |
 |---|---|---|---|
-| TURING | mutation 0-100 % (0: a locked loop) | length 2-16 steps | moves the RHYTHM, the NOTES (0-7 steps up the key), or BOTH |
+| TURING | mutation 0-100 % (0: a locked loop) | length 2-16 steps, **0.25: then TRACK** (as long as the track, up to 64; it grows and shrinks with it) | moves the RHYTHM, the NOTES (0-7 steps up the key), or BOTH |
 | CELL | rule 0-255 (**0.23.1**: turned, the screen says what it makes of the track's rhythm; the ones to start from are below) | cells 4-64 (the row repeats every so many steps) | a new generation every 1, 2, 4 bars, or every loop |
 | ACCENT | BEAT, OFFBEAT, POLY3, SYNC 3+3+2, RANDOM | amount 0-63 | offset 0-15 steps |
 | DENSITY | 0-200 % (100: as written; under: fewer, the beat last; over: ghost notes added) | the ghosts' velocity 10-100 % | |
@@ -301,9 +348,11 @@ switches it on / off (on the scope). On SEQ 2 K1 makes an algorithm READY, K2-K4
 those values (and stops it). A new algorithm starts from the written rhythm; its knobs never restart it. The families: EUCLID spreads the pulses as evenly
 as they go (E(5,16) = x..x..x..x..x...); TRESILLO fills 3-3-2 cells, half a bar at a time; NUMERIC (0.23.1) is sixteen
 base rhythms of 16 steps: K1 picks one (1 four on the floor ... 7 the son clave, 8 the rumba, 9 the bossa ... 12 the
-tresillo twice ... 16 the busiest; the table is in "What is new in 0.23.1"), K2 turns it. NUMERIC is made for
-tracks of 16 steps (32 and 64: the rhythm repeats); a shorter track plays the start of the rhythm, and K1 reaches as many
-rhythms as the track has steps.
+tresillo twice ... 16 the busiest; the table is in "What is new in 0.23.1"), K2 turns it. The rhythms are written on
+16 steps. **0.25: a rhythm is fit to the steps it has**: the metre's bar (14 steps in 7/8, 20 in 5/4), or the loop
+when the loop is shorter than a bar - every hit at its place in proportion; a hit that would fall on the one before
+it, or right beside it, is left out, so the rhythm keeps its rests. A track of several bars repeats the bar's rhythm.
+(Until 0.24 a loop shorter than 16 played the beginning of the rhythm.)
 
 **CELL** is a row of cells on a ring, one a step: a cell of the next row is on or off by what itself and its two
 neighbours are now, and the RULE (0-255) is the table of the eight cases. Its first row is the rhythm written on the
@@ -331,7 +380,7 @@ for the bar line (the screen counts the bars); EVERY repeats the last tool used 
 
 BEAT on one track loads the part chosen for the track's length (0.24: the track keeps it; a pattern shorter than the track comes with its copies) (KIT: the genre's drums; they become drum tracks; BAND:
 the genre's whole band, on the tracks with those roles, else on free tracks; channels are kept); pressed again, the
-next variation. A BASS or ARP loaded while HARMONY is on gets FOLLOW. A loaded track remembers where it came from:
+next variation. A BASS or ARP loaded while HARMONY is on gets FOLLOW; **0.25: a LEAD or a VOX follows as a MELODY** (ARP 4 K1). A loaded track remembers where it came from:
 GENRE LIVE reloads it from the new genre at the bar line. The tools apply to the scope (the screen says on how many
 tracks). **0.23, SOURCE THEORY** (SEQ 8 K1): the part is not loaded, the engines make it from NEXT SEED in the genre's
 style (pressed again: the next seed; SOURCE FREE, or GENRE FREE: the style of no genre); COOK walks to the next variation of the
@@ -374,7 +423,7 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 | 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE**: **1/4**, **1/2** (0.18: a note every 4 / 2 steps), ROLL (the chord inside its step), 1-4 notes a step | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
 | 2 CHORD | **shape** (32) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
 | 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
-| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 150) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
+| 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO, **MELODY** (0.25: a tune - it stays where it is written, its strong notes go to the chord) (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 150) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
 | 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8 |
 | 6 USER PROG 2 | **MOOD** (GUESSED: the machine's) | the lengths of a RHYTHM written into the chords | **the chord's length**: 1-64 16ths (0: the HARMONY's rhythm) | **PUSH** 0-4 16ths |
 
@@ -385,10 +434,12 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 | 1 LIVE | MORPH | MORPH TO (the scene) | TRANSPOSE (the key) | QUANTISE |
 | 2 TRACK LIVE | the track's pattern (queued) | its length | the scale | MUTE QUEUE |
 | 3 MOSSE (0.17; VIAGGIO until 0.16) | the energy (the target) | the phrase: 4, 8, 16 bars | the genre (queued while playing) | the key's root (queued while playing) |
+| **4 THE METRE** (0.25) | **BAR**: 3-32 steps (16ths). Stopped: at once; playing: at the bar line (`BAR 14: 7/8 2+2+3 AT THE BAR`, the cell says `BAR >`) | **BEATS**: the ways that bar divides (14 steps: 2+2+3, 2+3+2, 3+2+2) | (shows the METRE: 7/8, 5/4, 15/16) | (shows BAR.STEP: where the music is) |
 
 In PERF mode (GLO tapped), **SEL + the knobs are TRACK LIVE** whatever page is shown, as in 0.11; SEL + ALG the tempo;
 **OCT- / OCT+ turn the pages** and **SEL + OCT- / OCT+** make the white keys mutes / solos. On page 3 (the MOSSE) ALG is
-MOVES AT and PRESETS the progression; the black keys are the moves.
+MOVES AT and PRESETS the progression; the black keys are the moves. Page 4 with PICK: the white and black keys are
+the bar's steps (white 1 = 3 steps), or the ways it divides.
 
 ### SAVE pages
 
@@ -492,7 +543,7 @@ plays is steps START .. LENGTH of the pattern.
 
 | | |
 |---|---|
-| a length changes | **Playing: at the bar** (`LENGTH 32 AT THE BAR`; the knob, the grid's SHIFT + step and TRACK row, the pages), and from that bar line the track is where the clock says a loop of that length is: two tracks of the same length are always in step, however they got there. Stopped: at once. LONGER / SHORTER: at the phrase's end |
+| a length changes | **Playing: at the bar** (0.25: the metre's bar - in 7/8, every 14 steps) (`LENGTH 32 AT THE BAR`; the knob, the grid's SHIFT + step and TRACK row, the pages), and from that bar line the track is where the clock says a loop of that length is: two tracks of the same length are always in step, however they got there. Stopped: at once. LONGER / SHORTER: at the phrase's end |
 | longer than the pattern | the pattern goes round again in the steps the track has more: its **COPIES**. Step i plays the step of the pattern that would play there, whatever lengths came before (16 -> 19 -> 32: the sixteen twice). `LENGTH 32: THE 16 STEPS REPEAT` |
 | the copies | follow the pattern: a step of it changed by anyone (a key, the grid, a page, a tool, an engine, the energy) changes its copies within a moment. **A copy changed** (written, turned off, its note): all the copies are steps of yours from then on, the pattern is as long as the track (`THE COPIES ARE YOUR STEPS NOW`). The grid: a copy that plays is GHOST (a dim blue-green); the Pi's editor: the same colour |
 | shorter than the pattern | the track plays its first steps; the pattern stays whole after the loop (the grid shows those steps blue, as ever), with a MARK where it ends. Longer again: the pattern as it was, its silences too, then round again from its own end (16 -> 12 -> 32: the sixteen twice) |
@@ -504,7 +555,7 @@ plays is steps START .. LENGTH of the pattern.
 | the loop's START moves | (HOME + ALG, the grid, a pattern that comes and puts it back on step 1, a snapshot): no copy stands for the step it stood for any more - the copies of the track's patterns are kept as steps, as they sound |
 | a pattern that comes | **keeps the track's length**: the library, the engines, the Pi's patterns, the dice, the proposals, GENRE LIVE. It is made for the track - 64 steps for a track of 64, 32 for one of 32 .. 63, 16 for a shorter one - and what the track has more is its copies, what it has less waits after the loop. Only a pattern that does not fit a bar (the bembé's twelve steps, a Pi pattern of 12 or 24) makes the track as long as itself; the Pi's regia brings its own bars |
 | LONG PATTERNS (SAVE 2 K4) | a library variation of one bar on a longer track: COPY, it repeats (its copies); PHRASE, the long form of 0.10 - the bars before the last are the variation, the last is the next variation with the genre's fill. A variation written over two or four bars comes as written. An old project's LIBRARY LEN 16 reads as COPY, 32 and 64 as PHRASE |
-| LONGER / SHORTER | the MOSSE's SEL + black 6 / SEL + black 5: every track twice / half as long |
+| LONGER / SHORTER | the MOSSE's SEL + black 6 / SEL + black 5: every track twice / half as long, at the phrase's end. **0.25: the tablet's LONGER / SHORTER** (SAGGA Live, channel 12 CC 61 / 60): the same, at the next bar |
 | saved | the copies and the mark are saved (a list of which steps are copies: a copied rest takes no room). Steps kept after a loop take room in the project as any step |
 
 What each generator makes of a track longer than a bar:
@@ -518,13 +569,32 @@ What each generator makes of a track longer than a bar:
 | COOK | at random: every bar by the role's rules, its beats kept - the bars drift apart. Towards the next variation: the variation as a phrase as long as the track, a few steps a press |
 | EVOLVE | cooks the whole loop: the bars evolve each their own way |
 | EUCLID (live, and the tool) | its pulses are spread over the loop: 5 over 32 steps is not 5 over 16 twice |
-| NUMERIC | a rhythm of one bar, repeated |
+| NUMERIC | a rhythm of one bar (0.25: the metre's bar, the rhythm fit to its steps), repeated; a loop shorter than a bar: the rhythm fit to the loop |
 | TRESILLO | its 3 3 2 groups run along the whole loop: PULSES counts them over it |
-| TURING | its phrase is its register (B: 2-16 steps): it goes round inside the track, whatever the length |
+| TURING | its phrase is its register (B: 2-16 steps): it goes round inside the track, whatever the length. **0.25, B on TRACK**: the register is the track's loop, as long as the track is now |
 | CELL | its row is B cells (4-64): set B to the track's length for one row a loop; a new generation every 1 / 2 / 4 bars or every loop |
 | ACCENT, DENSITY, the ARP, EXPO | by step and by beat: the same on any length (POLY3 runs across the bars) |
-| the HARMONY, FOLLOW | by bars: a track of 64 steps hears four bars of chords |
+| the HARMONY, FOLLOW | by bars (0.25: of the metre): a track of 64 steps in 4/4 hears four bars of chords |
 | a BREAK's chops | written over the track's loop |
+
+## The metre (0.25)
+
+The bar is N **steps** (16ths), 3 to 32, and its **beats** are groups of those steps. GLO page 4 (PERF: its fourth
+page) sets both: K1 the bar, K2 the way it divides. Sixteen steps in four quarters is 4/4, as it always was, and a
+project that never touches the page is as it was.
+
+| | |
+|---|---|
+| the bar (K1) | 3-32 steps. An even bar is counted in eighths (14: 7/8, 20: 5/4 or 10/8, 12: 3/4 or 6/8, 18: 9/8), an odd one in sixteenths (7: 7/16, 15: 15/16). The message says what it is: `BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW` |
+| the beats (K2) | every way the bar divides in beats of 2 and 3 eighths (an odd bar: of 3, 4, 5 sixteenths), 217 in all: 14 steps are 2+2+3, 2+3+2 or 3+2+2; 16 are 4/4, or 8/8 as 3+3+2, 3+2+3, 2+3+3; 20 are 5/4 or six ways of 10/8; 12 are 3/4 (2+2+2) or 6/8 (3+3). The first way is the usual one. The beats move no track |
+| when | stopped: at once. Playing: at the next bar line of the bar that plays (`BAR 14: 7/8 2+2+3 AT THE BAR`, the cells show `BAR >`, `BEATS >`), and every track begins again on that line: the new metre is counted from its first bar |
+| the tracks | a track that is a number of bars long **follows**: 16 steps become 14, 32 become 28, 64 become 56 (in a bar of 20: 20, 40, 60 - three bars, the fourth does not fit 64 steps). Its patterns are not rewritten: a shorter track plays their first steps and keeps the rest after the loop, a longer one goes round in the steps it has more (their copies), and the old bar gives every pattern back whole. A track of any other length - 19 steps against the bar, your polymetre - stays as it is. A TAPE's loop is bars of the metre |
+| what waits for the bar | a LENGTH, a queued pattern or scene or snapshot or mute (QUANTISE BAR, 2, 4, 8 BARS; BEAT: the metre's next beat), the transpose, WHEN and EVERY, EVOLVE's bars, STOP at the bar, GENRE LIVE, a proposal, the song, the MOSSE's moves at the BAR and at the BEAT and their phrase (4, 8, 16 bars of the metre) |
+| what is counted in bars | the harmony (a chord a bar of the metre; the rhythms 3+3+2, PUSH, TWO A BAR keep their places in it), LOOP and REPEAT's 1, 2, 4 bars, EXPO's BAR spans, MOTION's bars, TAPE BARS, the grid's and the editor's bars, the place the Pi's pages show |
+| a pattern that comes | **is made in the metre's bars.** The library's variations are written in 4/4: each beat of the bar that plays takes a beat of the written bar - the first the first, the last the last, the ones between the second and the third in turn - with as many of its steps as the beat has (a beat of three eighths: the quarter and its last two 16ths again). The engines make their patterns the same way, and theirs **follow a new metre**: made in 4/4 and the bar becomes 14, they are made again in 7/8 from their seed (one a pass; a pattern of theirs you changed by hand stays as you made it, in its own metre, and the ENERGY leaves it alone until the bar is that metre's again). RANDOM, COOK, the dice and the proposals work in the bar that plays |
+| the feel | GROOVE, ACCENT (BEAT, OFFBEAT, SYNC), DENSITY, the cook and EVOLVE read a step by its place in the metre's bar: the beat is the metre's beat |
+| NUMERIC, EUCLID | NUMERIC's rhythm is fit to the bar; EUCLID spreads its pulses over the loop, as ever |
+| saved | with the project (the bar and a mask of its beats; 4/4 is written as nothing at all). The editor on the Pi has both (Project: METRO), the marks of the beats on every row, and a MIDI file carries the time signature |
 
 ## THEORY: the engines (0.23)
 
@@ -542,6 +612,9 @@ with what each engine does and why: [TEORIA.md](TEORIA.md); the rules of the 21 
 | the dice | DICE SEQ: seeds of the dice on the scope (the rolls, OCT+ and OCT- as with the library); DICE PROG: a progression by the genre's rules in the DICE / PI slot, which plays |
 | the genre | GENRE LIVE: a new genre makes the engines' patterns again in its style from their seeds, at the bar |
 | no genre | **SOURCE FREE** (SEQ 8 K1, the click past THEORY): FREE's band (KICK SNARE HAT PERC BASS CHORD ARP LEAD; KIT: the first four) and its rules of no genre, no swing or groove of a genre, the tempo as it is; BEAT on several tracks (the scope) gives each the part of its ROLE - FREE has a rule for every role; DICE PROG rolls in any scale; a change of genre leaves the engines' patterns alone, GENRE LIVE or not (a track of the library takes the new genre's part from the library, as always). The screen: `FREE BAND SEED 3: 8 TRACKS`, `FREE HAT SEED 4`. **GENRE FREE** (SEQ 6 K4) does the same while the SOURCE is THEORY (the cell says THEORY, the line under it FREE); **HARMONY FREE** (ARP 4 K2) frees DICE PROG alone. A pattern keeps the style it was made in: the energy and COOK treat a FREE one as FREE until BEAT makes it again |
+| the parts listen (0.25) | a part is made WITH the part it answers: a **lead, a voice, an arpeggio** with the first track of chords, the **percussion** with the snare, a **bass** with the first lead, voice or arpeggio. Where the other part strikes, a note of this one that is not one of its fixed ones stays away two times in three; right after it, a note is likelier. The part answered is read as it sounds: an engines' pattern from its seed (at the middle energy, so that the answer does not change with every move of the energy), a library pattern or one of yours from its steps. When it is made again by BEAT, a seed, the dice or UNDO, the parts that answer it are made again within a moment, from their own seed - changes made to them by hand are lost then |
+| the melody (0.25) | a LEAD or a VOX gets FOLLOW's **MELODY** way: it stays where the engine wrote it and its strong notes go to the chord playing (ARP 4 K1) |
+| the metre (0.25) | the engines write in sixteens and the pattern is laid on the metre's bar ([The metre](#the-metre-025)); it follows a new metre |
 | the length | **0.24: the track's.** A track of 16 steps (or less) gets a bar, one of 32 .. 63 a bar and its answer, one of 64 the two again with the genre's fill in the last; what the track has more than that is the pattern again (its copies). SEQ 8 K3 makes it again for the track as it is now |
 
 What the engines know of a pattern (its seed, style, part, variation, energy) is kept with the pattern: saved with the
@@ -866,6 +939,7 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 30 | RETRIG | 31 / 32 | DICE SEQ, UNDO (taps; this track only) |
 | 40-55 | MUTE of track 1-16 (switches) | 56 | **SOURCE** (0.23): 0 LIBRARY, 1 THEORY, 2 FREE (a higher value, a switch's "on": THEORY from LIBRARY, a SOURCE on FREE stays) |
 | 57 | NEXT SEED 0-127 (seeds 1-128) | 58 / 59 | the SEED 0-127 of the pattern the tablet's track plays (made again at once) / its VARIATION 0-99 |
+| 60 | **SHORTER** (0.25; a tap): every track half as long, at the next bar (stopped: at once) | 61 | **LONGER** (0.25; a tap): every track twice as long. Each takes the other back |
 
 ### What goes back to the hub (0.18)
 
@@ -901,20 +975,29 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
 
 ## Limits you should know
 
-* The THEORY engines (0.23): the parts do not listen to each other, the kick apart (a rumble avoids it, a sub leans on
-  it); 16ths in 4/4 only (triplets as rolls); a phrase is two bars (four bars: the two again, with the fill); a motif is
-  one voice and does not know the chord (FOLLOW moves it); the counted genres play like their library, not better. The
-  tablet reaches seeds 1-128, the panel all 999.
+* The THEORY engines: a part answers ONE other part (a lead the first track of chords, not the bass too), and by its
+  rhythm only - no call and response of notes; they write sixteens in four beats and the metre lays them on its bar
+  (a 7/8 of theirs is a 4/4 re-barred, not a rhythm thought in seven); a phrase is two bars (four bars: the two
+  again, with the fill); a motif is one voice; the counted genres play like their library, not better. The tablet
+  reaches seeds 1-128, the panel all 999.
+* The metre (0.25): one metre for the whole project (a track in another metre is a track of another length: a
+  polymetre); a track exactly one bar long follows the bar back and forth (a track of 14 in 4/4, the bar made 14 and
+  then 16 again: 16); the BEATS cell holds nine characters (the line under it and the message have them whole); the
+  bar is not on the tablet; an engines' pattern changed by hand does not follow a new metre.
+* The polyrhythms (0.25): five and seven in the time of four, no other ratio; EXPO's spans on such a track are those
+  of a plain 1/16 track; a 0.24 firmware plays them as 1/16.
+* MELODY (0.25): what is strong is decided by the step's place in the track's own loop and by its length, not by its
+  velocity; the notes between the beats are not checked against the chord (over a borrowed chord a passing note of
+  the key can rub for a 16th); TURING moving the notes comes after it.
 
 * A TAPE note plays its note, velocity and length (with the track's transpose, key, mute, kill, INTENSITY and a positive
   DELAY): no conditions, ratchets, lanes or EXPO on a tape. A TAPE track's steps rest while it is a TAPE and are back
   when it is not. The DELAY of an EXPO span is not applied (spans start on the grid).
 
 * The lengths (0.24): LONGER cannot make a track pass 64 steps and SHORTER cannot halve an odd number of steps (those
-  tracks stay as they are, and the screen counts them); a TURING's phrase is its register (16 steps at most) and
-  NUMERIC a rhythm of one bar, whatever the track's length; a pattern kept whole after a shortened loop takes room
-  in the project as any other steps; the Pi's editor shows a track's copies after Save (it is the Pi's converter
-  that makes them, as the FM-1 would), not while the length is being typed.
+  tracks stay as they are, and the screen counts them); a TURING's phrase is its register (16 steps, or the track with
+  B on TRACK: 0.25) and NUMERIC a rhythm of one bar, whatever the track's length; a pattern kept whole after a
+  shortened loop takes room in the project as any other steps.
 * An export blocks the FM-1 for about half a second (stopped only); a file of the library loads only while stopped.
 * EVOLVE changes the patterns that were playing when it started.
 * The parameter loops always go forward, whatever the track's direction.
@@ -936,8 +1019,8 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
   it SEQ + ALG stops at the FM-1's last variation and SEQ 4 K2 at its last progression (`PI: NO ANSWER`, then `NO MORE
   <MOOD>` without asking again for a while). A progression has up to 8 chords; one from the Pi takes the DICE/PI slot,
   and DICE PROG writes over it (SEQ + SAVE keeps it on the Pi first).
-* 0.11: RETRIG and LEGATO move the held notes of a FOLLOW track (long gates, TIE, held notes); an arpeggio's notes and
-  a strum keep the chord they began on.
+* 0.11: RETRIG and LEGATO (0.25: and MELODY) move the held notes of a FOLLOW track (long gates, TIE, held notes); an
+  arpeggio's notes and a strum keep the chord they began on.
 * 0.13: MOTION has 64 cells a macro (4 bars of 16ths): a move between two 16ths is written on the one it falls in. The
   KEYBOARD transposes the key (the IN KEY tracks), as TRANSPOSE does: FREE and DRUM tracks stay. A SLIDE sends CC 65 on
   the track's channel: a synth that ignores CC 65 still gets the legato (most mono synths glide on overlapping notes

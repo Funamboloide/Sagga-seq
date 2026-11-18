@@ -9,6 +9,9 @@
  *   sagga_sgqmid mid2sgq IN.mid OUT.sgq [BASE.sgq]  the notes of each MIDI channel become a TAPE track (channel
  *                                                   n -> track n) in a new project, or in BASE's; the loop is the
  *                                                   file's length rounded up to bars (16 at most); the tempo too
+ * 0.25: the bars are the project's METRE: a file written says its time signature (7/8, 6/8, 15/16 ...), its BARS are
+ * bars of it; a file read into a new project gives it the metre of its first time signature (a bar of 3 to 32 16ths;
+ * with a BASE the metre is the base's), and the tapes' loops are bars of it.
  * Built with the firmware's own core (sagga_seq_core.c): the same format, the same limits. PPQ of the files written
  * is 384 (the tape's resolution). Exit: 0 done, 1 bad arguments, 2 cannot read / not a project / not a MIDI file,
  * 3 cannot write. Warnings (notes dropped, bars cut) go to stderr; the rest is converted. */
@@ -52,13 +55,23 @@ static uint8_t *putvar(uint8_t *p, uint32_t v)
 }
 
 static uint8_t trk[1u << 20];
+static uint32_t bar_len(void) { return (uint32_t)sq_bar_steps(&proj.gen) * (SQ_TAPE_PPQ / 4u); }   /* 0.25: a bar of the metre, in tape ticks */
 
 static int write_track(FILE *f, const char *name, uint32_t tempo_us, uint32_t from, uint32_t to)
 {
     uint8_t *p = trk + 8, *start = p;
     uint32_t last = 0u, i, n = (uint32_t)strlen(name);
     if (tempo_us) { p = putvar(p, 0u); *p++ = 0xFFu; *p++ = 0x51u; *p++ = 3u; *p++ = (uint8_t)(tempo_us >> 16); *p++ = (uint8_t)(tempo_us >> 8); *p++ = (uint8_t)tempo_us;
-                    p = putvar(p, 0u); *p++ = 0xFFu; *p++ = 0x58u; *p++ = 4u; *p++ = 4u; *p++ = 2u; *p++ = 24u; *p++ = 8u; }
+                    {   /* the time signature: the metre's (0.25; 4/4 until then) */
+                        char sig[8];
+                        uint32_t nn = 0u, den = 0u, dd = 0u, q = 0u;
+                        sq_metre_sig(sq_bar_steps(&proj.gen), sq_bar_beats(&proj.gen), sig);
+                        while (sig[q] >= '0' && sig[q] <= '9') nn = nn * 10u + (uint32_t)(sig[q++] - '0');
+                        if (sig[q] == '/') q++;
+                        while (sig[q] >= '0' && sig[q] <= '9') den = den * 10u + (uint32_t)(sig[q++] - '0');
+                        while ((1u << dd) < den) dd++;
+                        p = putvar(p, 0u); *p++ = 0xFFu; *p++ = 0x58u; *p++ = 4u; *p++ = (uint8_t)nn; *p++ = (uint8_t)dd; *p++ = 24u; *p++ = 8u;
+                    } }
     p = putvar(p, 0u); *p++ = 0xFFu; *p++ = 0x03u; p = putvar(p, n); memcpy(p, name, n); p += n;
     for (i = from; i < to; i++) {
         p = putvar(p, mev[i].tick - last); last = mev[i].tick;
@@ -75,11 +88,13 @@ static void step_track_events(uint8_t t, uint32_t bars)
     const sq_track_cfg_t *c = &proj.track[t];
     uint8_t pat = c->initial_pattern < SQ_PATTERNS ? c->initial_pattern : 0u;
     const sq_step_t *row = proj.step[t][pat];
-    uint32_t step_ticks = (uint32_t)sq_div_ticks(c->division) * (SQ_TAPE_PPQ / 24u);   /* tape ticks a step */
+    uint32_t step_ticks, total = bars * bar_len(), pos = 0u, k = 0u;                   /* tape ticks a step */
     uint32_t len = c->length ? c->length : 1u, lo = c->start < len ? c->start : 0u, span = len - lo;
-    uint32_t loop_ticks = span * step_ticks, total = bars * SQ_TAPE_BAR, pos = 0u, k = 0u;
-    uint8_t ch = (uint8_t)(c->channel & 15u);
-    if (!loop_ticks) return;
+    uint8_t ch = (uint8_t)(c->channel & 15u), den;
+    uint16_t num;
+    sq_div_frac(c->division, &num, &den);                /* 0.25: a polyrhythm's step is a fraction of ticks: step k begins at k * num / den */
+    step_ticks = (uint32_t)num * (SQ_TAPE_PPQ / 24u) / den;
+    if (!step_ticks) return;
     while (pos < total) {
         const sq_step_t *s = &row[lo + (k % span)];
         uint32_t base = pos, n, r;
@@ -109,14 +124,15 @@ static void step_track_events(uint8_t t, uint32_t bars)
                 }
             }
         }
-        pos += step_ticks; k++;
+        k++;
+        pos = k * (uint32_t)num * (SQ_TAPE_PPQ / 24u) / den;
     }
 }
 
 static void tape_track_events(uint8_t t, uint32_t bars)
 {
     const sq_track_cfg_t *c = &proj.track[t];
-    uint32_t len = sq_tape_len(&proj.track[t].tape), total = bars * SQ_TAPE_BAR, rep, i;
+    uint32_t len = sq_tape_len_p(&proj, t), total = bars * bar_len(), rep, i;
     uint16_t first, n;
     uint8_t ch = (uint8_t)(c->channel & 15u);
     sq_tape_range(&proj, t, &first, &n);
@@ -191,7 +207,7 @@ static int mid2sgq(const char *in, const char *out, const char *base)
     uint8_t keep_bars[SQ_TRACKS] = {0};
     FILE *f = fopen(in, "rb");
     size_t n;
-    uint32_t fmt, ntrk, div, k, tempo_us = 500000u, dropped = 0u, cut = 0u, total = 0u;
+    uint32_t fmt, ntrk, div, k, tempo_us = 500000u, dropped = 0u, cut = 0u, total = 0u, sig_seen = 0u;
     uint64_t longest = 0u;
     uint16_t used[SQ_CHANNELS] = {0};
     if (!f) { fprintf(stderr, "cannot read %s\n", in); return 2; }
@@ -226,6 +242,20 @@ static int mid2sgq(const char *in, const char *out, const char *base)
                 uint8_t type = mp[1]; uint32_t ml;
                 mp += 2; ml = rdvar();
                 if (type == 0x51u && ml == 3u) tempo_us = ((uint32_t)mp[0] << 16) | ((uint32_t)mp[1] << 8) | mp[2];
+                if (type == 0x58u && ml >= 2u && !base && !sig_seen && !total && mp[1] <= 4u && mp[0]) {   /* 0.25: the file's metre, for a new project */
+                    uint32_t st16 = ((uint32_t)mp[0] * 16u) >> mp[1], den = 1u << mp[1], w;
+                    sig_seen = 1u;
+                    if ((((uint32_t)mp[0] * 16u) & (den - 1u)) == 0u && st16 >= SQ_BAR_MIN && st16 <= SQ_BAR_MAX) {
+                        uint32_t beats = sq_metre_option((uint8_t)st16, 0u);
+                        for (w = 0; w < sq_metre_options((uint8_t)st16); w++) {       /* the way that is called so (6/8: two threes, 3/4: three twos) */
+                            char sig[8], want[12];
+                            snprintf(want, sizeof want, "%u/%u", (unsigned)mp[0], (unsigned)den);
+                            sq_metre_sig((uint8_t)st16, sq_metre_option((uint8_t)st16, (uint8_t)w), sig);
+                            if (!strcmp(sig, want)) { beats = sq_metre_option((uint8_t)st16, (uint8_t)w); break; }
+                        }
+                        sq_bar_set(&proj.gen, (uint8_t)st16, beats);
+                    }
+                }
                 mp += ml;
                 continue;
             }
@@ -242,7 +272,7 @@ static int mid2sgq(const char *in, const char *out, const char *base)
                     uint64_t on = open_[i].tick * SQ_TAPE_PPQ / div, off = tick * SQ_TAPE_PPQ / div, dur = off > on ? off - on : 1u;
                     uint8_t t = open_[i].ch;                 /* channel n -> track n */
                     if (off > longest) longest = off;
-                    if (on < SQ_TAPE_BARS_MAX * SQ_TAPE_BAR) {
+                    if (on < SQ_TAPE_BARS_MAX * bar_len()) {
                         if (dur > 65535u) dur = 65535u;
                         if (!used[t]) {                  /* the first note of a channel: its track becomes (or stays) a TAPE, emptied */
                             keep_bars[t] = (base && (proj.track[t].flags & SQ_TF_TAPE)) ? proj.track[t].tape.bars : 0u;
@@ -259,7 +289,7 @@ static int mid2sgq(const char *in, const char *out, const char *base)
     }
     /* the loops: the file's length rounded up to bars, 16 at most, the same for every tape (they loop together) */
     {
-        uint32_t bars = (uint32_t)((longest + SQ_TAPE_BAR - 1u) / SQ_TAPE_BAR), t;
+        uint32_t bars = (uint32_t)((longest + bar_len() - 1u) / bar_len()), t;
         if (bars < 1u) bars = 1u;
         if (bars > SQ_TAPE_BARS_MAX) { bars = SQ_TAPE_BARS_MAX; }
         for (t = 0; t < SQ_TRACKS; t++) if (used[t]) proj.track[t].tape.bars = (uint8_t)(keep_bars[t] > bars ? keep_bars[t] : bars);   /* (with a base: a tape never shrinks) */

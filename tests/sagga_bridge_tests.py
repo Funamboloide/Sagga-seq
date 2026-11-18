@@ -611,6 +611,24 @@ def t_quiet_wait():
           "no FM-1: the bridge waits on /proc (%d reads) and looks at the ports twice in all - at the start, when the FM-1 came (%d looks; rc %s)" % (reads, looks, rc))
     check([m for q, m in log if q == fm][:1] == [[0xBF, 118, 127]] and {q for q, _ in log} == set(lp + [fm]), "then it runs with the grid: the FM-1 gets its attach (%s)" % sorted({q for q, _ in log}))
 
+    # 0.25: the FM-1 while a firmware is being installed is another USB device, "Felucca Update" (its update loader), on
+    # the client number the FM-1 had. It is NOT the FM-1: the bridge waits (0.24 attached to it: an attach and a
+    # keep-alive a second on the port the firmware goes through - seen in a log of a real install)
+    upd = "Felucca Update:Felucca Update MIDI 1 36:0"
+
+    def updating(n, t):
+        if n < 40:
+            return {**base, 36: "Felucca Update"}, lp + [upd]
+        return {**base, 36: "Felucca 2"}, lp + [fm]
+    rc, log, looks, reads, err = run_main(updating, 3)
+    check(rc == 0 and "the bridge waits for it" in err and not [m for q, m in log if q == upd],
+          "the FM-1 in update mode is not the FM-1: nothing is sent to it, the bridge waits (%s; %d messages to it)" % (
+              err.strip().splitlines()[0][:40] if err.strip() else "", len([m for q, m in log if q == upd])))
+    check([m for q, m in log if q == fm][:1] == [[0xBF, 118, 127]] and reads >= 40,
+          "... and when the FM-1 is back with its firmware it gets its attach (%d reads)" % reads)
+    check(B.fm1_ports([upd, fm], B.FM1_PATTERN) == [[fm]] and not B.fm1_ports([upd], B.FM1_PATTERN) and B.split_ports([upd], B.FM1_PATTERN, None),
+          "fm1_ports: the loader's port is left out (the bare pattern still matches it: a synth's port it is not either)")
+
     def no_grid(n, t):
         return {14: "Midi Through", 36: "Felucca 2"}, [fm]
     rc, log, looks, reads, err = run_main(no_grid, 12)          # (attach + eleven keep-alives: more than eleven fake seconds)

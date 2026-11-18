@@ -170,6 +170,11 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             if (k == 1u) { uint8_t b = vg_bars(); PK(PK_LIST, 0, 2, 1, b <= 4u ? 0 : b <= 8u ? 1 : 2); }
             if (k == 2u) PK(PK_LIST, 0, SQ_SET_GENRES - 1, 1, vg_genre_shown());
             PK(PK_ROOT, 0, 11, 1, vg_key_shown());
+        } else if (pg == 3u) {                                             /* 0.25 THE METRE: white 1 = a bar of 3 steps ... */
+            uint8_t st = bar_shown();
+            if (k == 0u) PK(PK_COUNT, (int32_t)SQ_BAR_MIN, (int32_t)SQ_BAR_MAX, 1, st);
+            if (k == 1u && sq_metre_options(st) > 1u) PK(PK_LIST, 0, (int32_t)sq_metre_options(st) - 1, 1, (int32_t)sq_metre_index(st, beats_shown()));
+            PK(PK_NONE, 0, 0, 1, 0);
         } else {
             if (k == 0u) PK(PK_NONE, 0, 127, 1, morph_pos);
             if (k == 1u) PK(PK_COUNT, 0, SQ_SCENES - 1, 1, project.live.morph_b);

@@ -49,7 +49,7 @@ BAR_MS = 4 * 24 * S.TICK_US / 1000.0          # a bar at 128 BPM, 1875 ms
 BTN_NAME = {S.OCT_DOWN: "OCT-", S.OCT_UP: "OCT+", S.FX: "FX", S.SEL: "SEL", S.ENV: "ENV", S.LFO: "LFO", S.EDIT: "EDIT",
             S.GLO: "GLO", S.HOME: "HOME", S.SAVE: "SAVE", S.ARP: "ARP", S.SEQ: "SEQ", S.PLAY: "PLAY", S.REC: "REC"}
 ENC_NAME = {S.E_SEL: "SELECT", S.E_ALG: "ALG", S.K1: "K1", S.K2: "K2", S.K3: "K3", S.K4: "K4", S.E_PRE: "PRESETS"}
-PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 3}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
+PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 4, S.GLO: 4}   # 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
 MODS = [S.HOME, S.SEQ, S.ENV, S.LFO, S.ARP, S.SAVE, S.FX, S.SEL, S.EDIT, S.GLO]
 SEL_MODS = (S.HOME, S.SEQ, S.EDIT, S.FX, S.GLO, S.SAVE)    # the groups with SEL + knob variants (0.12: EDIT notes, FX throws, GLO tempo, SAVE 3 reconnect)
 
@@ -289,7 +289,8 @@ TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5
              (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13)),
              (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40))]   # 0.23: the THEORY engines
 TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
-TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO")]
+TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO"),
+            (60, "SHORTER"), (61, "LONGER")]              # (0.25: every track's length, at the bar)
 
 
 def g_tab(ch, cc, vals, name):
@@ -434,8 +435,9 @@ def _longer(s, t, n):
 
 
 class Situazione:
-    def __init__(self, name, setup, grid=False, tablet=False, hw=True, band=True, lens=None):
+    def __init__(self, name, setup, grid=False, tablet=False, hw=True, band=True, lens=None, want=None):
         self.name, self.setup, self.grid, self.tablet = name, setup, grid, tablet
+        self.want = want or {}                      # (0.25: {track, or "G": {a value of the probe: what its name promises}}: checked too)
         self.band = band                            # (0.22: it starts from a BAND: situazioni_vere checks that it is there)
         self.hw = hw                                # (False: never on the FM-1 by the PC: a USB reconnect in its set-up)
         self.lens = lens or {}                      # (0.24: {track: (length, the pattern's own steps)} its name promises: checked too)
@@ -649,6 +651,66 @@ def sit_024_lengths(s):
     return _play(s, t + 100)
 
 
+def sit_025_78(s):
+    """0.25: THE METRE. A bar of 14 steps - 7/8 as 2+2+3 (GLO 4 K1 two down; stopped: at once) -; THEORY, a TECHNO band
+    the engines make in it (their sixteens re-barred); track 2 at 28 (two bars: the second the pattern's copies), track
+    8 at 19 (a polymetre against the 14); the MOSSE with the moves AT THE BAR, so that what is asked is there when the
+    probe looks; in play"""
+    t = S.pg(s, 200, S.GLO, 3, [(S.K1, -2)])
+    t = _theory(s, t)
+    t = _band(s, t)
+    s.enc(t, S.E_SEL, 1); t += 60                           # track 2
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, 14)])                 # ... LENGTH 28
+    s.enc(t, S.E_SEL, 6); t += 60                           # track 8
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, 5)])                  # ... LENGTH 19
+    s.enc(t, S.E_SEL, -7); t += 60
+    t = _mosse(s, t)
+    s.enc(t, S.E_ALG, 1); t += 60                           # the moves: at the BAR
+    return _play(s, t + 100)
+
+
+def sit_025_54(s):
+    """0.25: 5/4 - a bar of 20 steps, five quarters (GLO 4 K1 four up) -, the library's HOUSE band in it, the harmony
+    on (a chord a bar of 20); track 1 at 40 (two bars); in play"""
+    t = S.pg(s, 200, S.GLO, 3, [(S.K1, 4)])
+    t = _genre(s, t, 3)                                     # HOUSE
+    t = _band(s, t)
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, 20)])                 # track 1: LENGTH 40
+    t = S.harm_knobs(s, t, [(S.K1, 1)])                     # HARMONY (ARP 3): ON
+    t = S.pg(s, t, S.ARP, 0)
+    return _play(s, t + 100)
+
+
+def sit_025_poly(s):
+    """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
+    at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
+    t = _band(s, 200)
+    s.enc(t, S.E_SEL, 2); t += 60                           # track 3
+    t = S.pg(s, t, S.HOME, 0, [(S.K2, -11), (S.K3, 4)])     # ... LENGTH 5, 1/4 5:4
+    s.enc(t, S.E_SEL, 2); t += 60                           # track 5
+    t = S.pg(s, t, S.HOME, 0, [(S.K3, 9)])                  # ... 1/16 7:4
+    s.enc(t, S.E_SEL, -4); t += 60
+    t = S.pg(s, t, S.SEQ, 1, [(S.K1, 1), (S.K3, 20)], keys=[S.wk(5)])   # track 1: TURING, LENGTH TRACK, started
+    t = S.pg(s, t, S.SEQ, 0)
+    return _play(s, t + 100)
+
+
+def sit_025_melody(s):
+    """0.25: THE MELODY KNOWS THE CHORD. The SOURCE on FREE: its band has a LEAD on track 8, which follows as a MELODY
+    (the makers give a tune that way; BAND starts the harmony); the harmony on a USER progression i bVI bVII i that
+    changes inside the bar (3+3+2), so that the lead's long notes meet the changes; track 8 left selected: the track's
+    knobs turn on the tune; in play"""
+    t = S.pg(s, 200, S.SEQ, 7, [(S.K1, 2)])                 # LIBRARY -> THEORY -> FREE
+    t = S.pg(s, t, S.SEQ, 0)
+    t = _band(s, t)
+    t = S.uprog_knobs(s, t, [(S.K3, 1), (S.K2, 1), (S.K3, 9), (S.K2, 1), (S.K3, 11), (S.K2, 1), (S.K3, 1)])   # USER 1: i bVI bVII i (ARP 5)
+    t = S.harm_knobs(s, t, [(S.K2, 6)])                     # HARMONY (ARP 3): USER 1 (the band left it ON)
+    t = S.harm2_knobs(s, t, [(S.K4, 4)])                    # HARMONY 2 (ARP 4): 3+3+2
+    t = S.pg(s, t, S.ARP, 0)
+    s.enc(t, S.E_SEL, 7); t += 60                           # track 8: the LEAD
+    return _play(s, t + 100)
+
+
 SITUAZIONI = [
     Situazione("vuoto, fermo", sit_vuoto, band=False),
     Situazione("vuoto, in play", sit_vuoto_play, band=False),
@@ -675,6 +737,14 @@ SITUAZIONI = [
     Situazione("0.23 THEORY: HOUSE, le MOSSE (RISER, DROP, energia), in play", sit_theory_mosse),
     Situazione("0.24 le lunghezze: traccia 1 da 32 e traccia 8 da 19 con le copie, le MOSSE alla battuta, in play", sit_024_lengths,
                lens={1: (32, 16), 2: (16, 16), 8: (19, 16)}),
+    Situazione("0.25 il metro: 7/8 (2+2+3), band dei motori THEORY, traccia 2 da 28 e traccia 8 da 19, le MOSSE alla battuta, in play", sit_025_78,
+               lens={1: (14, 14), 2: (28, 14), 8: (19, 14)}),
+    Situazione("0.25 il metro: 5/4, HOUSE band della libreria, armonia, traccia 1 da 40, in play", sit_025_54,
+               lens={1: (40, 20), 2: (20, 20)}),
+    Situazione("0.25 i poliritmi: traccia 3 a 1/4 5:4 (5 step), traccia 5 a 1/16 7:4, TURING lungo la traccia, band in play", sit_025_poly,
+               lens={3: (5, 5), 5: (16, 16)}),
+    Situazione("0.25 la melodia conosce l'accordo: band FREE dei motori, armonia USER 3+3+2, il LEAD (traccia 8) in MELODY, in play", sit_025_melody,
+               want={8: {"fm": 3, "follow": 1}, "G": {"harm": 1, "hlock": 0}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -767,7 +837,7 @@ def situazioni_vere(sits, empty_row):
     situations out of seventeen explored an empty project, in the simulator and on the FM-1, and nothing said so"""
     bad = []
     for sit in sits:
-        if not sit.band and not sit.lens:
+        if not sit.band and not sit.lens and not sit.want:
             continue
         base, _ = parse_run(run_script(script_for(sit, [])[0])[0])
         n = sum(1 for k, v in base.items() if k[:1] == "T" and isinstance(v, dict) and v.get("steps#") not in (None, empty_row))
@@ -778,6 +848,12 @@ def situazioni_vere(sits, empty_row):
             if (tr.get("len"), tr.get("own")) != (str(ln), str(own)):
                 bad.append("%s: la traccia %d e' lunga %s step e il suo pattern %s (il nome dice %d e %d)" % (
                     sit.name, tk, tr.get("len"), tr.get("own"), ln, own))
+        for tk, vals in sorted(sit.want.items(), key=str):  # 0.25: what else its name promises - of a track, or ("G") of the machine
+            who = "G" if tk == "G" else "T%d" % tk
+            tr = base.get(who, {})
+            for key, val in sorted(vals.items()):
+                if tr.get(key) != str(val):
+                    bad.append("%s: %s ha %s = %s (il nome dice %s)" % (sit.name, "la macchina" if tk == "G" else "la traccia %d" % tk, key, tr.get(key), val))
     return bad
 
 
@@ -821,7 +897,8 @@ def parse_run(out):
 
 # what a person hears and keeps (a change of these is a change of the music); the rest: where things are on screen
 MUSIC_G = ["harm", "hlock", "hgenre", "hprog", "hbars", "hrhythm", "hmood", "chord", "key", "root", "scale", "shift",
-           "mute", "solo", "bpm", "mac", "uprog#", "keys#", "scenes#", "lfo#", "song#", "snaps#", "tape#", "dev#"]
+           "mute", "solo", "bpm", "mac", "uprog#", "keys#", "scenes#", "lfo#", "song#", "snaps#", "tape#", "dev#",
+           "bar", "beats"]                        # (0.25: the metre is music)
 HARM_G = ["harm", "hlock", "hgenre", "hprog", "hbars", "hrhythm", "hmood", "chord"]
 TRACK_SKIP = {"step", "ok"}                       # (a track's place: the phase rule looks at it)
 EMPTY_ROW = None                                  # the hash of an empty pattern (from the empty situation)
@@ -845,6 +922,24 @@ def diff(a, b, fields_g=None):
             if ta.get(k) != tb.get(k):
                 out.append(("T%d.%s" % (t, k), ta.get(k), tb.get(k)))
     return out
+
+
+def motori_stale(pf):
+    """MOTORI on a probe taken stopped: the tracks whose engines' pattern is not as the machine is"""
+    stale = []
+    mid = pf["G"].get("mid")
+    for t in range(1, 17):
+        tp = pf.get("T%d" % t, {})
+        th = (tp.get("th") or "0/0/0/0/0").split("/")
+        if len(th) != 5 or not th[0].isdigit() or int(th[0]) > 26:
+            stale.append("T%d: th=%s" % (t, tp.get("th")))
+        elif th[0] != "0" and tp.get("mode") not in ("T", "B"):
+            if mid is not None and tp.get("thm") is not None and tp["thm"] != mid:    # 0.25: made in another metre
+                if tp.get("thk") != "1":
+                    stale.append("T%d: fatto nel metro %s, la macchina e' nel metro %s" % (t, tp["thm"], mid))
+            elif th[4] != pf["G"]["en"]:
+                stale.append("T%d: fatto a energia %s, la macchina e' a %s" % (t, th[4], pf["G"]["en"]))
+    return stale
 
 
 def is_music(field):
@@ -899,7 +994,9 @@ REGOLE = {
     "RITORNO": ("DA GUARDARE", "una manopola girata di uno e poi indietro di uno rimette la musica dov'era (in almeno uno dei "
                                "due versi: in fondo alla scala un verso non si muove)"),
     "MOTORI": ("ERRORE", "0.23: da fermo ogni pattern fatto dai motori THEORY e' all'ENERGIA della macchina (lo riempie e lo svuota "
-                         "il servizio dei motori, qualunque gesto sia stato fatto), e cio' che i motori sanno di lui e' uno stile che esiste"),
+                         "il servizio dei motori, qualunque gesto sia stato fatto), e cio' che i motori sanno di lui e' uno stile che esiste; "
+                         "0.25: ed e' nel METRO della macchina (il servizio lo rifa' quando il metro cambia), a meno che non sia stato "
+                         "cambiato a mano: quello resta nel suo metro, e li' l'energia non lo tocca"),
 }
 
 
@@ -914,6 +1011,9 @@ ACCETTATI = [
     ("RITORNO", r"^HOME \d (SEL\+)?ALG ", "0.24: l'inizio del loop che si sposta fa diventare step le copie del pattern (nessuna starebbe "
      "piu' al posto dello step che ripeteva); tornato indietro la musica e' la stessa, ma sono step e non piu' copie: il pattern "
      "e' lungo quanto il loop (T.own)", r"^T\d+\.own "),
+    # 0.25, seen with the first situation that leaves a melody's track selected: the pen is the last note set
+    ("RITORNO", r"^EDIT SEL\+K[1-4] ", "0.25: la nota di uno step girata e rimessa lascia la PENNA su quella nota (la penna e' l'ultima nota "
+     "scritta: SEL + K4); lo step e la musica sono quelli di prima (T.pen)", r"^T\d+\.pen "),
 ]
 
 
@@ -1022,16 +1122,11 @@ def _check(sit, g, base, br, null, findings, off):
         hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
             findings.append(Finding("NOTE APPESE", "ERRORE", sit.name, name, ", ".join(hung[:8]) + (" ..." if len(hung) > 8 else "")))
-    # MOTORI (0.23): stopped, the engines' patterns are at the machine's energy; a record is of a style there is
+    # MOTORI (0.23): stopped, the engines' patterns are at the machine's energy; a record is of a style there is.
+    # 0.25: ... and in the machine's metre (mid: the metre now; thm: the one the pattern was made in), but one the
+    # player changed by hand (thk): that one stays in its metre, and the energy leaves it alone there
     if pf["G"].get("play") == "0" and "en" in pf["G"]:
-        stale = []
-        for t in range(1, 17):
-            tp = pf.get("T%d" % t, {})
-            th = (tp.get("th") or "0/0/0/0/0").split("/")
-            if len(th) != 5 or not th[0].isdigit() or int(th[0]) > 26:
-                stale.append("T%d: th=%s" % (t, tp.get("th")))
-            elif th[0] != "0" and tp.get("mode") not in ("T", "B") and th[4] != pf["G"]["en"]:
-                stale.append("T%d: fatto a energia %s, la macchina e' a %s" % (t, th[4], pf["G"]["en"]))
+        stale = motori_stale(pf)
         if stale:
             findings.append(Finding("MOTORI", "ERRORE", sit.name, name, "; ".join(stale[:6])))
     # CLOCK: the ticks between the fork and the STOP, as many as the branch that did nothing
@@ -1249,6 +1344,10 @@ def session_check(sit, gs, rnd_seed):
         hung = hung_notes(br["midi"], grid=base["G"].get("grid") == "1", tablet=br_tab(br, base))
         if hung:
             found.append(("NOTE APPESE", ", ".join(hung[:6])))
+        if "en" in br["probes"][-1]["G"]:                    # MOTORI (0.25: at the end of a session too)
+            stale = motori_stale(br["probes"][-1])
+            if stale:
+                found.append(("MOTORI", "; ".join(stale[:6])))
     bad = [m for m in br["midi"] if m[2] > 127 or m[3] > 127]
     if bad:
         found.append(("MIDI", "byte non validi: %s" % bad[:3]))
@@ -1490,7 +1589,8 @@ def main(argv):
         build()
     sits = SITUAZIONI if not a.veloce else [SITUAZIONI[0], SITUAZIONI[2], SITUAZIONI[3], SITUAZIONI[5], SITUAZIONI[10],
                                             SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
-                                            SITUAZIONI[22]]     # (0.24: + the lengths, the copies, the moves at the bar)
+                                            SITUAZIONI[22],     # (0.24: + the lengths, the copies, the moves at the bar)
+                                            SITUAZIONI[23]]     # (0.25: + the metre: 7/8, the engines' band in it)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:

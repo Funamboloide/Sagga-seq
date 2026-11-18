@@ -18,6 +18,7 @@ or a `relitto` folder next to the SAGGA SEQ repository."""
 import hashlib
 import math
 import os
+import shutil
 import subprocess
 import tempfile
 import wave
@@ -444,24 +445,31 @@ def script_text(events, syx_path=None, voices=8, end_ms=None):
 
 
 def run_host(exe, script, syx_msgs=None, workdir=None):
-    """runs the script (a text, with `SYX` standing for the SysEx file) -> mono float32 at SR, the host's log"""
+    """runs the script (a text, with `SYX` standing for the SysEx file) -> mono float32 at SR, the host's log.
+    Without a `workdir` the run has a folder of its own in the temporary files, and takes it away when it is done
+    (until SAGGA SEQ 0.24's tree it stayed there: a WAV a render, hundreds a run of the tests, gigabytes in a few
+    days - a full disk)"""
     wd = workdir or tempfile.mkdtemp(prefix="strati-rl-")
-    syx = os.path.join(wd, "sound.syx")
-    if syx_msgs:
-        with open(syx, "wb") as f:
-            for m in syx_msgs:
-                f.write(m)
-    sp = os.path.join(wd, "script.txt")
-    with open(sp, "w") as f:
-        f.write(script.replace("SYX", syx))
-    out = os.path.join(wd, "out")
-    r = subprocess.run([exe, out, sp], capture_output=True, text=True, cwd=wd)
-    if r.returncode:
-        raise RuntimeError("relitto host run failed:\n" + r.stderr + r.stdout)
-    with wave.open(out + ".wav", "rb") as w:
-        raw = w.readframes(w.getnframes())
-    y = np.frombuffer(raw, "<i2").astype(np.float32).reshape(-1, 2).mean(axis=1) / 32768.0
-    return y, r.stdout
+    try:
+        syx = os.path.join(wd, "sound.syx")
+        if syx_msgs:
+            with open(syx, "wb") as f:
+                for m in syx_msgs:
+                    f.write(m)
+        sp = os.path.join(wd, "script.txt")
+        with open(sp, "w") as f:
+            f.write(script.replace("SYX", syx))
+        out = os.path.join(wd, "out")
+        r = subprocess.run([exe, out, sp], capture_output=True, text=True, cwd=wd)
+        if r.returncode:
+            raise RuntimeError("relitto host run failed:\n" + r.stderr + r.stdout)
+        with wave.open(out + ".wav", "rb") as w:
+            raw = w.readframes(w.getnframes())
+        y = np.frombuffer(raw, "<i2").astype(np.float32).reshape(-1, 2).mean(axis=1) / 32768.0
+        return y, r.stdout
+    finally:
+        if not workdir:
+            shutil.rmtree(wd, ignore_errors=True)
 
 
 SX_MS = 260                                               # the SysEx takes ~180 ms of script time; the note after

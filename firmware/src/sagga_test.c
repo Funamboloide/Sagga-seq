@@ -162,6 +162,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_k("mac"); pr_d(mac_vel); pr_c('/'); pr_d(mac_gate); pr_c('/'); pr_d(mac_swing); pr_c('/'); pr_d(mac_filt);
     pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
     pr_ku("thsrc", project.th.src); pr_ku("thseed", project.th.seed); pr_ku("en", vg_energy_now());   /* 0.23 THEORY: the SOURCE, the next seed, the energy applied now */
+    pr_ku("bar", bar_st()); pr_k("beats"); pr_x(bar_bt(), 8u); pr_ku("barpend", bar_pend_steps); pr_ku("mid", metre_id_now());      /* 0.25 THE METRE: the bar in 16ths, its beats, the bar that waits */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);
     pr_kh("song#", &project.song, sizeof project.song); pr_kh("snaps#", project.snap, sizeof project.snap);
@@ -175,9 +176,10 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         const char *ok = "-";
         uint32_t k, slots = 0u;
         if (playing && !track_tape(t) && !(loop_on && (loop_mask & (1u << t))) && !fx_now() && !vg_speed && c->direction != SQ_DIR_RANDOM && !len_pend[t] &&
-            !(realign_pend & (1u << t))) {                 /* (put in time on the next tick: a slave with no clock yet has none) */
+            !(realign_pend & (1u << t)) && !(tup_wait & (1u << t))) {   /* (put in time on the next tick: a slave with no clock yet has none; 0.25: a
+                                                                         *  polyrhythm's step that waits for its time between two ticks has not moved it yet) */
             sq_track_rt_t r = tr[t];
-            sq_track_seek(c, &r, global_clock - tr[t].anchor, base_div_ticks(t));
+            track_seek_to(t, &r, global_clock - tr[t].anchor);
             ok = r.step == tr[t].step ? "1" : "0";
         }
         for (k = 0; k < SQ_ALGO_SLOTS; k++) if (SQ_ALGO_AT(c, k)->algo) slots |= 1u << k;
@@ -193,6 +195,8 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
             const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
             pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(m->vary); pr_c('/'); pr_u(m->energy);
+            pr_ku("thm", m->metre);                                  /* (0.25: the metre it was made in - G's mid: the metre now -, */
+            pr_ku("thk", (th_kept[t] >> tr[t].pattern) & 1u);        /*  and whether it stays in it: the player changed it by hand) */
         }
         pr_kh("steps#", project.step[t][tr[t].pattern], sizeof project.step[t][0]);
         pr_kh("pats#", project.step[t], sizeof project.step[t]); pr_kh("cfg#", c, sizeof *c);

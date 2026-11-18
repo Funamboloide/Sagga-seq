@@ -51,6 +51,11 @@ static void take_apply(uint32_t t)
     const sq_track_cfg_t *c = &project.track[t];
     sq_step_t *row = project.step[t][tr[t].pattern];
     uint32_t div = base_div_ticks(t), len_ticks = (uint32_t)(c->length - c->start) * div, i, n = 0u;
+    if (track_tuplet(t)) {                               /* (0.25: a polyrhythm's loop: its steps are not whole ticks) */
+        uint16_t num; uint8_t den;
+        div_frac_x(t, 0u, &num, &den);
+        len_ticks = ((uint32_t)(c->length - c->start) * num + den / 2u) / den;
+    }
     uint32_t from;
     if (!playing || track_tape(t)) { status_msg(track_tape(t) ? "TAKE: A TAPE RECORDS BY ITSELF" : "TAKE: WHILE PLAYING"); return; }
     from = global_clock > len_ticks ? global_clock - len_ticks : 0u;

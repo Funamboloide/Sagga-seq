@@ -17,7 +17,7 @@ main{padding:10px 12px 60px}h3{margin:14px 0 6px;font-size:13px;letter-spacing:.
 .ov{overflow-x:auto;border:1px solid var(--line);border-radius:6px;background:#0b0b0b}
 .tr{display:flex;align-items:center;height:22px}.tr .lb{position:sticky;left:0;background:#0b0b0b;min-width:150px;max-width:150px;padding:0 6px;font-size:12px;white-space:nowrap;overflow:hidden;cursor:pointer;z-index:1}
 .tr .lb.cur{color:var(--sel)}.c{width:15px;height:17px;margin:0 1px;border-radius:2px;background:#262626;flex:none;cursor:pointer;position:relative}
-.c.bar{margin-right:4px}.c.out{background:#151515}.c.on{background:var(--on)}.c.on.out{background:#164}.c.on.ghost{background:#1d5f66}.c.sel{outline:2px solid var(--sel)}
+.c.bar{margin-right:4px}.c.barl{margin-right:9px}.c.out{background:#151515}.c.on{background:var(--on)}.c.on.out{background:#164}.c.on.ghost{background:#1d5f66}.c.sel{outline:2px solid var(--sel)}
 .c.tie:after{content:'';position:absolute;right:-3px;top:7px;width:5px;height:3px;background:#9cf}.c.slide:after{background:#f9c}
 .c.lock:before{content:'';position:absolute;left:2px;top:2px;width:4px;height:4px;border-radius:2px;background:#fd5}
 .c.rat{box-shadow:inset 0 -3px 0 #f84}.tape{font-size:12px;color:var(--dim);padding-left:6px}
@@ -49,7 +49,8 @@ label.tg{display:inline-flex;gap:4px;align-items:center;font-size:13px;color:#cc
 <script>
 'use strict';
 // ---- the lists of the FM-1's panel (firmware/src/dinghy.c, sagga_ui.c: tests/sagga_editor_tests.py checks them)
-const DIV = ['1/1','1/2','1/4.','1/4','1/8.','1/4T','1/8','1/16.','1/8T','1/16','1/16T','1/32','1/32T'];
+const DIV = ['1/1','1/2','1/4.','1/4','1/8.','1/4T','1/8','1/16.','1/8T','1/16','1/16T','1/32','1/32T',
+  '1/4 5:4','1/8 5:4','1/16 5:4','1/4 7:4','1/8 7:4','1/16 7:4'];   // 0.25: the polyrhythms, five / seven steps in the time of four
 const DIR = ['FWD','REV','PING','RND'];
 const ARPM = ['BLOCK','UP','DOWN','UP-DN','DN-UP','UP&DN','CONV','DIV','RND','WALK','PLAYED','THUMB','PINKY'];
 const SHAPES = ['SINE','TRI','RAMP+','RAMP-','SQUARE','S&H','SMOOTH','DECAY','ENV'];
@@ -94,7 +95,7 @@ document.addEventListener('click', ev => {                  // 0.20: an arrow of
   commit(); render();
 });
 const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
-const FOLLOW = ['HOLD','RETRIG','LEGATO'];
+const FOLLOW = ['HOLD','RETRIG','LEGATO','MELODY'];   // 0.25 MELODY: a tune - it stays where it is written, its strong notes go to the chord
 const MASTERF = ['TEMPO','MORPH','FILTER'];
 const REMOTE = ['OFF','CH 14','13 + 14'];
 const KB = ['OFF','ALL','SPLIT C3'];
@@ -275,6 +276,8 @@ const SPECIAL = {
     set('track', t, 'flags', '-', v === 1 ? f | F_CHAIN : f & ~F_CHAIN); set('chain', t, 'chain_on', '-', v === 2 ? 1 : 0); },
   'scene.mute': (d, v) => { const s = d.i, m = get('scene', s, 'mute_mask', '-'), b = 1 << Number(d.e); set('scene', s, 'mute_mask', '-', v ? m | b : m & ~b); },
   'key.cur': (d, v) => { set('project', '-', 'key_cur', '-', v); syncKey(); },
+  'metre.bar': (d, v) => setBar(v),                                                       // 0.25: the bar, the tracks that follow it
+  'metre.ways': (d, v) => { const w = barWays()[v]; if (w) setBeats(w[0]); },
   'chain.groove': (d, v) => { set('chain', d.i, 'groove', '-', v); if (v && !get('chain', d.i, 'groove_amt', '-')) set('chain', d.i, 'groove_amt', '-', 100); },   // (as HOME 7 K3)
 };
 function syncKey() { const k = get('project', '-', 'key_cur', '-'); if (k < 16) { set('project', '-', 'key_root', '-', get('key', k, 'root', '-')); set('project', '-', 'key_scale', '-', get('key', k, 'scale', '-')); set('project', '-', 'key_shift', '-', get('key', k, 'shift', '-')); } }
@@ -297,8 +300,45 @@ function trackLabel(t) {
 }
 function modeOf(t) { const f = P.track[t].flags; return f & 0x20 ? 0x20 : f & 0x40 ? 0x40 : f & 2 ? 2 : f & 1 ? 1 : 0; }
 
+// ---- 0.25 THE METRE: the bar in 16ths (3-32; 0 in the file: sixteen) and its beats (a mask of the steps that begin one;
+// all 0 in the file: the bar's usual way) - as the FM-1 reads them. N.metre has every way every bar divides.
+//<metre>
+function barSteps() { const b = P && P.metre ? P.metre.bar_steps : 0; return b >= 3 && b <= 32 ? b : 16; }
+function barWays() { return (N.metre || {})[barSteps()] || [[0x1111, '4/4', '4x2']]; }
+function barBeats() {
+  const m = P && P.metre ? P.metre.bar_beats : [0, 0, 0, 0], v = (m[0] + m[1] * 256 + m[2] * 65536 + m[3] * 16777216) >>> 0;
+  return v > 1 ? v : barWays()[0][0];
+}
+function beatAt(s) { const n = barSteps(); s = ((s % n) + n) % n; return (barBeats() >>> s) & 1; }   // 1: step s of the bar begins a beat
+function barWayNow() { const b = barBeats(), w = barWays(), i = w.findIndex(x => x[0] === b); return i; }
+function metreText() { const i = barWayNow(), w = barWays(); return i >= 0 ? w[i][1] + ' (' + w[i][2] + ')' : barSteps() + ' step'; }
+// a track's length when the bar changes: one that was a number of bars is that many of the new ones, as many as fit 64
+// steps; any other stays (the FM-1's sq_metre_follow) -> the new length, or 0
+function metreFollow(len, start, oldBar, newBar) {
+  if (len <= start || !oldBar || !newBar || oldBar === newBar) return 0;
+  const span = len - start;
+  if (span % oldBar) return 0;
+  let k = span / oldBar;
+  while (k && start + k * newBar > 64) k--;
+  return k && start + k * newBar !== len ? start + k * newBar : 0;
+}
+//</metre>
+function setBar(n) {
+  const old = barSteps();
+  n = Math.max(3, Math.min(32, n));
+  if (n === old) return;
+  set('metre', '-', 'bar_steps', '-', n === 16 ? 0 : n);
+  for (let k = 0; k < 4; k++) set('metre', '-', 'bar_beats', k, 0);                       // (its usual way)
+  for (let t = 0; t < 16; t++) {                                                          // the tracks on the bar follow it
+    const c = P.track[t], want = c.flags & 0x20 ? 0 : metreFollow(c.length, c.start, old, n);
+    if (want) set('track', t, 'length', '-', want);
+  }
+}
+function setBeats(mask) { for (let k = 0; k < 4; k++) set('metre', '-', 'bar_beats', k, (mask >>> (8 * k)) & 255); }
+
 // ---- the tabs
 function render() {
+  pvCache = null;                                     // (0.25: the copies before Save are worked out again)
   $('tabs').innerHTML = TABS.map(([k, n]) => '<span class="tab' + (V.tab === k ? ' on' : '') + '" onclick="V.tab=\'' + k + '\';keepView();render()">' + n + '</span>').join('');
   if (!P) return;
   V.t = Math.min(15, Math.max(0, V.t)); V.pat = Math.min(7, Math.max(0, V.pat)); V.s = Math.min(63, Math.max(0, V.s));
@@ -313,6 +353,7 @@ function trackSel() { return '<select onchange="V.t=+this.value;keepView();rende
 function rTracce() {
   let on = 0, o = '<div class="row"><span>pattern</span>' + patSel() + '<label><input type="checkbox"' + (V.toggle ? ' checked' : '') + ' onchange="V.toggle=this.checked;keepView()"> un tocco accende / spegne</label>' +
     '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') +
+    (barSteps() !== 16 || barBeats() !== 0x1111 ? ' · metro ' + h(metreText()) : '') +
     (P.th && P.th.src ? ' · sorgente ' + (P.th.src === 2 ? 'FREE (i motori, nessun genere)' : 'THEORY') + ' (prossimo seme ' + (P.th.seed + 1) + ')' : '') + '</small></div><div class="ov">';
   for (let t = 0; t < 16; t++) {
     const c = P.track[t], m = thOf(t, V.pat);            // 0.23: a pattern the THEORY engines made says so, with its seed
@@ -321,11 +362,12 @@ function rTracce() {
       '">' + h(trackLabel(t)) + (m ? ' <b class="thb">◆' + (m.seed + 1) + '</b>' : '') + '<i class="pp" id="pp' + t + '"></i></span>';
     if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + (TP[t] || []).length + ' note · <a href="#" onclick="V.tt=' + t + ';V.tab=\'tape\';keepView();render();return false">apri nella scheda Tape</a></span></div>'; continue; }
     for (let s = 0; s < 64; s++) {
-      const st = getStep(t, V.pat, s), out = s < c.start || s >= c.length;
+      const st = shownStep(t, V.pat, s), out = s < c.start || s >= c.length;   // (0.25: as Save will make it: the copies of a length just typed)
       let cl = 'c';
       if (st.flags & ON) { cl += ' on'; if (!out) on++; }
       if (out) cl += ' out'; else if (st.flags & GHOST) cl += ' ghost';   // 0.24: a copy
-      if (s % 4 === 3) cl += ' bar';
+      const rel = s + 1 - c.start;                        // (0.25: the beats and the bar lines of the metre, from the loop's start)
+      if (rel > 0 && rel % barSteps() === 0) cl += ' bar barl'; else if (rel > 0 ? beatAt(rel) : s % 4 === 3) cl += ' bar';
       if (st.flags & TIE) cl += ' tie'; if (st.flags & SLIDE) cl += ' tie slide';
       if (st.lane.some(x => x !== NONE)) cl += ' lock';
       if (st.ratchet > 1) cl += ' rat';
@@ -334,7 +376,7 @@ function rTracce() {
     }
     o += '</div>';
   }
-  o += '</div><small>' + on + ' step accesi nel P' + (V.pat + 1) + ' · scuro: fuori dal loop · verde-azzurro: una copia (il pattern che gira ancora in una traccia più lunga di lui) · puntino giallo: lock · linea arancio: ratchet · trattino: TIE / SLIDE</small>';
+  o += '</div><small>' + on + ' step accesi nel P' + (V.pat + 1) + ' · scuro: fuori dal loop · verde-azzurro: una copia (il pattern che gira ancora in una traccia più lunga di lui; si vede subito, anche prima di Salva) · puntino giallo: lock · linea arancio: ratchet · trattino: TIE / SLIDE</small>';
   return o + rStep();
 }
 document.addEventListener('click', ev => {
@@ -363,15 +405,78 @@ function rStep() {
   }
   return o + '</div>';
 }
+// 0.25: THE COPIES BEFORE SAVE. What Save will make of a pattern - the Pi's converter does it, as the FM-1 would
+// (sq_row_fit of the firmware's core: rowFit is that function, line by line; copies_after of sagga_sgqjson.c: previewRow)
+// - worked out here FOR THE PICTURE ONLY: a length typed, a step of the pattern changed, and the steps that will be
+// copies show as copies at once. Nothing here changes the project: Save does. (Until 0.24 the copies of a length just
+// typed showed after Save.) tests/sagga_editor_tests.py runs these against the core's own function.
+//<fit>
+function rowKeep(row) { for (const s of row) s.flags &= ~GHOST; }
+function rowMark(s, def) { const d = Object.assign(JSON.parse(JSON.stringify(def)), {flags: GHOST}); return JSON.stringify(s) === JSON.stringify(d); }
+function rowFit(row, start, oldLen, newLen, def) {
+  const STEPS = 64, fresh = () => JSON.parse(JSON.stringify(def));
+  oldLen = Math.min(STEPS, Math.max(1, oldLen)); newLen = Math.min(STEPS, Math.max(1, newLen));
+  if (start >= oldLen || start >= newLen) { rowKeep(row); start = Math.min(oldLen, newLen) - 1; }
+  let e = STEPS, i;
+  for (i = start; i < STEPS; i++) if (row[i].flags & GHOST) { e = i; break; }
+  if (e < oldLen) {                                   // copies in the loop ...
+    for (i = oldLen; i < STEPS; i++) if (row[i].flags & GHOST) row[i] = fresh();
+    for (i = e; i < oldLen; i++) if (!(row[i].flags & GHOST)) break;
+    if (i < oldLen || e === start) { rowKeep(row); e = STEPS; }   // ... that are not a pattern and its copies: the player's
+  } else if (e < STEPS && !rowMark(row[e], def)) { rowKeep(row); e = STEPS; }   // after the loop, and not the mark of an end
+  let base = e < STEPS ? e : oldLen, last = 0, written = false, any = false;
+  for (i = Math.max(base, oldLen); i < STEPS; i++) if ((row[i].flags & ON) && !(row[i].flags & GHOST)) { last = i; written = true; }
+  if (written) {                                      // the player wrote after it: the pattern ends with that round of itself
+    const unit = base - start;
+    for (i = start; i < STEPS; i++) if (row[i].flags & GHOST) { if (i < oldLen) row[i].flags &= ~GHOST; else row[i] = fresh(); }
+    base = Math.min(STEPS, start + (Math.floor((last - start) / unit) + 1) * unit);
+  }
+  for (i = start; i < base; i++) if (row[i].flags & ON) any = true;
+  const span = base - start;
+  for (i = base; i < STEPS; i++) {
+    if (any && i < newLen) { row[i] = JSON.parse(JSON.stringify(row[start + (i - start) % span])); row[i].flags |= GHOST; }
+    else if (row[i].flags & GHOST) row[i] = fresh();
+  }
+  if (any && !written && base > newLen && base < STEPS) { row[base] = fresh(); row[base].flags = GHOST; }   // the mark
+  return row;
+}
+//</fit>
+let pvCache = null;                                   // 't,p' -> the 64 steps after Save, or false: as they are (one render long)
+function touchedSteps() {
+  const m = new Map();
+  for (const k of changes.keys()) { const a = k.split('|'); if (a[0] !== 'step') continue; const [t, p, s] = a[1].split(',').map(Number); const tp = t + ',' + p; if (!m.has(tp)) m.set(tp, []); m.get(tp).push(s); }
+  return m;
+}
+function previewRow(t, p) {
+  if (!pvCache) pvCache = {touched: touchedSteps(), rows: new Map()};
+  const key = t + ',' + p;
+  if (pvCache.rows.has(key)) return pvCache.rows.get(key);
+  const c = P.track[t], o = O.track[t], tch = pvCache.touched.get(key) || [];
+  const moved = c.length !== o.length || c.start !== o.start;
+  let row = false;
+  if ((moved || tch.length) && !(c.flags & 0x20)) {
+    row = []; for (let s = 0; s < 64; s++) row.push(clone(getStep(t, p, s)));
+    if (tch.some(s => origStep(t, p, s).flags & GHOST)) rowKeep(row);   // a copy was written: they are steps now
+    if (c.start !== o.start) rowKeep(row);                              // another loop start: nothing mirrors it
+    rowFit(row, c.start, moved ? o.length : c.length, c.length, P.step_default);
+  }
+  pvCache.rows.set(key, row);
+  return row;
+}
+const shownStep = (t, p, s) => { const r = previewRow(t, p); return r ? r[s] : getStep(t, p, s); };
 // 0.24: a step that is a COPY (flag 64, in the loop): which step of the pattern it repeats, and what a change does
+// (0.25: as it will be after Save - a length just typed counts)
 function copyNote(t, p, s) {
-  const c = P.track[t];
-  if (!(getStep(t, p, s).flags & GHOST) || s < c.start || s >= c.length) return '';
+  const c = P.track[t], will = !(getStep(t, p, s).flags & GHOST);
+  if (!(shownStep(t, p, s).flags & GHOST) || s < c.start || s >= c.length) return '';
   let own = c.start;
-  while (own < c.length && !(getStep(t, p, own).flags & GHOST)) own++;
+  while (own < c.length && !(shownStep(t, p, own).flags & GHOST)) own++;
   if (own <= c.start || own > s) return '';
-  return '<p class="dim">Questo step è una <b>copia</b> dello step ' + (c.start + (s - c.start) % (own - c.start) + 1) + ': il pattern è di ' + (own - c.start) +
-    ' step e gira ancora nella traccia, più lunga. Cambia lo step ' + (c.start + (s - c.start) % (own - c.start) + 1) + ' e al Salva la copia lo segue. Cambia questa, e al Salva tutte le copie diventano step tuoi.</p>';
+  const src = c.start + (s - c.start) % (own - c.start) + 1;
+  if (will) return '<p class="dim">Al Salva questo step sarà una <b>copia</b> dello step ' + src + ': il pattern è di ' + (own - c.start) +
+    ' step e gira ancora nella traccia, più lunga. Se invece scrivi qui, questo e quelli dopo sono step tuoi.</p>';
+  return '<p class="dim">Questo step è una <b>copia</b> dello step ' + src + ': il pattern è di ' + (own - c.start) +
+    ' step e gira ancora nella traccia, più lunga. Cambia lo step ' + src + ' e al Salva la copia lo segue. Cambia questa, e al Salva tutte le copie diventano step tuoi.</p>';
 }
 let clip = null;
 function pasteStep() { if (!clip) return status('prima Copia'); const k = V.t + ',' + V.pat + ',' + V.s; copyInto(k, clip); commit(); render(); }
@@ -525,6 +630,11 @@ function rProgetto() {
     '<small>fino a 16 caratteri: lettere, numeri, spazio - _ . + # &amp; ! \' ( ) / : · l\'FM-1 lo mostra con SAVE + PRESETS (lo slot) e quando carica</small></div>' +
     '<h3>TEMPO E CHIAVE</h3><div class="grid">' + L('BPM', num(p, '-', 'bpm', '-', 30, 300)) + L('clock', sel(p, '-', 'clock_mode', '-', CLOCK)) +
     L('slot della chiave', vsel(p, '-', 'cur', '-', range(1, 16, n => 'slot ' + n), k).replace('data-g="project"', 'data-g="key"')) + '</div>' +
+    '<h3>METRO</h3><div class="grid">' +
+    L('battuta (step da 1/16)', '<input type="number" class="' + changed('metre', '-', 'bar_steps', '-') + '" min="3" max="32" value="' + barSteps() + '" ' + at('metre', '-', 'bar', '-') + ' data-k="num" data-lo="3" data-hi="32">') +
+    L('i suoi tempi', barWayNow() >= 0 ? vsel('metre', '-', 'ways', '-', barWays().map(w => w[1] + ' = ' + w[2]), barWayNow()) : '<span>' + barSteps() + ' step, tempi scritti a mano</span>') + '</div>' +
+    '<small>16 step in quattro quarti: 4/4. 12: 3/4 o 6/8 · 14: 7/8 · 20: 5/4 · 18: 9/8. Tutto ciò che aspetta «la battuta» aspetta questa. ' +
+    'Cambiando la battuta, le tracce lunghe un numero di battute la seguono (16 → 14, 32 → 28): i pattern restano scritti come sono.</small>' +
     '<table><tr><th>slot</th><th>fondamentale</th><th>scala</th><th>shift</th></tr>';
   for (let s = 0; s < 16; s++) o += '<tr><td>' + (s + 1) + (s === k ? ' ◀' : '') + '</td><td>' + sel('key', s, 'root', '-', N.root || []) + '</td><td>' + sel('key', s, 'scale', '-', N.scale || []) + '</td><td>' + num('key', s, 'shift', '-', -24, 24, 'w2') + '</td></tr>';
   o += '</table><h3>LIVE</h3><div class="grid">' + L('QUANTISE', sel('live', '-', 'quant', '-', QUANT)) + L('mute al QUANTISE', bit('live', '-', 'mute_q', '-', 1)) +
@@ -602,11 +712,14 @@ function paintPos() {
 }
 
 // ---- 0.15: the TAPE tracks (the events as the FM-1 keeps them: 384 ticks a beat, the loop TAPE battute)
-const tapeLen = t => (get('track', t, 'tape_bars', '-') || 4) * 4 * 384;
+const tapeLen = t => (get('track', t, 'tape_bars', '-') || 4) * barSteps() * TICKS16;   // (0.25: bars of the metre)
 function evs(t) { return get('tape', String(t)); }
 function setEvs(t, list) { list.sort((a, b) => a[0] - b[0] || a[2] - b[2]); set('tape', String(t), 'ev', '-', list); }
-function posText(on) { const b = Math.floor(on / 1536), be = Math.floor(on % 1536 / 384), x = Math.floor(on % 384 / TICKS16), r = on % TICKS16;
-  return (b + 1) + '.' + (be + 1) + '.' + (x + 1) + (r ? '+' + r : ''); }
+function posText(on) {                                // bar.beat.16th (+ ticks): the metre's bar and beats
+  const bl = barSteps() * TICKS16, b = Math.floor(on / bl), st = Math.floor(on % bl / TICKS16), r = on % TICKS16;
+  let be = 0, from = 0;
+  for (let s = 1; s <= st; s++) if (beatAt(s)) { be++; from = s; }
+  return (b + 1) + '.' + (be + 1) + '.' + (st - from + 1) + (r ? '+' + r : ''); }
 function rTape() {
   const t = V.tt, c = P.track[t], list = evs(t), len = tapeLen(t), RH = 10;
   const room = Math.max(300, (($('main') && $('main').clientWidth) || 900) - 70);
@@ -624,7 +737,7 @@ function rTape() {
     '<button class="warn" onclick="tapeClear()">Svuota la traccia</button></div>';
   if (!(c.flags & 0x20)) o += '<p class="dim">T' + (t + 1) + ' non è una traccia TAPE: le note si scrivono, ma suonano solo con il modo TAPE (scheda Traccia, o HOME 4 K1 sull\'FM-1).</p>';
   const bg = 'background-image:linear-gradient(90deg,#333 1px,transparent 1px),linear-gradient(90deg,#1e1e1e 1px,transparent 1px),repeating-linear-gradient(180deg,#141414 0 ' + RH + 'px,#101010 ' + RH + 'px ' + 2 * RH + 'px);' +
-    'background-size:' + 16 * Z + 'px 100%,' + 4 * Z + 'px 100%,100% ' + 2 * RH + 'px';
+    'background-size:' + barSteps() * Z + 'px 100%,' + (barBeats() === 0x1111 || barSteps() % 4 === 0 && barWayNow() === 0 ? 4 : 2) * Z + 'px 100%,100% ' + 2 * RH + 'px';   // (0.25: the metre's bar; quarters, or eighths)
   o += '<div class="rollw"><div class="keys">';
   for (let n = hi; n >= lo; n--) o += '<div class="' + (NN[n % 12].length > 1 ? 'bk' : '') + '">' + (n % 12 === 0 ? note(n) : '') + '</div>';
   o += '</div><div id="roll" style="width:' + W + 'px;height:' + H + 'px;' + bg + '">';
@@ -632,7 +745,7 @@ function rTape() {
     o += '<div class="rn' + (i === V.tsel ? ' sel' : '') + (e[0] >= len ? ' out' : '') + '" data-i="' + i + '" style="left:' + e[0] / TICKS16 * Z + 'px;top:' + (hi - e[2]) * RH + 'px;width:' + Math.max(3, e[1] / TICKS16 * Z - 1) + 'px;opacity:' + (0.45 + e[3] / 254) + '" title="' + note(e[2]) + ' · ' + posText(e[0]) + ' · vel ' + e[3] + '"><span class="rz"></span></div>';
   });
   o += '<div class="rend" style="left:' + len / TICKS16 * Z + 'px"></div><div class="rph" id="rph"></div></div></div>';
-  o += '<small>' + list.length + ' note · ' + (len / 1536) + ' battute · tocca il vuoto: una nota (1/16); trascina una nota: la sposti, dal bordo destro: la allunghi · Canc: toglie la nota scelta · la linea arancio: la fine del loop (le note oltre vanno via al salvataggio)</small>';
+  o += '<small>' + list.length + ' note · ' + (len / (barSteps() * TICKS16)) + ' battute · tocca il vuoto: una nota (1/16); trascina una nota: la sposti, dal bordo destro: la allunghi · Canc: toglie la nota scelta · la linea arancio: la fine del loop (le note oltre vanno via al salvataggio)</small>';
   const e = list[V.tsel];
   if (e) {
     o += '<h3>NOTA ' + (V.tsel + 1) + ' · ' + posText(e[0]) + '</h3><div class="grid">' +

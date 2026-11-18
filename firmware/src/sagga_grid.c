@@ -462,11 +462,16 @@ static void gr_pad_track(uint8_t x, uint8_t y)
         }
         break;
     case 3:
-        if (x < SQ_DIV_COUNT) { set_division(t, x); status_msg(div_name(x)); }
+        if (x < SQ_DIV_PLAIN) { set_division(t, x); status_msg(div_name(x)); }
         else if (x == 13u) {                                                       /* FREE, KEY, DRUM, BREAK (0.12; a TAPE: HOME 4 K1) */
             uint8_t m = track_mode(t);
             set_track_mode(t, (uint8_t)(m == 2u ? 4u : m >= 3u ? 0u : m + 1u));
             status_msg(track_mode_name(t));
+        } else {                                                                   /* 0.25: pads 15, 16: the POLYRHYTHMS - five, seven steps in the time of four */
+            uint8_t first = (uint8_t)(x == 14u ? SQ_DIV_1_4Q5 : SQ_DIV_1_4Q7), d = cfg->division, nd;
+            if (d >= first && d < first + 3u) nd = (uint8_t)(first + (d - first + 2u) % 3u);   /* again: of four 16ths, of four eighths, of four quarters */
+            else nd = (uint8_t)(first + (d == SQ_DIV_1_4 ? 0u : d == SQ_DIV_1_8 ? 1u : 2u));   /* of the value the track had (else of 16ths) */
+            set_division(t, nd); status_msg(div_name(nd));
         }
         break;
     case 4:
@@ -730,7 +735,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
     }
     case 5: {
         sq_algo_t *al = algo_edit(t);
-        if (al->algo == SQ_ALGO_TURING) { if (x < 15u) al->b = (uint8_t)(x + 2u); }
+        if (al->algo == SQ_ALGO_TURING) al->b = (uint8_t)(x + 2u);                /* (2 .. 16; 0.25: the sixteenth pad: TRACK) */
         else if (al->algo == SQ_ALGO_CELL) al->b = GR_CELLS[x];
         else if (al->algo == SQ_ALGO_ACCENT) al->b = (uint8_t)(x * 4u + 3u);
         else if (al->algo == SQ_ALGO_DENSITY) al->b = (uint8_t)(10u + x * 6u);
@@ -863,7 +868,7 @@ static void gr_pad_song(uint8_t x, uint8_t y)
  *   row 8  TEMP (held; SHIFT: latched), RELOAD, RESTART, STOP at the end of the bar, SNAPSHOTS 1-8 (5-12; SHIFT: store),
  *          CC CAPTURE (13), SEND (14), PATCHES (15), PANIC (16) */
 static const uint16_t GR_LOOP_T[4] = {2u, 4u, 8u, 16u};          /* the triplet lengths of row 2 */
-static uint16_t gr_loop_ticks(uint8_t x) { return x < 8u ? LOOP_TICKS[x] : x < 12u ? GR_LOOP_T[x - 8u] : 0u; }
+static uint16_t gr_loop_ticks(uint8_t x) { return x < 8u ? loop_ticks(x) : x < 12u ? GR_LOOP_T[x - 8u] : 0u; }
 
 static void gr_pad_fx(uint8_t x, uint8_t y, uint8_t down)
 {
@@ -930,7 +935,7 @@ static void gr_pad_fx(uint8_t x, uint8_t y, uint8_t down)
 
 static void gr_jump(uint8_t bar)                        /* a bar of the song: the tracks go there (SPP goes out if we are the master) */
 {
-    uint32_t ticks = (uint32_t)bar * 96u, beats = ticks / 6u;
+    uint32_t ticks = (uint32_t)bar * bar_ticks(), beats = ticks / 6u;   /* (0.25: a bar of the metre) */
     loop_on = 0u; loop_latched = 0u; lp_held = 0u;
     seek_ticks(ticks);
     song_seek(ticks);                                   /* 0.5: the song follows */
@@ -1444,8 +1449,10 @@ static void gr_render_track(void)
     gr_bar(2, 0, 8, (int32_t)sw, GL_YELLOW, GL_WHITE);
     for (x = 0; x < SQ_DIR_COUNT; x++) gr_put(8u + x, 2, cfg->direction == x ? GL_WHITE : GL_BLUE);
     for (x = 12; x < 16u; x++) gr_put(x, 2, GL_VIOLET);
-    for (x = 0; x < 16u; x++) gr_put(x, 3, x >= SQ_DIV_COUNT ? GL_OFF : cfg->division == x ? GL_WHITE : GL_DIM);
+    for (x = 0; x < 16u; x++) gr_put(x, 3, x >= SQ_DIV_PLAIN ? GL_OFF : cfg->division == x ? GL_WHITE : GL_DIM);
     gr_put(13, 3, track_drum(t) ? GL_ORANGE : track_in_key(t) ? GL_CYAN : GL_FAINT);
+    gr_put(14, 3, sq_div_tuplet(cfg->division) == 5u ? GL_WHITE : GL_VIOLET);     /* 0.25: the polyrhythms: 5 in 4, 7 in 4 */
+    gr_put(15, 3, sq_div_tuplet(cfg->division) == 7u ? GL_WHITE : GL_VIOLET);
     if (gr_shift()) for (x = 0; x < 16u; x++) gr_put(x, 4, x == cfg->start / 4u ? GL_YELLOW : x * 4u < cfg->start ? GL_FAINT : GL_DIM);
     else gr_bar(4, 0, 16, ((int32_t)cfg->length + 3) / 4 - 1, GL_ON, GL_ACCENT);
     for (x = 0; x < 8u; x++) {
@@ -1665,7 +1672,7 @@ static void gr_render_track3(void)
     }
     switch (al->algo) {                                 /* rows 4 and 5: A and B as bars */
     case SQ_ALGO_TURING:  gr_bar(4, 0, 16, gr_nearest_u(GR_MUT, 16u, al->a), GL_ORANGE, GL_WHITE);
-                          gr_bar(5, 0, 15, (int32_t)al->b - 2, GL_CYAN, GL_WHITE); break;
+                          gr_bar(5, 0, 16, (int32_t)al->b - 2, GL_CYAN, GL_WHITE); break;
     case SQ_ALGO_CELL:    for (x = 0; x < 16u; x++) gr_put(x, 4, GR_RULE[x] == al->a ? GL_WHITE : GL_VIOLET);
                           gr_bar(5, 0, 16, gr_nearest_u(GR_CELLS, 16u, al->b), GL_CYAN, GL_WHITE); break;
     case SQ_ALGO_ACCENT:  for (x = 0; x < 5u; x++) gr_put(x, 4, al->a == x ? GL_WHITE : GL_VIOLET);
@@ -1777,7 +1784,7 @@ static void gr_render_fx(void)
 static void gr_render_proj(void)
 {
     static const uint8_t BLACK[12] = {0, 1, 0, 1, 0, 0, 1, 0, 1, 0, 1, 0};
-    uint32_t x, bar = playing ? (global_clock / 96u) % 16u : 99u;
+    uint32_t x, bar = playing ? bar_no() % 16u : 99u;
     for (x = 0; x < 12u; x++) gr_put(x, 0, project.key_root == x ? GL_WHITE : BLACK[x] ? GL_FAINT : GL_DIM);
     for (x = 0; x < SQ_MKS; x++) gr_put(x, 4, project.live.master_fn == x ? GL_WHITE : GL_VIOLET);   /* the MASTER knob */
     gr_put(4, 4, project.live.remote_mode == SQ_RM_OFF ? GL_FAINT : project.live.remote_mode == SQ_RM_14 ? GL_ON : GL_ACCENT);   /* the remote: 14, 13 + 14 */

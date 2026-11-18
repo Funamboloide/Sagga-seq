@@ -53,7 +53,7 @@ loro comandi come se arrivassero dal Pi), e dopo ogni gesto l'FM-1 manda tutto i
    ```sh
    python3 tests/sagga_explore.py --hw-piano /mnt/c/Users/user/Downloads/sagga-esploratore
    ```
-   (una sessione da 60 gesti per ogni situazione: 22 dalla 0.24, circa 22 minuti; fino alla 0.23 erano 20;
+   (una sessione da 60 gesti per ogni situazione: 26 dalla 0.25, circa 26 minuti; erano 22 nella 0.24, 20 fino alla 0.23;
    `--sessioni 3` per una prova corta, `--seme N` per altre sessioni;
    `--hw-tablet N`: N sessioni in più con il tablet e il grid, dalla 0.18.1).
 2. FM-1 acceso con la 0.11 o più recente (un piano con il tablet e il grid vuole la versione con cui è fatto, la 0.20: il programma lo controlla),

@@ -265,6 +265,12 @@ RGB_NAME = {tuple(v): k for k, v in ROLE_RGB.items()}
 DRIVERS = {"mk3": MK3, "mk2": MK2, "mini": Mini}
 DEFAULT_PATTERN = {"mk3": "Launchpad Mini", "mk2": "Launchpad", "mini": "Launchpad"}
 FM1_PATTERN = "FM-1|Felucca"      # the USB name of the FM-1; the Felucca-based firmware (and so SAGGA SEQ) calls itself "Felucca 2"
+FM1_UPDATE = r"Felucca Update"    # 0.25: ... but NOT this one: the FM-1 while a firmware is being installed (its update loader,
+                                  # another USB device with one MIDI port, the installer's). Until 0.24 the name matched: the
+                                  # bridge, started again when "Felucca" became "Felucca Update", attached to the loader and sent
+                                  # it its keep-alive every second for the whole install - on the port the firmware goes
+                                  # through, where a channel message ends the SysEx being received (usb.c). Seen in a log of a
+                                  # real install (it went well: the messages fell between two frames). Now the bridge waits.
 
 
 # ----------------------------------------------------------------------------------------------- the bridge
@@ -1427,6 +1433,11 @@ def port_number(name):
     return int(m.group(1)) if m else 0
 
 
+def fm1_ports(names, pattern):
+    """the FM-1's ports among `names` (never its update loader's: FM1_UPDATE), as split_ports gives them"""
+    return split_ports(names, pattern, FM1_UPDATE)
+
+
 def split_ports(names, pattern, exclude):
     """the ports whose name matches pattern, grouped by ALSA client number (or by name), in client order"""
     rx, ex = re.compile(pattern, re.I), re.compile(exclude, re.I) if exclude else None
@@ -1711,7 +1722,7 @@ def plan_ports(ins, outs, left=None, right=None, exclude="DAW|DIN", pattern="Lau
 
 def one_shot(a, mido, ins, outs):
     """--export / --import: only the FM-1's ports, no Launchpads (the bridge may be running too: ALSA shares ports)"""
-    names_in, names_out = split_ports(ins, a.fm1, None), split_ports(outs, a.fm1, None)
+    names_in, names_out = fm1_ports(ins, a.fm1), fm1_ports(outs, a.fm1)
     if not names_in or not names_out:
         sys.exit("no port matches --fm1 %r; try --list" % a.fm1)
     q = queue.Queue()
@@ -1855,7 +1866,7 @@ def main(argv=None):
         return one_shot(a, mido, ins, outs)
 
     def fm1_there(i, o):
-        return bool(split_ports(i, a.fm1, None) and split_ports(o, a.fm1, None))
+        return bool(fm1_ports(i, a.fm1) and fm1_ports(o, a.fm1))
 
     if not a.identify and not fm1_there(ins, outs):
         if clients_seen is None:                 # (no /proc to watch, not a Pi: end, as before)
@@ -1897,7 +1908,7 @@ def main(argv=None):
     if a.identify:
         fm1_out = None
     else:
-        names_in, names_out = split_ports(ins, a.fm1, None), split_ports(outs, a.fm1, None)
+        names_in, names_out = fm1_ports(ins, a.fm1), fm1_ports(outs, a.fm1)
         if not names_in or not names_out:
             sys.exit("no port matches --fm1 %r; try --list" % a.fm1)
         fin, fout = fm1_port(names_in[0], a.port), fm1_port(names_out[0], a.port)

@@ -28,7 +28,7 @@ static uint32_t link_sent;                              /* (the simulator's dump
 static void link_pos_send(void)
 {
     uint8_t *q = link_out;
-    uint32_t t, clk = global_clock & 0x1FFFFFu, bpm = project.bpm;
+    uint32_t t, clk = (global_clock - bar_origin) & 0x1FFFFFu, bpm = project.bpm;   /* (0.25: counted from the bar line the metre began on - a tape's loop too) */
     *q++ = 0xF0u; *q++ = 0x7Du; *q++ = 0x53u; *q++ = 0x47u; *q++ = SX_POS;
     *q++ = playing ? 1u : 0u;
     *q++ = (uint8_t)(scene_cursor & 127u);
@@ -80,7 +80,7 @@ static void link_preview(const uint8_t *p, uint32_t n)
         sq_step_default(&st);
         for (k = 0; k < SQ_POLY; k++) st.note[k] = k < cnt ? (uint8_t)(p[5u + k] & 127u) : (uint8_t)SQ_NOTE_NONE;
         st.flags |= SQ_STEP_ON | SQ_STEP_SET;
-        m = step_notes(t, &st, out);
+        m = step_notes_x(t, &st, out, 0u);              /* (0.25 FOLLOW MELODY: a note of the tune as it is written) */
     }
     if (!m) return;
     aud_ch = track_ch(t);

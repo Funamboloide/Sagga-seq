@@ -119,8 +119,15 @@ int main(int argc, char **argv)
     sq_uprog_t u;
     uint8_t parts[SQ_TH_BAND_MAX + 8u], n = 0u, i, len = 64u, st;
     char name[40];
+    const char *mate_style = 0, *mate_seed = 0, *mate_part = 0;
     if (argc == 2 && !strcmp(argv[1], "--rules")) { rules(); return 0; }
-    if (argc < 3) { fprintf(stderr, "usage: sagga_theory STYLE SEED [VAR VARY ENERGY LEN] [PART ...]\n       sagga_theory --rules\n"); return 2; }
+    if (argc > 5 && !strcmp(argv[1], "--mate")) {        /* 0.25: the part the parts answer is of another style and seed (a track that was there) */
+        mate_style = argv[2]; mate_seed = argv[3]; mate_part = argv[4];
+        argv += 4; argc -= 4;
+    }
+    if (argc < 3) { fprintf(stderr, "usage: sagga_theory STYLE SEED [VAR VARY ENERGY LEN] [PART ...]\n       sagga_theory --rules\n"
+                                    "the parts given (else the style's band) are the tracks in their order: each answers the first other one of the family it answers\n"
+                                    "       sagga_theory --mate STYLE SEED PART STYLE SEED ...   the part they answer is that one (a track of another band)\n"); return 2; }
     memset(&t, 0, sizeof t);
     st = style_of(argv[1]);
     if (st == 255u) { fprintf(stderr, "no such style: %s\n", argv[1]); return 2; }
@@ -146,6 +153,31 @@ int main(int argc, char **argv)
     }
     for (i = 0; i < n; i++) {
         char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
+        uint8_t lev[SQ_STEPS], fam = sq_th_mate_family(parts[i]), k;
+        /* 0.25 THE PARTS LISTEN: a part answers the first OTHER part of the list (the tracks, in their order) that is
+         * of the family it answers, as that one is at half the energy - what the FM-1 does with the tracks of a band.
+         * A part alone on the command line answers nobody. */
+        t.mate = 0;
+        if (mate_part && fam != 255u && func_of(mate_part) != 255u && sq_func_family(func_of(mate_part)) == fam && style_of(mate_style) != 255u) {
+            sq_th_t m;
+            uint8_t j, any = 0u;
+            memset(&m, 0, sizeof m);
+            m.style = style_of(mate_style); m.seed = (uint32_t)strtoul(mate_seed, 0, 0); m.energy = 50u; m.scale = t.scale;
+            sq_th_levels(&m, func_of(mate_part), len, lev);
+            for (j = 0; j < SQ_STEPS; j++) if (lev[j]) any = 1u;
+            if (any) t.mate = lev;
+            fam = 255u;
+        }
+        for (k = 0; k < n && fam != 255u; k++) {
+            sq_th_t m = t;
+            uint8_t j, any = 0u;
+            if (k == i || sq_func_family(parts[k]) != fam) continue;
+            m.energy = 50u; m.kick = 0; m.mate = 0;
+            sq_th_levels(&m, parts[k], len, lev);
+            for (j = 0; j < SQ_STEPS; j++) if (lev[j]) any = 1u;
+            if (any) t.mate = lev;
+            break;
+        }
         if (!sq_th_part(&t, parts[i], len, r, nt)) continue;
         printf("%s\t%s\t%s\n", sq_func_name(parts[i]), r, nt[0] ? nt : "-");
     }

@@ -188,7 +188,7 @@ static int32_t vg_vel_adj(uint32_t t)
     int32_t v = vg_fx.vel;
     if (!vg_on()) return 0;
     if ((vg_exit & (1u << t)) && vg_bars() && vg_bar + 1u >= vg_bars()) {         /* the last bar: 0 .. -60 over the bar */
-        uint32_t into = (global_clock % 96u) * 60u / 96u;
+        uint32_t into = bar_into() * 60u / bar_ticks();              /* (0.25: over the metre's bar) */
         v -= (int32_t)into;
     }
     return v;
@@ -205,7 +205,7 @@ static uint8_t vg_density_hit(uint32_t t, uint8_t on, uint32_t rel, uint32_t h, 
     if (vg_fill && vg_bars() && vg_bar + 1u >= vg_bars()) {           /* the FILL bar: ghost hits on every track, more
                                                                           * in its second half (the patterns' own FILL
                                                                           * conditions play too: fill_active) */
-        uint32_t half = (global_clock % 96u) >= 48u ? 1u : 0u;
+        uint32_t half = bar_into() * 2u >= bar_ticks() ? 1u : 0u;   /* (0.25: the metre's bar) */
         uint8_t fd = (uint8_t)(half ? 160u : 130u);
         if (fd > dens) dens = fd;
     }

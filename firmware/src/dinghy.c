@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.24"
+#define SQ_VERSION "0.25"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) */
 #include "platform.c"
 #include "sagga_seq_core.c"
@@ -239,11 +239,53 @@ static uint8_t filt_dirty, filt_t;         /* the FILTER macro moved: lane 1 of 
 /* 0.10: time. The tracks are counters; what the counters should say is sq_track_seek from the track's anchor. After a
  * length change, a loop between two steps, a time FX let go, a loop ended, the tracks are put back where they belong. */
 static uint16_t realign_pend;              /* tracks to realign at the next tick */
+static uint16_t tup_wait;                  /* 0.25, the polyrhythms: tracks whose step begins before the next tick ... */
+static uint32_t tup_at[SQ_TRACKS];         /* ... and when (div_frac_x, tup_service) */
+/* 0.25 THE METRE: the bar is sq_bar_steps(&project.gen) 16ths - sixteen until 0.24, whatever the tracks did: a bar line
+ * was `global_clock % 96 == 0`. Its lines are counted from bar_origin (a line; 0 at PLAY and after a song position),
+ * with bar_base bars before it: a bar changed while it plays begins on a line of the old one (metre_apply). */
+static uint32_t bar_origin, bar_base;
+static uint8_t bar_pend_steps;             /* a bar asked while it plays waits for the bar line (0: none) ... */
+static uint32_t bar_pend_beats;            /* ... with these beats */
+/* the project's metre as the machine uses it, read once when it changes - by a knob, a project loaded, anyone
+ * (metre_sync: the five bytes compared; the main loop calls it too): the bar's steps, its beats (a mask), its number
+ * (sq_metre_id: 0 is 4/4), and the core's grid of the bar (sq_g16: the dice, COOK, the DENSITY, the GROOVE) */
+static uint8_t metre_raw[5], metre_known, metre_st = 16u, metre_idn;
+static uint32_t metre_bt = SQ_BEATS_44;
+static void metre_sync(void)
+{
+    const sq_gen_t *g = &project.gen;
+    if (metre_known && g->bar_steps == metre_raw[0] && !memcmp(g->bar_beats, metre_raw + 1, 4u)) return;
+    metre_raw[0] = g->bar_steps; memcpy(metre_raw + 1, g->bar_beats, 4u); metre_known = 1u;
+    metre_st = sq_bar_steps(g); metre_bt = sq_bar_beats(g);
+    metre_idn = sq_metre_id(metre_st, metre_bt);
+    sq_grid_set(metre_st, metre_bt);
+}
+static uint8_t bar_st(void) { metre_sync(); return metre_st; }             /* the bar in 16ths */
+static uint32_t bar_bt(void) { metre_sync(); return metre_bt; }            /* its beats */
+static uint8_t metre_id_now(void) { metre_sync(); return metre_idn; }
+static uint8_t metre_44(void) { return (uint8_t)(metre_id_now() == 0u); }
+static uint32_t bar_ticks(void) { return (uint32_t)bar_st() * 6u; }
+static uint32_t bar_into(void) { return (global_clock - bar_origin) % bar_ticks(); }            /* ticks since the bar's line */
+static uint32_t bar_no(void) { return bar_base + (global_clock - bar_origin) / bar_ticks(); }   /* the bars since PLAY */
+static uint8_t bar_beat_now(void)          /* this tick is a beat's first (a bar line is one) */
+{
+    uint32_t in = bar_into();
+    return (uint8_t)(in % 6u == 0u && ((bar_bt() >> (in / 6u)) & 1u));
+}
+static uint8_t bar_beat_le(uint8_t s)      /* the first step of the beat step s of the bar is in (4/4: s & ~3) */
+{
+    uint32_t b = bar_bt();
+    if (s >= bar_st()) s = (uint8_t)(bar_st() - 1u);
+    while (s && !((b >> s) & 1u)) s--;
+    return s;
+}
 static uint16_t fx_pos_prev;               /* the time FX held at the last tick */
 #define FX_POS ((1u << FX_HALF) | (1u << FX_DOUBLE) | (1u << FX_REV) | (1u << FX_FREEZE) | (1u << FX_RND))
 static uint16_t sl_on;                     /* 0.10: a loop between two steps is on (bit per track): EXIT puts the loop back */
 static sq_ghost_t gh_st[SQ_TRACKS];        /* 0.24: what the copies of the pattern each track plays were made from (ghost_service) */
 static uint8_t gh_at;                      /* the track that service looks at next */
+static int8_t lens_pend;                   /* 0.25: LONGER (+1) / SHORTER (-1) asked from the tablet waits for the bar (lengths_ask) */
 static uint8_t sl_prev_start[SQ_TRACKS], sl_prev_len[SQ_TRACKS];
 static uint16_t panic_cc;                  /* 0.10 PANIC: the channels still to get their All Notes Off (paced) */
 static uint16_t panic_snd;                 /* ... and All Sound Off too (the PANIC gesture; a STOP leaves the tails) */
@@ -271,7 +313,8 @@ static uint16_t audible_prev = 0xFFFFu;     /* the tracks that could be heard at
 static uint8_t usb_ports = 1u;              /* USB MIDI ports: 1, or 2 (the grid on the second; the tracks get 15, 16) */
 /* the live layer's state (sagga_gen.c): it stays when the knobs turn; it is made again when the algorithm changes */
 /* 0.11: the algorithms' state, one per slot of every track (SQ_ALGO_SLOTS) */
-static uint32_t tm_reg[SQ_TRACKS][SQ_ALGO_SLOTS];   /* TURING: the register */
+static uint64_t tm_reg[SQ_TRACKS][SQ_ALGO_SLOTS];   /* TURING: the register (0.25: up to 64 steps, a track's whole loop) */
+static uint8_t tm_len[SQ_TRACKS][SQ_ALGO_SLOTS];    /* ... the steps it has now; bit 7: it was as long as the track (LENGTH TRACK) */
 static uint64_t ca_row[SQ_TRACKS][SQ_ALGO_SLOTS];   /* CELL: the generation playing */
 static uint8_t algo_seen[SQ_TRACKS][SQ_ALGO_SLOTS]; /* the algorithm the state was made for (255: none yet) */
 static uint8_t ca_bars[SQ_TRACKS][SQ_ALGO_SLOTS];   /* CELL: bars since the last generation */
@@ -543,7 +586,8 @@ static void status_note(const char *label, uint8_t note)    /* "NOTE C#3" */
 static const char *div_name(uint8_t d)
 {
     static const char *const N[SQ_DIV_COUNT] = {"1/1", "1/2", "1/4.", "1/4", "1/8.", "1/4T", "1/8", "1/16.",
-                                                "1/8T", "1/16", "1/16T", "1/32", "1/32T"};
+                                                "1/8T", "1/16", "1/16T", "1/32", "1/32T",
+                                                "1/4 5:4", "1/8 5:4", "1/16 5:4", "1/4 7:4", "1/8 7:4", "1/16 7:4"};   /* 0.25: five / seven in the time of four */
     return N[d < SQ_DIV_COUNT ? d : SQ_DIV_1_16];
 }
 static const char *dir_name(uint8_t d)
@@ -700,7 +744,7 @@ static void project_runtime_reset(uint8_t boot)
         if (boot) tr[t].pattern = c->initial_pattern < SQ_PATTERNS ? c->initial_pattern : 0u;
         tr[t].pending_pattern = SQ_NO_PENDING;
         tr[t].ping_dir = 1;
-        tr[t].div_accum = (uint16_t)(sq_div_ticks(c->division) - 1u);     /* the first tick after the start plays step 1 */
+        tr[t].div_accum = (uint16_t)(sq_div_tuplet(c->division) ? 0u : sq_div_ticks(c->division) - 1u);   /* the first tick after the start plays step 1 */
         tr[t].advances = 0u;
         tr[t].prev_hit = 0u;
         tr[t].loop_count = 0u;
@@ -724,10 +768,14 @@ static void project_runtime_reset(uint8_t boot)
         for (n = 0; n < SQ_HOLD_MAX; n++) { hold_note[t][n] = SQ_NOTE_NONE; hold_ch[t][n] = 0u; hold_off_us[t][n] = 0u; }
     }
     global_clock = 0u;
+    tup_wait = 0u;
+    bar_origin = 0u; bar_base = 0u;                    /* 0.25: the bars are counted from here */
+    if (boot) { bar_pend_steps = 0u; bar_pend_beats = 0u; }
     loop_on = 0u; loop_latched = 0u; lp_held = 0u;
     realign_pend = 0u; fx_pos_prev = 0u;
     for (t = 0; t < SQ_TRACKS; t++) { tie_pend[t] = 0u; ev[t].arp_going = 0u; ev[t].arp_until_us = 0u; }
     if (boot) for (t = 0; t < SQ_TRACKS; t++) gh_st[t].pat = 255u;   /* 0.24: another project: nothing is known of its copies */
+    if (boot) lens_pend = 0;                                         /* (0.25: nor does a LONGER asked of the other one wait) */
     pending_scene = SQ_NO_PENDING;
     retrig_mask = 0u; restart_pend = 0u; stop_at_bar = 0u;
     if (boot) vg_reset();                        /* 0.9: a project loaded: nothing queued, the trail starts again */
@@ -909,6 +957,30 @@ static uint8_t eff_div_ticks(uint32_t t)
     if ((fx & (1u << FX_HALF)) || vg_speed < 0) d *= 2u;
     if ((fx & (1u << FX_DOUBLE)) || vg_speed > 0) d = d > 1u ? d / 2u : 1u;
     return (uint8_t)(d > 255u ? 255u : d);
+}
+/* 0.25 THE POLYRHYTHMS: a track whose step is not a number of ticks (five or seven in the time of four: 96/5 ...). Its
+ * step is num / den ticks (the FX and VIAGGIO's HALF / DOUBLE on the num, as on a plain division's ticks). While it
+ * plays, tr[].div_accum is how far its next step is, in 1 / den of a tick: under den, the step begins before the next
+ * tick - seq_clock_tick says when (tup_at), the main loop plays it then (tup_service), at its own time between two
+ * ticks. */
+static uint8_t track_tuplet(uint32_t t) { return sq_div_tuplet(project.track[t].division); }
+static void div_frac_x(uint32_t t, uint8_t with_fx, uint16_t *num, uint8_t *den)
+{
+    uint32_t n;
+    uint16_t fx = with_fx ? fx_now() : 0u;
+    sq_div_frac(project.track[t].division, num, den);
+    n = *num;
+    if ((fx & (1u << FX_HALF)) || vg_speed < 0) n *= 2u;
+    if ((fx & (1u << FX_DOUBLE)) || vg_speed > 0) n = n > 1u ? n / 2u : 1u;
+    if (n < (uint32_t)*den) n = *den;                          /* (a step is a tick at least: never two of them begin in one) */
+    *num = (uint16_t)(n > 2000u ? 2000u : n);
+}
+static uint32_t slot_us(uint32_t t)                 /* how long a step of the track lasts now, microseconds */
+{
+    uint16_t num; uint8_t den;
+    if (!track_tuplet(t)) return current_clock_interval() * eff_div_ticks(t);
+    div_frac_x(t, 1u, &num, &den);
+    return current_clock_interval() * num / den;
 }
 
 static uint32_t hash3(uint32_t a, uint32_t b, uint32_t c) { return sq_hash3(a, b, c); }
@@ -1179,8 +1251,11 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
 }
 
 /* 0.8: the notes of a step as they go out: the key (shift and scale), the HARMONY (a FOLLOW track moves to the chord
- * playing), TURING moving the notes, then the voicing (not for an arpeggio PLAYED: the order is the player's). */
-static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out)
+ * playing), TURING moving the notes, then the voicing (not for an arpeggio PLAYED: the order is the player's).
+ * 0.25 FOLLOW MELODY: a single note is a note of a tune: it is not moved with the chord; `strong` (it is on a beat of
+ * the metre, or longer than its step, or held while the chord changes) it goes to the nearest tone of the chord playing,
+ * else it plays as written. A step of two notes or more follows as ever. */
+static uint8_t step_notes_x(uint32_t t, const sq_step_t *s, uint8_t *out, uint8_t strong)
 {
     const sq_track_cfg_t *c = &project.track[t];
     uint8_t n = 0u, k, raw[SQ_POLY_OUT], root = key_root_of(t), scale = key_scale_of(t);
@@ -1190,8 +1265,10 @@ static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out)
     if (!n) return 0u;
     if (n == 1u && c->chord != SQ_CH_OFF && !(c->flags & SQ_TF_DRUM))   /* 0.10 CHORD: one note becomes the shape (up to 6) */
         n = sq_chord_build(raw[0], c->chord, track_in_key(t) ? c->chord_key : (uint8_t)SQ_CK_FREE, root, scale, raw);
-    if ((c->flags & SQ_TF_FOLLOW) && !(c->flags & SQ_TF_DRUM) && harm_chord(&hc, 0))   /* 0.11: a root and a shape too */
-        n = sq_harm_apply_chord(raw, n, root, scale, &hc, n >= 2u);
+    if ((c->flags & SQ_TF_FOLLOW) && !(c->flags & SQ_TF_DRUM) && harm_chord(&hc, 0)) {   /* 0.11: a root and a shape too */
+        if (n == 1u && c->follow_mode == SQ_FM_MELODY) { if (strong) raw[0] = sq_harm_melody(raw[0], root, scale, &hc); }
+        else n = sq_harm_apply_chord(raw, n, root, scale, &hc, n >= 2u);
+    }
     {
         int32_t td = live_note_deg(t);                 /* TURING on the notes: steps of the key (FREE: semitones) */
         if (td) for (k = 0; k < n; k++)
@@ -1205,6 +1282,15 @@ static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out)
     }
     return sq_voice_notes(raw, n, c->voicing, out);
 }
+static uint8_t step_notes(uint32_t t, const sq_step_t *s, uint8_t *out) { return step_notes_x(t, s, out, 1u); }   /* (a held note, a chord) */
+/* 0.25 FOLLOW MELODY: step `idx` of track t is a strong note of its tune: on a beat of the metre (the track's steps
+ * counted from where its loop begins, as its row shows them), or longer than its step */
+static uint8_t step_strong(uint32_t t, const sq_step_t *s, uint8_t idx)
+{
+    uint8_t st = project.track[t].start;
+    uint32_t k = idx >= st ? (uint32_t)idx - st : idx;
+    return (uint8_t)(s->length > 100u || ((bar_bt() >> (k % bar_st())) & 1u) != 0u);
+}
 
 /* start playing a step: slices (the ratchets, or the notes of the arpeggio) from first_us, span_us apart in all */
 static void event_begin(uint32_t t, const sq_step_t *s, uint8_t idx, uint32_t first_us, uint32_t span_us)
@@ -1216,7 +1302,7 @@ static void event_begin(uint32_t t, const sq_step_t *s, uint8_t idx, uint32_t fi
     uint8_t notes[SQ_POLY_OUT], n, i;
     ev[t].step_index = idx;                            /* (the notes below may depend on it: TURING) */
     ev[t].arp_going = 0u;
-    n = step_notes(t, s, notes);
+    n = step_notes_x(t, s, notes, step_strong(t, s, idx));
     ev[t].buf = *s;
     for (i = 0; i < SQ_POLY; i++) ev[t].buf.note[i] = i < n ? notes[i] : SQ_NOTE_NONE;
     for (i = 0; i < SQ_POLY_OUT; i++) ev[t].vnote[i] = i < n ? notes[i] : SQ_NOTE_NONE;   /* (the voices that play: up to six) */
@@ -1360,15 +1446,28 @@ static uint8_t arp_continue(uint32_t t, uint32_t now, uint32_t dur)
     return 1u;
 }
 
+/* 0.25: an EXPO span in the metre -> its ticks, *into: the ticks since it began. A span of BARS is of the metre's bars,
+ * from the bar line; a span of one or two BEATS is counted in quarters from the bar line, the last of a bar cut at the
+ * line (4/4: as ever - global_clock % 24, 48, 96 ...) */
+static uint16_t expo_span(uint8_t span, uint32_t *into)
+{
+    uint32_t x = sq_expo_span_ticks(span), bt = bar_ticks(), in = bar_into();
+    *into = 0u;
+    if (!x) return 0u;
+    if (span >= SQ_XSPAN_BAR) { x = (x / 96u) * bt; *into = (global_clock - bar_origin) % x; return (uint16_t)x; }
+    *into = in % x;
+    if (in - *into + x > bt) x = bt - (in - *into);
+    return (uint16_t)x;
+}
 static void arm_step(uint32_t t, uint32_t now)
 {
     sq_step_t tmp, lbuf;
     const sq_step_t *s = play_step(t, &tmp);
-    uint32_t dur = current_clock_interval() * eff_div_ticks(t);
+    uint32_t dur = slot_us(t), xin = 0u;
     int32_t off;
     uint8_t hit, played = 0u, tl = trigless_mask(t);
     const sq_expo_t *x = &project.track[t].expo;
-    uint16_t xspan = x->shape != SQ_XS_OFF ? sq_expo_span_ticks(x->span) : 0u;
+    uint16_t xspan = x->shape != SQ_XS_OFF && !track_tuplet(t) ? expo_span(x->span, &xin) : 0u;   /* (0.25: a polyrhythm's steps are not ticks: its EXPO is a step's) */
     ev[t].slot_start_us = now;
     ev[t].slot_dur_us = dur;
     ev[t].step_index = tr[t].step; /* UI playhead follows empty steps too */
@@ -1385,7 +1484,7 @@ static void arm_step(uint32_t t, uint32_t now)
     }
 
     if (xspan && expo_hold[t]) { expo_hold[t]--; return; }   /* 0.10: inside an EXPO span: its hits keep coming */
-    if (xspan && global_clock % xspan == 0u)                 /* 0.10: a span begins: on a plain step (EDIT + black 5) the steps play as written */
+    if (xspan && xin == 0u)                                  /* 0.10: a span begins: on a plain step (EDIT + black 5) the steps play as written */
         expo_plain[t] = ((s->flags & SQ_STEP_ON) && (s->flags & SQ_STEP_XOFF)) ? 1u : 0u;
 
     if (pre[t].state == 1u) {                /* it was decided a step ago, and has started (or starts now) */
@@ -1400,7 +1499,7 @@ static void arm_step(uint32_t t, uint32_t now)
     s = live_step(t, s, &lbuf, &hit);
     if (step_should_play(t, s, hit)) {
         played = 1u;
-        if (xspan && !expo_plain[t] && (global_clock % xspan)) played = 0u;   /* (inside a span: the span's hits are the rhythm) */
+        if (xspan && !expo_plain[t] && xin) played = 0u;     /* (inside a span: the span's hits are the rhythm) */
     }
     tr[t].prev_hit = played;
     if (!played) {
@@ -1411,7 +1510,7 @@ static void arm_step(uint32_t t, uint32_t now)
     track_all_off(t);
     if (xspan && !expo_plain[t]) {           /* 0.10 EXPO over more than a step: the boundary step plays the span */
         uint32_t div = eff_div_ticks(t);
-        expo_hold[t] = (uint8_t)(xspan > div ? xspan / div - 1u : 0u);
+        expo_hold[t] = (uint8_t)(xspan > div ? (xspan / div - 1u > 255u ? 255u : xspan / div - 1u) : 0u);
         event_begin(t, s, tr[t].step, now, current_clock_interval() * xspan);
         return;
     }
@@ -1466,7 +1565,8 @@ static void track_restart(uint32_t t)
     tr[t].ping_dir = 1;
     tr[t].advances = 0u;
     tr[t].ppos[0] = tr[t].ppos[1] = tr[t].ppos[2] = 0u;
-    tr[t].div_accum = (uint16_t)(eff_div_ticks(t) - 1u);     /* (seq_clock_tick adds one: the first step plays now) */
+    tr[t].div_accum = (uint16_t)(track_tuplet(t) ? 0u : eff_div_ticks(t) - 1u);   /* (seq_clock_tick adds one: the first step plays now) */
+    tup_wait &= (uint16_t)~(1u << t);
     tr[t].anchor = global_clock;                             /* 0.10: from here the track's time is counted */
     tr[t].prev_hit = 0u;
     pre[t].state = 0u;
@@ -1482,10 +1582,21 @@ static uint8_t base_div_ticks(uint32_t t)
 }
 /* 0.10: the track back where its anchor and the clock say it should be (between two ticks: the next tick is served
  * as usual). Not while a DJ LOOP holds it (the loop's end does it), not a TAPE track (it has no counter). */
+/* where track t is `ticks` clock ticks after its anchor, into rt (its time FX aside): a plain division's step is ticks,
+ * a polyrhythm's a fraction of them */
+static void track_seek_to(uint32_t t, sq_track_rt_t *rt, uint32_t ticks)
+{
+    if (track_tuplet(t)) {
+        uint16_t num; uint8_t den;
+        div_frac_x(t, 0u, &num, &den);
+        sq_track_seek_frac(&project.track[t], rt, ticks, num, den);
+    } else sq_track_seek(&project.track[t], rt, ticks, base_div_ticks(t));
+}
 static void track_realign(uint32_t t)
 {
     if (track_tape(t) || (loop_on && (loop_mask & (1u << t)))) return;
-    sq_track_seek(&project.track[t], &tr[t], global_clock - tr[t].anchor, base_div_ticks(t));
+    track_seek_to(t, &tr[t], global_clock - tr[t].anchor);
+    tup_wait &= (uint16_t)~(1u << t);
     pre[t].state = 0u;
     if (t == selected_track) ui_dirty = grid_dirty = 1u;
 }
@@ -1589,17 +1700,21 @@ static void apply_scene(uint8_t s) { apply_scene_x(s, 0u); }
  * mute at the bar. The others: everything at the next beat / bar / 2 / 4 / 8 bars, and a new pattern starts from its
  * first step there. NOW: at once. */
 static const char *const QUANT_NAME[SQ_QUANTS] = {"AUTO", "NOW", "BEAT", "BAR", "2 BARS", "4 BARS", "8 BARS"};
-static uint16_t quant_ticks(void)
+/* 0.25: the bars are the metre's (bar_into, bar_no), the beat is one of its beats - a quarter, or three eighths, as the
+ * bar divides. Until 0.24: `global_clock % 96`, `% 24`. */
+static const uint8_t QUANT_BARS[SQ_QUANTS] = {1u, 0u, 0u, 1u, 2u, 4u, 8u};   /* AUTO NOW BEAT BAR 2 4 8 */
+static uint8_t quant_now(void)                         /* this tick is one where the queued changes happen */
 {
-    static const uint16_t Q[SQ_QUANTS] = {96u, 0u, 24u, 96u, 192u, 384u, 768u};
-    return Q[project.live.quant < SQ_QUANTS ? project.live.quant : 0u];
+    uint8_t q = project.live.quant < SQ_QUANTS ? project.live.quant : 0u;
+    if (q == SQ_Q_NOW) return 0u;
+    if (q == SQ_Q_BEAT) return bar_beat_now();
+    return (uint8_t)(bar_into() == 0u && (bar_no() % QUANT_BARS[q]) == 0u);
 }
 static void ktrans_apply(int32_t target);
 static void quant_tick(void)
 {
-    uint16_t qt = quant_ticks();
     uint32_t t;
-    if (!qt || (global_clock % qt) != 0u) return;
+    if (!quant_now()) return;
     if (ktrans_pend != SQ_KT_NONE) ktrans_apply(ktrans_pend);
     if (snap_pend < SQ_SNAPS) { uint8_t n = snap_pend; snap_pend = 255u; snap_apply(n); }   /* a SNAPSHOT that waited */
     if (restart_pend) {                               /* RESTART: every track from its first step, now */
@@ -1693,28 +1808,82 @@ static void harm_tick(uint32_t now)
     last_id = id;
 }
 static void length_bar_tick(void);                    /* 0.11: the lengths that wait for the bar */
+static void metre_bar_tick(void);                     /* 0.25: the bar that waits for the bar */
 static void motion_tick(void);                    /* sagga_live3.c: 0.13 */
 static void chain_wrap(uint32_t t);
 static void slide_note(uint32_t t, const sq_step_t *s, uint8_t ch, uint32_t now);
+/* a step of track t begins at `now` (a clock tick; a polyrhythm's: its own time) and lasts `dur`: it plays, the track
+ * moves on to the next */
+static void track_step(uint32_t t, uint32_t now, uint32_t dur, uint16_t fx)
+{
+    uint8_t wrapped;
+    sq_track_cfg_t ecfg = project.track[t];
+    if (retrig_mask & (1u << t)) {           /* RETRIG: this step is the first one of the loop */
+        const sq_track_cfg_t *c = &project.track[t];
+        retrig_mask &= (uint16_t)~(1u << t);
+        tr[t].step = c->direction == SQ_DIR_REV ? (uint8_t)(c->length - 1u) : c->start;
+        tr[t].ping_dir = 1;
+        tr[t].advances = 0u;
+        tr[t].ppos[0] = tr[t].ppos[1] = tr[t].ppos[2] = 0u;
+        tr[t].anchor = global_clock;         /* 0.10 */
+        tr[t].prev_hit = 0u;
+        pre[t].state = 0u;
+        if (t == selected_track) ui_dirty = 1u;
+    }
+    arm_step(t, now);
+    live_step_done(t);                       /* TURING moves on with every step of its track */
+    if (!(fx & (1u << FX_FREEZE))) {
+        if (fx & (1u << FX_RND)) ecfg.direction = SQ_DIR_RANDOM;
+        else if (fx & (1u << FX_REV)) ecfg.direction = ecfg.direction == SQ_DIR_FWD ? SQ_DIR_REV : ecfg.direction == SQ_DIR_REV ? SQ_DIR_FWD : ecfg.direction;
+        wrapped = sq_advance_step(&ecfg, &tr[t], &sq_rng_state);
+        if (wrapped) live_loop_done(t);
+        if (wrapped && tr[t].pending_pattern < SQ_PATTERNS && project.live.quant == SQ_Q_AUTO) {   /* (else quant_tick) */
+            tr[t].pattern = tr[t].pending_pattern;
+            tr[t].pending_pattern = SQ_NO_PENDING;
+            vg_pattern_in(t);                    /* 0.17 */
+        } else if (wrapped && project.ext.track[t].chain_on) {
+            chain_wrap(t);                       /* 0.13 CHAIN LIST: the next pattern of the list */
+        } else if (wrapped && (project.track[t].flags & SQ_TF_CHAIN)) {
+            tr[t].pattern ^= 1u;                 /* 0.10 CHAIN: the partner pattern plays next: 128 steps in all */
+            if (t == selected_track) ui_dirty = 1u;
+        }
+    }
+    prearm_next(t, now, dur);
+    if (t == selected_track) grid_dirty = 1u;
+}
+/* 0.25: the polyrhythms' steps that waited for their time (every pass of the main loop; `all`: whatever the time - a
+ * clock tick came, nothing of the tick before is left over) */
+static void tup_service(uint32_t now, uint8_t all)
+{
+    uint32_t t;
+    if (!tup_wait) return;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (!(tup_wait & (1u << t)) || !(all || time_due(now, tup_at[t]))) continue;
+        tup_wait &= (uint16_t)~(1u << t);
+        if (playing && !track_tape(t)) track_step(t, tup_at[t], slot_us(t), fx_now());
+    }
+}
 static void seq_clock_tick(uint32_t now)
 {
     uint32_t t;
     uint16_t fx = fx_now();
+    tup_service(now, 1u);                              /* 0.25: a polyrhythm's step of the tick before, if it still waits */
 
     /* 0.10: time put back in line: a time FX let go (HALF, DOUBLE, REV, FREEZE, RND), a length changed */
     if ((fx_pos_prev & FX_POS) && !(fx & FX_POS)) realign_all();
     fx_pos_prev = (uint16_t)(fx & FX_POS);
     if (realign_pend) { for (t = 0; t < SQ_TRACKS; t++) if (realign_pend & (1u << t)) track_realign(t); realign_pend = 0u; }
 
-    if ((global_clock % 96u) == 0u && global_clock) {                /* a bar line: STOP if asked, the song, EVOLVE */
+    if (bar_into() == 0u && global_clock) {           /* a bar line (0.25: of the metre's bar): STOP if asked, the song, EVOLVE */
         if (stop_at_bar) { stop_at_bar = 0u; transport_stop(); return; }
+        metre_bar_tick();                             /* 0.25: a bar that waited for this line begins on it */
         vg_bar_tick();                                /* 0.9: the phrase, the queue at its boundary, the energy */
         regia_bar();                                  /* 0.9: the Pi's phrase that waited, a STATO */
         song_bar_tick();
         length_bar_tick();                            /* 0.11: the lengths that waited for the bar */
         gen_bar_tick();
         tool_bar_tick();                              /* 0.10: a tool that waited for its bar, the one that repeats */
-    } else if ((global_clock % 24u) == 0u) vg_beat_tick();   /* 0.10: VIAGGIO's moves at the beat (QUANTISE BEAT) */
+    } else if (bar_beat_now()) vg_beat_tick();        /* 0.10: VIAGGIO's moves at the beat (QUANTISE BEAT; 0.25: the metre's beats) */
     quant_tick();                                     /* then what was queued: scene, mutes, patterns */
     /* 0.24: a loop that changed ON this tick (a length that waited for the bar, a snapshot, a pattern with another
      * loop) plays this tick's step from where the clock says it is. Until 0.23.2 it was put in line at the NEXT tick:
@@ -1729,44 +1898,22 @@ static void seq_clock_tick(uint32_t now)
     for (t = 0; t < SQ_TRACKS; t++) {
         uint8_t div = eff_div_ticks(t);
         if (track_tape(t)) continue;                   /* 0.11: a TAPE track has no steps to play */
+        if (track_tuplet(t)) {                         /* 0.25: a polyrhythm: its step begins on this tick, or before the next */
+            uint16_t num; uint8_t den;
+            div_frac_x(t, 1u, &num, &den);
+            if (tr[t].div_accum < den) {
+                uint32_t wait = (uint32_t)tr[t].div_accum * current_clock_interval() / den;
+                tr[t].div_accum = (uint16_t)(tr[t].div_accum + num);
+                if (!wait) track_step(t, now, slot_us(t), fx);
+                else { tup_at[t] = now + wait; tup_wait |= (uint16_t)(1u << t); }
+            }
+            tr[t].div_accum = (uint16_t)(tr[t].div_accum - den);
+            continue;
+        }
         tr[t].div_accum++;
         if (tr[t].div_accum >= div) {
-            uint8_t wrapped;
-            sq_track_cfg_t ecfg = project.track[t];
-            uint32_t dur = current_clock_interval() * div;
             tr[t].div_accum = (uint16_t)(tr[t].div_accum >= 2u * div ? tr[t].div_accum % div : tr[t].div_accum - div);
-            if (retrig_mask & (1u << t)) {           /* RETRIG: this step is the first one of the loop */
-                const sq_track_cfg_t *c = &project.track[t];
-                retrig_mask &= (uint16_t)~(1u << t);
-                tr[t].step = c->direction == SQ_DIR_REV ? (uint8_t)(c->length - 1u) : c->start;
-                tr[t].ping_dir = 1;
-                tr[t].advances = 0u;
-                tr[t].ppos[0] = tr[t].ppos[1] = tr[t].ppos[2] = 0u;
-                tr[t].anchor = global_clock;         /* 0.10 */
-                tr[t].prev_hit = 0u;
-                pre[t].state = 0u;
-                if (t == selected_track) ui_dirty = 1u;
-            }
-            arm_step(t, now);
-            live_step_done(t);                       /* TURING moves on with every step of its track */
-            if (!(fx & (1u << FX_FREEZE))) {
-                if (fx & (1u << FX_RND)) ecfg.direction = SQ_DIR_RANDOM;
-                else if (fx & (1u << FX_REV)) ecfg.direction = ecfg.direction == SQ_DIR_FWD ? SQ_DIR_REV : ecfg.direction == SQ_DIR_REV ? SQ_DIR_FWD : ecfg.direction;
-                wrapped = sq_advance_step(&ecfg, &tr[t], &sq_rng_state);
-                if (wrapped) live_loop_done(t);
-                if (wrapped && tr[t].pending_pattern < SQ_PATTERNS && project.live.quant == SQ_Q_AUTO) {   /* (else quant_tick) */
-                    tr[t].pattern = tr[t].pending_pattern;
-                    tr[t].pending_pattern = SQ_NO_PENDING;
-                    vg_pattern_in(t);                    /* 0.17 */
-                } else if (wrapped && project.ext.track[t].chain_on) {
-                    chain_wrap(t);                       /* 0.13 CHAIN LIST: the next pattern of the list */
-                } else if (wrapped && (project.track[t].flags & SQ_TF_CHAIN)) {
-                    tr[t].pattern ^= 1u;                 /* 0.10 CHAIN: the partner pattern plays next: 128 steps in all */
-                    if (t == selected_track) ui_dirty = 1u;
-                }
-            }
-            prearm_next(t, now, dur);
-            if (t == selected_track) grid_dirty = 1u;
+            track_step(t, now, current_clock_interval() * div, fx);
         }
     }
     if (global_clock % 6u == 0u) { harm_tick(now); motion_tick(); link_16th(); }   /* 0.11: a chord that changes on this 16th moves the held notes that follow it; 0.13 MOTION */
@@ -1955,6 +2102,7 @@ static void strum_service(uint32_t t, uint32_t now)
 static void service_track_events(uint32_t now)
 {
     uint32_t t, n;
+    tup_service(now, 0u);                              /* 0.25: the polyrhythms' steps, at their own time */
     for (t = 0; t < SQ_TRACKS; t++) {
         if (pre[t].state == 1u && pre[t].step && time_due(now, pre[t].start_us)) pre_promote(t);
         for (n = 0; n < SQ_POLY_OUT; n++)
@@ -2118,10 +2266,13 @@ static void seek_ticks(uint32_t ticks)          /* Song Position Pointer: where 
     uint32_t t;
     for (t = 0; t < SQ_TRACKS; t++) {
         tr[t].anchor = 0u;
-        sq_track_seek(&project.track[t], &tr[t], ticks, sq_div_ticks(project.track[t].division));
+        if (track_tuplet(t)) { uint16_t num; uint8_t den; sq_div_frac(project.track[t].division, &num, &den); sq_track_seek_frac(&project.track[t], &tr[t], ticks, num, den); }
+        else sq_track_seek(&project.track[t], &tr[t], ticks, sq_div_ticks(project.track[t].division));
         pre[t].state = 0u;
     }
     global_clock = ticks;
+    tup_wait = 0u;
+    bar_origin = 0u; bar_base = 0u;                    /* 0.25: a song position is counted in the bar as it is now, from the song's start */
 }
 
 static void transport_reset(void)
@@ -2186,6 +2337,7 @@ static void transport_stop_x(uint8_t send_fc)     /* the master's STOP, and the 
     mute_mask ^= pending_mute;                   /* what was queued is done */
     pending_mute = 0u;
     vg_states_sync_all();                        /* 0.12: the mutes just applied, in VIAGGIO's states */
+    metre_bar_tick();                            /* 0.25: the bar that waited for a bar (playing is 0: no track begins again) */
     length_bar_tick();                           /* 0.11: the lengths that waited for a bar */
     vg_transport_stop();
     brk_roll_clear(); rep_clear();               /* 0.12: a ROLL held through the stop ends here (0.13: a REPEAT too) */
@@ -2247,6 +2399,8 @@ static void service_master_clock(uint32_t now)
 #define LP_SRCS   28u
 static uint32_t lp_t[LP_SRCS];
 
+/* the eight lengths of a LOOP (the black keys, the grid): 1/32 .. 1/2, then 1, 2, 4 BARS - 0.25: bars of the metre */
+static uint16_t loop_ticks(uint32_t i) { return (uint16_t)(i < 5u ? LOOP_TICKS[i] : i < 8u ? bar_ticks() << (i - 5u) : 0u); }
 static const char *loop_name(uint16_t ticks)
 {
     static char b[12];
@@ -2262,8 +2416,8 @@ static const char *loop_name(uint16_t ticks)
     case 48:  return "1/2";
     default: {
         char *p = b;
-        p = put_u(p, ticks / 96u);
-        p = put_s(p, ticks >= 192u ? " BARS" : " BAR");
+        p = put_u(p, ticks / bar_ticks());              /* (0.25: the metre's bar) */
+        p = put_s(p, ticks >= 2u * bar_ticks() ? " BARS" : " BAR");
         finish(p);
         return b;
     }
@@ -2533,6 +2687,7 @@ static void set_division(uint8_t t, uint8_t div)
     if (div >= SQ_DIV_COUNT) return;
     project.track[t].division = div;
     tr[t].div_accum = (uint16_t)(tr[t].div_accum % sq_div_ticks(div));   /* no burst of steps after a shorter division */
+    tup_wait &= (uint16_t)~(1u << t);
     track_changed(t);
 }
 
@@ -2594,9 +2749,25 @@ static void set_length(uint8_t t, uint8_t len)
     }
     ui_dirty = grid_dirty = 1u;
 }
+/* 0.25: LONGER / SHORTER asked from the tablet (channel 12 CC 61 / 60): every track twice / half as long, as the MOSSE's
+ * moves do (vg_lengths) - but at the next BAR, as a length turned on the tablet is, not at the phrase's end; stopped: at
+ * once. The opposite asked while one waits takes it back. */
+static void vg_lengths(int32_t dir);              /* sagga_viaggio.c */
+static void lengths_ask(int32_t dir)
+{
+    if (!playing) { lens_pend = 0; vg_lengths(dir); return; }
+    if (lens_pend && (lens_pend > 0) != (dir > 0)) {
+        status_msg(lens_pend > 0 ? "CANCELLED: LONGER" : "CANCELLED: SHORTER");
+        lens_pend = 0;
+        return;
+    }
+    lens_pend = (int8_t)(dir > 0 ? 1 : -1);
+    status_msg(dir > 0 ? "LONGER AT THE BAR" : "SHORTER AT THE BAR");
+}
 static void length_bar_tick(void)                 /* every bar line: the lengths that waited */
 {
     uint32_t t;
+    if (lens_pend) { int32_t d = lens_pend; lens_pend = 0; vg_lengths(d); }
     for (t = 0; t < SQ_TRACKS; t++)
         if (len_pend[t]) {
             uint8_t l = len_pend[t], n;
@@ -2605,6 +2776,78 @@ static void length_bar_tick(void)                 /* every bar line: the lengths
             if (t == selected_track) length_say((uint8_t)t, n, "");
         }
 }
+/* 0.25 THE METRE CHANGES. The bar is `steps` 16ths from this tick on - a bar line when it plays (metre_bar_tick: the
+ * old bar's line it waited for; the bars go on being counted) - with these beats. The tracks that were a number of
+ * bars long are that number of the new bars (as many as fit 64 steps): their patterns are cut by the loop, whole after
+ * it, or go round again in the steps the track has more - nothing is rewritten, and the old bar gives them back. A
+ * track of any other length (the player's polymetre) stays. While it plays every track begins again on the line: a
+ * new metre is counted from its first bar. */
+static void metre_say(uint8_t follow, const char *tail)
+{
+    char sig[8], spl[SQ_SPLIT_TEXT], *p = msg_buf;
+    uint8_t steps = sq_bar_steps(&project.gen);
+    uint32_t beats = sq_bar_beats(&project.gen);
+    sq_metre_sig(steps, beats, sig); sq_metre_split(steps, beats, spl);
+    p = put_s(p, "BAR "); p = put_u(p, steps); p = put_s(p, ": "); p = put_s(p, sig);
+    if (spl[1]) { p = put_s(p, " "); p = put_s(p, spl); }
+    if (follow) { p = put_s(p, ", "); p = put_u(p, follow); p = put_s(p, follow == 1u ? " TRACK FOLLOWS" : " TRACKS FOLLOW"); }
+    p = put_s(p, tail);
+    finish(p);
+    status_msg(msg_buf);
+}
+static void metre_apply(uint8_t steps, uint32_t beats)
+{
+    uint8_t old = bar_st(), n = 0u;
+    uint32_t t;
+    bar_pend_steps = 0u;
+    bar_base = bar_no();                               /* (the bars so far, counted in the old bar) */
+    bar_origin = global_clock;
+    sq_bar_set(&project.gen, steps, beats);
+    metre_sync();
+    steps = bar_st();
+    for (t = 0; t < SQ_TRACKS && steps != old; t++) {
+        const sq_track_cfg_t *c = &project.track[t];
+        uint8_t want = track_tape(t) ? 0u : sq_metre_follow(c->length, c->start, old, steps);
+        if (!want) continue;
+        len_pend[t] = 0u;
+        length_apply((uint8_t)t, want);
+        n++;
+    }
+    if (playing) {
+        loop_on = 0u; loop_latched = 0u; lp_held = 0u;
+        for (t = 0; t < SQ_TRACKS; t++) track_restart(t);
+    }
+    metre_say(n, "");
+    ui_dirty = grid_dirty = 1u;
+}
+static uint8_t bar_shown(void) { return bar_pend_steps ? bar_pend_steps : sq_bar_steps(&project.gen); }
+static uint32_t beats_shown(void) { return bar_pend_steps ? bar_pend_beats : sq_bar_beats(&project.gen); }
+static void metre_ask(uint8_t steps, uint32_t beats)   /* the knobs, the tablet: at once when stopped, else at the bar line */
+{
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    if (!playing) { metre_apply(steps, beats); return; }
+    if (steps == sq_bar_steps(&project.gen) && beats == sq_bar_beats(&project.gen)) {
+        bar_pend_steps = 0u;
+        metre_say(0u, "");
+        return;
+    }
+    bar_pend_steps = steps; bar_pend_beats = beats;
+    {
+        char sig[8], spl[SQ_SPLIT_TEXT], *p = msg_buf;
+        sq_metre_sig(steps, beats, sig); sq_metre_split(steps, beats, spl);
+        p = put_s(p, "BAR "); p = put_u(p, steps); p = put_s(p, ": "); p = put_s(p, sig);
+        if (spl[1]) { p = put_s(p, " "); p = put_s(p, spl); }
+        p = put_s(p, " AT THE BAR"); finish(p);
+        status_msg(msg_buf);
+    }
+    ui_dirty = 1u;
+}
+static void metre_bar_tick(void)                       /* every bar line: the bar that waited */
+{
+    if (bar_pend_steps) metre_apply(bar_pend_steps, bar_pend_beats);
+}
+
 /* a pattern came from the library (or a snapshot, a scene) with a loop of its own: no length waits any more, the
  * track goes where the clock says it is (not back to its first step at some odd moment) */
 static void track_loaded(uint8_t t)
@@ -3639,7 +3882,7 @@ static void handle_keys(uint32_t keys)
             continue;
         }
         if (held & (1u << BTN_FX)) {                           /* FX + a black key: LOOP / REPEAT, RESTART, STOP, EXIT */
-            if (bi >= 0 && bi < 8) loop_press(LOOP_TICKS[bi], (uint8_t)(LP_PANEL + bi), sel_held ? (uint16_t)(1u << selected_track) : 0xFFFFu);
+            if (bi >= 0 && bi < 8) loop_press(loop_ticks((uint32_t)bi), (uint8_t)(LP_PANEL + bi), sel_held ? (uint16_t)(1u << selected_track) : 0xFFFFu);
             else if (bi == 8) restart_all();
             else if (bi == 9) stop_bar_toggle();
             else if (bi == 10) loop_exit();
@@ -3742,6 +3985,13 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
         if (d2) set_length(selected_track, (uint8_t)kstep(len_shown(selected_track), d2, f2, 1, 64));
         if (d3) set_key_scale(d3);
         if (d4 && ((d4 > 0) != (project.live.mute_q != 0u))) mute_q_toggle();
+    } else if (page == 3u) {                       /* 4 THE METRE (0.25): the bar in steps, its beats */
+        if (d1) metre_ask((uint8_t)kstep(bar_shown(), d1, f1, (int32_t)SQ_BAR_MIN, (int32_t)SQ_BAR_MAX), 0u);   /* (a new bar: its usual beats) */
+        if (d2) {
+            uint8_t st = bar_shown(), n = sq_metre_options(st), i = sq_metre_index(st, beats_shown());
+            if (n < 2u) status_msg("THIS BAR HAS ONE WAY ONLY");
+            else metre_ask(st, sq_metre_option(st, change_u8(i < n ? i : 0u, d2, 0u, (uint8_t)(n - 1u))));
+        }
     } else if (page == 2u) {                       /* 3 the MOSSE (0.17; VIAGGIO until 0.16): energy, phrase, genre, key */
         if (d1) vg_energy_turn(d1 * f1);
         while (d2) { vg_bars_turn(d2 > 0 ? 1 : -1); d2 += d2 > 0 ? -1 : 1; }   /* (one step a detent: PICK turns it by several) */
@@ -3759,7 +4009,7 @@ static void glo_page_knobs(uint8_t page, int32_t d1, int32_t d2, int32_t d3, int
 #define SEQ_PAGES 8u
 #define ARP_PAGES 6u
 #define SAVE_PAGES 4u                                  /* 0.13: 4 LIVE IN */
-#define PERF_PAGES 3u
+#define PERF_PAGES 4u                                  /* 0.25: 4 THE METRE */
 #define LFO_PAGES 6u                                   /* 0.13: 4 RATE SEQ; 0.20: 5 ENV, 6 MOD */
 #define LFO_PAGE_ENV 4u
 #define LFO_PAGE_MOD 5u
@@ -4563,7 +4813,7 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[8]), snap_capture ? blink : 0);
     } else if (held & (1u << BTN_FX)) {
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), (fx_now() >> i) & 1u);
-        for (i = 0; i < 8u; i++) fm1_led_key(KEY_LED(black_key[i]), loop_on && loop_len == LOOP_TICKS[i]);
+        for (i = 0; i < 8u; i++) fm1_led_key(KEY_LED(black_key[i]), loop_on && loop_len == loop_ticks(i));
         fm1_led_key(KEY_LED(black_key[8]), restart_pend ? blink : 0u);
         fm1_led_key(KEY_LED(black_key[9]), stop_at_bar ? blink : 0u);
         fm1_led_key(KEY_LED(black_key[10]), loop_on);
@@ -4874,6 +5124,16 @@ static void app_host_dump(int t)
         printf("%6u ms  theory T%d P%u style %u len %u func %u seed %u var %u vary %u energy %u src %u next %u now %u\n", fm1_ms, t + 1,
                (unsigned)tr[t].pattern + 1u, (unsigned)(m->style & 31u), (unsigned)(m->style ? SQ_THP_LEN(m) : 0u), (unsigned)m->func, (unsigned)m->seed,
                (unsigned)m->var, (unsigned)m->vary, (unsigned)m->energy, (unsigned)project.th.src, (unsigned)project.th.seed, (unsigned)vg_energy_now());
+        printf("%6u ms  thmetre T%d made %u now %u kept %u\n", fm1_ms, t + 1, (unsigned)m->metre, (unsigned)metre_id_now(),   /* 0.25: the metre it was made in */
+               (unsigned)((th_kept[t] >> tr[t].pattern) & 1u));
+    }
+    {   /* 0.25: the metre: the bar in steps, its beats; the bar now and the tick in it; the bar that waits */
+        char sig[8], spl[SQ_SPLIT_TEXT];
+        sq_metre_sig(sq_bar_steps(&project.gen), sq_bar_beats(&project.gen), sig);
+        sq_metre_split(sq_bar_steps(&project.gen), sq_bar_beats(&project.gen), spl);
+        printf("%6u ms  metre T%d bar %u beats %08X no %u into %u pend %u %08X raw %u SIG:%s SPLIT:%s\n", fm1_ms, t + 1, (unsigned)sq_bar_steps(&project.gen),
+               (unsigned)sq_bar_beats(&project.gen), (unsigned)bar_no(), (unsigned)bar_into(), (unsigned)bar_pend_steps,
+               (unsigned)(bar_pend_steps ? bar_pend_beats : 0u), (unsigned)project.gen.bar_steps, sig, spl);
     }
     vg_host_dump();
 }
@@ -4948,7 +5208,8 @@ static void app_main(void)
         store_service();
         live_service();
         vg_service();                                  /* 0.9: a track key held = the dice */
-        th_service();                                  /* 0.23: the engines' patterns follow the energy, a track a pass */
+        metre_sync();                                  /* 0.25: the metre as it is now, whoever changed it */
+        th_service();                                  /* 0.23: the engines' patterns follow the energy (0.25: and the metre), a track a pass */
         ghost_service();                               /* 0.24: the copies of a pattern follow it, a track a pass */
         regia_service();                               /* 0.9: STATO, TOCCATA, REGIA TASTO to the Pi */
 

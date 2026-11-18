@@ -356,6 +356,79 @@ static void t_library(uint32_t seeds)
     }
 }
 
+/* 0.25 THE PARTS LISTEN (sq_th_t.mate): a part that answers another leaves its attacks alone and speaks right after
+ * them - fewer of its hits on the other's attacks, more on the 16ths after them, about as many in all, over many seeds
+ * -; it is still itself: never empty,
+ * what its rule always plays is there, the energy fills it without losing a hit (the other part held still); a part
+ * that answers nobody is what it was, whoever is there */
+static void t_mate(uint32_t seeds)
+{
+    static const uint8_t FAMS[3] = {SQ_FUNC_ARP, SQ_FUNC_PERC, SQ_FUNC_BASS}, MATE[3] = {SQ_FUNC_CHORD, SQ_FUNC_SNARE, SQ_FUNC_ARP};
+    uint32_t seed, i, k, on_with[3] = {0u, 0u, 0u}, on_alone[3] = {0u, 0u, 0u}, rest_with[3] = {0u, 0u, 0u}, rest_alone[3] = {0u, 0u, 0u};
+    uint32_t all_with[3] = {0u, 0u, 0u}, all_alone[3] = {0u, 0u, 0u};
+    uint8_t st, f, e;
+    CHECK(sq_th_mate_family(SQ_FUNC_LEAD) == SQ_FUNC_CHORD && sq_th_mate_family(SQ_FUNC_VOX) == SQ_FUNC_CHORD && sq_th_mate_family(SQ_FUNC_ARP) == SQ_FUNC_CHORD
+          && sq_th_mate_family(SQ_FUNC_PERC) == SQ_FUNC_SNARE && sq_th_mate_family(SQ_FUNC_CONGA) == SQ_FUNC_SNARE && sq_th_mate_family(SQ_FUNC_BASS) == SQ_FUNC_ARP
+          && sq_th_mate_family(SQ_FUNC_SUB) == SQ_FUNC_ARP && sq_th_mate_family(SQ_FUNC_KICK) == 255u && sq_th_mate_family(SQ_FUNC_SNARE) == 255u
+          && sq_th_mate_family(SQ_FUNC_HAT) == 255u && sq_th_mate_family(SQ_FUNC_PAD) == 255u && sq_th_mate_family(SQ_FUNC_CRASH) == 255u
+          && sq_th_mate_family(SQ_FUNC_PROG) == 255u && sq_th_mate_family(200u) == 255u, "who answers whom", 0, 0u, 0u, 0, 0);
+    for (st = 0; st < SQ_TH_STYLES; st++)
+        for (seed = 1; seed <= seeds; seed++)
+            for (f = 0; f < SQ_FUNCS; f++) {
+                uint8_t fam = sq_th_mate_family(f), lev[SQ_STEPS], lv2[SQ_STEPS], mf = 255u;
+                char r0[SQ_STEPS + 1u], n0[SQ_STEPS + 1u], ra[SQ_STEPS + 1u], na[SQ_STEPS + 1u], rm[SQ_STEPS + 1u], nm[SQ_STEPS + 1u];
+                sq_th_t t = th(st, seed, 60u, seed % 2u, (uint8_t)(seed % 90u)), tm;
+                if (f == SQ_FUNC_PROG || f == SQ_FUNC_KIT) continue;
+                for (k = 0; k < 3u; k++) if (fam == MATE[k]) mf = (uint8_t)k;
+                tm = t; tm.energy = 50u;
+                sq_th_levels(&tm, fam == 255u ? SQ_FUNC_CHORD : fam == SQ_FUNC_ARP ? SQ_FUNC_LEAD : fam, 64u, lev);
+                {   /* (the levels are the part's own text) */
+                    sq_th_part(&tm, fam == 255u ? SQ_FUNC_CHORD : fam == SQ_FUNC_ARP ? SQ_FUNC_LEAD : fam, 64u, rm, nm);
+                    for (i = 0; i < 64u; i++) CHECK((lev[i] != 0u) == (rm[i] != '.' && rm[i] != '-') || rm[i] == '-', "the levels are not the part", &tm, fam, 64u, rm, 0);
+                    sq_th_levels(&tm, fam == 255u ? SQ_FUNC_CHORD : fam == SQ_FUNC_ARP ? SQ_FUNC_LEAD : fam, 16u, lv2);
+                    for (i = 16u; i < 64u; i++) CHECK(lv2[i] == lv2[i & 15u], "sixteen 16ths, again and again", &tm, fam, 16u, 0, 0);
+                }
+                sq_th_part(&t, f, 64u, ra, na);
+                t.mate = lev;
+                sq_th_part(&t, f, 64u, rm, nm);
+                if (fam == 255u) { CHECK(!strcmp(ra, rm) && !strcmp(na, nm), "a part that answers nobody changed with someone there", &t, f, 64u, ra, rm); continue; }
+                {
+                    const th_rule_t *q = th_rule(&t, f);
+                    uint32_t any = 0u;
+                    for (i = 0; i < 64u; i++) {
+                        if (is_hit(rm[i])) any = 1u;
+                        if (!(q->kick & TH_K_APART) && ((th_bar(q, i)->fixA | th_bar(q, i)->fixx) & (1u << (i & 15u))) && !(th_bar(q, i)->never & (1u << (i & 15u))) && (q->kick & 15u) != TH_K_AVOID)
+                            CHECK(is_hit(rm[i]), "what the part always plays is gone", &t, f, 64u, ra, rm);
+                        if (lev[i] >= TH_O) { on_with[mf] += is_hit(rm[i]); on_alone[mf] += is_hit(ra[i]); }
+                        else if (lev[(i + 63u) % 64u] >= TH_O || lev[(i + 62u) % 64u] >= TH_O) { rest_with[mf] += is_hit(rm[i]); rest_alone[mf] += is_hit(ra[i]); }
+                        all_with[mf] += is_hit(rm[i]); all_alone[mf] += is_hit(ra[i]);
+                    }
+                    CHECK(any, "a part that answers is empty", &t, f, 64u, ra, rm);
+                }
+                for (e = 0; e < 8u; e++) {                /* the energy, the other part held still */
+                    sq_th_t t2 = th(st, seed, ENERGY[e], seed % 2u, (uint8_t)(seed % 90u));
+                    char r1[SQ_STEPS + 1u], n1[SQ_STEPS + 1u], k1[SQ_STEPS + 1u], kn[SQ_STEPS + 1u];
+                    uint8_t avoid = (uint8_t)((th_rule(&t2, f)->kick & 15u) == TH_K_AVOID);
+                    t2.mate = lev;
+                    sq_th_part(&t2, f, 64u, r1, n1);
+                    { sq_th_t tk = t2; tk.mate = 0; sq_th_part(&tk, SQ_FUNC_KICK, 64u, k1, kn); }
+                    if (e) for (i = 0; i < 64u; i++) if (is_hit(r0[i]) && !(avoid && is_hit(k1[i]))) CHECK(is_hit(r1[i]), "a hit lost as the energy rises, answering", &t2, f, 64u, r0, r1);
+                    memcpy(r0, r1, sizeof r0); memcpy(n0, n1, sizeof n0);
+                }
+                (void)FAMS;
+            }
+    for (k = 0; k < 3u; k++) {
+        static const char *const WHO[3] = {"the arpeggios, leads and voices against the chords", "the percussion against the snare", "the basses against the lead"};
+        checks += 2u;
+        checks++;
+        printf("theory: %s: on the other's attacks %u hits (alone %u), right after them %u (alone %u), in all %u (alone %u)\n", WHO[k], (unsigned)on_with[k],
+               (unsigned)on_alone[k], (unsigned)rest_with[k], (unsigned)rest_alone[k], (unsigned)all_with[k], (unsigned)all_alone[k]);
+        if (!(on_with[k] * 10u < on_alone[k] * 8u)) { failed++; printf("FAIL %s: it does not leave the other's attacks alone\n", WHO[k]); }
+        if (!(rest_with[k] > rest_alone[k])) { failed++; printf("FAIL %s: it does not answer after the other's attacks\n", WHO[k]); }
+        if (!(all_with[k] * 100u > all_alone[k] * 85u && all_with[k] * 100u < all_alone[k] * 110u)) { failed++; printf("FAIL %s: answering made it another part (as busy as alone, give or take: no)\n", WHO[k]); }
+    }
+}
+
 int main(int argc, char **argv)
 {
     uint32_t seeds = argc > 1 ? (uint32_t)strtoul(argv[1], 0, 0) : 120u;
@@ -368,6 +441,7 @@ int main(int argc, char **argv)
     t_variation(seeds);
     t_prog(seeds);
     t_band();
+    t_mate(seeds > 60u ? 60u : seeds);
     if (failed) { printf("theory: %lu of %lu checks FAILED\n", failed, checks); return 1; }
     printf("theory: all %lu checks passed (%u seeds a style)\n", checks, (unsigned)seeds);
     return 0;

@@ -48,6 +48,7 @@ class FakeHub:
         self.down = False
         self.extra = []                    # pages added later: (client, name, plugin type, stable id)
         self.fm_ports = 2                  # USB PORTS
+        self.fm_name = "Felucca"           # (0.25: "Felucca Update" while a firmware is being installed)
         self.devnum = {"1-1.2": 5, "1-1.3": 7, "1-1.4": 9}
         self.write_sysfs()
 
@@ -69,7 +70,7 @@ class FakeHub:
         ports = [{"port_id": 0, "is_output": True, "is_input": True}, {"port_id": 1, "is_output": True, "is_input": True}]
         out = []
         if self.on["fm1"]:
-            out.append({"client_id": FM1, "name": "Felucca", "online": True, "ports": ports[:self.fm_ports], "stable_id": "usb-0001:0002-FM1",
+            out.append({"client_id": FM1, "name": self.fm_name, "online": True, "ports": ports[:self.fm_ports], "stable_id": "usb-0001:0002-FM1",
                         "usb_path": "1-1.2"})
         if self.on["synth"]:
             out.append({"client_id": self.synth_client, "name": "MicroFreak", "online": True, "ports": ports[:1],
@@ -181,6 +182,28 @@ def t_reboot():
         hub.reboot_fm1(lose=False)
         settle(k, clock, n=4)
         check(len(hub.posts) == n, "a reboot without losses: nothing done (%d)" % (len(hub.posts) - n))
+
+
+def t_update():
+    group("0.25: the keeper - the FM-1 in update mode (\"Felucca Update\", one port) is not the FM-1: no cell is put on it")
+    with tempfile.TemporaryDirectory() as d:
+        hub, clock = FakeHub(os.path.join(d, "sys")), Clock()
+        k, written = keeper(hub, d, clock)
+        before = dict(hub.conns)
+        settle(k, clock)
+        check(C.is_fm1("Felucca") and C.is_fm1("Felucca 2") and C.is_fm1("M-VAVE FM-1") and not C.is_fm1("Felucca Update") and not C.is_fm1("MicroFreak"),
+              "is_fm1: the FM-1 by its names, not its update loader")
+        # the install begins: the device there is the loader, RaspiMIDIHub has lost the FM-1's cells
+        hub.fm_name, hub.fm_ports = "Felucca Update", 1
+        hub.reboot_fm1()
+        got = settle(k, clock, n=6)
+        check(not got and not hub.posts, "while it is the loader: nothing is put on it (0.24: the pages' cells, on the port the firmware goes through) (%s)" % sorted(hub.posts))
+        # the FM-1 is back with its firmware: its cells come back
+        hub.fm_name, hub.fm_ports = "Felucca", 2
+        hub.reboot_fm1(lose=False)
+        got = settle(k, clock, n=4)
+        want = {c for c in before if LP not in (c[0], c[2])}
+        check(set(hub.posts) == want and len(got) == 6, "the FM-1 back: its 6 cells back (%s)" % sorted(hub.posts))
 
 
 def t_by_hand():
@@ -449,7 +472,7 @@ def t_thread():
 
 
 def main():
-    for t in (t_reboot, t_by_hand, t_synth_back, t_first_time, t_new_page, t_no_sysfs, t_same_number, t_usb, t_alsa_counts, t_thread):
+    for t in (t_reboot, t_update, t_by_hand, t_synth_back, t_first_time, t_new_page, t_no_sysfs, t_same_number, t_usb, t_alsa_counts, t_thread):
         t()
     print("sagga celle: %d checks, %d failures" % (CHECKS[0], len(FAILS)))
     return 1 if FAILS else 0

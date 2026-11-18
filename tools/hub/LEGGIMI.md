@@ -76,7 +76,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
   Non cambia niente.
-* **Avvia la prova** (tutte le sessioni, una ventina di minuti, o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+* **Avvia la prova** (tutte le sessioni - 25 dalla 0.25, circa venticinque minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
@@ -155,6 +155,12 @@ guarda anche i suoi collegamenti (`/proc/asound/seq/clients` li elenca porta per
 E un bridge che viene fermato (lo fa la prova del banco, e lo spegnimento del Pi) **spegne i Launchpad** e avvisa
 l'FM-1: prima il grid restava acceso e fermo, e sembrava vivo.
 
+**0.25: mentre aggiorni l'FM-1 il Pi lo lascia in pace.** Durante un aggiornamento l'FM-1 è un altro dispositivo,
+"Felucca Update": il suo programma di caricamento. Fino alla 0.24 il bridge e il custode delle celle lo prendevano per
+l'FM-1: il bridge si attaccava e gli mandava il suo saluto ogni secondo per tutta l'installazione (si vede nel log di
+un'installazione vera). Adesso il caricatore non è l'FM-1: il bridge aspetta (`no FM-1 ...: the bridge waits for it`)
+e torna quando l'FM-1 riparte con il firmware nuovo.
+
 Quello che resta: quando attacchi o stacchi un dispositivo USB (un Launchpad, un synth, l'FM-1), RaspiMIDIHub rifà la
 matrice, e il bridge riparte. È di RaspiMIDIHub, e succede in un momento in cui hai le mani sui cavi.
 
@@ -201,8 +207,18 @@ del firmware):
   traccia. Se dopo la fine del loop avevi scritto qualcosa, vale quello che hai scritto e non si copia niente;
 * **accorci la traccia**: il pattern resta intero dopo il loop e torna com'era quando la riallunghi.
 
-Le copie nuove le vedi **dopo il Salva** (la pagina si ricarica da sola), non mentre scrivi il numero della lunghezza.
+**0.25:** le copie nuove le vedi **subito**, mentre scrivi il numero della lunghezza, prima del Salva (fino alla 0.24
+solo dopo). La pagina fa il conto come lo fa l'FM-1: quello che vedi prima del Salva è quello che trovi dopo.
 Uno step copiato o incollato, o un pattern copiato su un altro, arriva sempre come step tuo, mai come copia.
+
+**0.25, il metro e il resto.** Nella scheda **Progetto** c'è il **METRO**: la *battuta* in step (da 3 a 32; 16 è il 4/4,
+14 il 7/8, 20 il 5/4) e *i suoi tempi* (i modi in cui quella battuta si divide: 7/8 = 2+2+3, 2+3+2, 3+2+2). Quando
+cambi la battuta, le tracce lunghe un numero di battute la seguono (16 → 14, 32 → 28), come sull'FM-1; i pattern
+restano scritti come sono. Su ogni riga di step un segno mostra dove cominciano i tempi e le battute. In alto, accanto
+al nome, leggi il metro quando non è 4/4. Nella scheda **Traccia** la lista dello *step* ha i sei **poliritmi** (1/4
+5:4 ... 1/16 7:4: cinque o sette step nel tempo di quattro) e *FOLLOW: le note* ha il quarto modo, **MELODY** (una
+melodia resta dove è scritta e le sue note forti vanno sull'accordo). Il TURING lungo quanto la traccia è B = 17.
+Un file MIDI esce e rientra con il metro del progetto.
 
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:

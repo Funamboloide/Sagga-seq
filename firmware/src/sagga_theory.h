@@ -35,7 +35,18 @@ typedef struct {
     const uint8_t *kick;         /* the kick that plays with it: its level on each 16th of the pattern (SQ_STEPS of them: 0
                                   * none, 1 a ghost, 2 soft, 3 a hit, 4 an accent). 0: the seed's own kick. A rumble is never
                                   * where it is, a sub leans on it. */
+    const uint8_t *mate;         /* 0.25 THE PARTS LISTEN: the part this one ANSWERS, its levels as `kick` (0: nobody). Where
+                                  * the other attacks, a hit of this one stays away two times in three; right after an
+                                  * attack of the other (the next 16th, or the one after) it is likelier: the answer comes
+                                  * after the call. What a part always plays stays (it is still itself). Who answers whom:
+                                  * sq_th_mate_family; a part that answers nobody takes no notice of it. */
 } sq_th_t;
+/* the family (SQ_FUNC_KICK .. SQ_FUNC_ARP) of the part that part `func` answers; 255: it answers nobody. An arpeggio, a
+ * lead, a voice: the chords (the stab, the pad, the piano). The percussion: the snare, the clap. A bass: the lead. */
+uint8_t sq_th_mate_family(uint8_t func);
+/* the rhythm of a part alone, a level a 16th (as `kick` and `mate` want it): lev holds SQ_STEPS; the len 16ths are
+ * the part's, the rest of the SQ_STEPS the same again */
+void sq_th_levels(const sq_th_t *t, uint8_t func, uint8_t len, uint8_t *lev);
 
 uint8_t sq_th_style(uint8_t genre);          /* the style of a library genre (255: not a genre) */
 uint8_t sq_th_genre(uint8_t style);          /* ... and back: the genre whose band and feel a style uses (FREE: 255) */
@@ -56,6 +67,10 @@ uint8_t sq_th_load(sq_step_t *row, const sq_th_t *t, uint8_t func, uint8_t len, 
  * stays. A part that minds a kick that plays (to->kick: a rumble, a sub) is written whole: the kick may have changed
  * under it. `a`, `b`: two rows to work in (SQ_STEPS). Returns how many steps of `row` changed. */
 uint8_t sq_th_remake(sq_step_t *row, const sq_th_t *from, const sq_th_t *to, uint8_t func, uint8_t len, uint8_t note, sq_step_t *a, sq_step_t *b);
+/* 0.25: ... of a pattern that was made in the metre's bars (sq_rebar: `len` is still the sixteens it was made in) */
+uint8_t sq_th_remake_bar(sq_step_t *row, const sq_th_t *from, const sq_th_t *to, uint8_t func, uint8_t len, uint8_t note, sq_step_t *a, sq_step_t *b,
+                         uint8_t bar_steps, uint32_t bar_beats);
+uint8_t sq_th_minds_kick(const sq_th_t *t, uint8_t func);   /* 1: the part minds a kick that plays with it (t->kick): a rumble, a sub */
 /* a progression of the style: the steps of the key its roots are on, their colours, the bars a chord lasts */
 void sq_th_prog(sq_uprog_t *u, const sq_th_t *t);
 

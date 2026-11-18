@@ -14,7 +14,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 ## Come lavora
 
-1. **Le situazioni.** Prepara la macchina in 23 modi (erano 12 nella 0.12): vuota ferma e in play, una band TECHNO in play, una HOUSE con
+1. **Le situazioni.** Prepara la macchina in 27 modi (erano 12 nella 0.12, 23 nella 0.24): vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
@@ -28,6 +28,14 @@ cosa cambia) e `build/explore/rapporto.json`.
    promette una lunghezza viene controllata prima di cominciare: la 0.24, alla prima stesura, aveva lasciato "pattern
    di quattro battute" a esplorare tracce da una battuta sola (SAVE 2 K4 non era più LIBRARY LENGTH), e niente lo
    diceva.
+   0.25: **quattro con le cose nuove**. **Il 7/8** (una battuta di 14 step, 2+2+3): una band TECHNO dei motori fatta in
+   quel metro, la traccia 2 da 28 step (due battute) e la traccia 8 da 19 (la polimetria), le mosse alla battuta.
+   **Il 5/4** (20 step): la band HOUSE della libreria, l'armonia accesa (un accordo ogni 20 step), la traccia 1 da 40.
+   **I poliritmi**: la traccia 3 a 1/4 5:4 con un loop di cinque step, la traccia 5 a 1/16 7:4, un TURING lungo quanto
+   la traccia che gira. **La melodia**: la band FREE dei motori, una progressione USER che cambia accordo dentro la
+   battuta (3+3+2), il LEAD sulla traccia 8 in MELODY e selezionato, così le manopole della traccia girano sulla
+   melodia. E il controllo "una situazione è quello che dice" adesso guarda anche altri valori promessi dal nome: la
+   quarta situazione parte solo se la traccia 8 è davvero in MELODY con FOLLOW acceso, e l'armonia accesa e non su LOCK.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -63,7 +71,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 | MIDI | byte MIDI non validi |
 | MORTO | il firmware che si pianta, o (con i sanitizer) un errore di memoria |
 | RITORNO | una manopola girata di uno e poi indietro che non rimette la musica dov'era (da guardare) |
-| MOTORI | 0.23: da fermo, un pattern fatto dai motori THEORY che non è all'ENERGIA della macchina, o di cui i motori ricordano uno stile che non esiste |
+| MOTORI | 0.23: da fermo, un pattern fatto dai motori THEORY che non è all'ENERGIA della macchina, o di cui i motori ricordano uno stile che non esiste. 0.25: o che non è nel METRO della macchina (i motori lo rifanno quando il metro cambia); uno cambiato a mano resta nel suo metro, e lì l'energia non lo tocca. Dalla 0.25 la regola guarda anche la fine di ogni sessione |
 
 Le regole sono scritte in fondo al file, una funzione ciascuna, con le eccezioni volute (`HARM_OK`, `CH_OK`,
 `ACCETTATI`): aggiungerne una è qualche riga. Con i sanitizer trova anche gli errori di memoria:
@@ -138,6 +146,35 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   CONTI, con cui l'FM-1 dice quello che ha mandato e la prova dopo dirà da che lato un messaggio si perde. Rifatto
   sulle stesse due raccolte: il banco 0 errori; l'FM-1 completo 2 errori, i due PERSI.
 
+* **Il banco della 0.24 sull'FM-1 vero** (17 novembre 2026; i file portano la data del 26 ottobre, quella
+  dell'orologio del Pi): il banco, 21 sessioni, e l'FM-1 completo, 28. **Zero errori in tutte e 49 le sessioni**, niente
+  da guardare, 47 note di TEMPO (sonde prese sul confine di uno step, tasti letti qualche millisecondo dopo: gli stessi
+  casi della prova della 0.23). Il codice nuovo ha girato davvero sull'FM-1: nei messaggi si leggono `LENGTH 32: THE 16
+  STEPS REPEAT`, `THE COPIES ARE YOUR STEPS NOW`, `LENGTH n AT THE BAR`. I sei messaggi persi della 0.23 non si sono
+  ripetuti: PERSI 0, e l'FM-1 dice di aver mandato 402.973 messaggi senza scartarne uno (la causa di allora resta
+  sconosciuta). Due cose sono venute fuori da quella prova. **LONGER e SHORTER non sono capitati in nessuna delle 49
+  sessioni**: restano da provare a mano sull'FM-1. E durante l'installazione del firmware il bridge del grid si era
+  attaccato al programma di caricamento ("Felucca Update") e gli mandava il suo saluto ogni secondo: non ha fatto
+  danni, ed è corretto nella 0.25.
+
+* **Sulla 0.25** (il metro, i poliritmi, i motori che si ascoltano, la melodia che conosce l'accordo): quattro
+  situazioni nuove (sopra), e il controllo che una situazione sia quello che il suo nome dice guarda anche altri
+  valori (`want`: l'armonia accesa e non su LOCK, la traccia 8 in MELODY). Il giro completo: **89.842 gesti da soli in
+  27 situazioni, 10.796 coppie, 200 sessioni da 60 gesti, nessun errore, niente da guardare**. Al primo giro c'era una
+  cosa da guardare, e si è vista perché la situazione della melodia lascia selezionata la traccia 8 e non la 1: la nota
+  di uno step girata e rimessa (EDIT, SEL + K1) lascia la penna su quella nota. È il firmware come deve essere (la penna
+  è l'ultima nota scritta): adesso è fra i "Visti e voluti", solo per quel campo. La regola **MOTORI** adesso
+  guarda anche il metro, e la fine di ogni sessione: provata rompendo apposta il servizio che rifà i pattern dei motori
+  nel metro nuovo, nella situazione del 7/8 ha dato 14 errori (le manopole di GLO 4, e sei sessioni ridotte a due
+  gesti: `T1: fatto nel metro 21, la macchina e' nel metro 24`), zero sul firmware vero. Un limite da sapere: se al
+  cambio di metro le tracce non ripartissero insieme dalla battuta nuova, l'esploratore **non** lo vedrebbe. La sua
+  regola FASE misura ogni traccia contro il suo punto di partenza, non contro la battuta, e una traccia può stare
+  fuori dalla battuta anche per scelta (RETRIG, un pattern che entra al BEAT). Quel caso lo guardano le prove fisse
+  (`t025_metre`: rotto apposta, tre prove falliscono).
+  Le prove fisse della 0.25 (`t025_*`, 68 controlli nel simulatore, più quelle del cuore e dei motori) sono state
+  provate rompendo il firmware in dodici punti, uno alla volta: tutte e dodici le rotture trovate. Le prove del
+  simulatore di nuovo con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore.
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -195,7 +232,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 21 dalla 0.24, erano 20); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 25 dalla 0.25, erano 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

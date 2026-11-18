@@ -58,8 +58,14 @@ static void mot_clear(void)
     uint32_t i, k;
     for (i = 0; i < 4u; i++) for (k = 0; k < SQ_MOTION_CELLS; k++) project.ext.motion[i][k] = (int8_t)SQ_MOTION_NONE;
 }
-static uint32_t mot_cells(void) { return project.ext.motion_bars ? 16u * project.ext.motion_bars : 0u; }
-static uint32_t mot_pos(void) { uint32_t n = mot_cells(); return n ? (global_clock / 6u) % n : 0u; }
+/* (0.25: the bars are the metre's - as many of them as the 64 cells hold -, counted from the bar line) */
+static uint32_t mot_cells(void)
+{
+    uint32_t bars = project.ext.motion_bars, bs = bar_st();
+    if (bars * bs > SQ_MOTION_CELLS) bars = SQ_MOTION_CELLS / bs;
+    return bars * bs;
+}
+static uint32_t mot_pos(void) { uint32_t n = mot_cells(); return n ? ((global_clock - bar_origin) / 6u) % n : 0u; }
 /* a 16th line (seq_clock_tick, before the tick moves on): write where the hand is, else play what was written */
 static void motion_tick(void)
 {

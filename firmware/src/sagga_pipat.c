@@ -97,9 +97,10 @@ static void pipat_loaded(const uint8_t *text, const uint8_t *notes, uint8_t n)
     len = sq_beat_load_text(row, r, notes ? nt : 0, f, note);
     if (!len) { status_msg("PI: NOT A PATTERN OF THIS PART"); return; }
     th_forget(t, pi_get.pat);                           /* 0.23: the Pi's pattern */
-    made_fit(t, pat, len);                              /* 0.24: the track keeps its length: the pattern again in what it has more */
+    made_fit_asis(t, pat, len);                         /* 0.24: the track keeps its length: the pattern again in what it has more (0.25: as it was written, in any metre) */
     beat_cfg_for(c, g, f, len, note, &o);
-    if (16u % len && len % 16u) o.length = len;         /* (but one that does not fit a bar - 12 steps, 24: the track is as long as it is) */
+    if (16u % len && len % 16u && bar_st() % len && len % bar_st()) o.length = len;   /* (but one that does not fit a bar - 12 steps, 24: the track is as long as
+                                                                                        *  it is; 0.25: a bar of sixteen, or the metre's) */
     beat_cfg_apply(t, pat, &o);
     nv = sq_beat_variants(g, f);
     c->src_func = f; c->src_var = (uint8_t)(nv ? nv - 1u : 0u);     /* (COOK walks on to the FM-1's first) */

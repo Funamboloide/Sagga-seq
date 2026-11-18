@@ -73,14 +73,21 @@ def notes(ev):
     return out
 
 
-def write_smf(path, ppq, tempo_us, tracks):
-    """tracks: list of [(tick, status, d1, d2)]"""
+def time_sig(path):
+    """(numerator, denominator) of the file's first time signature (None: it has none)"""
+    d = open(path, "rb").read()
+    i = d.find(b"\xff\x58\x04")
+    return None if i < 0 else (d[i + 3], 1 << d[i + 4])
+
+
+def write_smf(path, ppq, tempo_us, tracks, sig=None):
+    """tracks: list of [(tick, status, d1, d2)]; sig: (numerator, log2 of the denominator), 0.25"""
     def var(v):
         b = [v & 0x7F]; v >>= 7
         while v: b.append((v & 0x7F) | 0x80); v >>= 7
         return bytes(reversed(b))
     chunks = []
-    tempo = b"\x00\xff\x51\x03" + tempo_us.to_bytes(3, "big") + b"\x00\xff\x2f\x00"
+    tempo = (b"\x00\xff\x58\x04" + bytes([sig[0], sig[1], 24, 8]) if sig else b"") + b"\x00\xff\x51\x03" + tempo_us.to_bytes(3, "big") + b"\x00\xff\x2f\x00"
     chunks.append(b"MTrk" + struct.pack(">I", len(tempo)) + tempo)
     for ev in tracks:
         last, body = 0, b""
@@ -161,6 +168,50 @@ def main():
     check(len(a) >= 3 and [x[1] for x in a[:3]] == [60, 64, 67] and S.near(a[1][0], 500 / 480 * 500, 3) and S.near(a[2][0], 1537 / 480 * 500, 3),
           "it plays: C at 0, E at 521 ms, G at 1601 ms (%s)" % a[:3])
     check(len(b) >= 2 and S.near(b[0][0], 10 / 480 * 500, 3) and S.near(b[1][0], 3077 / 480 * 500, 3), "channel 2: the kick at 10 ms and at 3205 ms (%s)" % b[:2])
+    # 0.25 THE METRE: a file says its time signature; one in 7/8 makes a project in 7/8, its tapes' loops bars of 14 steps
+    print("0.25: the metre - 4/4 written as 4/4; a file in 7/8 is a project in 7/8 (the tape's loop: bars of 14 steps), and back")
+    check(time_sig(mid) == (4, 4) and time_sig(back) == (4, 4), "a project in 4/4 says 4/4 (%s %s)" % (time_sig(mid), time_sig(back)))
+    ev7 = [(0, 0x90, 60, 100), (100, 0x80, 60, 0), (1680 + 20, 0x90, 62, 100), (1680 + 120, 0x80, 62, 0)]   # PPQ 480: a bar of 7/8 is 1680 ticks
+    src7, sgq7, back7 = os.path.join(d, "seven.mid"), os.path.join(d, "seven.sgq"), os.path.join(d, "seven-back.mid")
+    write_smf(src7, 480, 500000, [ev7], sig=(7, 3))
+    r = subprocess.run([TOOL, "mid2sgq", src7, sgq7], capture_output=True, text=True)
+    check(r.returncode == 0 and "2 notes on 1 tapes, 2 bars, 120 BPM" in r.stderr, "7/8: the file's two bars are two bars (in 4/4 they would be one) (%s)" % r.stderr.strip())
+    subprocess.run([TOOL, "sgq2mid", sgq7, back7, "2"], check=True, capture_output=True)
+    fmt, ppq, tempo, tr7 = read_smf(back7)
+    n7 = notes(tr7[1][1])
+    check(time_sig(back7) == (7, 8) and [x[0] for x in n7] == [0, 1360], "... and back: 7/8, the two notes over its two bars, 2688 ticks (%s %s)" % (time_sig(back7), n7))
+    for name, nn, dd, want in (("6/8", 6, 3, (6, 8)), ("3/4", 3, 2, (3, 4)), ("5/4", 5, 2, (5, 4)), ("15/16", 15, 4, (15, 16)), ("9/4 (36 steps: no such bar)", 9, 2, (4, 4))):
+        a, b2, c2 = os.path.join(d, "s.mid"), os.path.join(d, "s.sgq"), os.path.join(d, "s2.mid")
+        write_smf(a, 480, 500000, [[(0, 0x90, 60, 100), (100, 0x80, 60, 0)]], sig=(nn, dd))
+        subprocess.run([TOOL, "mid2sgq", a, b2], check=True, capture_output=True)
+        subprocess.run([TOOL, "sgq2mid", b2, c2], check=True, capture_output=True)
+        check(time_sig(c2) == want, "a file in %s: the project's metre (%s)" % (name, time_sig(c2)))
+    # 0.25 THE POLYRHYTHMS: a track of five steps at 1/4 5:4 is five notes a bar, 307.2 ticks apart
+    jt = os.path.join(d, "sgqjson")
+    subprocess.run(["cc", "-std=c11", "-O2", "-I" + os.path.join(ROOT, "firmware", "src"), os.path.join(ROOT, "tools", "sgqmid", "sagga_sgqjson.c"),
+                    os.path.join(ROOT, "firmware", "src", "sagga_seq_core.c"), os.path.join(ROOT, "firmware", "src", "sagga_beats.c"), "-o", jt], check=True)
+    patch, p5, m5 = os.path.join(d, "p5.txt"), os.path.join(d, "p5.sgq"), os.path.join(d, "p5.mid")
+    with open(patch, "w") as f:
+        f.write("track 0 division - 13\ntrack 0 length - 5\n" + "".join("step 0,0,%d flags - 3\nstep 0,0,%d note 0 %d\n" % (k, k, 60 + k) for k in range(5)))
+    subprocess.run([jt, "apply", "new", patch, p5], check=True, capture_output=True)
+    subprocess.run([TOOL, "sgq2mid", p5, m5, "2"], check=True, capture_output=True)
+    _, _, _, tr5 = read_smf(m5)
+    n5 = notes(tr5[1][1])
+    check([x[0] for x in n5] == [k * 1536 // 5 for k in range(10)] and [x[2] for x in n5] == [60, 61, 62, 63, 64] * 2,
+          "a track at 1/4 5:4: five notes in each bar, where the fifths of the bar fall (%s)" % [x[0] for x in n5[:6]])
+    img = open(sgq7, "rb").read()
+    s = S.Script()
+    t = 100
+    for line in sysex_import_script(img):
+        s.raw(t, line); t += 20
+    s.at(t + 100, "dump", 0)
+    t0 = t + 300
+    s.tap_btn(t0, S.PLAY)
+    log = S.run(s, t0 + int(60 * 125))
+    a = [(round(tt - t0), d1) for tt, d1, _ in log.notes(ch=0, after=t0)]
+    check(log.metre and log.metre[0]["bar"] == 14 and log.metre[0]["sig"] == "7/8" and log.tapes[0]["bars"] == 2, "in the FM-1: a bar of 14, a tape of 2 bars (%s)" % log.metre[:1])
+    check(len(a) >= 4 and [x[1] for x in a[:4]] == [60, 62, 60, 62] and S.near(a[1][0], 1700 / 480 * 500, 3) and S.near(a[2][0], 28 * 125, 3) and S.near(a[3][0], 28 * 125 + 1700 / 480 * 500, 3),
+          "it plays: the loop comes round every 28 steps, 3500 ms (%s)" % a[:4])
     print("sgqmid: %d checks, %d failures" % (N[0], len(FAILS)))
     return 1 if FAILS else 0
 

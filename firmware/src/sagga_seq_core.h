@@ -70,8 +70,16 @@ enum {
     SQ_DIV_1_16T,      /*  4 */
     SQ_DIV_1_32,       /*  3 */
     SQ_DIV_1_32T,      /*  2 */
+    /* 0.25 the POLYRHYTHMS: five or seven steps in the time of four - a step is not a number of ticks (sq_div_frac) */
+    SQ_DIV_1_4Q5,      /* 96/5: five steps in the time of four quarters (a 4/4 bar) */
+    SQ_DIV_1_8Q5,      /* 48/5: ... of four eighths */
+    SQ_DIV_1_16Q5,     /* 24/5: ... of four 16ths (a quintuplet of 16ths) */
+    SQ_DIV_1_4Q7,      /* 96/7: seven steps in the time of four quarters */
+    SQ_DIV_1_8Q7,      /* 48/7 */
+    SQ_DIV_1_16Q7,     /* 24/7 */
     SQ_DIV_COUNT
 };
+#define SQ_DIV_PLAIN 13u         /* the divisions that are a number of ticks: 0 .. 12 (a 0.24 firmware reads the others as 1/16) */
 
 enum {
     SQ_COND_ALWAYS = 0,
@@ -141,6 +149,9 @@ enum { SQ_ALGO_OFF = 0,
                                   * over: ghost hits on the rests), b = the ghosts' velocity 10..100 */
        SQ_ALGOS };
 enum { SQ_TM_RHYTHM = 0, SQ_TM_NOTES, SQ_TM_BOTH, SQ_TM_MODES };
+#define SQ_TM_LEN_TRACK 17u      /* 0.25: a TURING's length (b) past 16: TRACK - the register is as long as the track's loop (64 at
+                                  * most), all of the written rhythm its first loop; made longer or shorter with the track (a
+                                  * 0.24 firmware reads it as 16) */
 /* 0.11: a track has SQ_ALGO_SLOTS algorithms, run in order on each step: slot 1 is algo / algo_a / algo_b / algo_c of
  * the track (where 0.10 kept its one algorithm), slots 2..4 are algo2[]. A rhythm algorithm (TURING on the rhythm,
  * CELL) replaces the hits so far, DENSITY thins or fills them, ACCENTs add their velocities, TURINGs on the notes add
@@ -171,7 +182,9 @@ typedef struct __attribute__((packed)) {
 } sq_tape_cfg_t;
 void sq_tape_cfg_default(sq_tape_cfg_t *c);
 void sq_tape_sanitize(sq_project_t *p);
-uint32_t sq_tape_len(const sq_tape_cfg_t *c);                                       /* ticks of the loop */
+uint32_t sq_tape_len(const sq_tape_cfg_t *c);                                       /* ticks of the loop, in bars of sixteen 16ths */
+uint32_t sq_tape_len_bar(const sq_tape_cfg_t *c, uint8_t bar_steps);                /* 0.25: ... in bars of bar_steps 16ths */
+uint32_t sq_tape_len_p(const sq_project_t *p, uint8_t t);                           /* ... of track t: bars of the project's metre */
 uint16_t sq_tape_quantised(uint16_t on, uint8_t quant, uint32_t len);               /* where a start plays */
 /* the events of track t: first index and count (sorted) */
 void sq_tape_range(const sq_project_t *p, uint8_t t, uint16_t *first, uint16_t *n);
@@ -320,7 +333,8 @@ typedef struct __attribute__((packed)) {
 #define SQ_BRK_SWAP(cfg) ((((cfg) ? (cfg) - 1u : 0u) >> 5) & 7u)
 #define SQ_BRK_DEFAULT SQ_BRK_PACK(1u, 2u, 3u)   /* 16 slices, two rolls, the dice swaps about 40 % */
 #define SQ_TRACK_CFG_A 80u       /* the bytes a 0.10 (SGQA) image holds of a track */
-enum { SQ_FM_HOLD = 0, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FMS };   /* 0.11 FOLLOW: HOLD (0.10: the chord at its start), RETRIG, LEGATO (the notes the chords share go on) */
+enum { SQ_FM_HOLD = 0, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FM_MELODY, SQ_FMS };   /* 0.11 FOLLOW: HOLD (0.10: the chord at its start), RETRIG, LEGATO (the notes the chords share go on);
+                                                                              * 0.25 MELODY: a tune stays where it is written, its strong notes go to the chord (sq_harm_melody) */
 /* slot k (0..3) of a track's algorithms (slot 0 is the four bytes algo .. algo_c, laid out like sq_algo_t) */
 #define SQ_ALGO_AT(c, k) ((k) ? &(c)->algo2[(k) - 1u] : (sq_algo_t *)&(c)->algo)
 #define SQ_TF_SCALE  0x01u       /* the track's notes are kept in the project's key (not for drums) */
@@ -565,7 +579,7 @@ typedef struct __attribute__((packed)) {
     uint8_t var;                 /* the variation of the seed it is (0: the seed's own; COOK walks to the next) */
     uint8_t vary;                /* how large that variation is, 0..100 % */
     uint8_t energy;              /* the energy it was made at, 0..100 */
-    uint8_t reserved;
+    uint8_t metre;               /* 0.25: the metre it was made in (sq_metre_id; 0: 4/4) - made again when the bar is another */
 } sq_thpat_t;                    /* 8 bytes */
 #define SQ_THP_STYLE(m) ((uint8_t)(((m)->style & 31u) - 1u))            /* the style of a pattern the engines made */
 #define SQ_THP_LEN(m)   ((uint8_t)(16u << (((m)->style >> 5) & 3u)))    /* 16, 32, 64 */
@@ -647,9 +661,63 @@ typedef struct __attribute__((packed)) {
     /* 0.11 (SGQB; a 0.10 image ends at 24 bytes) */
     uint8_t harm_rhythm;         /* SQ_HR_*: when the chords change (BARS: a chord every harm_bars, as 0.10) */
     uint8_t harm_mood;           /* SQ_MOOD_*: the progressions K2 goes through, and DICE PROG's (ANY: all) */
-    uint8_t reserved11[6];
+    /* 0.25 THE METRE (a 0.11 - 0.24 image has zeros here: 4/4) */
+    uint8_t bar_steps;           /* the bar in 16ths: 0 = 16, else SQ_BAR_MIN .. SQ_BAR_MAX (sq_bar_steps) */
+    uint8_t bar_beats[4];        /* where its beats begin: a bit a step, step 0 = bit 0 of the first byte; all 0: the bar's
+                                  * usual way (sq_bar_beats) */
+    uint8_t reserved11[1];
 } sq_gen_t;                      /* 32 bytes */
 #define SQ_GEN_A 24u             /* the bytes a 0.10 image holds of it */
+
+/* 0.25 THE METRE. Until 0.24 the bar was sixteen 16ths, whatever the tracks' lengths: a length, a pattern, a tool, a
+ * move that waited "for the bar" waited for a multiple of 16 steps, and the engines thought in 4/4. Now the bar is
+ * `steps` 16ths (12: 3/4 or 6/8; 14: 7/8; 20: 5/4) and its BEATS are groups of them: two eighths (a quarter) or three
+ * (a dotted one) in an even bar - 14 steps are 2+2+3, 2+3+2 or 3+2+2 -; quarters and one beat a 16th short or long in
+ * an odd one. `beats` is a mask: bit s set = step s of the bar begins a beat (bit 0 always). */
+#define SQ_BAR_MIN 3u
+#define SQ_BAR_MAX 32u
+#define SQ_BAR_GROUPS 16u        /* the most beats a bar can have (a mask from outside: beats of two steps) */
+#define SQ_BEATS_44 0x1111u      /* 4/4: the sixteen steps in four quarters */
+uint8_t  sq_bar_steps(const sq_gen_t *g);                              /* SQ_BAR_MIN .. SQ_BAR_MAX; 16 for anything else */
+uint32_t sq_bar_beats(const sq_gen_t *g);                              /* the mask, put right (sq_metre_fix) */
+void     sq_bar_set(sq_gen_t *g, uint8_t steps, uint32_t beats);       /* (16 steps in four quarters are written as zeros: an old image's) */
+uint32_t sq_metre_fix(uint8_t steps, uint32_t beats);                  /* bit 0 set, nothing past the bar, no beat of one step; 0 or 1: the usual way */
+uint8_t  sq_metre_options(uint8_t steps);                              /* how many ways a bar of `steps` divides (1 .. 37) */
+uint32_t sq_metre_option(uint8_t steps, uint8_t idx);                  /* the idx-th (0: the usual one), a mask */
+uint8_t  sq_metre_index(uint8_t steps, uint32_t beats);                /* which of them `beats` is; 255: none (a mask from outside) */
+uint8_t  sq_metre_groups(uint8_t steps, uint32_t beats, uint8_t *len); /* the beats' lengths in steps (SQ_BAR_GROUPS places) -> how many */
+uint8_t  sq_metre_beat(uint8_t steps, uint32_t beats, uint32_t s);     /* 1: step s of the bar (any s: taken modulo) begins a beat */
+void     sq_metre_sig(uint8_t steps, uint32_t beats, char *out);       /* "4/4", "7/8", "6/8", "15/16": 6 chars at most + 0 */
+void     sq_metre_split(uint8_t steps, uint32_t beats, char *out);     /* "2+2+3" (eighths), "4+4+4+3/16", "6x2+3": SQ_SPLIT_TEXT - 1 chars at most + 0 */
+#define SQ_SPLIT_TEXT 40u        /* (a mask from outside, sixteen beats of two steps: "2+3+2+3 ..." - the bars' own ways need 16) */
+/* a track's length when the bar changes: one that was a number of bars (from its loop's start) is that many of the
+ * new ones - as many as fit 64 steps -, any other stays -> the new length, or 0: it stays */
+uint8_t  sq_metre_follow(uint8_t len, uint8_t start, uint8_t old_bar, uint8_t new_bar);
+/* RE-BARRING: `bars` bars of sixteen steps made for 4/4 (row[0 .. 16 * bars)) become `bars` bars of the metre, in
+ * place (row has SQ_STEPS steps; bars * steps <= SQ_STEPS). Every beat of the new bar takes a beat of the old one:
+ * the first its first, the last its last (where a pattern turns round), the ones between its second and third in turn
+ * (the backbeat); a beat longer than a quarter has its second eighth again, one shorter loses its end. What is left
+ * of the sixteens after the new bars is cleared. 16 steps in four quarters: nothing changes. */
+void     sq_rebar(sq_step_t *row, uint8_t bars, uint8_t steps, uint32_t beats);
+uint8_t  sq_rebar_src(uint8_t steps, uint32_t beats, uint8_t s);       /* the step of the 16-step bar that step s of the bar takes */
+uint8_t  sq_rebar_len(uint8_t n16, uint8_t steps, uint32_t beats);     /* the steps n16 steps of sixteens are after sq_rebar (n16 itself: 4/4, or not bars) */
+/* for what moves through the bar in time (the harmony's chords): the 16th of a 4/4 bar that step s stands for - never
+ * going back, the beats spread over the four quarters */
+uint8_t  sq_metre_virt16(uint8_t steps, uint32_t beats, uint8_t s);
+/* a number for the metre, to keep with what was made in it: 0 = 4/4 (what every older image says), 1 .. SQ_METRE_IDS the
+ * bars' own ways, 255 a mask from outside */
+#define SQ_METRE_IDS 217u
+uint8_t  sq_metre_id(uint8_t steps, uint32_t beats);
+uint8_t  sq_metre_of(uint8_t id, uint8_t *steps, uint32_t *beats);     /* ... and back; 0: no such number (255: not known) */
+/* THE GRID OF THE BAR, for whoever weighs a step by its place in the bar - the dice and COOK (the beat stays, the
+ * backbeat, the "and", the pickup), DENSITY and the ENERGY (the beat goes last), the accents, the gates, the GROOVE's
+ * sixteen places. They ask sq_g16(i): the 16th of a 4/4 bar that step i of their row stands for - i & 15 in 4/4 (the
+ * way they always counted), in another metre the place re-barring gives it (sq_rebar_src). The machine says which
+ * metre it is when it changes (sq_grid_set; a program that never does is in 4/4); a row that does not begin on a bar
+ * line says which step of the bar its step 0 is (sq_grid_from -> the one it had: put it back after). */
+void     sq_grid_set(uint8_t steps, uint32_t beats);
+uint8_t  sq_grid_from(uint8_t base);
+uint8_t  sq_g16(uint32_t i);
 /* 0.10: a progression written by the player: chords as steps of the key and colours, like the library's.
  * 0.11: a chord may instead be a ROOT a number of semitones above the key's (any of the 12: the bVII, the bII ...)
  * with a SHAPE (the key's own chord there with a colour, or any of the 32 chord shapes), and each its own length in
@@ -905,6 +973,9 @@ typedef struct {
 /* 0.10: where the track is `ticks` clock ticks after its anchor (its first step at tick 0 of the count), the step of
  * `div` ticks: step, div_accum, loop_count, the planes. A RANDOM track keeps its step. Pure. */
 void sq_track_seek(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t ticks, uint32_t div);
+/* 0.25: ... the step of num / den ticks (a polyrhythm: 96/5 ...): div_accum is then how far the track's next step
+ * is, in 1 / den of a tick (under den: it begins before the next tick) */
+void sq_track_seek_frac(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t ticks, uint32_t num, uint32_t den);
 
 /* the length of a parameter's loop (1..64-start) or 0 if it follows the track */
 uint8_t sq_plane_len(const sq_track_cfg_t *c, uint8_t k);
@@ -920,7 +991,11 @@ void sq_plane_compose(const sq_track_cfg_t *c, const sq_track_rt_t *rt, const sq
 
 uint32_t sq_rng_next(uint32_t *state);
 uint32_t sq_hash3(uint32_t a, uint32_t b, uint32_t c);   /* the same three numbers: the same answer */
-uint8_t sq_div_ticks(uint8_t div);
+uint8_t sq_div_ticks(uint8_t div);                     /* the ticks of a step (a polyrhythm's: the whole ticks in it, 4.8 -> 4) */
+/* 0.25: a step is num / den ticks: den 1 for the plain divisions, 5 or 7 for the polyrhythms (num: four of the base
+ * value's steps, 96 / 48 / 24) */
+void sq_div_frac(uint8_t div, uint16_t *num, uint8_t *den);
+uint8_t sq_div_tuplet(uint8_t div);                    /* 0 a plain division; 5 or 7: that many steps in the time of four */
 uint8_t sq_echo_ticks(uint8_t idx);
 /* prev_hit: the step before played (the PRE conditions); FIRST is loop_count 0 */
 uint8_t sq_condition_pass(uint8_t cond, uint32_t loop_count, uint8_t fill, uint8_t prev_hit);
@@ -981,11 +1056,21 @@ uint8_t sq_numeric_index(uint8_t pulses);              /* the base rhythm the pu
 uint16_t sq_numeric_word(uint8_t pulses);              /* its 16 steps, step 1 = the top bit */
 /* its shape as the steps from each hit to the next ("3-3-4-2-4"): at most 13 characters and the 0; returns the end */
 char *sq_numeric_gaps(uint8_t pulses, char *out);
+/* 0.25 NUMERIC FOLLOWS THE BAR AND THE LOOP. The sixteen rhythms are written over 16 steps. In a bar of n steps
+ * (sq_numeric_fit: bit s = step s) every hit falls where it does in proportion - step p of 16 on step p * n / 16: the
+ * son clave over 12 steps is 2-2-3-2-3, the clave of 12/8 - and never two hits in a row (the later one goes). The unit
+ * (sq_numeric_unit) is the metre's bar - the rhythm comes round every bar, the last one cut by the loop, as ever in
+ * 4/4 - or the loop itself when it is shorter than a bar (until 0.24 that was the first steps of the sixteen, cut). */
+uint32_t sq_numeric_fit(uint8_t pulses, uint8_t n);
+uint8_t sq_numeric_unit(uint8_t len);
+char *sq_numeric_gaps_n(uint8_t pulses, uint8_t n, char *out);   /* its shape in n steps: at most 31 characters and the 0 */
 
 /* ---- 0.8 the algorithms' pure parts (dinghy.c keeps their state) */
 /* TURING: the register moves one step: the bit that comes out goes back in at the top, flipped with `mutation` %
  * chance (rnd: 0..99); returns the new register (len bits) */
 uint32_t sq_turing_step(uint32_t reg, uint8_t len, uint8_t mutation, uint32_t rnd);
+uint64_t sq_turing_step64(uint64_t reg, uint8_t len, uint8_t mutation, uint32_t rnd);   /* 0.25: ... up to 64 steps (the same up to 32) */
+uint64_t sq_turing_resize(uint64_t reg, uint8_t old_len, uint8_t new_len);   /* ... a register made new_len long: its loop again in what it has more */
 /* CELL: the next generation of `cells` cells (a ring) under `rule` (Wolfram's numbering); never all empty */
 uint64_t sq_cell_next(uint64_t row, uint8_t cells, uint8_t rule);
 /* 0.23.1: the same, 0 when every cell died; and the row a track plays next: when every cell died the rhythm written on
@@ -1164,6 +1249,14 @@ uint8_t sq_hprog_at(const sq_hprog_t *h, uint32_t pos, sq_hchord_t *c);
  * a shape: every note by its place in the tonic's chord - root, third, fifth, seventh, ninth ... - to that of the shape,
  * the nearest octave, a written chord gets the shape's seventh or ninth when there is room) */
 uint8_t sq_harm_apply_chord(uint8_t *notes, uint8_t n, uint8_t root, uint8_t scale, const sq_hchord_t *c, uint8_t chord);
+/* 0.25 FOLLOW MELODY: the melody knows the chord. A tune is not moved with the chords as a riff is: it stays where it is
+ * written, and its STRONG notes (on a beat of the metre, or longer than a step: the caller says which) go to the nearest
+ * tone of the chord playing; the others play as written, passing notes of the key.
+ * sq_harm_tones: the chord's tones as pitch classes (0..11) - the tonic's triad as FOLLOW moves it there, with the note
+ * its colour adds (a 7th, a 9th, a 6th; a sus has its fourth or second, no third); returns how many (pc: room for
+ * SQ_POLY_OUT). sq_harm_melody: the nearest of them to a note (already in the key); of two as near, the lower one. */
+uint8_t sq_harm_tones(uint8_t root, uint8_t scale, const sq_hchord_t *c, uint8_t *pc);
+uint8_t sq_harm_melody(uint8_t note, uint8_t root, uint8_t scale, const sq_hchord_t *c);
 void sq_hchord_name(uint8_t scale, const sq_hchord_t *c, char *out);   /* "bVII", "iv7", "bIImaj7", "Vsus4" (12 bytes) */
 const char *sq_degree_name(uint8_t semi);                              /* 0.12: "I", "bII" .. "VII" for 0..11 semitones above the key */
 uint8_t sq_hchord_semi(uint8_t scale, const sq_hchord_t *c);    /* its root, semitones above the key's */

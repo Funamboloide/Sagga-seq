@@ -56,9 +56,19 @@ uint8_t sq_div_ticks(uint8_t div)
          6u, /* 1/16 */
          4u, /* 1/16 triplet */
          3u, /* 1/32 */
-         2u  /* 1/32 triplet */
+         2u, /* 1/32 triplet */
+        19u, 9u, 4u,     /* 0.25: five in the time of four quarters / eighths / 16ths: 19.2, 9.6, 4.8 ticks */
+        13u, 6u, 3u      /* ... seven: 13.7, 6.86, 3.43 */
     };
     return T[div < SQ_DIV_COUNT ? div : SQ_DIV_1_16];
+}
+uint8_t sq_div_tuplet(uint8_t div) { return (uint8_t)(div < SQ_DIV_PLAIN || div >= SQ_DIV_COUNT ? 0u : div < SQ_DIV_1_4Q7 ? 5u : 7u); }
+void sq_div_frac(uint8_t div, uint16_t *num, uint8_t *den)
+{
+    static const uint8_t BASE[3] = {96u, 48u, 24u};      /* four quarters, four eighths, four 16ths */
+    uint8_t n = sq_div_tuplet(div);
+    if (!n) { *num = sq_div_ticks(div); *den = 1u; return; }
+    *num = BASE[(div - SQ_DIV_PLAIN) % 3u]; *den = n;
 }
 
 uint8_t sq_condition_pass(uint8_t cond, uint32_t loop_count, uint8_t fill, uint8_t prev_hit)
@@ -155,14 +165,27 @@ uint8_t sq_advance_step(const sq_track_cfg_t *cfg, sq_track_rt_t *rt, uint32_t *
 /* 0.10: the closed form of the loop. After `ticks` ticks from the tick its first step played on, `steps` steps have
  * begun (ceil(ticks / div)); the track is on the steps-th one of its loop. The same arithmetic the engine's counters
  * make, so a track realigned mid-flight lands exactly where it would have been. */
+static void track_seek_steps_(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t steps);
 void sq_track_seek(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t ticks, uint32_t div)
 {
-    uint8_t len = c->length ? c->length : 1u, lo = c->start < len ? c->start : 0u;
-    uint32_t span = (uint32_t)(len - lo), steps, k;
     if (!div) div = 1u;
-    steps = (ticks + div - 1u) / div;
-    k = steps % span;
     rt->div_accum = (uint16_t)((ticks + div - 1u) % div);
+    track_seek_steps_(c, rt, (ticks + div - 1u) / div);
+}
+void sq_track_seek_frac(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t ticks, uint32_t num, uint32_t den)
+{
+    uint32_t steps;
+    if (!num) num = 1u;
+    if (!den) den = 1u;
+    steps = (ticks * den + num - 1u) / num;              /* the steps that began before `ticks` (step k begins at k * num / den) */
+    rt->div_accum = (uint16_t)(steps * num - ticks * den);   /* ... and how far the next one is, in 1 / den of a tick */
+    track_seek_steps_(c, rt, steps);
+}
+static void track_seek_steps_(const sq_track_cfg_t *c, sq_track_rt_t *rt, uint32_t steps)
+{
+    uint8_t len = c->length ? c->length : 1u, lo = c->start < len ? c->start : 0u;
+    uint32_t span = (uint32_t)(len - lo), k;
+    k = steps % span;
     rt->loop_count = steps / span;
     rt->ping_dir = 1;
     rt->advances = 0u;
@@ -423,6 +446,258 @@ void sq_lfo_default(sq_lfo_t *l)
     l->flags = 0u;
 }
 
+/* ---- 0.25 THE METRE (sagga_seq_core.h) */
+static uint32_t metre_mask_(const uint8_t *len, uint8_t k)
+{
+    uint32_t m = 0u, at = 0u;
+    uint8_t i;
+    for (i = 0; i < k && at < 32u; i++) { m |= (uint32_t)1u << at; at += len[i]; }
+    return m;
+}
+/* an even bar: every way of making its eighths of twos and threes, the twos first (14 steps: 2+2+3, 2+3+2, 3+2+2).
+ * *idx counts down to the one asked for; returns how many there are */
+static uint8_t metre_walk_(uint8_t left, uint8_t *part, uint8_t k, int32_t *idx, uint32_t *mask)
+{
+    uint8_t n = 0u;
+    if (!left) { if (*idx == 0) *mask = metre_mask_(part, k); (*idx)--; return 1u; }
+    if (left == 1u || k >= SQ_BAR_GROUPS) return 0u;
+    part[k] = 4u;
+    n = metre_walk_((uint8_t)(left - 2u), part, (uint8_t)(k + 1u), idx, mask);
+    if (left >= 3u) { part[k] = 6u; n = (uint8_t)(n + metre_walk_((uint8_t)(left - 3u), part, (uint8_t)(k + 1u), idx, mask)); }
+    return n;
+}
+/* an odd bar: quarters and one beat a 16th short (4q + 3: a three) or long (4q + 1: a five), in every place, the last
+ * place first; then, when the bar is a number of threes, all threes */
+static uint8_t metre_odd_(uint8_t steps, int32_t idx, uint32_t *mask)
+{
+    uint8_t part[SQ_BAR_GROUPS], q = (uint8_t)(steps / 4u), k, n, i, odd;
+    if (steps % 4u == 3u) { k = (uint8_t)(q + 1u); odd = 3u; }
+    else { k = q ? q : 1u; odd = (uint8_t)(steps - 4u * (k - 1u)); }
+    n = k;
+    if (idx >= 0 && idx < (int32_t)k) {
+        for (i = 0; i < k; i++) part[i] = 4u;
+        part[k - 1u - (uint8_t)idx] = odd;
+        *mask = metre_mask_(part, k);
+    }
+    if (steps % 3u == 0u && steps > 3u) {
+        if (idx == (int32_t)n) { for (i = 0; i < steps / 3u; i++) part[i] = 3u; *mask = metre_mask_(part, (uint8_t)(steps / 3u)); }
+        n++;
+    }
+    return n;
+}
+static uint8_t metre_pick_(uint8_t steps, int32_t idx, uint32_t *mask)
+{
+    uint8_t part[SQ_BAR_GROUPS];
+    uint32_t dummy = 1u;
+    if (!mask) mask = &dummy;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    if (steps & 1u) return metre_odd_(steps, idx, mask);
+    return metre_walk_((uint8_t)(steps / 2u), part, 0u, &idx, mask);
+}
+uint8_t sq_metre_options(uint8_t steps) { return metre_pick_(steps, -1, 0); }
+uint32_t sq_metre_option(uint8_t steps, uint8_t idx)
+{
+    uint32_t m = 1u;
+    if (idx >= metre_pick_(steps, -1, 0)) idx = 0u;
+    metre_pick_(steps, (int32_t)idx, &m);
+    return m;
+}
+uint8_t sq_metre_index(uint8_t steps, uint32_t beats)
+{
+    uint8_t n = sq_metre_options(steps), i;
+    for (i = 0; i < n; i++) if (sq_metre_option(steps, i) == beats) return i;
+    return 255u;
+}
+uint32_t sq_metre_fix(uint8_t steps, uint32_t beats)
+{
+    uint32_t s, prev = 0u;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    if (steps < 32u) beats &= ((uint32_t)1u << steps) - 1u;
+    if (beats <= 1u) return sq_metre_option(steps, 0u);              /* not said: the usual way */
+    beats |= 1u;
+    for (s = 1; s < steps; s++) {
+        if (!(beats & ((uint32_t)1u << s))) continue;
+        if (s - prev < 2u || steps - s < 2u) beats &= ~((uint32_t)1u << s);   /* a beat of one step is no beat */
+        else prev = s;
+    }
+    return beats > 1u ? beats : sq_metre_option(steps, 0u);
+}
+uint8_t sq_bar_steps(const sq_gen_t *g) { return (uint8_t)(g->bar_steps >= SQ_BAR_MIN && g->bar_steps <= SQ_BAR_MAX ? g->bar_steps : 16u); }
+uint32_t sq_bar_beats(const sq_gen_t *g)
+{
+    uint32_t m = (uint32_t)g->bar_beats[0] | (uint32_t)g->bar_beats[1] << 8 | (uint32_t)g->bar_beats[2] << 16 | (uint32_t)g->bar_beats[3] << 24;
+    return sq_metre_fix(sq_bar_steps(g), m);
+}
+void sq_bar_set(sq_gen_t *g, uint8_t steps, uint32_t beats)
+{
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    if (steps == 16u && beats == SQ_BEATS_44) { steps = 0u; beats = 0u; }
+    g->bar_steps = steps;
+    g->bar_beats[0] = (uint8_t)beats; g->bar_beats[1] = (uint8_t)(beats >> 8);
+    g->bar_beats[2] = (uint8_t)(beats >> 16); g->bar_beats[3] = (uint8_t)(beats >> 24);
+}
+uint8_t sq_metre_groups(uint8_t steps, uint32_t beats, uint8_t *len)
+{
+    uint32_t s, prev = 0u;
+    uint8_t k = 0u;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    for (s = 1; s <= steps; s++) {
+        if (s < steps && !(beats & ((uint32_t)1u << s))) continue;
+        if (k < SQ_BAR_GROUPS) len[k++] = (uint8_t)(s - prev);
+        else len[k - 1u] = (uint8_t)(len[k - 1u] + (s - prev));       /* (more beats than places: the last one takes the rest) */
+        prev = s;
+    }
+    return k;
+}
+uint8_t sq_metre_beat(uint8_t steps, uint32_t beats, uint32_t s)
+{
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    return (uint8_t)((sq_metre_fix(steps, beats) >> (s % steps)) & 1u);
+}
+static char *metre_u_(char *p, uint32_t v) { if (v >= 10u) *p++ = (char)('0' + v / 10u); *p++ = (char)('0' + v % 10u); return p; }
+void sq_metre_sig(uint8_t steps, uint32_t beats, char *out)
+{
+    uint8_t len[SQ_BAR_GROUPS], k = sq_metre_groups(steps, beats, len), i, even = 1u, quarters = 1u;
+    char *p = out;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    for (i = 0; i < k; i++) { if (len[i] & 1u) even = 0u; if (len[i] != 4u) quarters = 0u; }
+    if (quarters) { p = metre_u_(p, k); *p++ = '/'; *p++ = '4'; }
+    else if (even) { p = metre_u_(p, steps / 2u); *p++ = '/'; *p++ = '8'; }
+    else { p = metre_u_(p, steps); *p++ = '/'; *p++ = '1'; *p++ = '6'; }
+    *p = 0;
+}
+static uint32_t metre_split_(const uint8_t *len, uint8_t k, uint8_t even, uint8_t minrun, char *out)
+{
+    uint8_t i, j;
+    char *p = out;
+    for (i = 0; i < k; i = j) {                                       /* a run of `minrun` or more the same: "6x2" */
+        uint32_t v = even ? len[i] / 2u : len[i];
+        for (j = (uint8_t)(i + 1u); j < k && len[j] == len[i]; j++) { }
+        if (i) *p++ = '+';
+        if ((uint32_t)(j - i) >= minrun) { p = metre_u_(p, (uint32_t)(j - i)); *p++ = 'x'; p = metre_u_(p, v); }
+        else { p = metre_u_(p, v); j = (uint8_t)(i + 1u); }
+    }
+    if (!even) { *p++ = '/'; *p++ = '1'; *p++ = '6'; }
+    *p = 0;
+    return (uint32_t)(p - out);
+}
+void sq_metre_split(uint8_t steps, uint32_t beats, char *out)
+{
+    uint8_t len[SQ_BAR_GROUPS], k = sq_metre_groups(steps, beats, len), i, even = 1u;
+    for (i = 0; i < k; i++) if (len[i] & 1u) even = 0u;
+    if (metre_split_(len, k, even, 4u, out) > 13u && metre_split_(len, k, even, 3u, out) > 15u)   /* (long: shorter runs fold too) */
+        metre_split_(len, k, even, 2u, out);
+}
+uint8_t sq_metre_follow(uint8_t len, uint8_t start, uint8_t old_bar, uint8_t new_bar)
+{
+    uint32_t span, k;
+    if (len <= start || !old_bar || !new_bar || old_bar == new_bar) return 0u;
+    span = (uint32_t)len - start;
+    if (span % old_bar) return 0u;                                    /* (not a number of bars: the player's polymetre) */
+    k = span / old_bar;
+    while (k && start + k * new_bar > SQ_STEPS) k--;
+    return (uint8_t)(k && start + k * new_bar != len ? start + k * new_bar : 0u);
+}
+/* the beat of the 16-step bar that beat g of k takes: first to first, last to last, second and third in turn between */
+static uint8_t rebar_beat_(uint8_t g, uint8_t k)
+{
+    if (g == 0u) return 0u;
+    if (g + 1u == k) return 3u;
+    return (uint8_t)((g & 1u) ? 1u : 2u);
+}
+uint8_t sq_rebar_src(uint8_t steps, uint32_t beats, uint8_t s)
+{
+    uint8_t len[SQ_BAR_GROUPS], k = sq_metre_groups(steps, beats, len), g, at = 0u, i;
+    for (g = 0; g + 1u < k && s >= (uint8_t)(at + len[g]); g++) at = (uint8_t)(at + len[g]);
+    i = (uint8_t)(s - at);
+    return (uint8_t)(4u * rebar_beat_(g, k) + (i < 4u ? i : 2u + ((i - 4u) & 1u)));
+}
+void sq_rebar(sq_step_t *row, uint8_t bars, uint8_t steps, uint32_t beats)
+{
+    static sq_step_t bar16[16];                                       /* (one bar aside: the new one is written over the old) */
+    uint8_t map[SQ_BAR_MAX], b, s, was;
+    uint32_t i;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    if (!bars || (steps == 16u && beats == SQ_BEATS_44)) return;
+    was = bars;
+    while (bars && (uint32_t)bars * steps > SQ_STEPS) bars--;
+    for (s = 0; s < steps; s++) map[s] = sq_rebar_src(steps, beats, s);
+    for (b = 0; b < bars; b++) {
+        uint8_t at = (uint8_t)(steps > 16u ? bars - 1u - b : b);      /* longer bars: the last one first (nothing read is written yet) */
+        for (s = 0; s < 16u; s++) bar16[s] = row[(uint32_t)at * 16u + s];
+        for (s = 0; s < steps; s++) row[(uint32_t)at * steps + s] = bar16[map[s]];
+    }
+    for (i = (uint32_t)bars * steps; i < (uint32_t)was * 16u && i < SQ_STEPS; i++) sq_step_default(&row[i]);   /* (the bars that did not fit too) */
+}
+uint8_t sq_rebar_len(uint8_t n16, uint8_t steps, uint32_t beats)
+{
+    uint8_t bars = (uint8_t)(n16 / 16u);
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    if (!n16 || (n16 & 15u) || (steps == 16u && sq_metre_fix(16u, beats) == SQ_BEATS_44)) return n16;
+    while (bars && (uint32_t)bars * steps > SQ_STEPS) bars--;
+    return (uint8_t)(bars * steps);
+}
+uint8_t sq_metre_virt16(uint8_t steps, uint32_t beats, uint8_t s)
+{
+    uint8_t len[SQ_BAR_GROUPS], k = sq_metre_groups(steps, beats, len), g, at = 0u, i;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    if (steps == 16u && sq_metre_fix(16u, beats) == SQ_BEATS_44) return (uint8_t)(s & 15u);
+    if (s >= steps) s = (uint8_t)(s % steps);
+    for (g = 0; g + 1u < k && s >= (uint8_t)(at + len[g]); g++) at = (uint8_t)(at + len[g]);
+    i = (uint8_t)(s - at);
+    /* (more beats than four: two of them share a quarter - the second one waits at its end, it does not begin it again) */
+    if (g && ((uint32_t)g * 4u) / k == ((uint32_t)(g - 1u) * 4u) / k) i = 3u;
+    return (uint8_t)(4u * (((uint32_t)g * 4u) / k) + (i < 3u ? i : 3u));
+}
+uint8_t sq_metre_id(uint8_t steps, uint32_t beats)
+{
+    uint32_t id = 1u;
+    uint8_t n, i;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    if (steps == 16u && beats == SQ_BEATS_44) return 0u;
+    i = sq_metre_index(steps, beats);
+    if (i == 255u) return 255u;                                       /* (a mask from outside) */
+    for (n = SQ_BAR_MIN; n < steps; n++) id += sq_metre_options(n);
+    return (uint8_t)(id + i);
+}
+uint8_t sq_metre_of(uint8_t id, uint8_t *steps, uint32_t *beats)
+{
+    uint8_t n;
+    if (!id) { *steps = 16u; *beats = SQ_BEATS_44; return 1u; }
+    if (id > SQ_METRE_IDS) return 0u;
+    id--;
+    for (n = SQ_BAR_MIN; n <= SQ_BAR_MAX; n++) {
+        uint8_t k = sq_metre_options(n);
+        if (id < k) { *steps = n; *beats = sq_metre_option(n, id); return 1u; }
+        id = (uint8_t)(id - k);
+    }
+    return 0u;
+}
+/* the grid of the bar (see the header): 4/4 until someone says otherwise */
+static uint8_t grid_on_, grid_steps_ = 16u, grid_base_;
+static uint8_t grid_src_[SQ_BAR_MAX];
+void sq_grid_set(uint8_t steps, uint32_t beats)
+{
+    uint8_t s;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    grid_base_ = 0u;
+    grid_on_ = (uint8_t)!(steps == 16u && beats == SQ_BEATS_44);
+    grid_steps_ = steps;
+    for (s = 0; s < steps; s++) grid_src_[s] = sq_rebar_src(steps, beats, s);
+}
+uint8_t sq_grid_from(uint8_t base)
+{
+    uint8_t was = grid_base_;
+    grid_base_ = (uint8_t)(grid_on_ ? base % grid_steps_ : 0u);
+    return was;
+}
+uint8_t sq_g16(uint32_t i) { return (uint8_t)(grid_on_ ? grid_src_[(grid_base_ + i) % grid_steps_] : (i & 15u)); }
+
 void sq_gen_default(sq_gen_t *g)
 {
     uint32_t i;
@@ -437,6 +712,7 @@ void sq_gen_default(sq_gen_t *g)
     g->when = SQ_WHEN_NOW; g->every = SQ_EVERY_OFF; g->every_tool = 255u; g->lib_len = SQ_LL_COPY;
     g->harm_genre = 0u; g->harm_lock = 0u; g->harm_free = 0u;
     g->harm_rhythm = SQ_HR_BARS; g->harm_mood = SQ_MOOD_ANY;               /* 0.11 */
+    sq_bar_set(g, 16u, 0u);                                                /* 0.25: 4/4 */
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
 }
 
@@ -518,7 +794,7 @@ static void sanitize_algo(sq_algo_t *s)
     switch (s->algo) {
     case SQ_ALGO_TURING:
         if (s->a > 100u) s->a = 100u;
-        s->b = (uint8_t)clampi(s->b, 2, 16);
+        s->b = (uint8_t)clampi(s->b, 2, (int32_t)SQ_TM_LEN_TRACK);       /* (0.25: 17 = as long as the track's loop) */
         if (s->c >= SQ_TM_MODES) s->c = SQ_TM_RHYTHM;
         break;
     case SQ_ALGO_CELL:
@@ -730,6 +1006,8 @@ void sq_project_sanitize(sq_project_t *p)
         g->harm_free = g->harm_free ? 1u : 0u;      /* (0.16; a 0.15 image: 0) */
         if (g->harm_rhythm >= SQ_HRS) g->harm_rhythm = SQ_HR_BARS;
         if (g->harm_mood >= SQ_MOODS) g->harm_mood = SQ_MOOD_ANY;
+        if (g->bar_steps && (g->bar_steps < SQ_BAR_MIN || g->bar_steps > SQ_BAR_MAX)) sq_bar_set(g, 16u, 0u);   /* 0.25: no bar: 4/4 */
+        else sq_bar_set(g, sq_bar_steps(g), sq_bar_beats(g));                       /* ... the metre as it is read, put right */
         for (n = 0; n < sizeof g->reserved11; n++) g->reserved11[n] = 0u;
     }
     if (p->song.len > SQ_SONG_LEN) p->song.len = 0u;
@@ -1194,6 +1472,28 @@ uint32_t sq_turing_step(uint32_t reg, uint8_t len, uint8_t mutation, uint32_t rn
     return ((reg >> 1) | (out << (len - 1u))) & mask;
 }
 
+uint64_t sq_turing_step64(uint64_t reg, uint8_t len, uint8_t mutation, uint32_t rnd)
+{
+    uint64_t mask, out;
+    if (len < 2u) len = 2u;
+    if (len > 64u) len = 64u;
+    mask = len == 64u ? ~(uint64_t)0u : (((uint64_t)1u << len) - 1u);
+    reg &= mask;
+    out = reg & 1u;
+    if ((rnd % 100u) < mutation) out ^= 1u;
+    return ((reg >> 1) | (out << (len - 1u))) & mask;
+}
+uint64_t sq_turing_resize(uint64_t reg, uint8_t old_len, uint8_t new_len)
+{
+    uint64_t out = 0u;
+    uint32_t i;
+    if (old_len < 1u) old_len = 1u;
+    if (old_len > 64u) old_len = 64u;
+    if (new_len > 64u) new_len = 64u;
+    for (i = 0; i < new_len; i++) if ((reg >> (i % old_len)) & 1u) out |= (uint64_t)1u << i;
+    return out;
+}
+
 /* CELL. One generation of a ring of `cells` cells: cell i of the new row is bit (left << 2 | itself << 1 | right) of
  * the rule (Wolfram's numbering), its left the cell before it (i - 1), its right the cell after it. 0.23.1: all the
  * cells at once - each of the eight neighbourhoods the rule answers 1 to is three masks ANDed (0.8-0.23 went cell by
@@ -1277,10 +1577,10 @@ int32_t sq_accent(uint8_t style, uint8_t amount, uint8_t offset, uint32_t i, uin
     uint32_t j = i + offset;
     switch (style) {
     default:
-    case 0: return (j & 3u) == 0u ? amt : -amt / 3;                        /* BEAT: the quarters */
-    case 1: return (j & 3u) == 2u ? amt : -amt / 4;                        /* OFFBEAT: the eighths between */
+    case 0: return (sq_g16(j) & 3u) == 0u ? amt : -amt / 3;                /* BEAT: the quarters (0.25: the metre's beats) */
+    case 1: return (sq_g16(j) & 3u) == 2u ? amt : -amt / 4;                /* OFFBEAT: the eighths between */
     case 2: return (j % 3u) == 0u ? amt : -amt / 4;                        /* POLY3: every third step, across the bar */
-    case 3: { uint32_t k = j & 7u; return (k == 0u || k == 3u || k == 6u) ? amt : -amt / 3; }   /* SYNC: 3 + 3 + 2 */
+    case 3: { uint32_t k = sq_g16(j) & 7u; return (k == 0u || k == 3u || k == 6u) ? amt : -amt / 3; }   /* SYNC: 3 + 3 + 2 */
     case 4: return (rnd & 3u) == 0u ? amt : 0;                             /* RANDOM */
     }
 }
@@ -1292,15 +1592,15 @@ uint8_t sq_density_hit(uint8_t written, uint8_t density, uint32_t i, uint32_t h,
     if (density == 100u) return written;
     if (density < 100u) {
         if (!written) return 0u;
-        if ((i & 3u) == 0u) return p < 2u * (uint32_t)density ? 1u : 0u;   /* the beat goes last */
+        if ((sq_g16(i) & 3u) == 0u) return p < 2u * (uint32_t)density ? 1u : 0u;   /* the beat goes last */
         return p < density ? 1u : 0u;
     }
     if (written) return 1u;
     {
         uint32_t add = (uint32_t)density - 100u;
         if (add > 100u) add = 100u;
-        if ((i & 3u) == 0u) add /= 2u;                                     /* new hits between the beats first */
-        else if ((i & 3u) == 2u) add = add * 3u / 4u;
+        if ((sq_g16(i) & 3u) == 0u) add /= 2u;                             /* new hits between the beats first */
+        else if ((sq_g16(i) & 3u) == 2u) add = add * 3u / 4u;
         if (p < add) { *ghost = 1u; return 1u; }
     }
     return 0u;
@@ -1395,7 +1695,7 @@ void sq_row_cook(sq_step_t *row, uint8_t len, uint8_t heat, uint32_t *rng)
 
     for (i = 0; i < len; i++) {
         sq_step_t *s = &row[i];
-        uint8_t beat = (i & 3u) == 0u, first = i == 0u;
+        uint8_t beat = (sq_g16(i) & 3u) == 0u, first = i == 0u;
         uint32_t p = first ? 0u : beat ? heat / 10u : heat / 3u;      /* the offbeats move first */
         if (pct(rng) < p) {
             if (s->flags & SQ_STEP_ON) s->flags &= (uint8_t)~SQ_STEP_ON;
@@ -1795,13 +2095,13 @@ void sq_theory_default(sq_theory_t *h)
 void sq_thpat_sanitize(sq_thpat_t *m)
 {
     if (!(m->style & 31u) || (m->style & 31u) > SQ_TH_STYLES || (m->style & 0x80u) || ((m->style >> 5) & 3u) > 2u) {
-        m->seed = 0u; m->style = 0u; m->func = 0u; m->var = 0u; m->vary = 0u; m->energy = 0u; m->reserved = 0u;   /* not the engines': nothing kept */
+        m->seed = 0u; m->style = 0u; m->func = 0u; m->var = 0u; m->vary = 0u; m->energy = 0u; m->metre = 0u;   /* not the engines': nothing kept */
         return;
     }
     if (m->func >= 64u) m->func = 0u;                    /* (the library checks the rest: a part the engines cannot make is not made) */
     if (m->vary > 100u) m->vary = 100u;
     if (m->energy > 100u) m->energy = 100u;
-    m->reserved = 0u;
+    if (m->metre > SQ_METRE_IDS && m->metre != 255u) m->metre = 0u;    /* (0.25: the metre it was made in; 0: 4/4, as every older one) */
 }
 void sq_theory_sanitize(sq_theory_t *h)
 {
@@ -1905,12 +2205,12 @@ const char *sq_groove_name(uint8_t g) { return GROOVE_NAME[g < SQ_GROOVES ? g : 
 int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step)
 {
     if (g >= SQ_GROOVES || !amt) return 0;
-    return ((int32_t)GROOVE_T[g][step & 15u] * (int32_t)(amt > 100u ? 100u : amt)) / 100;
+    return ((int32_t)GROOVE_T[g][sq_g16(step)] * (int32_t)(amt > 100u ? 100u : amt)) / 100;   /* (0.25: the place in the metre's bar) */
 }
 int32_t sq_groove_vel(uint8_t g, uint8_t amt, uint32_t step)
 {
     if (g >= SQ_GROOVES || !amt) return 0;
-    return ((int32_t)GROOVE_V[g][step & 15u] * (int32_t)(amt > 100u ? 100u : amt)) / 100;
+    return ((int32_t)GROOVE_V[g][sq_g16(step)] * (int32_t)(amt > 100u ? 100u : amt)) / 100;
 }
 
 uint32_t sq_rseq_ticks(uint8_t every)
@@ -2360,6 +2660,35 @@ uint8_t sq_harm_apply_chord(uint8_t *notes, uint8_t n, uint8_t root, uint8_t sca
     (void)lo;
     return m;
 }
+uint8_t sq_harm_tones(uint8_t root, uint8_t scale, const sq_hchord_t *c, uint8_t *pc)
+{
+    uint8_t hs = sq_harm_scale(scale), tri[SQ_POLY_OUT], n, k, j, m = 0u;
+    int32_t ri = sq_scale_index(60u, root, hs), base = ri - mod7(ri);   /* the tonic's triad about the middle C */
+    tri[0] = sq_scale_at(base, root, hs);
+    tri[1] = sq_scale_at(base + 2, root, hs);
+    tri[2] = sq_scale_at(base + 4, root, hs);
+    for (k = 3u; k < SQ_POLY_OUT; k++) tri[k] = SQ_NOTE_NONE;
+    n = sq_harm_apply_chord(tri, 3u, root, scale, c, 1u);
+    for (k = 0; k < n; k++) {
+        uint8_t p = (uint8_t)(tri[k] % 12u), dup = 0u;
+        if (tri[k] == SQ_NOTE_NONE) continue;
+        for (j = 0; j < m; j++) if (pc[j] == p) dup = 1u;
+        if (!dup) pc[m++] = p;
+    }
+    return m;
+}
+uint8_t sq_harm_melody(uint8_t note, uint8_t root, uint8_t scale, const sq_hchord_t *c)
+{
+    uint8_t pc[SQ_POLY_OUT], n, k;
+    int32_t best = (int32_t)note, bd = 1000;
+    if (note > 127u) return note;
+    n = sq_harm_tones(root, scale, c, pc);
+    for (k = 0; k < n; k++) {
+        int32_t v = nearest_pc((int32_t)note, (int32_t)pc[k]), d = v > (int32_t)note ? v - (int32_t)note : (int32_t)note - v;
+        if (d < bd || (d == bd && v < best)) { bd = d; best = v; }
+    }
+    return (uint8_t)best;
+}
 uint8_t sq_hchord_quality(uint8_t scale, const sq_hchord_t *c, uint8_t *ext)
 {
     uint8_t hs = sq_harm_scale(scale), sh;
@@ -2587,7 +2916,7 @@ void sq_row_evolve_notes(sq_step_t *row, uint8_t len, uint8_t amount, uint8_t ro
     if (center > 115u || center < 12u) center = 60u;
     for (i = 0; i < len; i++) {
         sq_step_t *s = &row[i];
-        uint8_t cnt = 0u, strong = (i & 3u) == 0u, v;
+        uint8_t cnt = 0u, strong = (sq_g16(i) & 3u) == 0u, v;
         for (n = 0; n < SQ_POLY; n++) if (s->note[n] != SQ_NOTE_NONE) cnt++;
         if (!(s->flags & SQ_STEP_ON) || !(s->flags & SQ_STEP_SET) || !cnt) continue;
         if ((s->flags & SQ_STEP_LOCK) || pct(rng) >= amount) {
@@ -2767,6 +3096,7 @@ static void rd_gen(rd_t *r, sq_gen_t *g, uint8_t old)
     if (!old) { rd_get(r, g, sizeof *g); return; }
     rd_get(r, g, SQ_GEN_A);
     g->harm_rhythm = SQ_HR_BARS; g->harm_mood = SQ_MOOD_ANY;
+    sq_bar_set(g, 16u, 0u);
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
 }
 
@@ -3032,7 +3362,7 @@ int sq_image_track_th(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, s
     int rc;
     uint32_t i;
     if (t >= SQ_TRACKS || pat >= SQ_PATTERNS) return -1;
-    if (th) { th->seed = 0u; th->style = 0u; th->func = 0u; th->var = 0u; th->vary = 0u; th->energy = 0u; th->reserved = 0u; }
+    if (th) { th->seed = 0u; th->style = 0u; th->func = 0u; th->var = 0u; th->vary = 0u; th->energy = 0u; th->metre = 0u; }
     rc = sq_parse(in, len, 0, t, pat, cfg, row, th);
     if (rc) return rc;
     if (th) sq_thpat_sanitize(th);
@@ -3418,12 +3748,15 @@ static void tape_zero_tail(sq_project_t *p)             /* the slots past tape_n
     for (i = p->tape_n; i < SQ_TAPE_MAX; i++) { p->tape_ev[i].on = 0u; p->tape_ev[i].dur = 0u; p->tape_ev[i].note = 0u; p->tape_ev[i].vel = 0u; }
 }
 
-uint32_t sq_tape_len(const sq_tape_cfg_t *c)
+uint32_t sq_tape_len_bar(const sq_tape_cfg_t *c, uint8_t bar_steps)
 {
     uint32_t b = c->bars ? c->bars : 1u;
     if (b > SQ_TAPE_BARS_MAX) b = SQ_TAPE_BARS_MAX;
-    return b * SQ_TAPE_BAR;
+    if (bar_steps < SQ_BAR_MIN || bar_steps > SQ_BAR_MAX) bar_steps = 16u;
+    return b * bar_steps * (SQ_TAPE_PPQ / 4u);           /* (16 bars of 32 steps: 49152, a 16-bit place still) */
 }
+uint32_t sq_tape_len(const sq_tape_cfg_t *c) { return sq_tape_len_bar(c, 16u); }
+uint32_t sq_tape_len_p(const sq_project_t *p, uint8_t t) { return sq_tape_len_bar(&p->track[t < SQ_TRACKS ? t : 0u].tape, sq_bar_steps(&p->gen)); }
 
 uint16_t sq_tape_quantised(uint16_t on, uint8_t quant, uint32_t len)
 {
@@ -3458,7 +3791,7 @@ void sq_tape_sanitize(sq_project_t *p)
     }
     if (p->tape_n > SQ_TAPE_MAX) p->tape_n = SQ_TAPE_MAX;
     for (t = 0; t < SQ_TRACKS; t++) {                     /* the counts must add up; the events must be sound and in order */
-        uint32_t len = sq_tape_len(&p->track[t].tape), n = p->tape_cnt[t], kept = 0u, last = 0u;
+        uint32_t len = sq_tape_len_p(p, (uint8_t)t), n = p->tape_cnt[t], kept = 0u, last = 0u;   /* (0.25: bars of the project's metre) */
         if (f + n > p->tape_n) n = p->tape_n - f;
         for (i = f; i < f + n; i++) {
             sq_tape_ev_t e = p->tape_ev[i];
@@ -3482,7 +3815,7 @@ int sq_tape_add(sq_project_t *p, uint8_t t, uint16_t on, uint16_t dur, uint8_t n
     uint32_t i, at, len;
     sq_tape_ev_t e;
     if (t >= SQ_TRACKS || p->tape_n >= SQ_TAPE_MAX) return -1;
-    len = sq_tape_len(&p->track[t].tape);
+    len = sq_tape_len_p(p, t);
     if (on >= len) on = (uint16_t)(on % len);
     if (!dur) dur = 1u;
     if (dur > len) dur = (uint16_t)len;
@@ -3524,7 +3857,7 @@ void sq_tape_shift(sq_project_t *p, uint8_t t, int32_t d)
     uint16_t first, n;
     uint32_t i, len, j;
     if (t >= SQ_TRACKS || !d) return;
-    len = sq_tape_len(&p->track[t].tape);
+    len = sq_tape_len_p(p, t);
     sq_tape_range(p, t, &first, &n);
     d %= (int32_t)len;
     if (d < 0) d += (int32_t)len;
@@ -3685,19 +4018,39 @@ static const uint16_t NUMERIC_BASE[SQ_NUMERIC_RHYTHMS] = {
 uint8_t sq_numeric_index(uint8_t pulses) { return (uint8_t)((pulses ? pulses - 1u : 0u) % SQ_NUMERIC_RHYTHMS); }
 uint16_t sq_numeric_word(uint8_t pulses) { return NUMERIC_BASE[sq_numeric_index(pulses)]; }
 
-char *sq_numeric_gaps(uint8_t pulses, char *out)
+uint32_t sq_numeric_fit(uint8_t pulses, uint8_t n)
 {
     uint16_t w = sq_numeric_word(pulses);
+    uint32_t m = 0u, p, last = 0u;
+    if (!n) return 0u;
+    if (n > 32u) n = 32u;
+    for (p = 0; p < 16u; p++) {
+        uint32_t s;
+        if (!((w >> (15u - p)) & 1u)) continue;
+        s = p * n / 16u;                                    /* where it falls in proportion */
+        if (m && s <= last + 1u) continue;                  /* (on the hit before it, or next to it: that one stays) */
+        m |= (uint32_t)1u << s; last = s;
+    }
+    if (n > 2u && (m & 1u) && ((m >> (n - 1u)) & 1u)) m &= ~((uint32_t)1u << (n - 1u));   /* (the last would touch the first of the next round) */
+    return m;
+}
+uint8_t sq_numeric_unit(uint8_t len) { return (uint8_t)(len >= grid_steps_ ? grid_steps_ : len ? len : 1u); }
+char *sq_numeric_gaps_n(uint8_t pulses, uint8_t n, char *out)
+{
+    uint32_t m = sq_numeric_fit(pulses, n);
     uint8_t i, last = 0u, any = 0u;
-    for (i = 1u; i <= 16u; i++) {                         /* (step 16 = the first step again) */
-        if (!((w >> (15u - i % 16u)) & 1u)) continue;
+    if (n > 32u) n = 32u;
+    for (i = 1u; i <= n; i++) {                           /* (step n = the first step again) */
+        if (!((m >> (i % n)) & 1u)) continue;
         if (any) *out++ = '-';
-        *out++ = (char)('0' + (i - last));
+        if ((uint32_t)(i - last) >= 10u) *out++ = (char)('0' + (uint32_t)(i - last) / 10u);
+        *out++ = (char)('0' + (uint32_t)(i - last) % 10u);
         last = i; any = 1u;
     }
     *out = 0;
     return out;
 }
+char *sq_numeric_gaps(uint8_t pulses, char *out) { return sq_numeric_gaps_n(pulses, 16u, out); }
 
 void sq_rhythm(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *bits)
 {
@@ -3715,8 +4068,9 @@ void sq_rhythm(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uint8_t *b
         }
         for (i = 0; i < len; i++) bits[(i + rot) % len] = tmp[i];
     } else if (fam == SQ_RF_NUMERIC) {                    /* 0.23.1: one of the sixteen base rhythms, repeated over the steps */
-        uint16_t w = sq_numeric_word(pulses);
-        for (i = 0; i < len; i++) bits[(i + rot) % len] = (uint8_t)((w >> (15u - i % 16u)) & 1u);
+        uint8_t n = sq_numeric_unit(len);                 /* 0.25: ... fit to the metre's bar, or to a loop shorter than one */
+        uint32_t m = sq_numeric_fit(pulses, n);
+        for (i = 0; i < len; i++) bits[(i + rot) % len] = (uint8_t)((m >> (i % n)) & 1u);
     } else sq_euclid(pulses, len, rot, bits);
 }
 
@@ -3726,8 +4080,10 @@ uint8_t sq_rhythm_hit(uint8_t fam, uint8_t pulses, uint8_t len, uint8_t rot, uin
     if (fam == SQ_RF_EUCLID) return sq_euclid_hit(pulses, len, rot, i);
     if (len > SQ_STEPS) len = SQ_STEPS;                     /* (as sq_rhythm does: bits[] has SQ_STEPS places) */
     if (!len || i >= len) return 0u;
-    if (fam == SQ_RF_NUMERIC)                               /* (step i plays step i - rot of the rhythm) */
-        return (uint8_t)((sq_numeric_word(pulses) >> (15u - ((uint32_t)i + len - rot % len) % len % 16u)) & 1u);
+    if (fam == SQ_RF_NUMERIC) {                             /* (step i plays step i - rot of the rhythm) */
+        uint8_t n = sq_numeric_unit(len);
+        return (uint8_t)((sq_numeric_fit(pulses, n) >> (((uint32_t)i + len - rot % len) % len % n)) & 1u);
+    }
     sq_rhythm(fam, pulses, len, rot, bits);
     return bits[i];
 }
@@ -3753,30 +4109,31 @@ void sq_row_cook_role(sq_step_t *row, uint8_t len, uint8_t heat, uint8_t role, u
     if (!len) return;
     if (role == SQ_ROLE_NONE || role >= SQ_ROLE_COUNT) { sq_row_cook(row, len, heat, rng); return; }
     role = sq_role_family(role);                         /* 0.11: a CLAP cooks as a SNARE, a PAD as a CHORD ... */
-    for (i = 0; i < len; i += 4u)                        /* the root of a melodic part: its lowest note on a beat (a pickup below it is not the root) */
-        if ((row[i].flags & SQ_STEP_ON) && row[i].note[0] < lowest) lowest = row[i].note[0];
+    for (i = 0; i < len; i++)                            /* the root of a melodic part: its lowest note on a beat (a pickup below it is not the root) */
+        if (!(sq_g16(i) & 3u) && (row[i].flags & SQ_STEP_ON) && row[i].note[0] < lowest) lowest = row[i].note[0];
     if (lowest > 127u) for (i = 0; i < len; i++) if ((row[i].flags & SQ_STEP_ON) && row[i].note[0] < lowest) lowest = row[i].note[0];
     for (i = 0; i < len; i++) {
         sq_step_t *s = &row[i];
-        uint8_t beat = (uint8_t)(i % 4u == 0u), on = (uint8_t)((s->flags & SQ_STEP_ON) != 0u);
+        uint8_t g = sq_g16(i);                           /* 0.25: where the step is in a 4/4 bar - in another metre, the place it stands for */
+        uint8_t beat = (uint8_t)((g & 3u) == 0u), on = (uint8_t)((s->flags & SQ_STEP_ON) != 0u);
         if (s->flags & SQ_STEP_LOCK) continue;
         switch (role) {
         case SQ_ROLE_KICK:                                /* the beats stay; pickups before them come and go */
             if (beat) { if (on) s->velocity = (uint8_t)clampi((int32_t)s->velocity + (int32_t)(pct(rng) % 9u) - 4, 90, 127); break; }
-            if (!on && (i % 4u == 3u || i % 4u == 2u) && pct(rng) < h / 4u) row_on(s, (uint8_t)(70u + pct(rng) % 20u));
+            if (!on && (g & 3u) >= 2u && pct(rng) < h / 4u) row_on(s, (uint8_t)(70u + pct(rng) % 20u));
             else if (on && pct(rng) < h / 3u) s->flags &= (uint8_t)~SQ_STEP_ON;
             break;
         case SQ_ROLE_SNARE:                               /* the backbeat stays; ghosts and rolls around it */
-            if (i % 8u == 4u) { if (on && pct(rng) < h / 2u) s->ratchet = (uint8_t)(pct(rng) < 30u ? 2u : 1u); break; }
-            if (!on && (i & 1u) && pct(rng) < h / 3u) { row_on(s, (uint8_t)(28u + pct(rng) % 18u)); s->length = 40u; }
+            if ((g & 7u) == 4u) { if (on && pct(rng) < h / 2u) s->ratchet = (uint8_t)(pct(rng) < 30u ? 2u : 1u); break; }
+            if (!on && (g & 1u) && pct(rng) < h / 3u) { row_on(s, (uint8_t)(28u + pct(rng) % 18u)); s->length = 40u; }
             else if (on && s->velocity < 60u && pct(rng) < h / 2u) s->flags &= (uint8_t)~SQ_STEP_ON;
-            if (!on && i % 8u == 3u && h >= 60u && pct(rng) < h / 3u) { row_on(s, 60u); s->ratchet = 3u; s->ramp = 60; }   /* a roll into the backbeat */
+            if (!on && (g & 7u) == 3u && h >= 60u && pct(rng) < h / 3u) { row_on(s, 60u); s->ratchet = 3u; s->ramp = 60; }   /* a roll into the backbeat */
             break;
         case SQ_ROLE_HAT:                                 /* offbeats open, accents move, ratchets at heat */
             if (on) {
-                if (pct(rng) < h / 2u) s->velocity = (uint8_t)((i & 2u) ? 64u + pct(rng) % 30u : 96u + pct(rng) % 32u);
+                if (pct(rng) < h / 2u) s->velocity = (uint8_t)((g & 2u) ? 64u + pct(rng) % 30u : 96u + pct(rng) % 32u);
                 if (pct(rng) < h / 5u) s->ratchet = (uint8_t)(2u + pct(rng) % 2u); else if (pct(rng) < h / 4u) s->ratchet = 1u;
-                if (i % 4u == 2u && pct(rng) < h / 4u) s->length = (uint8_t)(s->length >= 90u ? 40u : 100u);   /* an open hat on the "and" */
+                if ((g & 3u) == 2u && pct(rng) < h / 4u) s->length = (uint8_t)(s->length >= 90u ? 40u : 100u);   /* an open hat on the "and" */
             } else if (pct(rng) < h / 4u) { row_on(s, (uint8_t)(50u + pct(rng) % 30u)); s->length = 30u; }
             break;
         case SQ_ROLE_PERC:                                /* syncopation: hits slide a step, come and go */
@@ -3792,7 +4149,7 @@ void sq_row_cook_role(sq_step_t *row, uint8_t len, uint8_t heat, uint8_t role, u
                 uint32_t r = pct(rng);
                 s->note[0] = r < 50u ? sq_scale_degree(lowest, root, scale, 4) : r < 80u ? (uint8_t)clampi((int32_t)lowest + 12, 0, 127) : lowest;
             }
-            if (!on && i + 1u < len && (i + 1u) % 4u == 0u && pct(rng) < h / 4u) {   /* a pickup into the beat */
+            if (!on && i + 1u < len && (sq_g16(i + 1u) & 3u) == 0u && pct(rng) < h / 4u) {   /* a pickup into the beat */
                 row_on(s, (uint8_t)(80u + pct(rng) % 20u)); s->note[0] = sq_scale_degree(lowest, root, scale, pct(rng) < 50u ? -1 : 4); s->length = 50u;
             } else if (on && !beat && pct(rng) < h / 5u) s->flags &= (uint8_t)~SQ_STEP_ON;
             if (on && pct(rng) < h / 3u) s->length = (uint8_t)(30u + pct(rng) % 60u);
@@ -3826,7 +4183,8 @@ static uint8_t step_same(const sq_step_t *a, const sq_step_t *b)
 }
 static uint8_t place_weight(uint32_t i)                  /* how weak a place is: 3 a 16th, 2 an "and", 1 a beat, 0 the one */
 {
-    return (uint8_t)(i % 16u == 0u ? 0u : i % 4u == 0u ? 1u : i % 2u == 0u ? 2u : 3u);
+    uint8_t g = sq_g16(i);                               /* (0.25: by the place in the metre's bar) */
+    return (uint8_t)(g == 0u ? 0u : (g & 3u) == 0u ? 1u : (g & 1u) == 0u ? 2u : 3u);
 }
 uint8_t sq_gate_steps(uint8_t steps)
 {
@@ -3894,8 +4252,8 @@ void sq_row_phrase_gates(sq_step_t *row, uint8_t len, uint8_t role, uint8_t heat
             break;
         default:
             if (fam == SQ_ROLE_BASS) {                   /* on the beat long (to the next note), between short; now and then a slide */
-                if (i % 4u == 0u && gap >= 2u && sq_rng_next(rng) % 100u < 40u + h / 2u) s->length = sq_gate_steps((uint8_t)(gap > 4u ? 4u : gap));
-                else s->length = (uint8_t)(i % 2u ? 35u + sq_rng_next(rng) % 25u : 60u + sq_rng_next(rng) % 30u);
+                if ((sq_g16(i) & 3u) == 0u && gap >= 2u && sq_rng_next(rng) % 100u < 40u + h / 2u) s->length = sq_gate_steps((uint8_t)(gap > 4u ? 4u : gap));
+                else s->length = (uint8_t)((sq_g16(i) & 1u) ? 35u + sq_rng_next(rng) % 25u : 60u + sq_rng_next(rng) % 30u);
                 if (gap == 1u && sq_rng_next(rng) % 100u < h / 4u) s->flags |= SQ_STEP_TIE;
             } else if (fam == SQ_ROLE_CHORD) {           /* CHORD, PIANO: a stab or a held chord, a little of both */
                 if (gap >= 3u && sq_rng_next(rng) % 100u < 35u + h / 3u) s->length = sq_gate_steps((uint8_t)(gap - 1u));

@@ -536,7 +536,8 @@ static void ui_build(void)
             ui_cell(0, (rdy ? SLOTR : SLOT)[algo_k(selected_track)], ALGO_NAME[a], rdy ? C_WHITE : a ? C_ACCENT : SQ_C_DIM);
             switch (a) {
             case SQ_ALGO_TURING:
-                ui_cell(1, "MUTATION", f_pct(al->a), C_WHITE); ui_cell(2, "LENGTH", f_u(al->b), C_WHITE);
+                ui_cell(1, "MUTATION", f_pct(al->a), C_WHITE);
+                ui_cell(2, "LENGTH", al->b >= SQ_TM_LEN_TRACK ? "TRACK" : f_u(al->b), al->b >= SQ_TM_LEN_TRACK ? C_ACCENT : C_WHITE);   /* (0.25: as long as the track) */
                 ui_cell(3, "MOVES", TM[al->c < SQ_TM_MODES ? al->c : 0u], C_WHITE); break;
             case SQ_ALGO_CELL:
                 ui_cell(1, "RULE", f_u(al->a), C_WHITE); ui_cell(2, "CELLS", f_u(al->b), C_WHITE);
@@ -684,7 +685,8 @@ static void ui_build(void)
             ui_cell(1, g->harm_mood ? sq_mood_name(g->harm_mood) : "PROGRESSION", b, g->harm_on ? C_ACCENT : C_WHITE);
             if (g->harm_rhythm != SQ_HR_BARS) ui_cell(2, "RHYTHM", sq_hrhythm_name(g->harm_rhythm == SQ_HR_GENRE ? sq_genre_hrhythm(g->harm_genre) : g->harm_rhythm), C_ACCENT);
             else ui_cell(2, "BARS A CHORD", BB[g->harm_bars <= 8u ? g->harm_bars : 0u], C_WHITE);
-            ui_cell(3, cfg->follow_mode == SQ_FM_RETRIG ? "FOLLOW RETRIG" : cfg->follow_mode == SQ_FM_LEGATO ? "FOLLOW LEGATO" : "FOLLOW",
+            ui_cell(3, cfg->follow_mode == SQ_FM_RETRIG ? "FOLLOW RETRIG" : cfg->follow_mode == SQ_FM_LEGATO ? "FOLLOW LEGATO" :
+                       cfg->follow_mode == SQ_FM_MELODY ? "FOLLOW MELODY" : "FOLLOW",
                     f_onoff(cfg->flags & SQ_TF_FOLLOW), (cfg->flags & SQ_TF_FOLLOW) ? C_ON : SQ_C_DIM);
             {   sq_hchord_t hc;                         /* the chord playing, and which one of the progression */
                 uint8_t hi = 0u;
@@ -704,7 +706,7 @@ static void ui_build(void)
             ui_line(2, b, C_WARN);
         } else if (arp_page == 3u) {                 /* HARMONY 2: FOLLOW's way, the harmony's genre, the mood, the rhythm */
             const sq_gen_t *g = &project.gen;
-            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO"};
+            static const char *const FMN[SQ_FMS] = {"HOLD", "RETRIG", "LEGATO", "MELODY"};   /* (0.25 MELODY: a tune that knows the chord) */
             ui_cell(0, "FOLLOW MODE", FMN[cfg->follow_mode < SQ_FMS ? cfg->follow_mode : 0u], (cfg->flags & SQ_TF_FOLLOW) ? C_ACCENT : SQ_C_DIM);
             ui_cell(1, "HARM GENRE", g->harm_free ? "FREE" : sq_genre_name(g->harm_genre), g->harm_lock ? C_WARN : C_ACCENT);   /* (0.16 FREE) */
             ui_cell(2, "MOOD", g->harm_mood ? sq_mood_name(g->harm_mood) : "ANY", g->harm_mood ? C_ACCENT : SQ_C_DIM);
@@ -751,8 +753,20 @@ static void ui_build(void)
             ui_cell(1, len_pend[selected_track] ? "LENGTH>BAR" : "LENGTH", f_u(len_shown(selected_track)), len_pend[selected_track] ? C_WARN : C_WHITE);
             ui_cell(2, "SCALE", sq_scale_name(project.key_scale), project.key_scale ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "MUTE QUEUE", f_onoff(project.live.mute_q), project.live.mute_q ? C_ACCENT : SQ_C_DIM);
-            p = b; p = put_s(p, pp != perf_page ? "PERF+SEL TRACK LIVE  T" : "GLO 2/3 TRACK LIVE  T"); p = put_u(p, t + 1u); finish(p);
+            p = b; p = put_s(p, pp != perf_page ? "PERF+SEL TRACK LIVE  T" : "GLO 2/4 TRACK LIVE  T"); p = put_u(p, t + 1u); finish(p);
             ui_line(2, b, C_WARN);
+        } else if (pp == 3u) {                       /* 0.25 THE METRE: the bar in steps, its beats; what it is called; where it is */
+            char sig[8], spl[SQ_SPLIT_TEXT];
+            uint8_t st = bar_shown(), wait = bar_pend_steps ? 1u : 0u;
+            uint32_t bt = beats_shown();
+            sq_metre_sig(st, bt, sig); sq_metre_split(st, bt, spl);
+            ui_cell(0, wait ? "BAR >" : "BAR", f_u(st), wait ? C_WARN : st != 16u ? C_ACCENT : C_WHITE);
+            ui_cell(1, wait ? "BEATS >" : "BEATS", spl, wait ? C_WARN : bt != sq_metre_option(st, 0u) ? C_ACCENT : C_WHITE);
+            ui_cell(2, "METRE", sig, st != 16u || bt != SQ_BEATS_44 ? C_ACCENT : SQ_C_DIM);
+            p = b; if (playing) { p = put_u(p, bar_no() + 1u); p = put_s(p, "."); p = put_u(p, bar_into() / 6u + 1u); } else p = put_s(p, "--"); finish(p);
+            ui_cell(3, "BAR.STEP", b, playing && bar_into() < 6u ? C_WARN : C_WHITE);
+            p = b; p = put_s(p, perf_mode ? "PERF 4/4 METRE " : "GLO 4/4 METRE "); p = put_s(p, sig); p = put_s(p, " = "); p = put_s(p, spl); finish(p);
+            ui_line(2, b, C_WARN);                    /* (the beats in full: the cell holds nine letters) */
         } else if (pp == 2u) {                       /* 0.17 the MOSSE: the energy, the phrase, the genre and key (queued) */
             static const char *const VQ2[SQ_VQS] = {"PHRASE", "BAR", "BEAT"};
             int32_t gq = vg_genre_shown(), kq = vg_key_shown();
@@ -762,7 +776,7 @@ static void ui_build(void)
             ui_cell(1, "PHRASE BAR", b, vg_bar + 1u == vg_bars() ? C_WARN : C_WHITE);
             ui_cell(2, gq != (int32_t)vg_set_genre_cur() ? "GENRE >" : "GENRE", sq_set_genre((uint8_t)gq)->name, gq != (int32_t)vg_set_genre_cur() ? C_WARN : C_ACCENT);
             ui_cell(3, kq != (int32_t)project.key_root ? "KEY >" : "KEY", sq_root_name((uint8_t)kq), kq != (int32_t)project.key_root ? C_WARN : project.key_scale ? C_ACCENT : SQ_C_DIM);
-            p = b; p = put_s(p, perf_mode ? "PERF 3/3 MOSSE  AT " : "GLO 3/3 MOSSE  AT "); p = put_s(p, VQ2[project.viaggio.quant < SQ_VQS ? project.viaggio.quant : 0u]);
+            p = b; p = put_s(p, perf_mode ? "PERF 3/4 MOSSE  AT " : "GLO 3/4 MOSSE  AT "); p = put_s(p, VQ2[project.viaggio.quant < SQ_VQS ? project.viaggio.quant : 0u]);
             if (vg_rec_t < SQ_TRACKS) p = put_s(p, " LOOP REC");
             finish(p);
             ui_line(2, b, C_WARN);
@@ -772,7 +786,7 @@ static void ui_build(void)
             ui_cell(1, "MORPH TO", f_pre("SCENE ", (uint32_t)project.live.morph_b + 1u), C_WHITE);
             ui_cell(2, ktrans_pend != SQ_KT_NONE ? "TRANSPOSE >" : "TRANSPOSE", f_i(kt), ktrans_pend != SQ_KT_NONE ? C_WARN : kt ? C_ACCENT : SQ_C_DIM);
             ui_cell(3, "QUANTISE", QUANT_NAME[project.live.quant < SQ_QUANTS ? project.live.quant : 0u], project.live.quant ? C_ACCENT : C_WHITE);
-            p = b; p = put_s(p, perf_mode ? "PERF SCENE " : "GLO 1/3 SCENE "); p = put_u(p, (uint32_t)scene_cursor + 1u);
+            p = b; p = put_s(p, perf_mode ? "PERF SCENE " : "GLO 1/4 SCENE "); p = put_u(p, (uint32_t)scene_cursor + 1u);
             p = put_s(p, pending_scene < SQ_SCENES ? " QUEUED" : "");
             if (project.live.mute_q) p = put_s(p, " MQ");
             if (project.song.len) { p = put_s(p, " SONG:"); p = put_u(p, project.song.len); }

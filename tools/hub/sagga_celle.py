@@ -56,8 +56,10 @@ class HubAPI:
 
 
 def is_fm1(name):
+    """the FM-1 by its USB name - not its update loader ("Felucca Update", 0.25: while a firmware is being installed the
+    device there is the loader, with one port, the installer's: no cell of a page belongs on it)"""
     n = (name or "").lower()
-    return "felucca" in n or "fm-1" in n
+    return ("felucca" in n or "fm-1" in n) and "update" not in n
 
 
 def is_launchpad(d):

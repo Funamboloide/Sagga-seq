@@ -29,7 +29,7 @@ CH14_CCS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11} | set(range(12, 20)) | set(range(
            set(range(80, 85)) | {85, 86, 87, 88, 89} | set(range(90, 106)) | set(range(106, 114)) | set(range(114, 120))
 CH13_CCS = set(range(1, 33)) | set(range(33, 49)) | set(range(49, 65)) | set(range(65, 76)) | set(range(76, 92)) | set(range(92, 98)) | \
            set(range(101, 107)) | set(range(107, 119))
-CH12_CCS = set(range(1, 33)) | set(range(40, 60))                      # 0.18: the LIVE page (sagga_tablet.c); 0.23: 56-59, the THEORY engines
+CH12_CCS = set(range(1, 33)) | set(range(40, 62))                      # 0.18: the LIVE page (sagga_tablet.c); 0.23: 56-59, the THEORY engines; 0.25: 60, 61 SHORTER / LONGER
 PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
 
 
@@ -182,7 +182,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -262,6 +262,9 @@ def structural():
     th = {n: (c.channel, c.cc) for c in cells for n in [c.param.name] if n in ("source", "next_seed", "seed", "variation")}
     check(th == {"source": (11, 56), "next_seed": (11, 57), "seed": (11, 58), "variation": (11, 59)} and all(re.search(r"case %du:(?:\s*/\*.*?\*/)?\s*th_knobs\(" % cc, fwsrc) for cc in (56, 57, 58, 59)),
           "SAGGA Live: SOURCE, NEXT SEED, SEED, VARIATION on channel 12 CC 56-59, which the FM-1 takes (%s)" % th)
+    ln = {n: (c.channel, c.cc, c.param.trigger) for c in cells for n in [c.param.name] if n in ("shorter", "longer")}
+    check(ln == {"shorter": (11, 60, True), "longer": (11, 61, True)} and re.search(r"case 60u: lengths_ask\(-1\);", fwsrc) and re.search(r"case 61u: lengths_ask\(1\);", fwsrc),
+          "SAGGA Live (0.25): SHORTER and LONGER, two taps on channel 12 CC 60 / 61, which the FM-1 takes (%s)" % ln)
     check(d["seed"].max == 127 and m.SEED_LABELS[0] == "1" and m.SEED_LABELS[127] == "128" and d["variation"].max == 99,
           "SAGGA Live: the seeds are shown from 1 as on the FM-1, the variation 0-99")
     hdr = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.h")).read()
