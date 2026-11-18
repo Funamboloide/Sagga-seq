@@ -2859,6 +2859,30 @@ static void test_v026_click(void)
     }
 }
 
+/* 0.27: EVOLVE's RETURN - an older image (no RETURN) takes it from DRIFT's switch; a RETURN set moves the switch with it */
+static void test_v027_return(void)
+{
+    static sq_project_t p, b;
+    static uint8_t img[60000];
+    uint32_t n;
+    sq_project_init(&p);
+    CHECK(p.ext.evo_ret == 0u && sq_evo_return(&p.ext, &p.gen) == 100u);        /* new: EVOLVE as ever */
+    p.gen.evo_drift = 1u; CHECK(sq_evo_return(&p.ext, &p.gen) == 0u);           /* an old project with DRIFT on: 0, DRIFT */
+    sq_evo_return_set(&p.ext, &p.gen, 60u);
+    CHECK(p.ext.evo_ret == 61u && p.gen.evo_drift == 0u && sq_evo_return(&p.ext, &p.gen) == 60u);
+    sq_evo_return_set(&p.ext, &p.gen, 30u);
+    CHECK(p.ext.evo_ret == 31u && p.gen.evo_drift == 1u && sq_evo_return(&p.ext, &p.gen) == 30u);   /* (an older firmware: DRIFT) */
+    sq_evo_return_set(&p.ext, &p.gen, 0u); CHECK(sq_evo_return(&p.ext, &p.gen) == 0u && p.gen.evo_drift == 1u);
+    sq_evo_return_set(&p.ext, &p.gen, 250u); CHECK(sq_evo_return(&p.ext, &p.gen) == 100u && p.gen.evo_drift == 0u);
+    p.ext.evo_ret = 102u; sq_ext_sanitize(&p.ext); CHECK(p.ext.evo_ret == 0u);
+    sq_evo_return_set(&p.ext, &p.gen, 45u);
+    sq_project_sanitize(&p);
+    n = sq_serialize(&p, img, sizeof img);
+    CHECK(n > 0u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&p, &b, sizeof p) && sq_evo_return(&b.ext, &b.gen) == 45u);
+}
+
 static void test_v026_image(void)
 {
     static sq_project_t a, b;
@@ -3979,6 +4003,7 @@ int main(void)
     test_v026_song();
     test_v026_click();
     test_v026_image();
+    test_v027_return();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

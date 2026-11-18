@@ -2231,6 +2231,7 @@ void sq_ext_sanitize(sq_ext_t *x)
     if (x->click_note > 127u) x->click_note = 0u;
     if (x->click_level > SQ_CLICK_LEVELS) x->click_level = 0u;
     x->scene_metre_on = x->scene_metre_on ? 1u : 0u;
+    if (x->evo_ret > SQ_EVO_RETURN_MAX + 1u) x->evo_ret = 0u;           /* 0.27: EVOLVE's RETURN (0: not set) */
     for (i = 0; i < SQ_SCENES; i++) if (x->scene_metre[i] > SQ_METRE_IDS + 1u) x->scene_metre[i] = 0u;
     for (i = 0; i < sizeof x->reserved; i++) x->reserved[i] = 0u;
     sq_name_sanitize(x->name, SQ_NAME_LEN);
@@ -2244,6 +2245,19 @@ void sq_ext_sanitize(sq_ext_t *x)
         if (e->s > 100u) e->s = 100u;
     }
     for (i = 0; i < SQ_MODS; i++) sq_mod_sanitize(&x->mod[i]);
+}
+
+/* 0.27 EVOLVE's RETURN */
+uint8_t sq_evo_return(const sq_ext_t *x, const sq_gen_t *g)
+{
+    if (x->evo_ret && x->evo_ret <= SQ_EVO_RETURN_MAX + 1u) return (uint8_t)(x->evo_ret - 1u);
+    return g->evo_drift ? 0u : (uint8_t)SQ_EVO_RETURN_MAX;
+}
+void sq_evo_return_set(sq_ext_t *x, sq_gen_t *g, uint8_t r)
+{
+    if (r > SQ_EVO_RETURN_MAX) r = SQ_EVO_RETURN_MAX;
+    x->evo_ret = (uint8_t)(r + 1u);
+    g->evo_drift = r < SQ_EVO_RETURN_MAX / 2u ? 1u : 0u;              /* (what an older firmware reads) */
 }
 
 /* 0.26 THE CLICK */

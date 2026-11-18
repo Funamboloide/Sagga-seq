@@ -430,6 +430,7 @@ static void vg_state_sync(uint32_t t);                     /* 0.12: a track's VI
 static void vg_states_sync_all(void);
 static void remote13_note(uint8_t d1, uint8_t d2, uint8_t on);   /* sagga_remote2.c: 0.12 the pads on channel 13 */
 static void vg_profile_note(void);
+static uint8_t vg_seq_shown(uint8_t page);                /* 0.27: SEMPLICE hides SEQ 2 and 3 (sagga_viaggio.c) */
 static void vg_profile_boot(void);
 /* 0.9 the regista (sagga_viaggio.c) */
 static void regia_sysex_in(uint8_t cmd, const uint8_t *p, uint32_t n);
@@ -4292,7 +4293,10 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             ui_dirty = 1u;
         }
         if (d4) {                                      /* 0.9: the profile */
-            vg_profile = change_u8(vg_profile, d4, 0u, SQ_PROFILES - 1u);
+            static const uint8_t ORD[SQ_PROFILES] = {SQ_PROF_FULL, SQ_PROF_SEMPLICE, SQ_PROF_PALCO};   /* 0.27: the knob goes FULL, SEMPLICE, PALCO */
+            uint8_t k = 0u;
+            while (k + 1u < SQ_PROFILES && ORD[k] != vg_profile) k++;
+            vg_profile = ORD[change_u8(k, d4, 0u, SQ_PROFILES - 1u)];
             vg_profile_note();
             save_knob = 1u;
             ui_dirty = grid_dirty = 1u;
@@ -4404,6 +4408,11 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d1) mfx_choose(selected_track, change_u8(mfx_shown(selected_track), d1, 0u, SQ_MFXS - 1u));   /* 0.16: READY; 0.19: the one shown */
             v = mfx_view(selected_track);                                       /* (the shown effect's values, READY or playing) */
             if (d2) mfx_amount(v, d2);
+            if (d2 && v->mfx == SQ_MFX_CHANCE) {                                /* 0.27: CHANCE says who it works on */
+                char *p = msg_buf;
+                p = put_s(p, "T"); p = put_u(p, (uint32_t)selected_track + 1u); p = put_s(p, " CHANCE "); p = put_u(p, (uint32_t)(uint8_t)v->mfx_amt); p = put_s(p, "%: THIS TRACK ONLY"); finish(p);
+                status_msg(msg_buf);
+            }
             if (d3) mfx_knob34(v, 1u, d3, f3);
             if (d4) mfx_knob34(v, 2u, d4, f4);
             if (d2 || d3 || d4) {
@@ -4601,7 +4610,8 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d2 || d3 || d4) algo_turn(t, d2, d3, d4, f2, f3, f4);
         } else if (seq_page == 2u) {                                      /* EVOLVE, and the scope */
             if (d1) gen_targets_set(change_u8(gen_target_index(), d1, 0u, GEN_TARGET_SETS - 1u));
-            if (d2) g->evo_amount = (uint8_t)kstep(g->evo_amount, d2, 5 * f2, 1, 100);
+            if (d2 && (held & (1u << BTN_SEL))) evo_return_turn(d2, f2);   /* 0.27: SEL + K2, the RETURN (0: DRIFT) */
+            else if (d2) g->evo_amount = (uint8_t)kstep(g->evo_amount, d2, 5 * f2, 1, 100);
             if (d3) g->evo_every = change_u8(g->evo_every, d3, 0u, SQ_EVO_EVERY - 1u);
             if (d4) gen_scope_set(change_u8(g->scope, d4, 0u, SQ_SCOPES - 1u));
         } else if (seq_page == 3u || seq_page == 4u) {                    /* 0.10 EXPO, two pages (this track) */
@@ -4847,7 +4857,7 @@ static void handle_buttons(void)
             else if (eh & (1u << BTN_ARP)) arp_page = arp_page ? (uint8_t)(arp_page - 1u) : 0u;
             else if (eh & (1u << BTN_SAVE)) { save_page = save_page ? (uint8_t)(save_page - 1u) : 0u; save_knob = 1u; }
             else if (eh & (1u << BTN_FX)) macros_zero();                     /* FX + OCT-: the macros back to 0 */
-            else if (eh & (1u << BTN_SEQ)) seq_page = seq_page ? (uint8_t)(seq_page - 1u) : 0u;
+            else if (eh & (1u << BTN_SEQ)) { uint8_t q = seq_page; do { q = q ? (uint8_t)(q - 1u) : 0u; } while (q && !vg_seq_shown(q)); seq_page = q; }   /* (0.27: SEMPLICE skips SEQ 2, 3) */
             else if (eh & (1u << BTN_ENV)) env_lane = env_lane ? (uint8_t)(env_lane - 1u) : 0u;
             else if (eh & (1u << BTN_HOME)) { uint8_t h = home_page; do { h = h ? (uint8_t)(h - 1u) : 0u; } while (h && !vg_allows_home(h)); if (vg_allows_home(h)) home_page = h; }
             else if (eh & (1u << BTN_LFO)) lfo_page = lfo_page ? (uint8_t)(lfo_page - 1u) : 0u;
@@ -4863,7 +4873,7 @@ static void handle_buttons(void)
             else if (eh & (1u << BTN_ARP)) arp_page = arp_page < ARP_PAGES - 1u ? (uint8_t)(arp_page + 1u) : (uint8_t)(ARP_PAGES - 1u);
             else if (eh & (1u << BTN_SAVE)) { save_page = save_page < SAVE_PAGES - 1u ? (uint8_t)(save_page + 1u) : (uint8_t)(SAVE_PAGES - 1u); save_knob = 1u; }
             else if (eh & (1u << BTN_FX)) echo_global_set(echo_global ? 0u : 1u);   /* FX + OCT+: the global ECHO on / off */
-            else if (eh & (1u << BTN_SEQ)) seq_page = seq_page < SEQ_PAGES - 1u ? (uint8_t)(seq_page + 1u) : (uint8_t)(SEQ_PAGES - 1u);
+            else if (eh & (1u << BTN_SEQ)) { uint8_t q = seq_page; do { q = q < SEQ_PAGES - 1u ? (uint8_t)(q + 1u) : (uint8_t)(SEQ_PAGES - 1u); } while (q < SEQ_PAGES - 1u && !vg_seq_shown(q)); seq_page = q; }
             else if (eh & (1u << BTN_ENV)) env_lane = env_lane < SQ_LANES - 1u ? (uint8_t)(env_lane + 1u) : (uint8_t)(SQ_LANES - 1u);
             else if (eh & (1u << BTN_HOME)) { uint8_t h = home_page; do { h = h < HOME_PAGES - 1u ? (uint8_t)(h + 1u) : (uint8_t)(HOME_PAGES - 1u); } while (h < HOME_PAGES - 1u && !vg_allows_home(h)); if (vg_allows_home(h)) home_page = h; }
             else if (eh & (1u << BTN_LFO)) lfo_page = lfo_page < LFO_PAGES - 1u ? (uint8_t)(lfo_page + 1u) : (uint8_t)(LFO_PAGES - 1u);
@@ -4956,10 +4966,10 @@ static void update_leds(void)
         for (k = 0; k < 27u; k++) if (in_notes() & (1u << k)) fm1_led_key(KEY_LED(k), 1);
         if (track_drum(selected_track) && playing) for (i = 0; i < 4u; i++) fm1_led_key(KEY_LED(black_key[i]), rep_rate == i + 1u ? blink : 1);   /* 0.13: NOTE REPEAT's rates (the one held blinks) */
     } else if (held & (1u << BTN_SEQ)) {
-        for (i = 0; i < TOOL_COUNT; i++) fm1_led_key(KEY_LED(white_key[i]), i == TOOL_UNDO ? undo_valid : 1u);
+        for (i = 0; i < TOOL_COUNT; i++) fm1_led_key(KEY_LED(white_key[i]), i == TOOL_UNDO ? undo_valid : i == TOOL_RAND && dice_pending && dice_kind == DICE_RANDOM ? blink : 1u);   /* (0.27: RANDOM waiting: it blinks, as a dice) */
         for (i = 0; i < 5u; i++) fm1_led_key(KEY_LED(black_key[i]), dice_pending && dice_kind == DICE_SEQ + i ? blink : 0u);
         fm1_led_key(KEY_LED(black_key[5]), project.gen.scope != SQ_SCOPE_THIS);
-        fm1_led_key(KEY_LED(black_key[7]), project.gen.evo_drift != 0u);
+        fm1_led_key(KEY_LED(black_key[7]), evo_drifts());   /* (0.27: RETURN at 0) */
         fm1_led_key(KEY_LED(black_key[8]), evo_run != 0u);
         fm1_led_key(KEY_LED(black_key[9]), evo_run == 2u);
     } else if (perf_mode || (held & (1u << BTN_GLO))) {        /* (0.12: GLO held shows the PERF keys in any mode) */

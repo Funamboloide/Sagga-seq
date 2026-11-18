@@ -4168,11 +4168,11 @@ def t09_viaggio_loop_genre_remote():
 
 
 def t09_profiles_persist():
-    group("0.9: the profiles (SAVE + K4: FULL, PALCO), the settings and the project keep the journey across a power cycle")
+    group("0.9: the profiles (SAVE + K4: FULL, SEMPLICE, PALCO), the settings and the project keep the journey across a power cycle")
     d = tempfile.mkdtemp()
     flash = os.path.join(d, "flash.bin")
     s = Script()
-    s.press(100, SAVE); s.enc(130, K4, 1); s.release(200, SAVE)      # PALCO
+    s.press(100, SAVE); s.enc(130, K4, 2); s.release(200, SAVE)      # PALCO (0.27: past SEMPLICE)
     s.at(300, "dump", 0)
     s.press(400, SEQ); s.tap_key(430, wk(0)); s.release(500, SEQ)   # a SEQ tool: not in this profile
     s.at(550, "dump", 0)
@@ -4196,7 +4196,7 @@ def t09_profiles_persist():
           "after the power cycle: the MOSSE, track 1 IN, energy 80, 16 bars (%s)" % v[0])
     check(log.notes(ch=0, after=300), "and the kick plays")
     s = Script()
-    s.press(100, SAVE); s.enc(130, K4, -1); s.release(200, SAVE)     # FULL again
+    s.press(100, SAVE); s.enc(130, K4, -2); s.release(200, SAVE)     # FULL again
     s.at(300, "dump", 0)
     s.press(400, SEQ); s.tap_key(430, wk(0)); s.release(500, SEQ)
     s.at(550, "dump", 0)
@@ -4374,7 +4374,7 @@ def t09_review_fixes():
     check(log.viaggio[0]["mute"] == 0, "after the power cycle nothing is muted (%04X)" % log.viaggio[0]["mute"])
     # PALCO refuses the editing knobs too
     s = Script()
-    s.press(100, SAVE); s.enc(130, K4, 1); s.release(200, SAVE)
+    s.press(100, SAVE); s.enc(130, K4, 2); s.release(200, SAVE)
     s.at(250, "dump", 0)
     s.press(300, SEQ); s.enc(330, K1, 3); s.release(400, SEQ)
     s.at(450, "dump", 0)
@@ -11545,6 +11545,203 @@ def t026_expression():
     check(len(ev) == 1 and ev[0][2] == 62 and abs(ev[0][1] - 5 * 96) < 14, "a TAPE: the note's event is five steps long (%s)" % ev)
 
 
+# ------------------------------------------------------------------------------------------------ 0.27
+def band_hold(s, t):
+    s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ)
+    return t + 900
+
+
+def t027_keyless_band():
+    group("0.27 A BAND IN A PROJECT WITH NO KEY (the scale CHROMA, as a new project is): every melodic part starts from "
+          "the project's root - the arpeggio was written a fifth above the rest (from G4)")
+
+    def genre(s, t, n):
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, n); s.release(t + 100, SEQ)
+        return t + 200
+    res = {}
+    for name, setup in (("FREE", lambda s, t: seq_page(s, t, 7, encs=[(K1, 2)])), ("TRANCE", lambda s, t: genre(s, t, 19)),
+                        ("TRANCE THEORY", lambda s, t: seq_page(s, genre(s, t, 19), 7, encs=[(K1, 1)]))):
+        s = Script()
+        t = setup(s, 100)
+        t = band_hold(s, t)
+        for k in range(16):
+            s.at(t + 10 * k, "dump", k)
+        p = t + 300
+        s.tap_btn(p, PLAY)
+        log = run(s, p + int(16 * STEP_MS) - 20)
+        mel = [(d["track"], d["pen"]) for d in log.dumps if d["mode"] != "D" and "x" in d["on"]]
+        role = {c["track"]: c["role"] for c in cfgs(log)}
+        pcs = {}
+        for tm, st, d1, d2 in log.msgs:
+            if (st & 0xF0) == 0x90 and d2 and p <= tm < p + 16 * STEP_MS - 20:
+                pcs.setdefault((st & 15) + 1, set()).add(d1 % 12)
+        arp = set().union(*[pcs.get(k, set()) for k, _ in mel if role.get(k) == 7])
+        chords = set().union(*[pcs.get(k, set()) for k, _ in mel if role.get(k) in (6, 20, 21, 22)])
+        res[name] = (mel, arp, chords)
+    for name, (mel, arp, chords) in res.items():
+        check(len(mel) >= 3 and all(n % 12 == 0 for _, n in mel), "%s band, no key: every melodic part's note is a C (%s)" % (name, mel))
+        check(arp and chords and arp <= chords | {10, 11}, "... and the arpeggio plays the notes of the chords playing (and their seventh), not those of a "
+              "chord a fifth above (arp %s, chords %s)" % (sorted(arp), sorted(chords)))
+
+
+def t027_random_dice():
+    group("0.27 RANDOM IS A ROLL OF THE DICE (SEQ + white 5): what it does is the same; it waits like a dice - OCT+ keeps "
+          "it, OCT- puts it back, ALG goes through the rolls; EVERY's repeat of it is the tool, as before")
+
+    def rnd(s, t): return seq_page(s, t, 0, keys=[wk(4)])
+    s = Script()
+    t = 100
+    s.at(t, "dump", 0); t += 50
+    t = rnd(s, t); s.at(t, "dump", 0); s.raw(t + 10, "probe"); t += 60
+    t = rnd(s, t); s.at(t, "dump", 0); t += 60
+    s.enc(t, E_ALG, -1); t += 100                                     # ALG (nothing held): the roll before
+    s.at(t, "dump", 0); t += 60
+    s.tap_btn(t, OCT_DOWN); t += 100                                   # OCT-: back as it was
+    s.at(t, "dump", 0); s.raw(t + 10, "probe"); t += 60
+    log = run(s, t + 100)
+    d, st = log.dumps, states(log)
+    check(d[1]["on"] != d[0]["on"] and "x" in d[1]["on"] and st[1]["msg"] == "RANDOM: OCT+ KEEP, OCT- BACK",
+          "RANDOM writes a rhythm and waits, as a dice (%s %r)" % (d[1]["on"], st[1]["msg"]))
+    check(st[2]["msg"] == "RANDOM 2/2 ALG: OCT+ KEEP, OCT- BACK" and d[2]["hash"] != d[1]["hash"],
+          "RANDOM again: a second roll, in the dice's memory (%r)" % st[2]["msg"])
+    check(d[3]["hash"] == d[1]["hash"] and st[3]["msg"].startswith("RANDOM 1/2"), "ALG: back to the first roll, the same pattern (%r)" % st[3]["msg"])
+    pr = [x["G"]["dice"] for x in probes(log)]
+    check(d[4]["hash"] == d[0]["hash"] and pr == ["1", "0"], "OCT-: as it was before the first roll; nothing waits (%s %s)" % (d[4]["on"], pr))
+    # OCT+ keeps it; UNDO then takes it back as any tool's work
+    s = Script()
+    t = 100
+    s.at(t, "dump", 0); t += 50
+    t = rnd(s, t)
+    s.tap_btn(t, OCT_UP); t += 100
+    s.at(t, "dump", 0); t += 50
+    t = seq_page(s, t, 0, keys=[wk(7)])                                # UNDO
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    d = log.dumps
+    check(d[1]["hash"] != d[0]["hash"] and d[2]["hash"] == d[0]["hash"], "OCT+ keeps the roll; UNDO takes it back (%s / %s / %s)" % (d[0]["on"], d[1]["on"], d[2]["on"]))
+    # EVERY 1 BAR repeats the last tool: RANDOM kept, then every bar RANDOM again - the tool, nothing waits to be answered
+    s = Script()
+    t = seq_page(s, 100, 5, encs=[(K3, 1)])                            # EVERY: 1 BAR
+    t = rnd(s, t)
+    s.tap_btn(t, OCT_UP); t += 100
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    for b in range(4):
+        s.raw(int(p + (b + 0.5) * 16 * STEP_MS), "probe")
+        s.at(int(p + (b + 0.5) * 16 * STEP_MS) + 5, "dump", 0)
+    log = run(s, int(p + 4.6 * 16 * STEP_MS))
+    pr = [x["G"]["dice"] for x in probes(log)]
+    hs = [x["hash"] for x in log.dumps]
+    check(pr == ["0"] * 4 and len(set(hs)) >= 3, "EVERY 1 BAR + RANDOM: a new rhythm every bar, and no dice waiting (%s, %d patterns)" % (pr, len(set(hs))))
+
+
+
+def t027_evolve_return():
+    group("0.27 DRIFT INSIDE EVOLVE: SEQ 3 SEL + K2 is EVOLVE's RETURN - 100 % every change starts from the seed (EVOLVE "
+          "as ever), 0 % from the last one (DRIFT, which the key black 8 still is), in between part of the way back")
+    BAR = 16 * STEP_MS
+
+    def run_ret(how, bars=24):
+        s = Script()
+        t = s.steps(100, [0, 2, 4, 6, 8, 10, 12, 14])
+        t = seq_page(s, t, 2, encs=[(K2, 15), (K3, -2)])               # EVOLVE 100 %, every bar
+        if how == "key":
+            t = seq_page(s, t, 0, keys=[bk(7)])                        # DRIFT, the key
+        elif how is not None:
+            t = pg(s, t, SEQ, 2, [(K2, how)], sel=True)                # RETURN (from 100)
+        s.at(t, "dump", 0); t += 50                                    # (what the screen said)
+        t = seq_page(s, t, 0, keys=[bk(8)])                            # EVOLVE on
+        s.at(t, "dump", 0); t += 50
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        for b in range(bars):
+            s.at(int(p + (b + 0.5) * BAR), "dump", 0)
+        log = run(s, int(p + (bars + 0.6) * BAR))
+        seed = log.dumps[1]["on"]
+        dist = [sum(a != b for a, b in zip(seed, d["on"])) for d in log.dumps[2:]]
+        return log, dist
+    l100, d100 = run_ret(None)
+    l0, d0 = run_ret(-20)
+    lk, dk = run_ret("key")
+    l50, d50 = run_ret(-10)
+    m = [sum(d[6:]) / len(d[6:]) for d in (d100, d50, d0)]
+
+    def st_msgs(log): return [x["msg"] for x in log.states]
+    check(st_msgs(l0) and "EVOLVE RETURN 0%: DRIFT, NO WAY BACK" in st_msgs(l0) and "EVOLVE RETURN 50%: PART OF THE WAY BACK" in st_msgs(l50),
+          "SEL + K2 on SEQ 3: the RETURN, and the screen says what it does (%s)" % [x for x in st_msgs(l50) if "RETURN" in x][:1])
+    check([d["hash"] for d in l0.dumps[1:]] == [d["hash"] for d in lk.dumps[1:]], "RETURN 0 is DRIFT, bar for bar the same as the key black 8 (%s / %s)" % (d0[:6], dk[:6]))
+    check(m[0] < m[1] < m[2], "the further from 100, the further from the seed it wanders: 100 %%, 50 %%, 0 %% (%s; %s / %s / %s)" % ([round(x, 1) for x in m], d100, d50, d0))
+
+
+
+def t027_who_acts():
+    group("0.27 MORE FULL, MORE EMPTY - WHO IS ACTING: the screen says what each hand works on - the ENERGY the whole set "
+          "(and the engines' parts), THIN and SWELL the whole set, DENSITY and CHANCE this track only")
+
+    def msg_after(gesture, setup=None):
+        s = Script()
+        t = setup(s, 100) if setup else 100
+        t = gesture(s, t)
+        s.at(t, "dump", 0)
+        log = run(s, t + 100)
+        return states(log)[-1]["msg"]
+    e = msg_after(lambda s, t: pg(s, t, GLO, 2, [(K1, 5)]))
+    check(e == "ENERGY 55: THE WHOLE SET", "GLO 3 K1, the ENERGY: the whole set (%r)" % e)
+    e2 = msg_after(lambda s, t: pg(s, t, GLO, 2, [(K1, -5)]), lambda s, t: band_hold(s, seq_page(s, t, 7, encs=[(K1, 1)])))
+    check(re.match(r"^ENERGY 45: THE WHOLE SET \+ 1\d ENGINE PARTS$", e2) is not None, "... and with a band of the engines, their parts too (%r)" % e2)
+    d = msg_after(lambda s, t: seq_page(s, t, 1, encs=[(K1, 4), (K2, 2)]))
+    check(d == "T1 DENSITY 110%: THIS TRACK ONLY", "SEQ 2, DENSITY: this track only (%r)" % d)
+    c = msg_after(lambda s, t: home_page(s, t, 5, [(K1, 5), (K2, -2)]))
+    check(re.match(r"^T1 CHANCE \d+%: THIS TRACK ONLY$", c) is not None, "HOME 6, the MIDI FX CHANCE: this track only (%r)" % c)
+    th = msg_after(lambda s, t: (s.tap_key(t, bk(6)), t + 100)[1], lambda s, t: vg_on(s, t, remote=False))
+    sw = msg_after(lambda s, t: (s.tap_key(t, bk(7)), t + 100)[1], lambda s, t: vg_on(s, t, remote=False))
+    check(th == "QUEUED: THIN - THE WHOLE SET, 2 TRACKS OUT" and sw == "QUEUED: SWELL - THE WHOLE SET, 2 TRACKS IN",
+          "the MOSSE's THIN and SWELL: the whole set (%r, %r)" % (th, sw))
+
+
+def t027_semplice():
+    group("0.27 THE PROFILE SEMPLICE (SAVE 1 K4: FULL, SEMPLICE, PALCO): the lab's pages are hidden - SEQ 2 (the "
+          "algorithms) and SEQ 3 (EVOLVE) - while nothing of theirs plays; nothing is switched off; FULL shows them all")
+
+    def walk(s, t, n):                                                 # SEQ held: OCT+ n times, the page shown each time
+        s.press(t, SEQ); t += 30
+        for _ in range(n):
+            s.tap_btn(t, OCT_UP, hold=15); t += 40
+            s.raw(t, "probe"); t += 20
+        for _ in range(n):
+            s.tap_btn(t, OCT_DOWN, hold=15); t += 40
+        s.raw(t, "probe")
+        s.release(t + 20, SEQ)
+        s.pages[SEQ] = 0
+        return t + 80
+    s = Script()
+    s.press(100, SAVE); s.enc(130, K4, 1); s.release(200, SAVE)        # SEMPLICE
+    s.at(250, "dump", 0)
+    t = walk(s, 300, 3)
+    t = seq_page(s, t, 0, keys=[bk(8)])                                # EVOLVE on: its page comes back
+    t = walk(s, t, 3)
+    t = seq_page(s, t, 0, keys=[bk(8)])                                # EVOLVE off
+    s.press(t, SAVE); s.enc(t + 30, K4, -1); s.release(t + 100, SAVE); t += 150   # FULL
+    t = walk(s, t, 3)
+    log = run(s, t + 200)
+    pr = [int(x["G"]["seqp"]) for x in probes(log)]
+    check(states(log)[0]["msg"] == "PROFILE SEMPLICE: SEQ 2 AND 3 HIDDEN WHILE OFF", "SAVE 1 K4 one step: SEMPLICE, and what it hides (%r)" % states(log)[0]["msg"])
+    check(pr[:4] == [3, 4, 5, 0], "SEMPLICE: OCT+ from SEQ 1 goes to EXPO (SEQ 4), past the algorithms and EVOLVE; OCT- back to SEQ 1 (%s)" % pr[:4])
+    check(pr[4:8] == [2, 3, 4, 0], "EVOLVE playing: its page SEQ 3 is there again (%s)" % pr[4:8])
+    check(pr[-4:] == [1, 2, 3, 0], "FULL: every page, as ever (%s)" % pr[-4:])
+    # an algorithm playing on the track (started in FULL): in SEMPLICE its page SEQ 2 stays, and it goes on playing
+    s = Script()
+    t = s.steps(100, [0, 4, 8, 12])
+    t = seq_page(s, t, 1, encs=[(K1, 1)], keys=[wk(5)])                # TURING READY, and on (white 6 on SEQ 2)
+    t = seq_page(s, t, 0)                                              # (back on SEQ 1)
+    s.press(t, SAVE); s.enc(t + 30, K4, 1); s.release(t + 100, SAVE); t += 150   # SEMPLICE
+    t = walk(s, t, 3)
+    s.at(t, "dump", 0)
+    log = run(s, t + 100)
+    pr = [int(x["G"]["seqp"]) for x in probes(log)]
+    check(pr[:4] == [1, 3, 4, 0] and states(log)[-1]["algo"] == 1, "an algorithm playing: SEQ 2 is there, EVOLVE's page not; the algorithm still plays (%s, %s)" % (pr[:4], states(log)[-1]["algo"]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -11564,6 +11761,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
+         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

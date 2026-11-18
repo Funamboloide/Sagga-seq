@@ -696,6 +696,21 @@ def sit_026(s):
     return _play(s, t + 100)
 
 
+def sit_027(s):
+    """0.27: the profile SEMPLICE (SAVE 1 K4: the lab's pages hidden while off); a band of the engines with no key (the
+    arpeggio on the root with the rest); EVOLVE running with RETURN 50 (SEQ 3 SEL + K2: half way between EVOLVE and
+    DRIFT), on the bank; in play"""
+    t = S.pg(s, 200, S.SEQ, 7, [(S.K1, 1)])                 # THEORY
+    t = _band(s, t)
+    t = S.pg(s, t, S.SEQ, 0, keys=[S.bk(5)])                # the SCOPE: the bank
+    t = S.pg(s, t, S.SEQ, 2, [(S.K3, 2)])                   # EVOLVE every 16 bars (it runs, but changes nothing while a
+                                                            # gesture is looked at: a change of its would be the gesture's) ...
+    t = S.pg(s, t, S.SEQ, 2, [(S.K2, -10)], sel=True)       # ... RETURN 50
+    t = S.pg(s, t, S.SEQ, 0, keys=[S.bk(8)])                # ... on
+    t = S.pg(s, t, S.SAVE, 0, [(S.K4, 1)])                  # SEMPLICE (SEQ 3 stays: EVOLVE runs)
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -762,6 +777,8 @@ SITUAZIONI = [
                want={8: {"fm": 3, "follow": 1}, "G": {"harm": 1, "hlock": 0}}),
     Situazione("0.26 i motori nella battuta: 5/4, band FREE nata in cinque, il CLICK su un canale MIDI, KEYBOARD CHORDS, le scene portano il metro, in play", sit_026,
                lens={1: (20, 20), 5: (20, 20)}, want={8: {"fm": 3, "thv": 3}, 5: {"thv": 3}, "G": {"harm": 1}}),
+    Situazione("0.27 il profilo SEMPLICE: band dei motori senza tonalita', EVOLVE ogni 16 battute con RITORNO 50 sul banco, in play", sit_027,
+               want={"G": {"prof": 2, "evo": 1, "ret": 50}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
