@@ -20,7 +20,7 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 16u * 96u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole) */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1508u + 1028u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 16u * 96u + 16u * 131u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 28u + 1524u + 1028u + 32u + 2u + 2u + 1536u * 6u + 16u * 8u * 64u * 18u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 28u && sizeof(sq_phrase_t) == 26u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
@@ -2553,6 +2553,427 @@ static void test_v025_melody(void)
     }
 }
 
+/* ---- 0.26 */
+static uint32_t pcs_of(const uint8_t *n, uint8_t cnt) { uint32_t m = 0u; uint8_t i; for (i = 0; i < cnt; i++) if (n[i] <= 127u) m |= 1u << (n[i] % 12u); return m; }
+static void test_v026_smooth(void)
+{
+    uint8_t n, i;
+    uint32_t sc, root, deg, col, semi, sh, v;
+    /* C major, a chord written C3 E3 G3: I IV V vi the way a hand plays them - the notes two chords share stay */
+    {   static const int8_t DEG[4] = {0, 3, 4, 5};
+        static const uint8_t WANT[4][3] = {{48, 52, 55}, {48, 53, 57}, {47, 50, 55}, {48, 52, 57}};
+        uint32_t k;
+        for (k = 0; k < 4u; k++) {
+            sq_hchord_t x = {DEG[k], SQ_HC_TRIAD, 255u, 0u};
+            uint8_t nt[SQ_POLY_OUT] = {48, 52, 55, 255, 255, 255};
+            n = sq_harm_smooth(nt, 3u, 0u, SQ_SC_MAJOR, &x);
+            CHECK(n == 3u && nt[0] == WANT[k][0] && nt[1] == WANT[k][1] && nt[2] == WANT[k][2] && nt[3] == SQ_NOTE_NONE);
+        }
+    }
+    /* ... the parallel way moves the whole hand: IV is F3 A3 C4, three notes moved; SMOOTH: two, by a step and two */
+    {   sq_hchord_t x = {3, SQ_HC_TRIAD, 255u, 0u};
+        uint8_t par[SQ_POLY_OUT] = {48, 52, 55, 255, 255, 255};
+        n = sq_harm_apply_chord(par, 3u, 0u, SQ_SC_MAJOR, &x, 1u);
+        CHECK(n == 3u && par[0] == 53u && par[1] == 57u && par[2] == 60u);
+    }
+    /* the written order stays (an arpeggio, a strum): G3 C3 E3 on IV is A3 C3 F3 */
+    {   sq_hchord_t x = {3, SQ_HC_TRIAD, 255u, 0u};
+        uint8_t nt[SQ_POLY_OUT] = {55, 48, 52, 255, 255, 255};
+        n = sq_harm_smooth(nt, 3u, 0u, SQ_SC_MAJOR, &x);
+        CHECK(n == 3u && nt[0] == 57u && nt[1] == 48u && nt[2] == 53u);
+    }
+    /* a seventh the progression adds is one more note near the hand: V7 from C3 E3 G3 is D3 F3 G3 and the B above
+     * (four semitones moved in all; the parallel way: G2 B2 D3 F3, the hand a fourth down) */
+    {   sq_hchord_t x = {4, SQ_HC_7, 255u, 0u};
+        uint8_t nt[SQ_POLY_OUT] = {48, 52, 55, 255, 255, 255};
+        n = sq_harm_smooth(nt, 3u, 0u, SQ_SC_MAJOR, &x);
+        CHECK(n == 4u && pcs_of(nt, n) == ((1u << 7) | (1u << 11) | (1u << 2) | (1u << 5)));
+        CHECK(nt[0] == 50u && nt[1] == 53u && nt[2] == 55u && nt[3] == 59u);
+    }
+    /* one note: its place in the chord, the nearest octave (a third stays a third) */
+    {   sq_hchord_t x = {4, SQ_HC_TRIAD, 255u, 0u};
+        uint8_t nt[SQ_POLY_OUT] = {64, 255, 255, 255, 255, 255};
+        n = sq_harm_smooth(nt, 1u, 0u, SQ_SC_MAJOR, &x);
+        CHECK(n == 1u && nt[0] == 59u);                    /* E4, the third of C: B3, the third of G (not B4) */
+    }
+    {   sq_hchord_t x = {0, SQ_HC_TRIAD, 255u, 0u};
+        uint8_t nt[SQ_POLY_OUT] = {255, 255, 255, 255, 255, 255};
+        CHECK(sq_harm_smooth(nt, 4u, 0u, SQ_SC_MAJOR, &x) == 0u);
+    }
+    /* every key, every chord and colour, every root and shape, four written chords: the notes are those of the chord
+     * moved the parallel way (what kind of chord it is stays), as many; none is farther than a tritone from where
+     * it was written; the hand never moves more in all than the parallel way; on the tonic nothing moves */
+    for (sc = 0; sc < SQ_SCALES; sc++) for (root = 0; root < 12u; root += 5u)
+        for (deg = 0; deg < 7u; deg++) for (col = 0; col < SQ_HCS; col++) for (semi = 0; semi < 2u; semi++) for (sh = 0; sh < (semi ? SQ_CH_COUNT - 1u : 1u); sh += (semi ? 3u : 1u))
+            for (v = 0; v < 4u; v++) {
+                sq_hchord_t x = {(int8_t)deg, (uint8_t)col, 255u, 0u};
+                uint8_t hs = sq_harm_scale((uint8_t)sc), wr[SQ_POLY_OUT], par[SQ_POLY_OUT], out[SQ_POLY_OUT], pn, wn = (uint8_t)(v == 3u ? 4u : 3u), k;
+                int32_t base = sq_scale_index((uint8_t)(48u + root), (uint8_t)root, hs), movs = 0, movp = 0;
+                static const int8_t ST[4][4] = {{0, 2, 4, 0}, {2, 4, 7, 0}, {-3, 0, 2, 0}, {0, 2, 4, 6}};      /* close, an inversion, another, a seventh chord */
+                if (semi) { x.semi = (uint8_t)((deg * 5u + col) % 12u); x.shape = (uint8_t)(SQ_HSHAPE_CH + 1u + sh); }
+                for (k = 0; k < SQ_POLY_OUT; k++) wr[k] = par[k] = out[k] = SQ_NOTE_NONE;
+                for (k = 0; k < wn; k++) wr[k] = par[k] = out[k] = sq_scale_at(base + ST[v][k], (uint8_t)root, hs);
+                pn = sq_harm_apply_chord(par, wn, (uint8_t)root, (uint8_t)sc, &x, 1u);
+                n = sq_harm_smooth(out, wn, (uint8_t)root, (uint8_t)sc, &x);
+                CHECK(n >= 1u && n <= SQ_POLY_OUT && pcs_of(out, n) == pcs_of(par, pn));
+                CHECK(n == pn || n + 1u == pn);            /* (two notes of the same class an octave apart may meet) */
+                for (k = n; k < SQ_POLY_OUT; k++) CHECK(out[k] == SQ_NOTE_NONE);
+                for (k = 0; k < n; k++) { uint8_t j; for (j = 0; j < k; j++) CHECK(out[j] != out[k]); }
+                if (n == pn && pn == wn) {
+                    for (k = 0; k < wn; k++) {
+                        int32_t d = (int32_t)out[k] - (int32_t)wr[k];
+                        CHECK(d >= -6 && d <= 6);
+                        movs += d < 0 ? -d : d;
+                    }
+                    for (i = 1u; i < pn; i++) { uint8_t j; for (j = i; j > 0u && par[j - 1u] > par[j]; j--) { uint8_t t = par[j]; par[j] = par[j - 1u]; par[j - 1u] = t; } }
+                    {   uint8_t ws[SQ_POLY_OUT];
+                        for (k = 0; k < wn; k++) ws[k] = wr[k];
+                        for (i = 1u; i < wn; i++) { uint8_t j; for (j = i; j > 0u && ws[j - 1u] > ws[j]; j--) { uint8_t t = ws[j]; ws[j] = ws[j - 1u]; ws[j - 1u] = t; } }
+                        for (k = 0; k < wn; k++) { int32_t d = (int32_t)par[k] - (int32_t)ws[k]; movp += d < 0 ? -d : d; }
+                    }
+                    CHECK(movs <= movp);
+                    if (movs > movp) printf("  smooth scale %u root %u deg %u col %u semi %u shape %u voicing %u: %d > %d\n", (unsigned)sc, (unsigned)root, (unsigned)deg, (unsigned)col, (unsigned)x.semi, (unsigned)x.shape, (unsigned)v, (int)movs, (int)movp);
+                }
+                if (!semi && !deg && col == SQ_HC_TRIAD) for (k = 0; k < wn; k++) CHECK(out[k] == wr[k]);
+            }
+}
+
+static void test_v026_live_chords(void)
+{
+#define PCM(a, b, c, d, e) ((uint16_t)((1u << (a)) | (1u << (b)) | (1u << (c)) | (1u << (d)) | (1u << (e))))
+    uint8_t r = 99u, sh = 99u;
+    sq_hchord_t c;
+    char nm[12];
+    CHECK(sq_chord_detect(0u, 0u, &r, &sh) == 0u);
+    CHECK(sq_chord_detect(1u << 7, 7u, &r, &sh) == 1u && r == 7u && sh == SQ_CH_OFF);                    /* one note */
+    CHECK(sq_chord_detect(PCM(0, 4, 7, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_MAJ);
+    CHECK(sq_chord_detect(PCM(0, 4, 7, 0, 0), 4u, &r, &sh) && r == 0u && sh == SQ_CH_MAJ);               /* an inversion: C over E */
+    CHECK(sq_chord_detect(PCM(0, 4, 7, 0, 0), 7u, &r, &sh) && r == 0u && sh == SQ_CH_MAJ);
+    CHECK(sq_chord_detect(PCM(9, 0, 4, 9, 9), 9u, &r, &sh) && r == 9u && sh == SQ_CH_MIN);
+    CHECK(sq_chord_detect(PCM(0, 4, 0, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_MAJ);               /* no fifth */
+    CHECK(sq_chord_detect(PCM(0, 3, 0, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_MIN);
+    CHECK(sq_chord_detect(PCM(0, 7, 0, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_POWER);
+    CHECK(sq_chord_detect(PCM(0, 7, 0, 0, 0), 7u, &r, &sh) && r == 0u && sh == SQ_CH_POWER);             /* a fourth: the fifth upside down */
+    CHECK(sq_chord_detect(PCM(0, 3, 7, 10, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_MIN7);
+    CHECK(sq_chord_detect(PCM(0, 3, 7, 10, 0), 3u, &r, &sh) && r == 3u && sh == SQ_CH_MAJ6);             /* the same notes over E flat: E flat 6 */
+    CHECK(sq_chord_detect(PCM(0, 4, 10, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_7);                /* a shell: the seventh chord */
+    CHECK(sq_chord_detect(PCM(0, 4, 7, 11, 2), 0u, &r, &sh) && r == 0u && sh == SQ_CH_MAJ9);
+    CHECK(sq_chord_detect(PCM(0, 5, 7, 0, 0), 0u, &r, &sh) && r == 0u && sh == SQ_CH_SUS4);
+    CHECK(sq_chord_detect(PCM(0, 5, 7, 0, 0), 5u, &r, &sh) && r == 5u && sh == SQ_CH_SUS2);
+    CHECK(sq_chord_detect(PCM(11, 2, 5, 11, 11), 11u, &r, &sh) && r == 11u && sh == SQ_CH_DIM);
+    CHECK(sq_chord_detect(PCM(2, 5, 9, 0, 2), 2u, &r, &sh) && r == 2u && sh == SQ_CH_MIN7);
+    CHECK(sq_chord_detect(0x1FFFu & PCM(0, 4, 7, 0, 0), 99u, &r, &sh) && r == 0u);                       /* (a bass that is not held) */
+    /* in C major: D F A C is the key's ii7, by its step; G alone the key's V; E G# B is not the key's: a root and a shape */
+    CHECK(sq_hchord_live(&c, PCM(2, 5, 9, 0, 2), 2u, 0u, SQ_SC_MAJOR) && c.semi == 255u && c.deg == 1 && c.col == SQ_HC_7);
+    sq_hchord_name(SQ_SC_MAJOR, &c, nm); CHECK(!strcmp(nm, "ii7"));
+    CHECK(sq_hchord_live(&c, 1u << 7, 7u, 0u, SQ_SC_MAJOR) && c.semi == 255u && c.deg == 4 && c.col == SQ_HC_TRIAD);
+    CHECK(sq_hchord_live(&c, PCM(4, 8, 11, 4, 4), 4u, 0u, SQ_SC_MAJOR) && c.semi == 4u && c.shape == SQ_HSHAPE_CH + SQ_CH_MAJ);
+    CHECK(sq_hchord_live(&c, PCM(5, 9, 0, 5, 5), 5u, 0u, SQ_SC_MAJOR) && c.semi == 255u && c.deg == 3 && c.col == SQ_HC_TRIAD);
+    CHECK(sq_hchord_live(&c, PCM(7, 0, 2, 7, 7), 7u, 0u, SQ_SC_MAJOR) && c.semi == 255u && c.deg == 4 && c.col == SQ_HC_SUS4);
+    CHECK(sq_hchord_live(&c, 1u << 1, 1u, 0u, SQ_SC_MAJOR) && c.semi == 1u && c.shape == SQ_HSHAPE_CH + SQ_CH_MAJ);   /* a note out of the key: a major chord */
+    CHECK(sq_hchord_live(&c, 0u, 0u, 0u, SQ_SC_MAJOR) == 0u);
+    /* A minor: A C E the i, F A C the VI, G B D the VII; in a key that is not C */
+    CHECK(sq_hchord_live(&c, PCM(9, 0, 4, 9, 9), 9u, 9u, SQ_SC_MINOR) && c.semi == 255u && c.deg == 0 && c.col == SQ_HC_TRIAD);
+    CHECK(sq_hchord_live(&c, PCM(5, 9, 0, 5, 5), 5u, 9u, SQ_SC_MINOR) && c.semi == 255u && c.deg == 5);
+    CHECK(sq_hchord_live(&c, PCM(7, 11, 2, 7, 7), 7u, 9u, SQ_SC_MINOR) && c.semi == 255u && c.deg == 6);
+    /* every shape a hand can mean, on every root, held whole with the root in the bass, comes back as its notes; and a
+     * FOLLOW track on it plays the notes held (the tonic's triad moved there: all of them notes of the hand) */
+    {   static const uint8_t SH[] = {SQ_CH_MAJ, SQ_CH_MIN, SQ_CH_POWER, SQ_CH_SUS4, SQ_CH_SUS2, SQ_CH_DIM, SQ_CH_AUG, SQ_CH_7, SQ_CH_MIN7, SQ_CH_MAJ7,
+            SQ_CH_MAJ6, SQ_CH_MIN6, SQ_CH_M7B5, SQ_CH_DIM7, SQ_CH_MINMAJ7, SQ_CH_7SUS4, SQ_CH_ADD9, SQ_CH_MADD9, SQ_CH_9, SQ_CH_MIN9, SQ_CH_MAJ9,
+            SQ_CH_9SUS4, SQ_CH_69, SQ_CH_MIN69, SQ_CH_MIN11, SQ_CH_13};
+        uint32_t k, root, key;
+        for (k = 0; k < sizeof SH / sizeof SH[0]; k++) for (root = 0; root < 12u; root++) {
+            uint8_t nt[SQ_POLY_OUT], cnt = sq_chord_build((uint8_t)(48u + root), SH[k], SQ_CK_FREE, 0u, SQ_SC_CHROMATIC, nt), got[SQ_POLY_OUT], gn, j;
+            uint16_t m = (uint16_t)pcs_of(nt, cnt);
+            CHECK(sq_chord_detect(m, (uint8_t)root, &r, &sh));
+            gn = sq_chord_build((uint8_t)(48u + r), sh, SQ_CK_FREE, 0u, SQ_SC_CHROMATIC, got);
+            CHECK(pcs_of(got, gn) == m);
+            if (pcs_of(got, gn) != m) printf("  detect shape %u root %u: got root %u shape %u\n", (unsigned)SH[k], (unsigned)root, (unsigned)r, (unsigned)sh);
+            for (key = 0; key < 12u; key += 7u) {
+                uint8_t pc[SQ_POLY_OUT], pn;
+                CHECK(sq_hchord_live(&c, m, (uint8_t)root, (uint8_t)key, SQ_SC_MINOR));
+                pn = sq_harm_tones((uint8_t)key, SQ_SC_MINOR, &c, pc);
+                for (j = 0; j < pn; j++) CHECK(m & (1u << pc[j]));
+                if (cnt >= 3u) CHECK(pn >= 2u);
+            }
+        }
+    }
+#undef PCM
+}
+
+static void test_v026_native(void)
+{
+    uint8_t a[SQ_BAR_MAX], per, st, way, k, s;
+    uint32_t starts = 0u;
+    /* 4/4 is itself, either way */
+    for (way = 0; way < 2u; way++) {
+        per = sq_metre_native(16u, SQ_BEATS_44, way, a, &starts);
+        CHECK(per == 1u && starts == SQ_BEATS_44);
+        for (s = 0; s < 16u; s++) CHECK(a[s] == s);
+    }
+#define WAY(steps, mask, way, ...) do { static const uint8_t W[] = {__VA_ARGS__}; per = sq_metre_native((steps), (mask), (way), a, &starts); \
+        CHECK(sizeof W == (steps)); for (s = 0; s < (steps); s++) CHECK(a[s] == W[s]); \
+        if (memcmp(a, W, (steps))) { printf("  native %u %x way %u:", (unsigned)(steps), (unsigned)(mask), (unsigned)(way)); for (s = 0; s < (steps); s++) printf(" %u", a[s]); printf("\n"); } } while (0)
+    /* 7/8 as 2+2+3: way 0 ONE two THREE (the long beat is the answer, its last eighth again); way 1: the long beat is
+     * split - its two eighths the third beat, its third eighth the fourth */
+    WAY(14u, 0x0111u, 0u, 0,1,2,3, 4,5,6,7, 12,13,14,15,14,15); CHECK(per == 1u && starts == 0x0111u);
+    WAY(14u, 0x0111u, 1u, 0,1,2,3, 4,5,6,7, 8,9,10,11,12,13); CHECK(starts == 0x1111u);
+    /* 3+2+2: the long beat first - the one (way 1: and its answer on its third eighth) */
+    WAY(14u, 0x0441u, 0u, 0,1,2,3,2,3, 8,9,10,11, 12,13,14,15);
+    WAY(14u, 0x0441u, 1u, 0,1,2,3,4,5, 8,9,10,11, 12,13,14,15); CHECK(starts == 0x0451u);
+    /* 2+3+2: the middle between two beats: way 0 (2+3)+2, way 1 2+(3+2) */
+    WAY(14u, 0x0411u, 0u, 0,1,2,3, 4,5,6,7,6,7, 12,13,14,15);
+    WAY(14u, 0x0411u, 1u, 0,1,2,3, 8,9,10,11,10,11, 12,13,14,15);
+    /* 5/4: way 0 three and two (ONE two two | THREE four), way 1 two and three (ONE two | THREE three four) */
+    WAY(20u, 0x11111u, 0u, 0,1,2,3, 4,5,6,7, 4,5,6,7, 8,9,10,11, 12,13,14,15);
+    WAY(20u, 0x11111u, 1u, 0,1,2,3, 4,5,6,7, 8,9,10,11, 8,9,10,11, 12,13,14,15);
+    /* 3/4: way 0 the waltz (ONE two two), way 1 ONE | THREE four */
+    WAY(12u, 0x0111u, 0u, 0,1,2,3, 4,5,6,7, 12,13,14,15);
+    WAY(12u, 0x0111u, 1u, 0,1,2,3, 8,9,10,11, 12,13,14,15);
+    /* 6/8: two beats, half a bar (the caller's second bar is beats three and four) */
+    WAY(12u, 0x0041u, 0u, 0,1,2,3,2,3, 4,5,6,7,6,7); CHECK(per == 2u);
+    /* 12/8: four long beats */
+    WAY(24u, 0x041041u, 0u, 0,1,2,3,2,3, 4,5,6,7,6,7, 8,9,10,11,10,11, 12,13,14,15,14,15); CHECK(per == 1u);
+    /* 7/4: four and three: ONE two ONE two | THREE four four */
+    WAY(28u, 0x1111111u, 0u, 0,1,2,3, 4,5,6,7, 0,1,2,3, 4,5,6,7, 8,9,10,11, 12,13,14,15, 12,13,14,15);
+#undef WAY
+    /* every bar, every way it divides, both ways: step 0 is the one; every beat of the metre begins a beat (starts has
+     * the metre's beats, and no more than one a beat besides); a step stands for a 16th of its beat, never an earlier
+     * one than the step before it in the same beat; the bar's two halves are beats 1-2 and 3-4, in that order */
+    for (st = SQ_BAR_MIN; st <= SQ_BAR_MAX; st++) for (k = 0; k < sq_metre_options(st); k++) for (way = 0; way < 2u; way++) {
+        uint32_t m = sq_metre_option(st, k), extra;
+        uint8_t len[SQ_BAR_GROUPS], g = sq_metre_groups(st, m, len), top = 0u;
+        per = sq_metre_native(st, m, way, a, &starts);
+        CHECK(per == (g >= 3u ? 1u : g == 2u ? 2u : 4u));
+        CHECK(a[0] == 0u && (starts & m) == m);
+        extra = starts & ~m;
+        for (s = 0; s < st; s++) {
+            CHECK(a[s] < 16u / per);
+            if ((m >> s) & 1u) CHECK((a[s] & 3u) == 0u);
+            if (s && !((starts >> s) & 1u)) CHECK((a[s] >> 2) == (a[s - 1u] >> 2));
+            if ((starts >> s) & 1u) { CHECK((a[s] & 3u) == 0u); if (g >= 3u) { CHECK((a[s] >> 3) >= (top >> 3)); top = a[s]; } }
+        }
+        {   uint32_t e = extra, cnt = 0u; while (e) { cnt += e & 1u; e >>= 1; } CHECK(cnt <= 1u); CHECK(!way ? cnt == 0u : 1); }
+    }
+}
+
+static void test_v026_song(void)
+{
+    static sq_song_t sg;
+    static uint8_t sm[SQ_SCENES];
+    sq_song_pos_t o;
+    uint8_t id78 = sq_metre_id(14u, 0x0111u), id54 = sq_metre_id(20u, 0x11111u);
+    uint32_t t;
+    memset(&sg, 0, sizeof sg); memset(sm, 0, sizeof sm); memset(&o, 0, sizeof o);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 0u, &o) == 0u);     /* an empty song */
+    sg.len = 3u; sg.loop = 0u;
+    sg.e[0].scene = 0u; sg.e[0].bars = 4u; sg.e[1].scene = 1u; sg.e[1].bars = 2u; sg.e[2].scene = 2u; sg.e[2].bars = 2u;
+    /* no scene brings a metre: bars of the song's own (here sixteen steps: 96 ticks) */
+    CHECK(sq_song_locate(&sg, 0, 16u, SQ_BEATS_44, 0u, &o) && o.entry == 0u && o.bar == 0u && o.on_line && o.steps == 16u && o.line == 0u && o.bars_before == 0u && o.metre_from == 0u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 96u * 4u + 5u, &o) && o.entry == 1u && o.bar == 0u && !o.on_line && o.line == 384u && o.bars_before == 4u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 96u * 7u, &o) && o.entry == 2u && o.bar == 1u && o.on_line);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 96u * 30u + 1u, &o) && o.entry == 2u && o.bar == 1u && !o.on_line && o.line == 576u && o.bars_before == 6u);   /* past its end: the last entry goes on */
+    /* scene 1 in 7/8 (84 ticks a bar), scene 2 in 5/4 (120): 4 x 96 = 384, then 2 x 84 = 168 (to 552), then 2 x 120 */
+    sm[1] = (uint8_t)(id78 + 1u); sm[2] = (uint8_t)(id54 + 1u);
+    CHECK(id78 && id54 && id78 != 255u && id54 != 255u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 383u, &o) && o.entry == 0u && o.bar == 3u && o.steps == 16u && o.metre_from == 0u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 384u, &o) && o.entry == 1u && o.bar == 0u && o.steps == 14u && o.beats == 0x0111u && o.on_line && o.line == 384u && o.metre_from == 384u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 384u + 84u + 6u, &o) && o.entry == 1u && o.bar == 1u && !o.on_line);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 552u, &o) && o.entry == 2u && o.bar == 0u && o.steps == 20u && o.line == 552u && o.bars_before == 6u && o.metre_from == 552u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 552u + 120u * 5u, &o) && o.entry == 2u && o.bar == 1u && o.on_line && o.steps == 20u);
+    /* it loops: 792 ticks the first round; the second begins in 5/4 (scene 0 brings no metre): 4 x 120 + 168 + 240 = 888 */
+    sg.loop = 1u;
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 792u, &o) && o.entry == 0u && o.bar == 0u && o.steps == 20u && o.line == 792u && o.bars_before == 8u && o.metre_from == 552u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 792u + 480u, &o) && o.entry == 1u && o.steps == 14u && o.line == 1272u && o.metre_from == 1272u);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 792u + 888u * 5u + 480u + 168u + 121u, &o) && o.entry == 2u && o.bar == 1u && !o.on_line && o.steps == 20u &&
+          o.line == 792u + 888u * 5u + 648u && o.bars_before == 8u + 8u * 5u + 6u && o.metre_from == o.line);
+    CHECK(sq_song_locate(&sg, sm, 16u, SQ_BEATS_44, 792u + 888u * 7u + 10u, &o) && o.entry == 0u && o.steps == 20u && o.metre_from == 792u + 888u * 6u + 648u);
+    /* scene 0 brings 4/4 back: every round the same; every tick of three rounds: the entries in turn, each its bars */
+    sm[0] = 1u;
+    {   uint32_t round = 384u + 168u + 240u, prev_e = 2u, bars = 0u;
+        for (t = 0; t < 3u * round; t++) {
+            CHECK(sq_song_locate(&sg, sm, 20u, 0x11111u, t, &o));
+            CHECK(o.line <= t && o.metre_from <= t && o.entry < 3u && o.bar < sg.e[o.entry].bars);
+            if (o.entry != prev_e) { CHECK(o.entry == (prev_e + 1u) % 3u && o.on_line && o.bar == 0u && o.line == t); prev_e = o.entry; }
+            if (o.on_line) { CHECK(o.bars_before + o.bar == bars); bars++; }
+            CHECK(o.steps == (o.entry == 0u ? 16u : o.entry == 1u ? 14u : 20u));
+        }
+        CHECK(bars == 24u);
+    }
+}
+
+static void test_v026_click(void)
+{
+    static int32_t out[2u * 2048u];
+    sq_click_t c;
+    static sq_project_t p;
+    uint32_t f, peak = 0u, last = 0u, cross = 0u, frames = 0u, lv;
+    sq_project_init(&p);
+    CHECK(p.ext.click == SQ_CLICK_OFF && p.ext.count_in == 0u && p.ext.click_out == 0u && sq_click_note(&p.ext) == SQ_CLICK_NOTE_DEF && sq_click_level(&p.ext) == SQ_CLICK_LEVEL_DEF);
+    CHECK(sq_click_vel(&p.ext, 1u) > sq_click_vel(&p.ext, 0u) && sq_click_vel(&p.ext, 0u) >= 1u);
+    p.ext.click_level = 10u; CHECK(sq_click_vel(&p.ext, 1u) == 127u && sq_click_vel(&p.ext, 0u) == 90u);
+    p.ext.click_level = 1u; CHECK(sq_click_vel(&p.ext, 1u) == 46u && sq_click_vel(&p.ext, 0u) == 27u);
+    p.ext.click_note = 37u; CHECK(sq_click_note(&p.ext) == 37u);
+    p.ext.click = 9u; p.ext.count_in = 9u; p.ext.click_out = 17u; p.ext.click_note = 200u; p.ext.click_level = 11u; p.ext.scene_metre_on = 7u; p.ext.scene_metre[3] = 250u; p.ext.scene_metre[4] = 218u;
+    sq_ext_sanitize(&p.ext);
+    CHECK(p.ext.click == 0u && p.ext.count_in == 0u && p.ext.click_out == 0u && p.ext.click_note == 0u && p.ext.click_level == 0u && p.ext.scene_metre_on == 1u &&
+          p.ext.scene_metre[3] == 0u && p.ext.scene_metre[4] == 218u);
+    /* the accent: silent at its first frame, then a 2000 Hz tone (four crossings a millisecond) that dies away in 30 ms */
+    memset(&c, 0, sizeof c);
+    CHECK(sq_click_render(&c, out, 256u, 0u) == 0u);                   /* nothing started: nothing made */
+    memset(out, 0, sizeof out);
+    sq_click_start(&c, 1u, 10u);
+    CHECK(c.on == 1u);
+    CHECK(sq_click_render(&c, out, 2048u, 0u) == 0u && c.on == 0u);    /* it fits: over */
+    CHECK(out[0] == 0 && out[1] == 0);
+    for (f = 0; f < 2048u; f++) {
+        uint32_t a = (uint32_t)(out[2u * f] < 0 ? -out[2u * f] : out[2u * f]);
+        CHECK(out[2u * f] == out[2u * f + 1u]);
+        if (a > peak) peak = a;
+        if (a) frames = f + 1u;
+        if (f && ((out[2u * f] < 0) != (out[2u * f - 2u] < 0)) && f < 441u) cross++;
+        if (f >= 1300u && a > last) last = a;
+    }
+    CHECK(peak > 20000u && peak <= 32767u);
+    CHECK(frames <= 1323u && frames > 1000u);
+    CHECK(last < 64u);
+    CHECK(cross >= 38u && cross <= 42u);                               /* 10 ms of 2000 Hz: forty */
+    /* a beat: lower (1000 Hz), shorter; softer at a lower level; in blocks, from a frame inside one, it is the same click */
+    for (lv = 1u; lv <= 10u; lv++) {
+        static int32_t one[2u * 1536u], blk[2u * 1536u];
+        uint32_t pk = 0u, b, more = 1u;
+        memset(one, 0, sizeof one); memset(blk, 0, sizeof blk);
+        sq_click_start(&c, 0u, (uint8_t)lv);
+        sq_click_render(&c, one, 1536u, 100u);
+        sq_click_start(&c, 0u, (uint8_t)lv);
+        for (b = 0; b < 6u && more; b++) more = sq_click_render(&c, blk + 2u * 256u * b, 256u, b ? 0u : 100u);
+        CHECK(!more && b <= 6u && !memcmp(one, blk, sizeof one));
+        for (f = 0; f < 100u; f++) CHECK(one[2u * f] == 0);
+        for (f = 0; f < 1536u; f++) { uint32_t a = (uint32_t)(one[2u * f] < 0 ? -one[2u * f] : one[2u * f]); if (a > pk) pk = a; }
+        CHECK(pk <= lv * lv * 330u && pk >= lv * lv * 200u);
+    }
+    {   int32_t two[4] = {1000, -1000, 0, 0};                          /* it adds to what is there */
+        sq_click_start(&c, 1u, 10u);
+        sq_click_render(&c, two, 2u, 0u);
+        CHECK(two[0] == 1000 && two[1] == -1000 && two[2] != 0 && two[2] == two[3]);
+    }
+}
+
+static void test_v026_image(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[60000], old[60000];
+    uint32_t n, at1, i;
+    /* the new settings come back; the scenes' metres are the end of chunk 1 */
+    sq_project_init(&a);
+    a.ext.click = SQ_CLICK_REC; a.ext.count_in = 2u; a.ext.click_out = 10u; a.ext.click_note = 37u; a.ext.click_level = 4u; a.ext.scene_metre_on = 1u;
+    a.ext.kb_mode = SQ_KB_CHORD_SPLIT; a.track[5].follow_mode = SQ_FM_SMOOTH;
+    a.ext.scene_metre[0] = 1u; a.ext.scene_metre[7] = (uint8_t)(sq_metre_id(14u, 0x0111u) + 1u); a.ext.scene_metre[15] = SQ_METRE_IDS + 1u;
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(b.ext.kb_mode == SQ_KB_CHORD_SPLIT && b.track[5].follow_mode == SQ_FM_SMOOTH && b.ext.scene_metre[7] == a.ext.scene_metre[7] && b.ext.count_in == 2u);
+    /* a 0.25 image: chunk 1 of 1508 bytes - no scene brings a metre; what 0.25 kept in reserve is whatever it wrote (0) */
+    at1 = n - 1u - 3u - (uint32_t)sizeof a.ext;
+    CHECK(img[at1] == SQ_CHUNK_EXT && SQ_EXT_025 + SQ_SCENES == sizeof a.ext);
+    memcpy(old, img, at1);
+    old[at1] = SQ_CHUNK_EXT; old[at1 + 1u] = (uint8_t)(SQ_EXT_025 & 0xFFu); old[at1 + 2u] = (uint8_t)(SQ_EXT_025 >> 8);
+    memcpy(old + at1 + 3u, &a.ext, SQ_EXT_025);
+    old[at1 + 3u + SQ_EXT_025] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, old, at1 + 4u + SQ_EXT_025) == 0 && !memcmp(&a.ext, &b.ext, SQ_EXT_025));
+    for (i = 0; i < SQ_SCENES; i++) CHECK(b.ext.scene_metre[i] == 0u);
+    /* a project that uses none of it: the image a 0.25 firmware wrote, byte for byte no longer */
+    sq_project_init(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    sq_project_init(&b); b.ext.scene_metre_on = 0u;
+    CHECK(n == sq_serialize(&b, old, sizeof old) && !memcmp(img, old, n));
+}
+
+/* 0.26, the technical check of 0.23 - 0.25: what no test ran (gcov over the simulator's tests, the explorer and these) */
+static void test_v026_gaps(void)
+{
+    /* an ACCENT's and a DENSITY's values put right, in the track's first slot and in the others */
+    {   sq_track_cfg_t c;
+        sq_track_default(&c, 0u);
+        c.algo = SQ_ALGO_ACCENT; c.algo_a = 9u; c.algo_b = 200u; c.algo_c = 40u;
+        c.algo2[0].algo = SQ_ALGO_DENSITY; c.algo2[0].a = 250u; c.algo2[0].b = 3u; c.algo2[0].c = 7u;
+        c.algo2[1].algo = SQ_ALGO_DENSITY; c.algo2[1].a = 150u; c.algo2[1].b = 130u; c.algo2[1].c = 0u;
+        c.algo2[2].algo = SQ_ALGO_ACCENT; c.algo2[2].a = 4u; c.algo2[2].b = 63u; c.algo2[2].c = 15u;
+        sq_track_sanitize(&c);
+        CHECK(c.algo == SQ_ALGO_ACCENT && c.algo_a == 0u && c.algo_b == 63u && c.algo_c == 0u);
+        CHECK(c.algo2[0].algo == SQ_ALGO_DENSITY && c.algo2[0].a == 200u && c.algo2[0].b == 10u && c.algo2[0].c == 0u);
+        CHECK(c.algo2[1].a == 150u && c.algo2[1].b == 100u);
+        CHECK(c.algo2[2].a == 4u && c.algo2[2].b == 63u && c.algo2[2].c == 15u);
+    }
+    /* the second inversion: the two lowest notes an octave up (two notes: the lower one); the top of the keyboard stays */
+    {   static const uint8_t TRI[3] = {60, 64, 67}, TWO[2] = {60, 64}, TOP[3] = {116, 120, 123};
+        uint8_t out[SQ_POLY_OUT], n;
+        n = sq_voice_notes(TRI, 3u, SQ_VOICE_INV2, out); CHECK(n == 3u && out[0] == 67u && out[1] == 72u && out[2] == 76u);
+        n = sq_voice_notes(TWO, 2u, SQ_VOICE_INV2, out); CHECK(n == 2u && out[0] == 64u && out[1] == 72u);
+        n = sq_voice_notes(TOP, 3u, SQ_VOICE_INV2, out); CHECK(n == 3u && out[0] == 116u && out[1] == 120u && out[2] == 123u);
+        n = sq_voice_notes(TRI, 3u, SQ_VOICE_INV1, out); CHECK(n == 3u && out[0] == 64u && out[1] == 67u && out[2] == 72u);
+    }
+    /* a PINGPONG loop of one step is on that step, wherever the clock is */
+    {   sq_track_cfg_t c; sq_track_rt_t rt;
+        sq_track_default(&c, 0u);
+        c.start = 5u; c.length = 6u; c.direction = SQ_DIR_PINGPONG;
+        memset(&rt, 0, sizeof rt);
+        sq_track_seek(&c, &rt, 6u * 37u, 6u);
+        CHECK(rt.step == 5u);
+    }
+    /* FOLLOW on a chord of six notes: the progression's seventh has no room on top - it takes a doubled note's place
+     * (C3 E3 G3 C4 E4 G4 on I7: the C4 becomes the B under it), or the fifth's (C D E F G A: the G becomes B) */
+    {   uint8_t a[SQ_POLY_OUT] = {48, 52, 55, 60, 64, 67}, b[SQ_POLY_OUT] = {48, 50, 52, 53, 55, 57}, n;
+        n = sq_harm_apply(a, 6u, 0u, SQ_SC_MAJOR, 0, SQ_HC_7, 1u);
+        CHECK(n == 6u && a[0] == 48u && a[1] == 52u && a[2] == 55u && a[3] == 59u && a[4] == 64u && a[5] == 67u);
+        n = sq_harm_apply(b, 6u, 0u, SQ_SC_MAJOR, 0, SQ_HC_7, 1u);
+        CHECK(n == 6u && b[0] == 48u && b[1] == 50u && b[2] == 52u && b[3] == 53u && b[4] == 59u && b[5] == 57u);
+    }
+    /* a chord of the key that is none of the 32 shapes goes to the Pi as the nearest of its kind: the ii of a minor
+     * key with a ninth (a diminished chord, the flat ninth): half-diminished; with a sus4 (the fifth is flat): SUS4;
+     * the III of a harmonic minor with its seventh (augmented, a major seventh): AUG; its V with a ninth (the flat
+     * one): a dominant ninth */
+    {   uint8_t semi = 0u, shape = 0u;
+        sq_hchord_t x = {1, SQ_HC_9, 255u, 0u};
+        sq_hchord_explicit(SQ_SC_MINOR, &x, &semi, &shape); CHECK(semi == 2u && shape == SQ_HSHAPE_CH + SQ_CH_M7B5);
+        x.col = SQ_HC_SUS4; sq_hchord_explicit(SQ_SC_MINOR, &x, &semi, &shape); CHECK(semi == 2u && shape == SQ_HSHAPE_CH + SQ_CH_SUS4);
+        x.col = SQ_HC_SUS2; sq_hchord_explicit(SQ_SC_PHRYGIAN, &x, &semi, &shape); CHECK(shape > SQ_HSHAPE_CH);
+        x.deg = 2; x.col = SQ_HC_7; sq_hchord_explicit(SQ_SC_HARM_MINOR, &x, &semi, &shape); CHECK(semi == 3u && shape == SQ_HSHAPE_CH + SQ_CH_AUG);
+        x.deg = 4; x.col = SQ_HC_9; sq_hchord_explicit(SQ_SC_HARM_MINOR, &x, &semi, &shape); CHECK(semi == 7u && shape == SQ_HSHAPE_CH + SQ_CH_9);
+        CHECK(!strcmp(sq_degree_name(10u), "bVII") && !strcmp(sq_degree_name(12u), "I"));
+    }
+    /* a bar from outside divided in many beats: its split is written whole, however long */
+    {   char spl[SQ_SPLIT_TEXT], sig[8];
+        uint32_t m = 0u, at = 0u, k;
+        static const uint8_t L[9] = {4, 3, 4, 3, 4, 3, 4, 3, 4};
+        for (k = 0; k < 9u; k++) { m |= (uint32_t)1u << at; at += L[k]; }
+        CHECK(at == 32u);
+        sq_metre_split(32u, m, spl); sq_metre_sig(32u, m, sig);
+        CHECK(strlen(spl) < SQ_SPLIT_TEXT && !strncmp(spl, "4+3+4+3", 7u) && !strcmp(sig, "32/16"));
+        CHECK(sq_metre_id(32u, m) == 255u);                           /* (not one of the bar's own ways: a mask from outside) */
+        {   uint8_t st = 0u; uint32_t bt = 0u; CHECK(sq_metre_of(255u, &st, &bt) == 0u && sq_metre_of(SQ_METRE_IDS, &st, &bt) == 1u && st == 32u); }
+    }
+    /* 0.24: a length changed while the loop's start is past both the old length and the new: the copies become steps
+     * (nothing mirrors a pattern there), and nothing else moves */
+    {   static sq_step_t row[SQ_STEPS], was[SQ_STEPS];
+        uint32_t i, ghosts = 0u;
+        for (i = 0; i < SQ_STEPS; i++) sq_step_default(&row[i]);
+        for (i = 0; i < 16u; i += 4u) { row[i].flags |= SQ_STEP_ON; row[i].note[0] = (uint8_t)(60u + i); }
+        CHECK(sq_row_fit(row, 0u, 16u, 32u) == 16u);
+        for (i = 0; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) ghosts++;
+        CHECK(ghosts == 16u);
+        memcpy(was, row, sizeof row);
+        sq_row_fit(row, 40u, 32u, 32u);
+        for (i = 0; i < SQ_STEPS; i++) {
+            CHECK(!(row[i].flags & SQ_STEP_GHOST));
+            CHECK(row[i].note[0] == was[i].note[0] && (row[i].flags & SQ_STEP_ON) == (was[i].flags & SQ_STEP_ON));
+        }
+    }
+}
+
 static void test_v011_harmony(void)
 {
     static const int8_t DEG[4] = {0, 6, 5, 6};                 /* i VII VI VII */
@@ -3548,6 +3969,13 @@ int main(void)
     test_v024_image();
     test_v025_metre();
     test_v025_melody();
+    test_v026_smooth();
+    test_v026_live_chords();
+    test_v026_native();
+    test_v026_song();
+    test_v026_click();
+    test_v026_image();
+    test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();
     test_planes();

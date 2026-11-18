@@ -333,8 +333,9 @@ typedef struct __attribute__((packed)) {
 #define SQ_BRK_SWAP(cfg) ((((cfg) ? (cfg) - 1u : 0u) >> 5) & 7u)
 #define SQ_BRK_DEFAULT SQ_BRK_PACK(1u, 2u, 3u)   /* 16 slices, two rolls, the dice swaps about 40 % */
 #define SQ_TRACK_CFG_A 80u       /* the bytes a 0.10 (SGQA) image holds of a track */
-enum { SQ_FM_HOLD = 0, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FM_MELODY, SQ_FMS };   /* 0.11 FOLLOW: HOLD (0.10: the chord at its start), RETRIG, LEGATO (the notes the chords share go on);
-                                                                              * 0.25 MELODY: a tune stays where it is written, its strong notes go to the chord (sq_harm_melody) */
+enum { SQ_FM_HOLD = 0, SQ_FM_RETRIG, SQ_FM_LEGATO, SQ_FM_MELODY, SQ_FM_SMOOTH, SQ_FMS };   /* 0.11 FOLLOW: HOLD (0.10: the chord at its start), RETRIG, LEGATO (the notes the chords share go on);
+                                                                              * 0.25 MELODY: a tune stays where it is written, its strong notes go to the chord (sq_harm_melody);
+                                                                              * 0.26 SMOOTH: a chord's notes go to the nearest notes of the chord playing (sq_harm_smooth) */
 /* slot k (0..3) of a track's algorithms (slot 0 is the four bytes algo .. algo_c, laid out like sq_algo_t) */
 #define SQ_ALGO_AT(c, k) ((k) ? &(c)->algo2[(k) - 1u] : (sq_algo_t *)&(c)->algo)
 #define SQ_TF_SCALE  0x01u       /* the track's notes are kept in the project's key (not for drums) */
@@ -462,7 +463,11 @@ typedef struct __attribute__((packed)) {
 } sq_trackx_t;                   /* 20 bytes */
 #define SQ_MOTION_CELLS 64u      /* a 16th each: 4 bars */
 #define SQ_MOTION_NONE (-128)
-enum { SQ_KB_OFF = 0, SQ_KB_ALL, SQ_KB_SPLIT, SQ_KBS };   /* the keyboard's notes TRANSPOSE: none, all, those under C3 */
+enum { SQ_KB_OFF = 0, SQ_KB_ALL, SQ_KB_SPLIT,             /* the keyboard's notes TRANSPOSE: none, all, those under C3 */
+       SQ_KB_CHORD, SQ_KB_CHORD_SPLIT,                     /* 0.26 LIVE CHORDS: the notes held are the HARMONY's chord: all of them, those under C3 */
+       SQ_KBS };
+#define SQ_KB_IS_SPLIT(m) ((m) == SQ_KB_SPLIT || (m) == SQ_KB_CHORD_SPLIT)
+#define SQ_KB_IS_CHORD(m) ((m) == SQ_KB_CHORD || (m) == SQ_KB_CHORD_SPLIT)
 #define SQ_KB_SPLIT_NOTE 48u     /* C3 */
 /* 0.19: a track's MIDI FX CHAIN (HOME 6). The four effects can play together, always in this order: VEL CURVE, OCTAVE,
  * HARM, ECHO (the velocity, then the note moved, then the harmony's voice on it, then the echoes of both); each keeps
@@ -547,7 +552,14 @@ typedef struct __attribute__((packed)) sq_ext_s {
     uint8_t kb_ch;               /* the keyboard's channel: 0 any, 1..16 */
     uint8_t in_thru;             /* 0: MIDI IN plays the selected track with REC only (0.12); 1: always */
     int8_t motion[4][SQ_MOTION_CELLS];   /* the macros INTENSITY GATE SWING FILTER a 16th; SQ_MOTION_NONE: not written */
-    uint8_t reserved[8];
+    /* 0.26 (six of the eight bytes 0.13 kept in reserve: an older image has them 0, an older firmware puts them to 0) */
+    uint8_t click;               /* SQ_CLICK_*: the metronome - OFF, while REC is on, whenever it plays */
+    uint8_t count_in;            /* the bars counted before PLAY with REC on starts: 0 none, 1, 2 */
+    uint8_t click_out;           /* where the click sounds: 0 the FM-1's own sound, 1..16 a note on that MIDI channel */
+    uint8_t click_note;          /* ... that note (0: SQ_CLICK_NOTE_DEF) */
+    uint8_t click_level;         /* how loud, 1..SQ_CLICK_LEVELS (0: SQ_CLICK_LEVEL_DEF): the FM-1's sound, the note's velocity */
+    uint8_t scene_metre_on;      /* 1: a scene keeps the metre it was stored in and brings it back (scene_metre, at the end) */
+    uint8_t reserved[2];
     char name[SQ_NAME_LEN];      /* 0.15: the project's name (the Pi's editor writes it; SAVE + PRESETS shows it): A-Z 0-9
                                   * space - _ . + # & ! ' ( ) / :, 0 after the last; a 0.14 image has none (a 0.14 firmware
                                   * takes the 780 bytes before it) */
@@ -555,10 +567,30 @@ typedef struct __attribute__((packed)) sq_ext_s {
     sq_mfxd_t mfxd[SQ_TRACKS];   /* 0.20: the five new effects and the order of the nine (a 0.19 image: the defaults) */
     sq_lfoe_t lfoe[SQ_LFOS];     /* 0.20: each LFO's envelope (SHAPE ENV) */
     sq_mod_t mod[SQ_MODS];       /* 0.20: the MOD MATRIX */
-} sq_ext_t;                      /* 1508 bytes */
+    uint8_t scene_metre[SQ_SCENES];   /* 0.26: the metre each scene brings: 0 = it leaves the metre alone, else sq_metre_id + 1
+                                       * (a 0.25 image has none: every scene leaves it alone; a 0.25 firmware takes the 1508
+                                       * bytes before it) */
+} sq_ext_t;                      /* 1524 bytes */
 #define SQ_EXT_014 780u          /* the bytes of sq_ext_t a 0.13 / 0.14 image holds */
 #define SQ_EXT_018 796u          /* ... a 0.15 - 0.18 image */
 #define SQ_EXT_019 1004u         /* ... a 0.19 image */
+#define SQ_EXT_025 1508u         /* ... a 0.20 - 0.25 image */
+/* 0.26 THE CLICK (SAVE 5): a metronome on the beats of the metre, the bar line louder; a count before a recording */
+enum { SQ_CLICK_OFF = 0, SQ_CLICK_REC, SQ_CLICK_PLAY, SQ_CLICKS };
+#define SQ_COUNT_IN_MAX 2u
+#define SQ_CLICK_NOTE_DEF 75u    /* claves (General MIDI); the bar line: the same note, louder */
+#define SQ_CLICK_LEVELS 10u
+#define SQ_CLICK_LEVEL_DEF 7u
+uint8_t sq_click_note(const sq_ext_t *x);        /* the note a MIDI click plays */
+uint8_t sq_click_level(const sq_ext_t *x);       /* 1..SQ_CLICK_LEVELS */
+uint8_t sq_click_vel(const sq_ext_t *x, uint8_t accent);   /* its velocity: the bar line 127 at the top level, a beat lower */
+/* the FM-1's own click: a short sine that dies away - 2000 Hz on the bar line, 1000 Hz on a beat -, made a block of
+ * frames at a time (the audio interrupt). sq_click_start: a click from its first frame; sq_click_render ADDS it to
+ * `frames` stereo frames (L R L R, Q15) from frame `from` on, and returns 1 while there is more of it to come. */
+typedef struct { uint32_t phase, inc; int32_t env; uint16_t left; uint8_t on, reserved; } sq_click_t;
+#define SQ_CLICK_FS 44100u
+void sq_click_start(sq_click_t *c, uint8_t accent, uint8_t level);
+uint8_t sq_click_render(sq_click_t *c, int32_t *out, uint32_t frames, uint32_t from);
 #define SQ_CHUNK_EXT 1u          /* the image's chunk of sq_ext_t */
 
 /* 0.23 THEORY: a pattern can be MADE by the engines (sagga_theory.h) from the rules of a style instead of loaded from
@@ -704,6 +736,23 @@ uint8_t  sq_rebar_len(uint8_t n16, uint8_t steps, uint32_t beats);     /* the st
 /* for what moves through the bar in time (the harmony's chords): the 16th of a 4/4 bar that step s stands for - never
  * going back, the beats spread over the four quarters */
 uint8_t  sq_metre_virt16(uint8_t steps, uint32_t beats, uint8_t s);
+/* 0.26 A BAR THOUGHT IN ITS OWN METRE (the engines: sagga_theory.c). Re-barring gives every beat of the bar a beat of
+ * a 4/4 bar that was made first - and a 7/8 is then a 4/4 with a piece cut off. Here every step of the bar is given the
+ * 16th of a 4/4 bar it STANDS FOR, so a part is made straight in the bar: what the step weighs, whether it carries the
+ * kick or the backbeat, comes from its place in the metre.
+ *   The bar is two HALVES, at the beat nearest its middle: the first stands for beats 1 and 2 (the one, and its
+ *   answer), the second for beats 3 and 4. In a half the beats are the first and its answer in turn; a half with an
+ *   odd number of them has two answers at its end (way 0: 5/4 as 3+2 is ONE two two | THREE four) or two firsts at
+ *   its start (way 1). A half that is ONE beat is the answer (way 0: the waltz, the aksak's long last beat) or, way 1,
+ *   is split when it is a long one: its first two eighths the first beat, its third eighth the answer (2+2+3 played
+ *   ONE two THREE-four); a short one is then the first. When the middle falls between two beats as near, way 0 takes
+ *   the later (3+2), way 1 the earlier (2+3).
+ *   A bar of two beats is half a bar (two of them: ONE two | THREE four), a bar of one beat a quarter of one.
+ * a16[s]: the 16th of that 4/4 bar step s stands for - 0..15 in a bar of three beats or more; 0..7 in a bar of two
+ * (the caller adds 8 in every second bar); 0..3 in a bar of one (4 x the bar, modulo 4). starts: a bit a step that
+ * BEGINS one of those beats. Returns how many bars of the metre make the 4/4 bar: 1, 2 or 4. 16 steps in four quarters:
+ * a16[s] = s. */
+uint8_t  sq_metre_native(uint8_t steps, uint32_t beats, uint8_t way, uint8_t *a16, uint32_t *starts);
 /* a number for the metre, to keep with what was made in it: 0 = 4/4 (what every older image says), 1 .. SQ_METRE_IDS the
  * bars' own ways, 255 a mask from outside */
 #define SQ_METRE_IDS 217u
@@ -751,6 +800,22 @@ typedef struct __attribute__((packed)) {
     uint8_t loop;                /* 1: after the last back to the first; 0: the last one goes on */
     sq_song_entry_t e[SQ_SONG_LEN];   /* scene 0..15, bars 1..64 */
 } sq_song_t;
+
+/* 0.26 THE METRE WITH THE SCENE: where a song is `ticks` clock ticks (24 a beat) after its start when its scenes bring
+ * their metres (scene_metre: SQ_SCENES bytes, 0 = the scene leaves the metre, else sq_metre_id + 1; a null pointer: no
+ * scene brings one). The song begins in the bar `steps0` / `beats0`. A song that loops goes round; one that does not
+ * stays on its last entry, whose bars go on being counted. Returns 0 when the song is empty. */
+typedef struct {
+    uint8_t entry;               /* the entry playing */
+    uint8_t bar;                 /* the bar of it (a song that does not loop, past its end: the entry's last bar) */
+    uint8_t steps;               /* the bar there, in 16ths ... */
+    uint8_t on_line;             /* 1: `ticks` is on a bar line */
+    uint32_t beats;              /* ... and its beats */
+    uint32_t line;               /* the tick of the entry's first bar line (a later round of a song that loops: of that round) */
+    uint32_t bars_before;        /* the bars played before that line */
+    uint32_t metre_from;         /* the tick the metre last changed at, 0 if it never did: where the tracks began again */
+} sq_song_pos_t;
+uint8_t sq_song_locate(const sq_song_t *sg, const uint8_t *scene_metre, uint8_t steps0, uint32_t beats0, uint32_t ticks, sq_song_pos_t *o);
 
 /* ---- 0.9 VIAGGIO: the journey from the blank page (sagga_viaggio.c; the pure parts are here, tested on a computer).
  * The set is made of phrases of SQ_PHRASE bars. Every track is VUOTA (nothing written), PROPOSTA (it has phrases that do
@@ -1257,6 +1322,23 @@ uint8_t sq_harm_apply_chord(uint8_t *notes, uint8_t n, uint8_t root, uint8_t sca
  * SQ_POLY_OUT). sq_harm_melody: the nearest of them to a note (already in the key); of two as near, the lower one. */
 uint8_t sq_harm_tones(uint8_t root, uint8_t scale, const sq_hchord_t *c, uint8_t *pc);
 uint8_t sq_harm_melody(uint8_t note, uint8_t root, uint8_t scale, const sq_hchord_t *c);
+/* 0.26 FOLLOW SMOOTH: the chords move little. FOLLOW moves a written chord to the chord playing with the whole hand:
+ * every note by the same steps (the chords of a riff, in parallel). A keyboard player does not: the notes two chords
+ * share stay where they are, the others go to the nearest note of the new chord - an inversion. Here the chord is first
+ * moved as FOLLOW always moved it (sq_harm_apply_chord: what kind of chord it is, the colour the progression adds, stay
+ * the same), then each of its notes is put in the octave nearest to a WRITTEN note, one each, the way that moves the
+ * least in all (of two ways as near: the one more notes stay still in). So the voicing stays about where it was
+ * written whatever the chord, and nothing depends on the chord before. `notes` holds SQ_POLY_OUT; returns the count. */
+uint8_t sq_harm_smooth(uint8_t *notes, uint8_t n, uint8_t root, uint8_t scale, const sq_hchord_t *c);
+/* 0.26 LIVE CHORDS: the notes held on a keyboard as a chord of the HARMONY. `mask`: a bit a pitch class held (bit 0 = C),
+ * `bass`: the lowest note held (its pitch class counts). sq_chord_detect: the root (0..11) and the shape SQ_CH_* that
+ * fit best - every note of the shape there and no other is best; a fifth left out costs little, a third or a seventh
+ * more, a note the shape has not most; of two as good, the one whose root is the bass, then the simpler shape. One
+ * note: SQ_CH_OFF (the caller: the key's own chord on it). Returns 0 when nothing is held.
+ * sq_hchord_live: ... as a chord of the harmony in the key - the key's own chord on that step with its colour when it is
+ * one (it is named "vi7" and a FOLLOW track moves to it by the steps of the key), else the root and the shape. */
+uint8_t sq_chord_detect(uint16_t mask, uint8_t bass, uint8_t *root, uint8_t *shape);
+uint8_t sq_hchord_live(sq_hchord_t *c, uint16_t mask, uint8_t bass, uint8_t key_root, uint8_t key_scale);
 void sq_hchord_name(uint8_t scale, const sq_hchord_t *c, char *out);   /* "bVII", "iv7", "bIImaj7", "Vsus4" (12 bytes) */
 const char *sq_degree_name(uint8_t semi);                              /* 0.12: "I", "bII" .. "VII" for 0..11 semitones above the key */
 uint8_t sq_hchord_semi(uint8_t scale, const sq_hchord_t *c);    /* its root, semitones above the key's */

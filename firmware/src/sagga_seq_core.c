@@ -677,6 +677,84 @@ uint8_t sq_metre_of(uint8_t id, uint8_t *steps, uint32_t *beats)
     }
     return 0u;
 }
+/* 0.26: a bar thought in its own metre (the header says how) */
+uint8_t sq_metre_native(uint8_t steps, uint32_t beats, uint8_t way, uint8_t *a16, uint32_t *starts)
+{
+    uint8_t len[SQ_BAR_GROUPS], beat[SQ_BAR_GROUPS], split[SQ_BAR_GROUPS], k, g, s, at, h = 0u, half, j0, j1;
+    uint32_t st = 0u, mid2, best = 0xFFFFu;
+    if (steps < SQ_BAR_MIN || steps > SQ_BAR_MAX) steps = 16u;
+    beats = sq_metre_fix(steps, beats);
+    k = sq_metre_groups(steps, beats, len);
+    for (g = 0; g < SQ_BAR_GROUPS; g++) { beat[g] = 0u; split[g] = 0u; }
+    if (k >= 3u) {
+        mid2 = steps;                                      /* (twice the middle: no halves of a step) */
+        for (g = 1u, at = len[0]; g < k; at = (uint8_t)(at + len[g]), g++) {      /* the beat nearest the middle begins the second half */
+            uint32_t d = 2u * at > mid2 ? 2u * at - mid2 : mid2 - 2u * at;
+            if (d < best || (d == best && !way)) { best = d; h = g; }             /* (as near: way 0 the later, way 1 the earlier) */
+        }
+        for (half = 0u; half < 2u; half++) {
+            j0 = half ? h : 0u; j1 = half ? k : h;
+            for (g = j0; g < j1; g++) {
+                uint8_t n = (uint8_t)(j1 - j0), i = (uint8_t)(g - j0), b;
+                if (n == 1u) {                             /* a half of one beat */
+                    if (way && len[g] >= 6u) { b = 0u; split[g] = 1u; }           /* a long one, way 1: itself and its answer */
+                    else b = (uint8_t)(half ? (way ? 0u : 1u) : 0u);              /* (the first half is the one whatever) */
+                } else if (!(n & 1u)) b = (uint8_t)(i & 1u);
+                else if (!way) b = (uint8_t)(i + 1u == n ? 1u : (i & 1u));        /* odd, way 0: two answers at its end */
+                else b = (uint8_t)(i == 0u ? 0u : ((i - 1u) & 1u));               /* odd, way 1: two firsts at its start */
+                beat[g] = (uint8_t)(2u * half + b);
+            }
+        }
+    } else if (k == 2u) beat[1] = 1u;
+    for (g = 0, at = 0u; g < k; at = (uint8_t)(at + len[g]), g++)
+        for (s = 0; s < len[g] && (uint8_t)(at + s) < steps; s++) {
+            uint8_t i = s, b = beat[g];
+            if (split[g] && s >= 4u) { b = (uint8_t)(b + 1u); i = (uint8_t)(s - 4u); if (i == 0u) st |= (uint32_t)1u << (at + s); }
+            if (s == 0u) st |= (uint32_t)1u << at;
+            a16[at + s] = (uint8_t)(4u * b + (i < 4u ? i : 2u + ((i - 4u) & 1u)));
+        }
+    if (starts) *starts = st;
+    return (uint8_t)(k >= 3u ? 1u : k == 2u ? 2u : 4u);
+}
+/* 0.26: where a song is, its scenes bringing their metres (the header says what comes back) */
+uint8_t sq_song_locate(const sq_song_t *sg, const uint8_t *scene_metre, uint8_t steps0, uint32_t beats0, uint32_t ticks, sq_song_pos_t *o)
+{
+    uint8_t steps, round, n = sg->len > SQ_SONG_LEN ? (uint8_t)SQ_SONG_LEN : sg->len;
+    uint32_t beats, acc = 0u, bars = 0u, mfrom = 0u, i;
+    if (!n) return 0u;
+    if (steps0 < SQ_BAR_MIN || steps0 > SQ_BAR_MAX) steps0 = 16u;
+    steps = steps0; beats = sq_metre_fix(steps0, beats0);
+    for (round = 0u; round < 3u; round++) {                /* the first round; the second (it may begin in another bar); the rounds after are as the second */
+        uint32_t r0 = acc, b0 = bars;
+        for (i = 0; i < n; i++) {
+            const sq_song_entry_t *e = &sg->e[i];
+            uint8_t ns = steps, eb = e->bars ? e->bars : 1u;
+            uint32_t nb = beats, len;
+            if (scene_metre && e->scene < SQ_SCENES && scene_metre[e->scene] && sq_metre_of((uint8_t)(scene_metre[e->scene] - 1u), &ns, &nb)) {
+                if (ns != steps || nb != beats) { steps = ns; beats = nb; mfrom = acc; }
+            }
+            len = (uint32_t)eb * steps * 6u;
+            if (ticks < acc + len || (i + 1u == n && !sg->loop)) {
+                uint32_t in = ticks - acc, bt = (uint32_t)steps * 6u, bar = in / bt;
+                o->entry = (uint8_t)i;
+                o->bar = (uint8_t)(bar < eb ? bar : eb - 1u);
+                o->steps = steps; o->beats = beats;
+                o->on_line = (uint8_t)(in % bt == 0u);
+                o->line = acc; o->bars_before = bars; o->metre_from = mfrom;
+                return 1u;
+            }
+            acc += len; bars += eb;
+        }
+        if (round == 1u) {                                 /* the rounds after the second: whole ones are skipped */
+            uint32_t rl = acc - r0, rb = bars - b0, skip;
+            if (!rl) return 0u;
+            skip = (ticks - acc) / rl;
+            if (mfrom >= r0 && mfrom) mfrom += skip * rl;    /* (the last change of the round before the one it is in) */
+            acc += skip * rl; bars += skip * rb;
+        }
+    }
+    return 0u;
+}
 /* the grid of the bar (see the header): 4/4 until someone says otherwise */
 static uint8_t grid_on_, grid_steps_ = 16u, grid_base_;
 static uint8_t grid_src_[SQ_BAR_MAX];
@@ -2143,6 +2221,13 @@ void sq_ext_sanitize(sq_ext_t *x)
     for (i = 0; i < 4u; i++)
         for (k = 0; k < SQ_MOTION_CELLS; k++)
             if (x->motion[i][k] != (int8_t)SQ_MOTION_NONE) x->motion[i][k] = (int8_t)clampi(x->motion[i][k], LO[i], HI[i]);
+    if (x->click >= SQ_CLICKS) x->click = SQ_CLICK_OFF;                 /* 0.26: the click, the count, the scenes' metres */
+    if (x->count_in > SQ_COUNT_IN_MAX) x->count_in = 0u;
+    if (x->click_out > 16u) x->click_out = 0u;
+    if (x->click_note > 127u) x->click_note = 0u;
+    if (x->click_level > SQ_CLICK_LEVELS) x->click_level = 0u;
+    x->scene_metre_on = x->scene_metre_on ? 1u : 0u;
+    for (i = 0; i < SQ_SCENES; i++) if (x->scene_metre[i] > SQ_METRE_IDS + 1u) x->scene_metre[i] = 0u;
     for (i = 0; i < sizeof x->reserved; i++) x->reserved[i] = 0u;
     sq_name_sanitize(x->name, SQ_NAME_LEN);
     for (i = 0; i < SQ_TRACKS; i++) sq_mfx_sanitize(&x->mfxc[i]);   /* 0.19 */
@@ -2155,6 +2240,41 @@ void sq_ext_sanitize(sq_ext_t *x)
         if (e->s > 100u) e->s = 100u;
     }
     for (i = 0; i < SQ_MODS; i++) sq_mod_sanitize(&x->mod[i]);
+}
+
+/* 0.26 THE CLICK */
+uint8_t sq_click_note(const sq_ext_t *x) { return (uint8_t)(x->click_note && x->click_note <= 127u ? x->click_note : SQ_CLICK_NOTE_DEF); }
+uint8_t sq_click_level(const sq_ext_t *x) { return (uint8_t)(x->click_level && x->click_level <= SQ_CLICK_LEVELS ? x->click_level : SQ_CLICK_LEVEL_DEF); }
+uint8_t sq_click_vel(const sq_ext_t *x, uint8_t accent)
+{
+    uint32_t l = sq_click_level(x), v = accent ? 37u + l * 9u : 20u + l * 7u;   /* level 10: 127 and 90; level 1: 46 and 27 */
+    return (uint8_t)(v > 127u ? 127u : v);
+}
+void sq_click_start(sq_click_t *c, uint8_t accent, uint8_t level)
+{
+    uint32_t l = level < 1u ? 1u : level > SQ_CLICK_LEVELS ? SQ_CLICK_LEVELS : level;
+    c->phase = 0u;
+    c->inc = accent ? 194783u * 1000u : 97392u * 1000u;    /* 2^32 * 2000 / 44100, 2^32 * 1000 / 44100 (as thousands: no 64-bit) */
+    c->env = (int32_t)(l * l * 327u);                      /* level 10: nearly full scale (Q15) */
+    c->left = (uint16_t)(accent ? 1323u : 1103u);          /* 30 ms, 25 ms */
+    c->on = 1u; c->reserved = 0u;
+}
+uint8_t sq_click_render(sq_click_t *c, int32_t *out, uint32_t frames, uint32_t from)
+{
+    uint32_t f;
+    if (!c->on) return 0u;
+    for (f = from; f < frames && c->left; f++, c->left--) {
+        /* a sine near enough: x in -1 .. 1 as Q15, 4 x (1 - |x|) - a parabola a side */
+        int32_t x = (int32_t)(c->phase >> 16) - 32768, ax = x < 0 ? -x : x, y, v;
+        y = (x * (32768 - ax)) / 8192;                     /* -32768 .. 32768 */
+        v = (y * (c->env >> 3)) / 4096;
+        out[2u * f] += v; out[2u * f + 1u] += v;
+        c->phase += c->inc;
+        c->env -= c->env >> 8;                             /* dies away: to a third in 5.8 ms */
+        if (c->left < 64u) c->env -= c->env >> 4;          /* ... and to nothing at its end (no step) */
+    }
+    if (!c->left) c->on = 0u;
+    return c->on;
 }
 
 void sq_name_sanitize(char *n, uint32_t len)
@@ -2689,6 +2809,77 @@ uint8_t sq_harm_melody(uint8_t note, uint8_t root, uint8_t scale, const sq_hchor
     }
     return (uint8_t)best;
 }
+/* 0.26 FOLLOW SMOOTH (the header says what it is). The chord moved the parallel way gives the notes to be played, as
+ * pitch classes; the written notes, low to high, are where the hand is. Every written note takes one of them in its
+ * nearest octave, each one once: of all the ways, the one that moves the least in all - of two that move as little,
+ * the one more notes stay still in (a sum over at most six notes: every way is tried, the notes given out a set at a
+ * time). A note FOLLOW added on top (the progression's seventh, its ninth) is looked for from above the hand. */
+uint8_t sq_harm_smooth(uint8_t *notes, uint8_t n, uint8_t root, uint8_t scale, const sq_hchord_t *c)
+{
+    uint8_t w[SQ_POLY_OUT], wi[SQ_POLY_OUT], p[SQ_POLY_OUT], out[SQ_POLY_OUT], nw = 0u, m, i, j, k;
+    uint16_t cost[1u << SQ_POLY_OUT];
+    uint8_t from[1u << SQ_POLY_OUT];
+    int32_t anchor[SQ_POLY_OUT];
+    uint32_t mask, full;
+    if (n > SQ_POLY_OUT) n = (uint8_t)SQ_POLY_OUT;
+    for (i = 0; i < n; i++) if (notes[i] <= 127u) { w[nw] = notes[i]; wi[nw] = i; nw++; }
+    if (!nw) return 0u;
+    for (i = 0; i < SQ_POLY_OUT; i++) p[i] = i < n ? notes[i] : SQ_NOTE_NONE;
+    m = sq_harm_apply_chord(p, n, root, scale, c, nw >= 2u);
+    if (!m) return 0u;
+    for (i = 1u; i < nw; i++)                              /* the written notes low to high (wi: where each was written) */
+        for (j = i; j > 0u && w[j - 1u] > w[j]; j--) {
+            uint8_t t = w[j]; w[j] = w[j - 1u]; w[j - 1u] = t;
+            t = wi[j]; wi[j] = wi[j - 1u]; wi[j - 1u] = t;
+        }
+    for (i = 1u; i < m; i++)                               /* ... and the moved chord's */
+        for (j = i; j > 0u && p[j - 1u] > p[j]; j--) { uint8_t t = p[j]; p[j] = p[j - 1u]; p[j - 1u] = t; }
+    for (i = 0; i < m; i++) {                              /* where the hand is: the written notes; a note FOLLOW added: above them */
+        if (i < nw) anchor[i] = (int32_t)w[i];
+        else anchor[i] = (int32_t)w[nw - 1u] + ((int32_t)p[i] - (int32_t)p[nw - 1u]);
+        if (anchor[i] > 127) anchor[i] = 127;
+    }
+    full = (1u << m) - 1u;
+    cost[0] = 0u; from[0] = 0u;
+    for (mask = 1u; mask <= full; mask++) {                /* the first `bits` places of the hand have the notes of `mask` */
+        uint8_t bits = 0u;
+        uint16_t best = 0xFFFFu;
+        for (k = 0; k < m; k++) if (mask & (1u << k)) bits++;
+        from[mask] = 0u;
+        for (k = 0; k < m; k++) {                          /* place bits - 1 takes note k (the lower places have the rest) */
+            int32_t v, d;
+            uint32_t tot;
+            if (!(mask & (1u << k))) continue;
+            v = nearest_pc(anchor[bits - 1u], (int32_t)(p[k] % 12u));
+            d = v > anchor[bits - 1u] ? v - anchor[bits - 1u] : anchor[bits - 1u] - v;
+            tot = (uint32_t)cost[mask & ~(1u << k)] + (uint32_t)d * 8u + (d ? 1u : 0u);   /* (as near: the way more notes stay) */
+            if (tot < best) { best = (uint16_t)tot; from[mask] = k; }
+        }
+        cost[mask] = best;
+    }
+    mask = full;
+    for (i = m; i > 0u; i--) {                             /* back from the top place */
+        k = from[mask];
+        out[i - 1u] = (uint8_t)nearest_pc(anchor[i - 1u], (int32_t)(p[k] % 12u));
+        mask &= ~(1u << k);
+    }
+    for (i = 0; i < SQ_POLY_OUT; i++) p[i] = SQ_NOTE_NONE;
+    for (i = 0; i < m && i < nw; i++) p[wi[i]] = out[i];   /* each where its written note was (a strum, an arpeggio keep their order) */
+    j = 0u;
+    for (i = 0; i < n; i++) {                              /* packed, the same note once */
+        uint8_t dup = 0u;
+        if (p[i] > 127u) continue;
+        for (k = 0; k < j; k++) if (notes[k] == p[i]) dup = 1u;
+        if (!dup) notes[j++] = p[i];
+    }
+    for (i = nw; i < m && j < SQ_POLY_OUT; i++) {          /* the notes FOLLOW added, after them */
+        uint8_t dup = 0u;
+        for (k = 0; k < j; k++) if (notes[k] == out[i]) dup = 1u;
+        if (!dup) notes[j++] = out[i];
+    }
+    for (i = j; i < SQ_POLY_OUT; i++) notes[i] = SQ_NOTE_NONE;
+    return j;
+}
 uint8_t sq_hchord_quality(uint8_t scale, const sq_hchord_t *c, uint8_t *ext)
 {
     uint8_t hs = sq_harm_scale(scale), sh;
@@ -2758,7 +2949,7 @@ void sq_hchord_explicit(uint8_t scale, const sq_hchord_t *c, uint8_t *semi, uint
     }
     q = sq_hchord_quality(scale, c, &ext);              /* (none: the nearest by its kind) */
     if (q == 1u) best = ext & 4u ? SQ_CH_MIN9 : (ext & 1u) ? SQ_CH_MIN7 : SQ_CH_MIN;
-    else if (q == 2u) best = (ext & 1u) ? SQ_CH_M7B5 : SQ_CH_DIM;
+    else if (q == 2u) best = (ext & 5u) ? SQ_CH_M7B5 : SQ_CH_DIM;      /* (0.26: a ninth has its seventh under it - until 0.25 the ii9 of a minor key went as a bare DIM) */
     else if (q == 3u) best = SQ_CH_AUG;
     else if (q == 4u) best = col == SQ_HC_SUS2 ? SQ_CH_SUS2 : SQ_CH_SUS4;
     else best = ext & 4u ? SQ_CH_9 : (ext & 2u) ? SQ_CH_MAJ7 : (ext & 1u) ? SQ_CH_7 : SQ_CH_MAJ;
@@ -3036,8 +3227,9 @@ static void rd_get(rd_t *r, void *dst, uint32_t n)
 typedef char sq_step_is_18_bytes[(sizeof(sq_step_t) == 18u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 96u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 1508u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
-                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018 && __builtin_offsetof(sq_ext_t, mfxd) == SQ_EXT_019) ? 1 : -1];
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1524u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
+                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018 && __builtin_offsetof(sq_ext_t, mfxd) == SQ_EXT_019 &&
+                          __builtin_offsetof(sq_ext_t, scene_metre) == SQ_EXT_025 && __builtin_offsetof(sq_ext_t, click) == SQ_EXT_014 - 8u) ? 1 : -1];
 typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
@@ -3971,6 +4163,70 @@ uint8_t sq_chord_build(uint8_t note, uint8_t shape, uint8_t ck, uint8_t root, ui
         out[n++] = (uint8_t)v;
     }
     return n ? n : (uint8_t)((out[0] = note), 1u);
+}
+
+/* 0.26 LIVE CHORDS: which chord the notes held are (the header says how they are weighed) */
+static uint16_t chord_mask_(uint8_t sh)
+{
+    uint16_t m = 0u;
+    uint8_t k;
+    for (k = 0; k < SQ_POLY_OUT && CHORD_SEMI[sh][k] >= 0; k++) m |= (uint16_t)(1u << (CHORD_SEMI[sh][k] % 12));
+    return m;
+}
+uint8_t sq_chord_detect(uint16_t mask, uint8_t bass, uint8_t *root, uint8_t *shape)
+{
+    /* the shapes a hand can mean (a doubled note, a shell are the same notes as another: the plain one is found) */
+    static const uint8_t CAND[] = {SQ_CH_MAJ, SQ_CH_MIN, SQ_CH_POWER, SQ_CH_SUS4, SQ_CH_SUS2, SQ_CH_DIM, SQ_CH_AUG,
+        SQ_CH_7, SQ_CH_MIN7, SQ_CH_MAJ7, SQ_CH_MAJ6, SQ_CH_MIN6, SQ_CH_M7B5, SQ_CH_DIM7, SQ_CH_MINMAJ7, SQ_CH_7SUS4,
+        SQ_CH_ADD9, SQ_CH_MADD9, SQ_CH_9, SQ_CH_MIN9, SQ_CH_MAJ9, SQ_CH_9SUS4, SQ_CH_69, SQ_CH_MIN69, SQ_CH_MIN11, SQ_CH_13};
+    uint32_t r, k, best = 0xFFFFFFFFu, held = 0u;
+    uint8_t i;
+    mask &= 0x0FFFu;
+    bass = (uint8_t)(bass % 12u);
+    for (i = 0; i < 12u; i++) if (mask & (1u << i)) held++;
+    if (!held) return 0u;
+    if (!(mask & (1u << bass))) for (bass = 0u; !(mask & (1u << bass)); bass++) { }   /* (a bass that is not held: the lowest class) */
+    *root = bass; *shape = SQ_CH_OFF;
+    if (held == 1u) return 1u;
+    for (r = 0; r < 12u; r++) {
+        uint16_t rel;
+        if (!(mask & (1u << r))) continue;
+        rel = (uint16_t)(((mask >> r) | (mask << (12u - r))) & 0x0FFFu);          /* the notes held, from this root */
+        for (k = 0; k < sizeof CAND / sizeof CAND[0]; k++) {
+            uint16_t sm = chord_mask_(CAND[k]), miss = (uint16_t)(sm & ~rel), extra = (uint16_t)(rel & ~sm);
+            uint32_t cost = 0u;
+            for (i = 0; i < 12u; i++) {
+                if (extra & (1u << i)) cost += 10u;                               /* a note the shape has not */
+                if (miss & (1u << i)) cost += (i == 7u && CAND[k] != SQ_CH_POWER) ? 2u : 6u;   /* its fifth left out: little; another note: more */
+            }
+            cost = cost * 64u + (r == bass ? 0u : 32u) + k;                       /* as good: the bass is the root, then the simpler shape */
+            if (cost < best) { best = cost; *root = (uint8_t)r; *shape = CAND[k]; }
+        }
+    }
+    return 1u;
+}
+uint8_t sq_hchord_live(sq_hchord_t *c, uint16_t mask, uint8_t bass, uint8_t key_root, uint8_t key_scale)
+{
+    uint8_t root = 0u, shape = SQ_CH_OFF, hs = sq_harm_scale(key_scale), semi, col;
+    int32_t d;
+    if (!sq_chord_detect(mask, bass, &root, &shape)) return 0u;
+    semi = (uint8_t)((root + 12u - key_root % 12u) % 12u);
+    d = semi_degree(hs, semi);
+    c->deg = 0; c->col = SQ_HC_TRIAD; c->semi = semi; c->shape = (uint8_t)(SQ_HSHAPE_CH + (shape == SQ_CH_OFF ? SQ_CH_MAJ : shape));
+    if (d < 0) return 1u;                                  /* a root out of the key: the root and the shape (one note: a major chord) */
+    for (col = 0; col < SQ_HCS; col++) {                   /* the key's own chord on that step, with a colour? (its very notes) */
+        sq_hchord_t own;
+        uint8_t pc[SQ_POLY_OUT], pn, k;
+        uint16_t have = 0u, want;
+        own.deg = (int8_t)d; own.col = col; own.semi = 255u; own.shape = col;
+        if (shape == SQ_CH_OFF) { *c = own; return 1u; }   /* (one note: the key's triad there) */
+        pn = sq_harm_tones(key_root, key_scale, &own, pc);
+        for (k = 0; k < pn; k++) have |= (uint16_t)(1u << pc[k]);
+        want = chord_mask_(shape);
+        want = (uint16_t)(((want << root) | (want >> (12u - root))) & 0x0FFFu);
+        if (have == want) { *c = own; return 1u; }
+    }
+    return 1u;
 }
 
 uint8_t sq_track_note(const sq_track_cfg_t *c, int32_t note, uint8_t root, uint8_t scale, int8_t shift)
