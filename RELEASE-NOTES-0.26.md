@@ -208,3 +208,9 @@ In fondo alla mappa c'è una tabella "Voglio... uso..." che vale già oggi.
   vecchie che nessuna prova tocca (la song con il tempo per riga, due motivi dell'OCTAVE, l'LFO su CHANCE e SWING).
 * **I tempi sullo strumento**: rifare una parte costa, sul computer, circa una volta e mezza la 0.25 in 4/4 e il
   doppio in un metro dispari. Sull'FM-1 va misurato.
+
+## La dimensione
+
+Il firmware cresce di 17.288 byte: 476.948 su 581.564 (la 0.25: 459.660). La RAM cresce di 320 byte: 72.096 su
+98.304 (la 0.25: 71.776). C'è posto per tutti e due: restano liberi più di 100.000 byte. Le misure sono
+della build di GitHub.
