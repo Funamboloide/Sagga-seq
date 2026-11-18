@@ -4451,10 +4451,12 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
         uint32_t n = env_lane < SQ_LANES ? env_lane : 0u;
         if (d1) {                                                             /* the lock on the cursor step (from the base, or 64) */
             int32_t x = s->lane[n] == SQ_LANE_NONE ? -1 : (int32_t)s->lane[n];
+            uint8_t was = s->lane[n];
             if (x < 0 && d1 > 0) x = kstep(cfg->lane_base[n] != SQ_LANE_NONE ? (int32_t)cfg->lane_base[n] : 64, d1 - 1, f1, 0, 127);
             else if (x >= 0) x = kstep(x, d1, f1, -1, 127);                   /* (a detent under 0 takes the lock away) */
             s->lane[n] = x < 0 ? SQ_LANE_NONE : (uint8_t)x;
-            s->flags |= SQ_STEP_SET;                                          /* (a lock does not light the step: TRIGLESS sends it) */
+            if (s->lane[n] != was) s->flags |= SQ_STEP_SET;                   /* (a lock does not light the step: TRIGLESS sends it; 0.27: a turn
+                                                                                 that writes nothing leaves the step as it was - a copy stays one) */
             if (record_arm && playing) lane_rec[selected_track] |= (uint8_t)(1u << n);   /* REC: the knob writes the steps as they play */
             if (record_arm && playing && x >= 0) lane_rec_val[selected_track][n] = (uint8_t)x;
             lane_rec_ms = fm1_ms;

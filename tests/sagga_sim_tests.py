@@ -11698,6 +11698,46 @@ def t027_evolve_return():
 
 
 
+def t027_mark():
+    group("0.27 THE MARK OF A PATTERN'S END (found by the explorer, there from 0.24): a track made shorter than its pattern keeps "
+          "the pattern whole after the loop and a mark where it ends; ENV K1 on that step left the mark half a step. Now a turn "
+          "that writes nothing leaves the step as it was, and a lock on the mark makes the steps the player's")
+    s = Script()
+    t = melody16(s)
+    t = home_page(s, t, 0, [(K2, -1)])                                  # LENGTH 15: step 16 waits after the loop, the mark on 17
+    s.at(t, "dump", 0); t += 50
+    s.enc(t, E_ALG, -64); t += 60
+    s.enc(t, E_ALG, 16); t += 60                                        # the cursor on step 17: the mark
+    t = pg(s, t, ENV, 4, [(K1, -1)])                                    # ENV 5 K1 down, no lock there: nothing to write
+    s.at(t, "dump", 0); t += 50
+    t = pg(s, t, ENV, 4, [(K1, 1)])                                     # ... up: a lock on the mark
+    s.at(t, "dump", 0); t += 50
+    t = home_page(s, t, 0, [(K2, 17)])                                  # LENGTH 32
+    s.at(t, "dump", 0); t += 50
+    log = run(s, t + 100)
+    d, c = log.dumps, log.copies
+    check(d[0]["length"] == 15 and c[0]["own"] == 15 and c[0]["row"][:17] == "x" * 16 + "r",
+          "LENGTH 15: the 16th step after the loop, then the mark of the pattern's end (%s)" % c[0]["row"][:20])
+    check(d[1]["hash"] == d[0]["hash"] and c[1]["row"] == c[0]["row"], "ENV 5 K1 down on the mark, where there is no lock: the step is as it was (%s / %s)" % (d[0]["hash"], d[1]["hash"]))
+    check("r" not in c[2]["row"] and "g" not in c[2]["row"] and c[2]["row"][:17] == "x" * 16 + "." and d[2]["hash"] != d[1]["hash"],
+          "a lock on the mark: written, and the steps are the player's - nothing flagged (%s)" % c[2]["row"][:20])
+    check(d[3]["length"] == 32 and d[3]["on"][:16] == "x" * 16, "LENGTH 32 after it: the pattern's 16 steps are all there (%s)" % d[3]["on"])
+    # what that turn did elsewhere, and could be heard: the step got the mark of a note written (SET), so a key that
+    # turned it on later played that note (60) and not the track's pen - on a kick, a wrong drum
+    s = Script()
+    t = seq_page(s, 100, 0, keys=[bk(6)])                              # KIT: track 1 the kick (pen 36)
+    s.enc(t, E_ALG, -64); t += 60
+    s.enc(t, E_ALG, 1); t += 60                                         # the cursor on step 2, at rest
+    t = pg(s, t, ENV, 0, [(K1, -1)])                                    # ENV 1 K1 down: no lock, nothing written
+    s.tap_key(t, wk(1)); t += 100                                       # step 2 on
+    s.at(t, "dump", 0); t += 50
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(16 * STEP_MS) - 20)
+    n = sorted(set(x[1] for x in log.notes(ch=0, after=p)))            # (track 1, channel 1)
+    check(log.dumps[0]["pen"] == 36 and log.dumps[0]["on"][:2] == "xx" and n == [36],
+          "KIT, ENV K1 turned down on an empty step, then the step on: it plays the kick, 36 (%s, pen %s)" % (n, log.dumps[0]["pen"]))
+
 def t027_who_acts():
     group("0.27 MORE FULL, MORE EMPTY - WHO IS ACTING: the screen says what each hand works on - the ENERGY the whole set "
           "(and the engines' parts), THIN and SWELL the whole set, DENSITY and CHANCE this track only")
@@ -11785,7 +11825,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
-         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice,
+         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

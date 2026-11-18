@@ -1,7 +1,8 @@
 # SAGGA SEQ 0.27 - Note di rilascio
 
 Dopo la 0.26 ti avevo dato la mappa dei generatori, con quattro proposte. Le hai volute tutte e quattro, e mi hai detto
-di correggere l'arpeggio. **Sono dentro tutte e cinque.**
+di correggere l'arpeggio. **Sono dentro tutte e cinque**, più un errore vecchio che l'esploratore ha trovato mentre
+provavo la 0.27.
 
 | il pezzo | il file |
 | --- | --- |
@@ -21,6 +22,7 @@ Vanno installati tutti e due. I progetti di prima si aprono come sono, e suonano
 | **RANDOM come un dado** | RANDOM aspetta come un dado: con OCT+ lo tieni, con OCT- torni indietro, con ALG rivedi i tiri |
 | **DRIFT dentro EVOLVE** | EVOLVE ha una manopola nuova, **RETURN**: 100 resta vicino al pattern di partenza, 0 è DRIFT, in mezzo torna un po' |
 | **lo schermo dice chi sta agendo** | DENSITY, CHANCE, ENERGIA, THIN e SWELL dicono su cosa lavorano: questa traccia, o tutto il set |
+| in più: **un errore vecchio** | ENV K1 girato su un passo vuoto, senza scrivere niente, guastava il passo (vedi il punto 6) |
 
 ## 1. L'arpeggio senza tonalità
 
@@ -85,6 +87,24 @@ Le quattro mani del "più pieno, più vuoto" restano quattro, perché lavorano s
 | CHANCE | HOME 6 | `T3 CHANCE 40%: THIS TRACK ONLY` |
 | l'ENERGIA | GLO 3 K1 | `ENERGY 70: THE WHOLE SET + 4 ENGINE PARTS`: tutto il set, e quante parti dei motori riempie e svuota |
 | THIN, SWELL | le MOSSE | `QUEUED: THIN - THE WHOLE SET, 2 TRACKS OUT`, `QUEUED: SWELL - THE WHOLE SET, 2 TRACKS IN` |
+
+## 6. Un errore vecchio, trovato dall'esploratore
+
+C'era dalla 0.24. Su un passo senza lock, **ENV K1 girato verso il basso** non scriveva niente, ma segnava il passo come
+"scritto". Le conseguenze:
+
+* se poi accendevi quel passo con un tasto, suonava la **nota 60** invece della nota della traccia: su una cassa, un
+  altro suono;
+* su una copia del pattern, tutte le copie diventavano passi tuoi (`THE COPIES ARE YOUR STEPS NOW`) per un giro di
+  manopola che non aveva fatto niente;
+* su una traccia più corta del suo pattern, il segno nascosto che ricorda dove il pattern finisce restava mezzo segno e
+  mezzo passo.
+
+Adesso un giro che non scrive niente lascia il passo com'era. E se scrivi davvero qualcosa sul passo del segno (un
+lock, una nota), i passi diventano tuoi subito, come succedeva comunque al primo cambio di LENGTH.
+
+Nei progetti vecchi, un passo che suona la nota sbagliata si sistema così: cancellalo (EDIT + nero 4, CLEAR) e
+riaccendilo.
 
 ## Come è stato provato
 

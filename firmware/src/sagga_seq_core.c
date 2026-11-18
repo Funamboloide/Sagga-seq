@@ -1936,6 +1936,12 @@ uint8_t sq_ghost_service(sq_step_t *row, uint8_t start, uint8_t len, uint8_t pat
     uint8_t own, known;
     if (len > SQ_STEPS) len = (uint8_t)SQ_STEPS;
     own = sq_row_own(row, start, len);
+    {   /* 0.27: the mark of the pattern's end - the one step of the row flagged, after the loop - written on (a lock, a note,
+         * a key): as sq_row_fit says, the steps are the player's (the explorer found the mark left half a mark, half a step) */
+        uint32_t n = 0u, at = 0u;
+        for (i = 0; i < SQ_STEPS; i++) if (row[i].flags & SQ_STEP_GHOST) { n++; at = i; }
+        if (n == 1u && at >= len && !ghost_mark_(&row[at])) { sq_row_keep(row); g->pat = 255u; return SQ_GH_NONE; }
+    }
     if (own >= len) { g->pat = 255u; return SQ_GH_NONE; }       /* no copies in the loop */
     if (!own) { sq_row_keep(row); g->pat = 255u; return SQ_GH_KEPT; }
     known = (uint8_t)(g->pat == pat && g->own == own && g->start == start);

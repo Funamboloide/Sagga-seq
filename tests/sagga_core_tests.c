@@ -2883,6 +2883,38 @@ static void test_v027_return(void)
     CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&p, &b, sizeof p) && sq_evo_return(&b.ext, &b.gen) == 45u);
 }
 
+/* 0.27, found by the explorer (it was there from 0.24): a track made shorter than its pattern - the pattern waits whole
+ * after the loop, the mark of its end after it -, and the mark written on (ENV K1 on that step: a lock, or before 0.27 a
+ * turn that wrote nothing but the step's SET). The copies' service left the mark half a mark, half a step; now the steps
+ * are the player's, as sq_row_fit makes them at the next length, and what was written stays */
+static void test_v027_mark(void)
+{
+    static sq_step_t row[SQ_STEPS], was[SQ_STEPS];
+    sq_ghost_t g;
+    uint32_t i;
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 15u);
+    CHECK(t24_mark(row, 16u) && !t24_gh(row, 15u) && t24_on(row, 15u) && t24_ghosts(row) == 1u);
+    memset(&g, 0, sizeof g); g.pat = 255u;
+    memcpy(was, row, sizeof row);
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && !memcmp(row, was, sizeof row));   /* a mark as it is: nothing */
+    row[16].lane[4] = 63u; row[16].flags |= SQ_STEP_SET;                          /* ENV 5 K1 on step 17: a lock on the mark */
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && t24_ghosts(row) == 0u && row[16].lane[4] == 63u &&
+          !t24_on(row, 16u) && t24_on(row, 15u) && row[15].note[0] == 75u && sq_row_own(row, 0u, 15u) == 15u && g.pat == 255u);
+    for (i = 0; i < 16u; i++) CHECK(sq_step_alike(&row[i], &was[i]));             /* the pattern's steps as they were */
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && row[16].lane[4] == 63u);   /* and it stays */
+    /* the track made longer again: the steps written after the loop are the player's (sq_row_fit), nothing is lost */
+    sq_row_fit(row, 0u, 15u, 32u);
+    CHECK(t24_on(row, 15u) && row[15].note[0] == 75u && row[16].lane[4] == 63u && !t24_gh(row, 15u) && !t24_gh(row, 16u));
+    /* a note written on the mark (a key on step 17): the same */
+    t24_melody(row, 16u);
+    sq_row_fit(row, 0u, 16u, 15u);
+    g.pat = 255u;
+    sq_ghost_service(row, 0u, 15u, 0u, &g);
+    row[16].flags |= SQ_STEP_ON | SQ_STEP_SET; row[16].note[0] = 40u;
+    CHECK(sq_ghost_service(row, 0u, 15u, 0u, &g) == SQ_GH_NONE && t24_ghosts(row) == 0u && t24_on(row, 16u) && row[16].note[0] == 40u);
+}
+
 static void test_v026_image(void)
 {
     static sq_project_t a, b;
@@ -4004,6 +4036,7 @@ int main(void)
     test_v026_click();
     test_v026_image();
     test_v027_return();
+    test_v027_mark();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();
