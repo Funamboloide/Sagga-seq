@@ -1630,9 +1630,28 @@ static uint8_t tune_answers(uint32_t t, const sq_step_t *s, uint8_t idx)
 static uint8_t th_note(uint8_t t, uint8_t func) { return sq_func_kind(func) != SQ_KIND_DRUM ? gen_root_note(t) : PEN(t); }
 /* 0.26: `gen` 1 - the part is made IN the bar `steps` / `beats` (0: in sixteens, as 0.25; whoever asked re-bars it);
  * `notes` (only with gen) - its answers have notes */
+/* 0.26: a part made in the bar hears the part it answers a step each, as that one IS - so that one must be in the bar
+ * there is first. The engines' pattern it will hear, still in another metre (the service has not come to it yet), is
+ * made again in this one now - and the part THAT one answers before it (the bass, the tune, the chords: no further). */
+static void th_remetre(uint8_t t, uint8_t pat);
+static uint8_t th_ready_depth;
+static void th_mate_ready(uint8_t t, uint8_t pat, uint8_t func)
+{
+    int32_t k = th_mate_track(t, func);
+    const sq_thpat_t *m;
+    uint8_t pi;
+    if (k < 0 || th_ready_depth >= 2u) return;
+    pi = pat < SQ_PATTERNS && project.th.pat[k][pat].style ? pat : tr[k].pattern;
+    m = &project.th.pat[k][pi];
+    if (!m->style || m->metre == metre_id_now() || (th_kept[k] & (1u << pi)) || track_tape((uint32_t)k) || track_break((uint32_t)k)) return;
+    th_ready_depth++;
+    th_remetre((uint8_t)k, pi);
+    th_ready_depth--;
+}
 static void th_set_x(sq_th_t *h, uint8_t style, uint16_t seed, uint8_t var, uint8_t vary, uint8_t energy, uint8_t t, uint8_t pat, uint8_t func,
                      uint8_t gen, uint8_t notes, uint8_t steps, uint32_t beats)
 {
+    if (gen) th_mate_ready(t, pat, func);
     memset(h, 0, sizeof *h);
     h->style = style; h->energy = energy > 100u ? 100u : energy; h->vary = vary > 100u ? 100u : vary;
     h->scale = gen_scale();

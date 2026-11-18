@@ -20,6 +20,12 @@
  * is (steps, beats, sig, split, id) and names.metre every way every bar divides ([mask, sig, split] by the bar's
  * steps). A patch of the bar alone moves no track: the editor writes the lengths it wants with it. thp has the metre a
  * pattern of the engines was made in (metre: 0 = 4/4). A TAPE's loop is bars of the metre (tape_len).
+ * 0.26: ext has THE CLICK (click 0 off / 1 while recording / 2 while it plays; count_in 0-2 bars; click_out 0 the
+ * FM-1's own sound, else the MIDI channel; click_note; click_level 1-10) and the SCENES' METRES (scene_metre_on;
+ * scene_metre[scene]: 0 the scene leaves the metre alone, else the metre's number + 1). kb_mode goes to 4 (3 CHORDS,
+ * 4 CHORDS below C3), a track's follow_mode to 4 (SMOOTH). thp: style's bit 7 (128) says the pattern was made IN the
+ * bar of its metre (its length bits: one, two, four bars of it), vary's bit 7 that its answers have notes - a patch
+ * that moves a pattern's record moves them with it.
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the
@@ -135,6 +141,8 @@ static const fd_t F_METRE[] = { F(sq_gen_t, bar_steps, 0), A(sq_gen_t, bar_beats
 static const fd_t F_EXT[] = {
     F(sq_ext_t, motion_bars, 0), F(sq_ext_t, kb_mode, 0), F(sq_ext_t, kb_ch, 0), F(sq_ext_t, in_thru, 0),
     A(sq_ext_t, name, uint8_t, 0, SQ_NAME_LEN),                                                                     /* 0.15 */
+    F(sq_ext_t, click, 0), F(sq_ext_t, count_in, 0), F(sq_ext_t, click_out, 0), F(sq_ext_t, click_note, 0),         /* 0.26 THE CLICK */
+    F(sq_ext_t, click_level, 0), F(sq_ext_t, scene_metre_on, 0), A(sq_ext_t, scene_metre, uint8_t, 0, SQ_SCENES),   /* 0.26 the scenes' metres */
 };
 
 #define PO(m) ((uint32_t)offsetof(sq_project_t, m))

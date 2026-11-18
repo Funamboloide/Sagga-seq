@@ -10602,6 +10602,160 @@ def wav_clicks(path):
 def click_knobs(s, t, encs, sel=False): return pg(s, t, SAVE, 4, encs, sel=sel)   # SAVE 5 CLICK: K1 CLICK, K2 COUNT IN, K3 OUT, K4 LEVEL (SEL + K4: the NOTE)
 
 
+def rownts(log):
+    """0.26: the 'rownt' lines of the dumps: a row's notes as the engines write them (0..f above the root, * a chord)"""
+    return [dict(track=int(m.group(1)), nt=m.group(2)) for m in re.finditer(r"^\s*\d+ ms  rownt T(\d+) NT:(.*)$", log.text, re.M)]
+
+
+def t026_engines():
+    group("0.26 THE ENGINES IN THE BAR, THE ANSWER WITH NOTES: a band made in 7/8 is made in seven (a kick on every beat of the bar) and fills with the ENERGY; a new metre makes the patterns again IN the new bar, the old one brings back what they were; a bass takes the notes of the tune it answers; a band of 0.25 is made again as 0.25 made it")
+    text, done = theory_tool("eng")
+    FREE = ["KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP", "LEAD"]
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    def longer2(s, t):                                           # every track four bars (the MOSSE's LONGER, twice)
+        t = vg_on(s, t, remote=False)
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        return vg_studio(s, t)
+    def look(s, t):
+        for k in range(8): s.at(t + 15 * k, "dump", k)
+        return t + 160
+    def looks(log):                                              # every look: eight tracks of (steps, theory, made, notes)
+        d, h, m, nt = log.dumps, th_dumps(log), th_made(log), rownts(log)
+        return [[(d[i + k], h[i + k], m[i + k], nt[i + k]["nt"]) for k in range(8)] for i in range(0, len(d), 8)]
+    def notes(part, chords=False):                               # the engines' text as the dump shows a row's notes
+        r, nt = part
+        return "".join("." if r[i] in ".-" else "*" if chords else nt[i] for i in range(len(r))) if nt != "-" else None
+    def same(got, want):                                         # the tracks that are not what the engines' text says: hits, and notes
+        bad = []
+        for k in range(8):
+            w = want[FREE[k]]
+            if got[k][0]["on"] != onoff(w[0]) or (notes(w) is not None and got[k][3] != notes(w, FREE[k] == "CHORD")): bad.append(FREE[k])
+        return bad
+    try:
+        # ---- a band BORN in 7/8 (2+2+3), four bars of 14 a track; the ENERGY empties and fills it
+        s = Script()
+        t = metre_knobs(s, 100, [(K1, -2)])
+        t = longer2(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                          # SOURCE FREE
+        t = band(s, t); t = look(s, t)
+        s.raw(t, "energy 10"); t += 500; t = look(s, t)
+        s.raw(t, "energy 95"); t += 500; t = look(s, t)
+        log = run(s, t + 300)
+        L = looks(log)
+        e0 = L[0][0][1]["now"]
+        check(len(L) == 3 and all(x[0]["length"] == 56 for x in L[0]) and all(x[2] == dict(bar=1, notes=1, steps=56) and x[1]["len"] == 64 for x in L[0]),
+              "BAND in 7/8: every part four bars of 14, made IN the bar, its answers with notes (%s, %s)" % ([x[0]["length"] for x in L[0]], L[0][4][2] if L else None))
+        for n, en in enumerate((e0, 10, 95)):
+            bad = same(L[n], text("FREE", 0, en, n=64, metre="7/8"))
+            check(not bad and all(x[1]["energy"] == en for x in L[n]), "... at energy %d every part is what the engines make in 7/8: hits and notes (%s)" % (en, bad))
+        kick = [x[0][0]["on"] for x in L]
+        check(all(k[b * 14] == "x" for k in kick for b in range(4)), "... the kick on the one of every bar of seven, at every energy (%s)" % kick[1][:28])
+        lo, hi = [x[0]["on"] for x in L[1]], [x[0]["on"] for x in L[2]]
+        check(all(a == "." or b == "x" for p, q in zip(lo, hi) for a, b in zip(p, q)) and sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2,
+              "... the ENERGY only adds: all of 10 is in 95, which is much fuller (%d hits, %d)" % (sum(r.count("x") for r in lo), sum(r.count("x") for r in hi)))
+        want44 = text("FREE", 0, e0, n=64)
+        check(L[0][0][0]["on"][:14] != onoff(want44["KICK"][0])[:14] or L[0][1][0]["on"][:14] != onoff(want44["SNARE"][0])[:14],
+              "... and it is not the 4/4 band cut short (kick %s, in 4/4 %s)" % (L[0][0][0]["on"][:14], onoff(want44["KICK"][0])[:16]))
+
+        # ---- THE METRE CHANGES: a band of 0.26, and one of 0.25 (what the engines keep of it says so), made in 4/4;
+        # the bar is 14: made again IN it (the 0.25 one too: its answers stay of rhythm alone); the bar is 16 again:
+        # the patterns they were, to the note
+        res = {}
+        for old in (0, 1):
+            s = Script()
+            t = longer2(s, 100)
+            t = pg(s, t, SEQ, 7, [(K1, 2)])
+            t = band(s, t)
+            if old: s.raw(t, "thold"); t += 200
+            t = look(s, t)
+            t = metre_knobs(s, t, [(K1, -2)]); t += 700; t = look(s, t)
+            t = metre_knobs(s, t, [(K1, 2)]); t += 700; t = look(s, t)
+            s.raw(t, "energy 90"); t += 500; t = look(s, t)
+            log = run(s, t + 300)
+            res[old] = looks(log)
+        N, O = res[0], res[1]
+        e0 = N[0][0][1]["now"]
+        bad = same(N[0], text("FREE", 0, e0, n=64))
+        check(not bad and all(x[2] == dict(bar=1, notes=1, steps=64) for x in N[0]), "a band of 0.26 in 4/4: what the engines make now, hits and notes (%s)" % bad)
+        bad = same(O[0], text("FREE", 0, e0, n=64, flags=["--v25"]))
+        check(not bad and all(x[2] == dict(bar=0, notes=0, steps=64) for x in O[0]), "a band of 0.25 in 4/4: what 0.25 made, hits and notes (%s)" % bad)
+        diff = [FREE[k] for k in range(8) if N[0][k][0]["hash"] != O[0][k][0]["hash"]]
+        check("BASS" in diff and "KICK" not in diff and "CHORD" not in diff,
+              "... the two differ where a part answers another: the bass hears the arpeggio as it is, and takes its notes (%s)" % diff)
+        bad = same(N[1], text("FREE", 0, e0, n=64, metre="7/8"))
+        check(not bad and all(x[0]["length"] == 56 and x[2] == dict(bar=1, notes=1, steps=56) for x in N[1]), "the bar is 14: the band of 0.26 made again in 7/8 (%s)" % bad)
+        bad = same(O[1], text("FREE", 0, e0, n=64, metre="7/8", flags=["--no-notes"]))
+        check(not bad and all(x[0]["length"] == 56 and x[2] == dict(bar=1, notes=0, steps=56) for x in O[1]),
+              "... the band of 0.25 too: IN the bar of seven, its answers still of rhythm alone (%s, %s)" % (bad, O[1][4][2]))
+        check(all(N[2][k][0]["hash"] == N[0][k][0]["hash"] and N[2][k][2] == N[0][k][2] for k in range(8)), "the bar is 16 again: the band of 0.26 is what it was")
+        check(all(O[2][k][0]["hash"] == O[0][k][0]["hash"] and O[2][k][2] == dict(bar=0, notes=0, steps=64) for k in range(8)),
+              "... and the band of 0.25 is what 0.25 made, to the note: kept as 0.25 kept it (%s)" % [FREE[k] for k in range(8) if O[2][k][0]["hash"] != O[0][k][0]["hash"]])
+        bad = same(O[3], text("FREE", 0, 90, n=64, flags=["--v25"]))
+        check(not bad and all(x[1]["energy"] == 90 for x in O[3]), "... the ENERGY at 90 fills it as 0.25 did (%s)" % bad)
+        bad = same(N[3], text("FREE", 0, 90, n=64))
+        check(not bad, "... and the band of 0.26 as 0.26 does (%s)" % bad)
+
+        # ---- THE ANSWER HAS NOTES, in the rows: the bass of the 0.26 band plays, off the beat, notes the arpeggio it
+        # answers has just played (heard at half the energy: the tool's ARP at 50 with its chords)
+        heard = text("FREE", 0, 50, n=64, parts=["CHORD", "ARP"])["ARP"]
+        b25, b26 = O[0][4][3], N[0][4][3]
+        took = []
+        for i in range(64):
+            if b26[i] in ".*?" or (i < len(b25) and b25[i] == b26[i] and O[0][4][0]["on"] == N[0][4][0]["on"]): continue
+            src = [heard[1][i - d] for d in (2, 4, 1, 3) if i - d >= 0 and heard[0][i - d] not in ".-"]
+            if i % 4 and heard[0][i] in ".-" and src and any(int(c, 16) % 12 == int(b26[i], 16) % 12 for c in src): took.append(i)
+        check(len(took) >= 1 and b26 != b25, "the bass of 0.26 takes notes of the arpeggio it answers, off the beat, right after them (steps %s: %s under %s)" % (took, b26, heard[1]))
+    finally:
+        done()
+
+
+def t026_tune_answers():
+    group("0.26 THE ANSWER HAS NOTES, when it plays: a tune of the engines plays a note of the chord right after the chord - and when the progression has moved FOLLOW MELODY takes that note to the chord that plays; a tune of 0.25 plays as it is written there")
+    def band(s, t): s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); return t + 900
+    BARS = 12
+    HOME = re.compile(r"^[Ii](?![IiVv])")
+    res = {}
+    for old in (0, 1):
+        s = Script()
+        t = vg_on(s, 100, remote=False)
+        for _ in range(2):
+            s.press(t, SEL); s.tap_key(t + 30, bk(5)); s.release(t + 100, SEL); t += 160
+        t = vg_studio(s, t)
+        t = pg(s, t, SEQ, 7, [(K1, 2)])                          # SOURCE FREE: KICK SNARE HAT PERC BASS CHORD ARP LEAD
+        t = band(s, t)
+        t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8), (K2, 1), (K3, 1)])   # USER 1: home, the fifth's chord, home - a bar each: three bars
+        t = harm_knobs(s, t, [(K2, 6)])                          #  against the pattern's four: every step is heard on both chords
+        if old: s.raw(t, "thold"); t += 200
+        s.at(t, "dump", 5); s.at(t + 20, "dump", 7); t += 80
+        s.tap_btn(t, PLAY); p0 = t
+        for k in range(BARS * 8): s.raw(p0 + int((2 * k + 0.5) * STEP_MS), "probe")     # the chord, every 8th
+        log = run(s, p0 + int(BARS * 16 * STEP_MS) - 30)
+        d, nt, pr = log.dumps, rownts(log), probes(log)
+        chord_on, lead_on, lead_nt = d[0]["on"], d[1]["on"], nt[1]["nt"]
+        played = {}
+        for tm, d1, v in log.notes(ch=7, after=p0 - 5):
+            played.setdefault(int(round((tm - p0) / STEP_MS)), d1)
+        chord = [(pr[min(k // 2, len(pr) - 1)]["G"]["chord"], int(pr[min(k // 2, len(pr) - 1)]["G"]["cpc"], 16)) for k in range(BARS * 16)]
+        # the steps of the tune that answer a chord: a single note off the beat, the chords silent, struck one to three 16ths before
+        ans = [i for i in range(64) if lead_on[i] == "x" and lead_nt[i] not in ".*?" and i % 4 and chord_on[i] == "."
+               and any(i - k >= 0 and chord_on[i - k] == "x" for k in (1, 2, 3))]
+        home = {}
+        for k in sorted(played):                                 # (where a step is written: what it plays on the home chord)
+            if HOME.match(chord[k][0]) and k % 64 in ans: home.setdefault(k % 64, played[k])
+        away = [(k, played[k], home[k % 64], chord[k]) for k in sorted(played) if k % 64 in ans and k % 64 in home and not HOME.match(chord[k][0])]
+        res[old] = dict(ans=ans, away=away, made=th_made(log)[1], names=sorted(set(c[0] for c in chord)), home=home)
+    N, O = res[0], res[1]
+    moved = [x for x in N["away"] if x[1] != x[2]]
+    off = [x for x in moved if not (x[3][1] >> (x[1] % 12)) & 1]
+    check(N["made"] == dict(bar=1, notes=1, steps=64) and len(N["names"]) == 2 and len(N["ans"]) >= 2 and len(N["away"]) >= 2,
+          "the tune of a 0.26 band answers the chords, and is heard on both chords (%s; steps %s; %d times away from home)" % (N["names"], N["ans"], len(N["away"])))
+    check(len(moved) >= 1 and not off, "... away from home a note of the home chord right after the chord goes to the chord that plays (%d of %d moved; off the chord: %s)" % (len(moved), len(N["away"]), off[:3]))
+    o_moved = [x for x in O["away"] if x[1] != x[2]]
+    check(O["made"] == dict(bar=0, notes=0, steps=64) and len(O["away"]) >= 1 and not o_moved,
+          "the tune of a 0.25 band plays those notes where they are written, whatever the chord (%d of %d moved; steps %s)" % (len(o_moved), len(O["away"]), O["ans"]))
+
+
 def t026_smooth():
     group("0.26 THE CHORDS MOVE LITTLE: FOLLOW MODE SMOOTH - a chord's notes go to the nearest notes of the chord playing (the ones two chords share stay); held chords slide; the makers' PAD and PIANO follow so")
     BAR = 16 * STEP_MS
@@ -11170,7 +11324,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t019_mfx_chain, t020_new_fx, t020_env_mod, t021_clean, t022_deep, t022_unrun, t_theory, t023_theory, t023_theory_genres, t023_theory_free, t023_snapshot_direction, t0231_numeric, t0231_cell, t0231_counts, t0232_tablet_rule,
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
-         t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
+         t026_engines, t026_tune_answers,
+    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

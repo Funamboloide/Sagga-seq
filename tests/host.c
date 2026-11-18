@@ -279,6 +279,7 @@ static void app_host_probe(void);          /* dinghy.c: the whole machine as key
 static void app_host_ui(void);             /* dinghy.c: the screen's text (0.12: "T ui"), lines and cells */
 static void app_host_theory(int packed, int seed);   /* dinghy.c: 0.23 a band made by the THEORY engines */
 static void app_host_scene(int s, int prog);         /* ... and a scene recalled (prog 0..3: with that progression of the player's) */
+static void app_host_thold(void);                    /* 0.26: the engines' patterns that play, as 0.25 made them */
 static void app_host_energy(int e);                  /* ... the machine's energy, at once */
 static uint8_t host_sx[1u << 20];
 static uint32_t host_sx_n, host_sx_dead;
@@ -369,6 +370,7 @@ static void read_script(const char *path)
             e.kind = 21; e.a = (st & 31) | (pat & 15) << 5 | (en & 127) << 9 | (vary & 127) << 16 | (var & 127) << 24; e.b = seed;
         }
         else if (!strcmp(what, "energy")) { int v = 50; sscanf(line, "%*u %*s %d", &v); e.kind = 23; e.a = v; }
+        else if (!strcmp(what, "thold")) { e.kind = 24; }
         else if (!strcmp(what, "scene")) {           /* N [K]: scene N; K: with the player's progression K (0..3) */
             int v = 0, k = -1;
             sscanf(line, "%*u %*s %d %d", &v, &k);
@@ -498,6 +500,7 @@ static void platform_poll(void)                 /* one call = one millisecond */
         else if (e->kind == 21) app_host_theory(e->a, e->b);
         else if (e->kind == 22) app_host_scene(e->a, e->b);
         else if (e->kind == 23) app_host_energy(e->a);
+        else if (e->kind == 24) app_host_thold();
         else if (e->kind == 18) app_host_ui();
         else if (e->kind == 19) host_leds_print();
         else if (e->kind >= 14 && e->kind <= 16) { }   /* (a branch's marks outside a fork: nothing) */

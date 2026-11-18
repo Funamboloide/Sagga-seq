@@ -5085,6 +5085,20 @@ static void app_host_theory(int packed, int seed)
     }
     ui_dirty = grid_dirty = 1u;
 }
+/* 0.26: the pattern every track plays becomes one that 0.25 made - what the engines keep of it says so (not made in
+ * the bar, no notes in its answers) and it is made again that way: a band of a project of 0.25, for the tests */
+static void app_host_thold(void)
+{
+    uint32_t t;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
+        if (!(m->style & 31u)) continue;
+        m->style = (uint8_t)(m->style & 0x7Fu);
+        m->vary = (uint8_t)(m->vary & 127u);
+        if (th_again((uint8_t)t, tr[t].pattern)) activate_row(t, project.step[t][tr[t].pattern]);
+    }
+    ui_dirty = grid_dirty = 1u;
+}
 static void app_host_scene(int s, int prog)
 {
     if (prog >= 0 && prog < (int)SQ_UPROGS) harm_prog_set((uint8_t)(SQ_PROGS + (uint32_t)prog));
@@ -5115,6 +5129,14 @@ static void app_host_dump(int t)
      * plays, r a copy at rest - after the loop: the mark of the pattern's end) */
     printf("%6u ms  copies T%d own %u ROW:", fm1_ms, t + 1, (unsigned)sq_row_own(row, project.track[t].start, project.track[t].length));
     for (i = 0; i < SQ_STEPS; i++) putchar((row[i].flags & SQ_STEP_GHOST) ? ((row[i].flags & SQ_STEP_ON) ? 'g' : 'r') : (row[i].flags & SQ_STEP_ON) ? 'x' : '.');
+    putchar('\n');
+    /* 0.26: the row's notes as the engines write them - a step's note above the track's root (0..f), '*' a chord,
+     * '?' another note, '.' a step that does not play */
+    printf("%6u ms  rownt T%d NT:", fm1_ms, t + 1);
+    for (i = 0; i < project.track[t].length; i++) {
+        int32_t d = (int32_t)row[i].note[0] - (int32_t)gen_root_note((uint32_t)t);
+        putchar(!(row[i].flags & SQ_STEP_ON) || row[i].note[0] > 127u ? '.' : row[i].note[1] <= 127u ? '*' : d >= 0 && d < 16 ? "0123456789abcdef"[d] : '?');
+    }
     putchar('\n');
     {   /* 0.11: the tape of the track */
         uint16_t tf, tn, k;

@@ -156,6 +156,14 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("genre", g->genre); pr_ku("gmode", g->genre_mode); pr_ku("bfunc", g->func); pr_ku("bvar", g->var);
     pr_ku("harm", g->harm_on); pr_ku("hlock", g->harm_lock); pr_ku("hgenre", g->harm_genre); pr_ku("hprog", g->harm_prog);
     pr_ku("hbars", g->harm_bars); pr_ku("hrhythm", g->harm_rhythm); pr_ku("hmood", g->harm_mood); pr_k("chord"); pr_s(nm);
+    {   /* 0.26: the notes of the chord that plays, a bit a pitch class (what FOLLOW MELODY takes a tune's notes to) */
+        sq_hchord_t hc;
+        uint8_t pc[SQ_POLY_OUT], n = 0u, k;
+        uint32_t mask = 0u;
+        if (harm_chord(&hc, 0)) n = sq_harm_tones(project.key_root, project.key_scale, &hc, pc);
+        for (k = 0; k < n; k++) mask |= 1u << (pc[k] % 12u);
+        pr_k("cpc"); pr_x(mask, 3u);
+    }
     pr_ku("key", project.key_cur); pr_ku("root", project.key_root); pr_ku("scale", project.key_scale);
     pr_k("shift"); pr_d(project.key_shift); pr_k("mute"); pr_x(mute_mask, 4u); pr_k("solo"); pr_x(solo_mask, 4u);
     pr_ku("scene", scene_cursor); pr_k("snap"); pr_d(snap_cur == 255u ? -1 : (int32_t)snap_cur);
