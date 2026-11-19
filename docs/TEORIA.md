@@ -939,9 +939,10 @@ LA PROGRESSIONE
 Il **dembow**: la cassa in quattro, sempre; il rullante su `...x..x....x..x.` a ogni energia, con gli accenti
 sull'ultimo sedicesimo dell'1 e del 3 (oppure, una famiglia su quattro, sui due colpi dopo). L'hat in ottavi, e i
 sedicesimi entrano con l'energia; lo shaker in sedicesimi (quello dell'amapiano); il rim con i primi due colpi del
-rullante, oppure sulle "e"; le congas sul tresillo (3+3+2); un timbale ogni tanto. Il basso sta con la cassa e prende
-i levare del tresillo (sull'ultimo sedicesimo dell'1 e del 3); il **log drum** dell'amapiano scivola fra le note,
-mai due colpi vicini. Gli accordi sul tresillo, il lead in 3+3+2.
+rullante, oppure sulle "e"; le congas sul tresillo (3+3+2); il timbale sui posti del dembow, oppure intorno
+all'ultimo sedicesimo del 2. Il basso sull'1 e sul 3, e fra loro in 3+3+2; il **log drum** dell'amapiano scivola fra
+le note, mai due colpi vicini. Gli accordi sul tresillo, il lead in 3+3+2. A energia bassa resta il dembow con
+l'ossatura del resto: il resto entra con l'energia.
 
 L'armonia: **quattro accordi**, uno a battuta, quasi sempre (i VI III VII); le fondamentali scendono di una terza o
 salgono di una quinta o di una quarta. In minore; triadi, qualche settima e qualche nona (l'amapiano).
@@ -950,7 +951,7 @@ salgono di una quinta o di una quarta. In minore; triadi, qualche settima e qual
 ```text
 KICK
     sempre   X...X...X...X...
-    pesi     ...2...1..13..22   densità 8-63 %   tutti 'o'
+    pesi     ...9...2...9..24   densità 8-82 %   fino a peso 3: 'o'
     battute 2 e 4: 30 % delle scelte rifatte
     chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
 
@@ -967,56 +968,63 @@ SNARE
     chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
 
 HAT
-  una famiglia (60 % dei semi)
+  una famiglia (55 % dei semi)
     sempre   ..x...x...x...x.
-    classi   tempi 78 % 'x'   e 20 % 'o'   a 55 % 'o'   a energia 0 il 16 % di queste
+    classi   tempi 94 % 'x'   e 47 % 'o'   a 86 % 'o'   a energia 0 il 24 % di queste
              un colpo della classe manca: 8 %
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
-  una famiglia (40 % dei semi)
-    sempre   ..x...x...x...x.
-    pesi     .......4.......5   densità 12-67 %   tutti 'o'
+  una famiglia (45 % dei semi)
+    sempre   x.x.x.x.x.x.x.x.
+    pesi     ...a...a...a...a   densità 12-90 %   tutti 'o'
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
 
 SHAKER
-    classi   tempi 86 % 'x'   e 62 % 'o'   & sempre 'x'   a 78 % 'o'   (insieme)   a energia 0 il 12 % di queste
-             un colpo della classe manca: 16 %
+    classi   tempi 98 % 'x'   e 92 % 'o'   & sempre 'x'   a 96 % 'o'   (insieme)   a energia 0 il 8 % di queste
+             un colpo della classe manca: 4 %
     battute 2 e 4: 15 % delle scelte rifatte
 
 RIM
   una famiglia (60 % dei semi)
-    pesi     ...c..c...54..6.   densità 20-86 %
+    sempre   ...x..x.......x.
+    pesi     ........9.5c....   densità 16-100 %
     battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (40 % dei semi)
-    pesi     ..c..3....c..34.   densità 16-82 %   fino a peso 3: 'o'
+    pesi     ..d..3....d..34.   densità 16-100 %   fino a peso 3: 'o'
     battute 2 e 4: 30 % delle scelte rifatte
 
 CONGA
   una famiglia (60 % dei semi)
-    sempre   x...............
-    pesi     ...9..c.7..8..9.   densità 16-90 %
+    sempre   x.....x.......x.
+    pesi     ..9d....c.9d.9..   densità 16-100 %
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
   una famiglia (40 % dei semi)
-    sempre   ...X............
-    pesi     ..4.3.a....7.78.   densità 16-86 %   fino a peso 3: 'o'
+    sempre   ...X..x.........
+    pesi     ..9.8......c.cd.   densità 12-100 %
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 PERC
-    pesi     ...2..9...3.3.91   densità 16-86 %   fino a peso 3: 'o'
+  una famiglia (40 % dei semi)
+    pesi     6..f..f...6f6.f.   densità 27-100 %
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (60 % dei semi)
+    sempre   .......x........
+    pesi     ...b7.....d.d.7d   densità 27-100 %
     battute 2 e 4: 30 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 BASS
   una famiglia (65 % dei semi)
-    sempre   X...............
-    pesi     ...a..3.f..a..32   densità 16-86 %
+    sempre   X.......x.......
+    pesi     ...f..c....f..c3   densità 43-100 %
     più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (35 % dei semi)
-    sempre   X...............
-    pesi     ......9.f.....9.   densità 16-82 %
+    sempre   X.......x.......
+    pesi     ...9..f....9..f.   densità 43-100 %
     più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
     note     fondamentale 65 %, quinta 14 %, ottava 12 %, terza 6 %, settima 3 %
              sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
@@ -1024,8 +1032,8 @@ BASS
              nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 23 % (al massimo 3 sedicesimi)
 
 LOG DRUM
-    sempre   X...............
-    pesi     ...5..5...9..9.2   densità 20-90 %
+    sempre   X.........x..x..
+    pesi     ..3c..b.3......2   densità 16-100 %
     mai due colpi su sedicesimi vicini   battute 2 e 4: 40 % delle scelte rifatte
     note     fondamentale 45 %, quinta 18 %, ottava 14 %, terza 12 %, settima 6 %, quarta 3 %, seconda 2 %
              sull'uno la fondamentale 86 %   sui tempi fondamentale, quinta o ottava 59 %
@@ -1034,23 +1042,23 @@ LOG DRUM
 
 CHORD
   una famiglia (60 % dei semi)
-    sempre   x...............
-    pesi     ...9..9.6..8..8.   densità 16-82 %
+    sempre   x.......x.......
+    pesi     ...d..d....d..d.   densità 39-100 %
     battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (40 % dei semi)
     sempre   x...............
-    pesi     ......9...9.....   densità 12-67 %
+    pesi     ......d...d.....   densità 39-100 %
     mai due colpi su sedicesimi vicini   battute 2 e 4: 30 % delle scelte rifatte
     accordi  triade 70 %, settima 30 %   lo stesso tipo per tutto il pattern 86 %   tenuti 23 %
 
 LEAD
   una famiglia (55 % dei semi)
-    sempre   x...............
-    pesi     ...c..c...7..7.3   densità 12-75 %   tutti 'o'
+    sempre   x.....x.........
+    pesi     ..6f4...d.636.f.   densità 39-100 %   tutti 'o'
     battute 2 e 4: 35 % delle scelte rifatte
   una famiglia (45 % dei semi)
-    sempre   x...............
-    pesi     ..7...8...7...8.   densità 16-82 %   tutti 'o'
+    sempre   x.......x.......
+    pesi     ..bb9.d...b.b.d.   densità 39-100 %   tutti 'o'
     battute 2 e 4: 35 % delle scelte rifatte
     motivo   scala: pentatonica 78 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
              poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
@@ -1075,10 +1083,10 @@ LA PROGRESSIONE
 
 La musica del **balafon** delle feste di strada di Bamako, veloce. La cassa in quattro, il clap sul 2 e sul 4 con i
 suoi ghost in fondo alla battuta. L'hat sui levare o in ottavi, lo shaker in sedicesimi con un buco su una "e" ogni
-tanto. Il 3-3-2 del djembe sulla percussione e sulla conga bassa; i tom che rullano verso la frase dopo. Il basso
-sull'1 e sul 3, oppure sul tresillo. Il **BALAFON**: l'ostinato in sedicesimi, le due mani a turno (due note che si
-alternano, sulla pentatonica), oppure le sue figure sui tempi; le note sono battute, mai tenute. Le grida dell'MC. Gli
-accordi (se li chiedi: la band non li ha) sui levare.
+tanto. Il 3-3-2 del djembe sulla percussione (oppure la sua risposta, fuori dai tempi) e sulla conga bassa; i tom
+che rullano verso la frase dopo. Il basso sull'1 e sul 3, oppure sul tresillo. Il **BALAFON**: l'ostinato in
+sedicesimi, le due mani a turno (due note che si alternano, sulla pentatonica), oppure le sue figure sui tempi; le
+note sono battute, mai tenute. Le grida dell'MC. Gli accordi (se li chiedi: la band non li ha) sui levare.
 
 L'armonia: **un accordo solo, o due** (I - V, I - IV), di due o quattro battute; la fondamentale sale di una quarta o
 di una quinta. Maggiore o misolidia; triadi.
@@ -1087,7 +1095,7 @@ di una quinta. Maggiore o misolidia; triadi.
 ```text
 KICK
     sempre   X...X...X...X...
-    pesi     ......3....4..23   densità 8-67 %   fino a peso 3: 'o'
+    pesi     ......9....c..69   densità 8-90 %
     battute 2 e 4: 40 % delle scelte rifatte
     chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
 
@@ -1112,40 +1120,47 @@ HAT
     chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
 
 SHAKER
-    classi   tempi sempre 'x'   e 43 % 'o'   & sempre 'x'   a sempre 'o'   (insieme)   a energia 0 il 63 % di queste
+    classi   tempi sempre 'x'   e 96 % 'o'   & sempre 'x'   a sempre 'o'   (insieme)   a energia 0 il 39 % di queste
              un colpo della classe manca: 12 %
     battute 2 e 4: 15 % delle scelte rifatte
 
 PERC
-    pesi     ..8..8.7..8..8.7   densità 27-90 %
+  una famiglia (70 % dei semi)
+    sempre   x..x............
+    pesi     ..4..6c4c38c84a6   densità 47-100 %   fino a peso 3: 'o'
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (30 % dei semi)
+    sempre   ..x.......x.....
+    pesi     .....c4c...4.c.c   densità 47-100 %
     battute 2 e 4: 40 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 CONGA
   una famiglia (60 % dei semi)
-    sempre   X...............
-    pesi     ..89..8.8.89..8.   densità 24-86 %
+    sempre   X.x.....x.x.....
+    pesi     ...d..d....d..d.   densità 16-100 %
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
   una famiglia (40 % dei semi)
     sempre   X...............
-    pesi     ...9..9...8..9..   densità 20-78 %
+    pesi     ...d..d...c..d..   densità 16-100 %
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 TOM
-    pesi     ......6.....4477   densità 12-63 %
+    pesi     9..3..b...8.c9f9   densità 12-100 %   fino a peso 3: 'o'
     battute 2 e 4: 50 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 BASS
   una famiglia (70 % dei semi)
     sempre   X.......x.......
-    pesi     ...4..6...4...6.   densità 24-82 %
+    pesi     ...b3.d...b.3.d.   densità 35-100 %
     più probabile dove suona il kick (+5)   battute 2 e 4: 35 % delle scelte rifatte
   una famiglia (30 % dei semi)
     sempre   X...............
-    pesi     ...9..9...8..9..   densità 24-82 %
+    pesi     ...c6.c.9.b..c6.   densità 35-100 %
     battute 2 e 4: 35 % delle scelte rifatte
     note     fondamentale 60 %, quinta 20 %, ottava 10 %, terza 5 %, quarta 5 %
              sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
@@ -1169,8 +1184,7 @@ BALAFON
              la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 59 %   tenute 0 %
 
 VOX
-    sempre   x...............
-    pesi     ...4......7.....   densità 16-67 %
+    pesi     9.399...3.b.9..3   densità 16-100 %   fino a peso 3: 'o'
     battute 2 e 4: 40 % delle scelte rifatte
     motivo   scala: pentatonica 86 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
              poggia su: la fondamentale 40 %, la quinta 40 %, la terza 20 %

@@ -1,49 +1,70 @@
-# SAGGA SEQ 0.28
+# SAGGA SEQ 0.29
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Twelve
 tracks** on sixteen MIDI channels, eight patterns of up to 64 steps per track (a step: up to **six notes**, **eight CC
 lanes** a track), **sixteen scenes**, eight **snapshots**, a song of **64
-entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **25 genres** (patterns of 16, 32 and 64
+entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **22 genres** (patterns of 16, 32 and 64
 steps), the **THEORY engines** that make a band from a seed in each of them, in the bar of its metre, a bar in **any
 metre** and tracks in **five or seven against four**, a **click** with a count-in, the keyboard's chords as the harmony,
 its pedal and wheels recorded, and **the journey**: every set is cut into phrases, the **MOSSE** (PERF's third page)
 queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.28` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.29` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.27.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.28.
 
-## What is new in 0.28
+## What is new in 0.29
 
-**Twelve tracks** instead of sixteen, and with the memory they leave **chords of six notes** and **eight CC lanes** a
-track. The projects of before open with their first twelve tracks; a 0.27 opens a project of 0.28, without what it
-has no room for.
+**The genres are 22** (25 until 0.28), with **eight progressions** each, **BALANI** new, the **BALAFON** a part of its
+own, REGGAETON and BALANI's THEORY rules **written by hand**, and more to play with: **ROLL** and **ACCENT** among the
+MIDI FX, **five scales**, **three grooves**, **four chord shapes**. The projects of before open as they were, each
+genre where it went; a 0.28 opens a project of 0.29, without what it has no room for.
 
-* **Twelve tracks.** The MIDI channels stay sixteen: a track can be on any of them. **HOME + white 1-12** picks a
-  track, whites 13-16 do nothing for now. The black keys: 1-8 the tracks of the bank, 9 the other bank - the banks
-  are **1-8 and 9-12** (in 9-12, blacks 5-8 do nothing). GLO + white 1-12: the mutes. DICE ALL rolls the eight
-  tracks of the selected one's side: 1-8, or 5-12. On the grid the pads of tracks 13-16 are dark; the remote's
-  commands for tracks 13-16 do nothing, and SAGGA Live, Motori, Mutes and BeatStep on the Pi show twelve.
-* **Chords of six notes**: a step holds up to six notes (four until 0.27). SEL + keys takes up to six within 0.45 s
-  (`CHORD FULL (6 NOTES)` past that); MIDI REC, the grid and the Pi's editor write six too. **EDIT + SEL + K1-K4**
-  still set notes 1-4; the line says notes 5 and 6 when the step has them. The ARP, the strum and the voicing work on
-  all six; at most six sound from a step, with a CHORD shape too.
-* **Eight CC lanes** a track (six until 0.27): the ENV pages go `LANE 1/8` .. `LANE 8/8`; in a new project lane 7 is
-  CC 73 (attack) and lane 8 CC 72 (release). The grid's CC view (pads 1-8), the CC learn (a ninth CC: `NO FREE LANE`),
-  the scenes and the snapshots keep all eight. The remote's lane knobs: lanes 1-6 channel 13 CC 101-106, lanes 7 and 8
-  (0.28.1) channel 12 CC 62 / 63 - SAGGA Mod has all eight.
-* **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO or a
-  MOD aimed at one of them stops, an LFO's TRIG from one of them goes back to CLOCK; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
-  for the notes 5-6 and the lanes 7-8: a 0.27 opens it, without them. A MIDI file read into a project on the Pi:
-  channels 1-12 become tracks 1-12, channels 13-16 are left out (`sagga_sgqmid` says how many notes).
-* **The memory**: a project is 15 KB smaller (163 KB in RAM; a step is 22 bytes, a track's settings 104).
+* **The genres.** AMAPIANO went into REGGAETON (its log drum, shakers, rims, piano chords: REGGAETON's tempo is 90-112
+  now), BASSLINE into UK GARAGE (its sub and stabs: speed garage with the bass in front), GRIME into DUBSTEP, AFRO HOUSE
+  is gone (its percussion went into GQOM and BATIDA), and **BALANI** came - the balafon's music at the street parties
+  of Bamako, fast (160-180 BPM): the kick in four, the djembe's 3-3-2 on the conga and the perc, the shaker's 16ths, the
+  toms rolling, the MC's shouts, and the **BALAFON**. The genres' order: TECHNO, HARDTECHNO, DUB TECHNO, HOUSE, UK
+  GARAGE, UK FUNKY, DUBSTEP, JUNGLE, REGGAETON, BATIDA, GQOM, EXPERIMENT, ELECTRO, DRUM+BASS, BALANI, FOOTWORK, TRANCE,
+  UK DRILL, HARDCORE, PHONK, BAILE FUNK, MERENGUE. The grid's BEAT view has two pages of genres again (12 + 10).
+* **A project of before** opens with each of its genres where it went: GRIME as DUBSTEP, BASSLINE as UK GARAGE, AFRO
+  HOUSE as GQOM, AMAPIANO as REGGAETON - wherever a genre is kept (the project's, the harmony's, the journey's, a track's
+  pattern, a pattern the engines made, a snapshot). On the Pi, the patterns and progressions **you** kept in those four
+  genres move to the genre that took them in (the stock ones stay behind), the first time the hub starts.
+* **Eight progressions a genre** (six until 0.28): the six of before where they were - a project keeps its progression
+  by its number - and two more (the bassline's in UK GARAGE, the grime's in DUBSTEP, the amapiano's in REGGAETON, the
+  afro house's in GQOM and BATIDA, the genre's own elsewhere). SEQ 4 (ARP 3) K2: PROG 1-8, USER 1-4, DICE/PI. The
+  VIAGGIO view of the grid, row 7: pads 1-8 the genre's, 9-12 yours, 13 DICE/PI, 14-16 the chord playing in turn
+  (white: the progression's first). The BEAT view's row 3 keeps PROG 1-6. SAGGA Mod's PROGRESSION: PROG 1-8, USER 1-4,
+  DICE/PI (channel 13, CC 117, 0-12).
+* **The BALAFON**: a part (and a role) of its own - a tune, struck: its notes are short, from middle C, and with the
+  harmony it follows the chords as a MELODY (as a LEAD or a VOX). BALANI's band has it where it had a LEAD.
+* **THEORY**: REGGAETON and BALANI have rules written by hand now (TECHNO, HOUSE, DUBSTEP and DRUM+BASS had them; the
+  other sixteen are counted from the library). REGGAETON: the dembow at every energy (the snare's `...x..x....x..x.`),
+  little else at a low energy, the log drum's slides, four chords a bar each. BALANI: the clap on 2 and 4, the djembe's
+  3-3-2, the balafon's ostinato in 16ths on the pentatonic, one or two chords. The seventeen genres that did not change
+  (and FREE) make what they made, bit for bit; UK GARAGE, BATIDA and GQOM's counted rules changed with their libraries.
+* **ROLL** (MIDI FX): each note 2-6 hits in its step - LEVEL, RISING or FALLING - with a chance (K2, K3, K4). The trap
+  hats. **ACCENT**: every 2-8 steps (K3), from a step of its own (K4), louder (K2 up to +60; below 0, softer): three
+  over four. In the chain's ORDER, ACCENT comes after VEL CURVE and ROLL before ECHO. On the grid: SHIFT + pads 7 and 8
+  of the TRACK 3 view's second row.
+* **Scales**: HUNGARIAN MINOR, DOUBLE HARMONIC, LYDIAN DOMINANT, MAJOR BLUES, IN SEN (21 in all). On the grid's PROJ
+  view: SHIFT + row 2, pads 1-5.
+* **Grooves**: MALI (the djembe's 16ths, leaning towards three a beat), DEMBOW (the snare's two on the 'a', late and
+  loud), BROKEN (broken beat: the 'e' early, the 'a' late).
+* **Chord shapes**: 7#9, 7B9, MAJ7#11, QUARTAL (36 in all) - for a track's CHORD and in your progressions.
+* **Fixed**: the BEAT part chosen past the sixteenth of the list (a LEAD, a VOX, a LOG DRUM ...) came back as the KICK
+  after a power cycle; now it stays.
+* **The projects.** A project of 0.29 is saved as 0.28 saves, plus one chunk for what 0.28 has no room for: BALANI, the
+  7th and 8th progressions, the balafon, ROLL and ACCENT. A 0.28 opens it: BALANI as AFRO HOUSE, PROG 7 and 8 as PROG 1,
+  the balafon as a LEAD, the new effects, scales, grooves and shapes left out (their default).
 
-On the Pi: the editor shows twelve tracks, six notes a step and eight lanes; the bridge sends the previews and the
-phrases to tracks 1-12, up to six notes. Install the FM-1 and the Pi together.
+On the Pi: the pattern and progression pages have the 22 genres, SAGGA Live the new grooves, shapes and effects, SAGGA
+Mod the 22 genres and the eight progressions, the editor ROLL and ACCENT. Install the FM-1 and the Pi together.
 
 ## The FM-1 panel
 
@@ -78,10 +99,10 @@ SEL + a key does for the knob in focus (in a window the map stays four seconds, 
 | 1 TRACK | MIDI channel (1-14; 1-16 with two USB ports) | length 1-64 (playing: at the bar - 0.25: the metre's -, from the bar line; **0.24**: longer, the pattern goes round again in the new steps - its copies; shorter, it waits whole after the loop) | step: 1/1 .. 1/32T, **0.25: then the polyrhythms** 1/4 5:4, 1/8 5:4, 1/16 5:4, 1/4 7:4, 1/8 7:4, 1/16 7:4 (five, seven steps in the time of four) | transpose: IN KEY -24 .. +24 **steps of the scale**, FREE -48 .. +48 semitones |
 | 2 PLAY | direction FWD REV PING RND | swing 50 % (straight) .. 75 % | **OCTAVE** -3 .. +3 | **FOLLOW** the harmony |
 | 3 KEY | **SLOT** 1-16 (the key that plays) | root | scale | shift -24 .. +24 |
-| 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX | **CHORD**: OFF, or one of 32 shapes (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
+| 4 MODE | mode: FREE / IN KEY / DRUM / TAPE / **BREAK** (0.12: a track of slices) | **ROLE**: none, KICK SNARE HAT PERC BASS CHORD ARP, CLAP OPEN HAT RIDE SHAKER CONGA TOM RIM CRASH COWBELL RUMBLE SUB LOG DRUM STAB PAD PIANO LEAD VOX BALAFON (0.29) | **CHORD**: OFF, or one of 36 shapes (0.29; 32 until 0.28) (ARP page 2 has it too, with the KEY mode) | **KEY**: follows the slot that plays, or pinned to slot 1-16 |
 | 5 LOOPS | the notes' loop | the velocities' loop | the gates' loop | the program of the track's channel in the PERF cursor's scene |
-| 6 MIDI FX | effect shown: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track; 0.19: the four in a chain, VEL > OCTAVE > HARM > ECHO: SEQ + white 6 adds the one shown, or takes it out if it plays; OFF: all stop**; **0.20: + CHANCE RANDOM NOTE FILTER GATE GLITCH; SEL + K1: the one shown earlier / later in the ORDER**) | amount (of the one shown) | time (ECHO) / which steps (OCTAVE) / the new ones' K3 | how much each keeps (ECHO) / its velocity (HARM) / the new ones' K4 |
-| 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
+| 6 MIDI FX | effect shown: OFF HARM OCTAVE ECHO VEL (**0.16: READY, SEQ + white 6 starts it, with the values it had on the track; 0.19: the four in a chain, VEL > OCTAVE > HARM > ECHO: SEQ + white 6 adds the one shown, or takes it out if it plays; OFF: all stop**; **0.20: + CHANCE RANDOM NOTE FILTER GATE GLITCH; SEL + K1: the one shown earlier / later in the ORDER**; **0.29: + ROLL ACCENT**) | amount (of the one shown) | time (ECHO) / which steps (OCTAVE) / the new ones' K3 | how much each keeps (ECHO) / its velocity (HARM) / the new ones' K4 |
+| 7 TIMING | DELAY -30 .. +30 ms | CHAIN **OFF / P1+2 / LIST** (0.13) | **GROOVE** OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP (0.15) MALI DEMBOW BROKEN (0.29; a TAPE track: TAPE BARS 1-16) | **GROOVE AMT** 0-100 % (a TAPE track: TAPE QUANT 0-100 %) |
 | **8 CHAIN LIST** (0.13) | LENGTH 1-8 entries | ENTRY (the one the knobs set) | its PATTERN 1-8 | how many TIMES 1-8 |
 
 (VIAGGIO's knobs, HOME 8 until 0.11, are **GLO 3**: 0.17 the MOSSE.)
@@ -92,7 +113,7 @@ ALT (every other step), RANDOM, 3RD, 4TH; ECHO 0-4 repeats, every 1/32, 1/16, 1/
 effect's notes are ornaments: STOP, PANIC, a mute or a KILL cancel the ones waiting. **0.19, the chain**: VEL CURVE
 first (the velocity every other effect starts from), then OCTAVE (the note), HARM (its voice on the moved note, at its
 velocity %), ECHO (the note and the voice, each repeat keeping its %). 128 ornaments wait at most: past that the
-softest are dropped. **0.20**: nine effects, in the track's ORDER (SEL + K1); "What is new in 0.20" has their knobs.
+softest are dropped. **0.20**: nine effects (**0.29: eleven**, with ROLL and ACCENT), in the track's ORDER (SEL + K1); "What is new in 0.20" has their knobs.
 
 ### SEQ pages
 
@@ -194,10 +215,10 @@ multiple, so 0 and the round values are always reached. Turned fast (detents und
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
 | 1 ARP | mode (13: BLOCK, UP, DOWN, UP-DN, DN-UP, UP&DN, CONV, DIV, RND, WALK, PLAYED, THUMB, PINKY) | octaves 1-3 | **RATE**: **1/4**, **1/2** (0.18: a note every 4 / 2 steps), ROLL (the chord inside its step), 1-4 notes a step | **RUN**: OFF / RETRIG / HOLD / HOLD+RT |
-| 2 CHORD | **shape** (32) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
-| 3 HARMONY | **OFF / ON / LOCK** | progression 1-6 of the genre, USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
+| 2 CHORD | **shape** (36: 0.29) | **KEY**: DIATONIC / FREE / STRICT | voicing | strum |
+| 3 HARMONY | **OFF / ON / LOCK** | progression 1-8 of the genre (**0.29**; 1-6 until 0.28), USER 1-4, DICE/PI, **then the Pi's** (of the MOOD); **0.16: with the HARMONY off it is READY, K1 starts it** | bars a chord: the progression's own, 1, 2, 4, 8 | FOLLOW this track |
 | 4 HARMONY 2 | **FOLLOW**: HOLD, RETRIG, LEGATO, **MELODY** (0.25: a tune - it stays where it is written, its strong notes go to the chord), **SMOOTH** (0.26: chords - the notes two chords share stay, the others go to the nearest) (this track) | **the harmony's genre** (**0.16: FREE**, left of the first: no genre, ARP 3 K2 through all 150) | **MOOD**: ANY, SAD .. SUSPENDED | **RHYTHM**: BARS, GENRE, PUSH 16TH, PUSH 8TH, 3+3+2, TWO A BAR, 3+5, 3+1, 2 BARS |
-| 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8 |
+| 5 USER PROG | the progression USER 1-4, DICE/PI | the chord 1-8 | **its root**: I bII II bIII III IV #IV V bVI VI bVII VII, or `--` (the progression ends before it) | **its shape**: the key's chord with a colour (TRIAD, 7, 9, SUS4, SUS2, 6), then the chord shapes OCT .. 1-3-5-8, 7#9, 7B9, MAJ7#11, QUARTAL (0.29) |
 | 6 USER PROG 2 | **MOOD** (GUESSED: the machine's) | the lengths of a RHYTHM written into the chords | **the chord's length**: 1-64 16ths (0: the HARMONY's rhythm) | **PUSH** 0-4 16ths |
 
 ### GLO pages (the live; GLO + OCT- / OCT+, or tap GLO for PERF: OCT- / OCT+ alone turn them)
@@ -498,24 +519,21 @@ the energy back).
 | TECHNO | HARDTECHNO | 50 | 0 50 20 45 35 60 75 |
 | HARDTECHNO | TECHNO | 50 | 5 45 20 35 15 70 55 |
 | DUB TECHNO | TECHNO | 54 | 10 60 25 45 35 30 70 |
-| HOUSE | AFRO HOUSE | 54 | 0 30 15 50 25 40 70 |
+| HOUSE | UK GARAGE | 54 | 0 30 15 50 25 40 70 |
 | UK GARAGE | UK FUNKY | 60 | 5 20 15 45 30 50 65 |
 | UK FUNKY | UK GARAGE | 56 | 5 30 20 15 35 55 70; afro / latin percussion |
-| GRIME | UK DRILL | 50 | 5 15 40 55 20 35 70; half-time |
-| DUBSTEP | GRIME | 52 | 15 20 35 50 10 60 75; half-time |
+| DUBSTEP | UK DRILL | 52 | 15 20 35 50 10 60 75; half-time |
 | JUNGLE | DRUM+BASS | 50 | 10 5 30 45 20 65 75 |
-| BASSLINE | UK GARAGE | 56 | 0 25 20 50 10 55 70 |
 | REGGAETON | BATIDA | 50 | 0 10 40 25 35 55 75; afro / latin percussion |
 | BATIDA | GQOM | 52 | 0 35 30 10 40 60 70; afro / latin percussion |
 | GQOM | BATIDA | 54 | 0 45 35 15 30 65 80; afro / latin percussion |
 | EXPERIMENT | FOOTWORK | 50 | 10 40 50 20 35 30 60 |
 | ELECTRO | TECHNO | 50 | 0 15 25 55 20 50 40 |
 | DRUM+BASS | JUNGLE | 50 | 10 5 25 50 15 60 75 |
-| AFRO HOUSE | HOUSE | 54 | 0 50 30 10 35 45 70; afro / latin percussion |
-| AMAPIANO | AFRO HOUSE | 58 | 15 55 35 20 30 10 70; afro / latin percussion |
+| BALANI | BATIDA | 52 | 0 35 25 15 45 70 10; afro / latin percussion (0.29; the balafon right after the kick) |
 | FOOTWORK | JUNGLE | 50 | 0 30 35 15 25 70 55 |
 | TRANCE | TECHNO | 50 | 0 45 20 60 15 50 30 |
-| UK DRILL | GRIME | 54 | 5 15 10 50 25 45 70; half-time |
+| UK DRILL | DUBSTEP | 54 | 5 15 10 50 25 45 70; half-time |
 | HARDCORE | HARDTECHNO | 50 | 0 35 15 55 20 40 70 |
 | PHONK | UK DRILL | 52 | 0 20 15 45 10 55 30; half-time (the cowbell riff is the ARP) |
 | BAILE FUNK | REGGAETON | 54 | 0 25 30 10 20 60 70; afro / latin percussion |
@@ -632,7 +650,7 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **66** | `G M` | (to the Pi, 0.11) how many progressions of genre G and mood M (0: any)? |
 | **67** | `G M n*2` | (from the Pi) that many |
 | **68** | `G M i*2 r (semi shape)*r` | (to the Pi) the i-th, in order of likeness to these r chords (the one playing) |
-| **69** | `G M i*2 n mood (semi shape dur push)*n` | (from the Pi) it: semi 0-11 the root above the key's, shape 6-36 a chord shape (5 + SQ_CH_*), dur 0-64 16ths, push 0-4; n 0: none |
+| **69** | `G M i*2 n mood (semi shape dur push)*n` | (from the Pi) it: semi 0-11 the root above the key's, shape 6-40 a chord shape (5 + SQ_CH_*; 0.29: 36 shapes), dur 0-64 16ths, push 0-4; n 0: none |
 | **6A** | `G mood n (semi shape dur push)*n` | (to the Pi) keep this one (SEQ + SAVE on SEQ 4 / SEQ 8) |
 | **6B** | `G mood code i*2` | (from the Pi) kept as the i-th of its mood (0), could not write it (1), not a progression (2) |
 | **70** | `sub ...` | (from the PC, 0.11: the PC test, `firmware/src/sagga_test.c`) 0 HELLO; 1 OPEN (the screen asks, SEL on the FM-1 = yes); 2 BOOT (a reboot into the test: no project, no slot read or written, a hand on any key stops it); 3 GO; 4 EV `idx*2 n (t*4 kind a*2 b*2 gc*4)*n` (presses at t ms after GO: 1 press, 2 release, 3 knob `b` = detents + 8192, 4 MASTER, 5 keys `a \| b<<14`, 6 probe, 7 end); 5 CLOSE (a normal reboot); 6 AGAIN `idx*2`; 7 TAKEN `idx*2 n`; 8 DIAG (0.20.9); 9 QUIET (0.23.1: the session is over - the FM-1 stops, every note off, takes no more events and sends nothing more, so that DIAG's counts stand still) |
@@ -737,14 +755,14 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 1 | MUTE (a switch) | 2 | SOLO (a switch) |
 | 3 | PATTERN 0-7, at the QUANTISE moment | 4 | LENGTH 1-64, at the bar |
 | 5 | OCTAVE 0-6 (3 = 0) | 6 | SWING 50-75 |
-| 7 | GROOVE 0-9 (OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP) | 8 | GROOVE AMOUNT 0-100 |
-| 9 | MIDI FX 0-9 shown (OFF HARM OCTAVE ECHO VEL CURVE CHANCE RANDOM NOTE FILTER GATE GLITCH; not playing: READY) | 10 | its AMOUNT 0-24 (the first four: 12 = 0, -12..+12; the five of 0.20: over the effect's range) |
+| 7 | GROOVE 0-12 (OFF HOUSE GARAGE DILLA AFRO SAMBA LAID BACK PUSH HUMAN TRAP MALI DEMBOW BROKEN) | 8 | GROOVE AMOUNT 0-100 |
+| 9 | MIDI FX 0-11 shown (OFF HARM OCTAVE ECHO VEL CURVE CHANCE RANDOM NOTE FILTER GATE GLITCH ROLL ACCENT; not playing: READY) | 10 | its AMOUNT 0-24 (the first four: 12 = 0, -12..+12; the others: over the effect's range) |
 | 11 | FX GO (a tap; 0.19: the one shown joins the chain, or leaves it if it plays; OFF: all stop) | 12 | ALGO 0-4 READY on the slot shown |
 | 13 / 14 / 15 | its A / B / C, 0-127 over the algorithm's range | 16 | ALGO GO (a tap) |
 | 17 | EUCLID PULSES 1-64 | 18 | ROTATION 0-63 |
 | 19 | EUCLID LIVE on / off (a switch; this track only) | 20 | ARP 0-12 (BLOCK UP DOWN ... PINKY) |
 | 21 | OCTAVES 1-3 | 22 | RATE 0-6 (1/4 1/2 ROLL 1 2 3 4) |
-| 23 | RUN 0-3 (OFF RETRIG HOLD HOLD+RT) | 24 | CHORD 0-31 (the 32 shapes) |
+| 23 | RUN 0-3 (OFF RETRIG HOLD HOLD+RT) | 24 | CHORD 0-35 (the 36 shapes) |
 | 25 | FOLLOW (a switch) | 26 / 27 | COOK, BEAT (taps; this track only, now) |
 | 28 | PROPOSAL (as SEQ + BEAT held) | 29 | QUEUE the proposal (as PRESETS) |
 | 30 | RETRIG | 31 / 32 | DICE SEQ, UNDO (taps; this track only) |

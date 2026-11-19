@@ -199,46 +199,48 @@ static const th_rule_t TH_RULES[] = {
     /* ---- REGGAETON (0.29): the DEMBOW - the kick in four; the snare's "...x..x....x..x." at every energy, the accents
      * on the 'a' of 1 and of 3 (or, a family in four, on the two after them); the hats on the off-beats, the 8ths and
      * the 16ths coming in with the energy; the shaker's 16ths (the amapiano's), from its off-beats; the rim with the
-     * snare's first two, or on the '&' of 1 and of 3; the congas' tresillo; a timbale now and then. The bass on the one,
-     * on the 3 and on the tresillo's pickups (the 'a' of 1 and of 3), the log drum's slides; the chords on the tresillo,
-     * the lead in 3+3+2. Little but the dembow at a low energy: the rest comes with it */
-    {RG, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,2, 0,0,0,1, 0,0,1,3, 0,0,2,2), 20, 160, 3, TH_O, TH_NOCLS, 0, 30, TH_F_PICK, 0, TH_HAND},
+     * snare's first two, or on the '&' of 1 and of 3; the congas' tresillo; the timbale on the dembow's places, or
+     * around the 'a' of 2. The bass on the one and on the 3, in 3+3+2 between them; the log drum's slides; the chords on
+     * the tresillo, the lead in 3+3+2. At a low energy the dembow and the bones of the rest: the rest comes with it */
+    {RG, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,9, 0,0,0,2, 0,0,0,9, 0,0,2,4), 20, 210, 3, TH_O, TH_NOCLS, 0, 30, TH_F_PICK, 0, TH_HAND},
     {RG, SQ_FUNC_SNARE, 75, TB(3) | TB(11), TB(6) | TB(14), 0, TW(0,0,3,0, 0,0,0,5, 0,2,3,0, 0,0,0,6), 40, 190, 3, TH_G, TH_NOCLS, 0, 25, TH_F_ROLL, 0, TH_HAND},
     {RG, SQ_FUNC_SNARE, 25, TB(6) | TB(14), TB(3) | TB(11), 0, TW(0,0,3,0, 0,2,0,0, 0,0,3,5, 0,0,0,4), 30, 180, 3, TH_G, TH_NOCLS, 0, 25, TH_F_ROLL, 0, TH_HAND},
-    {RG, SQ_FUNC_HAT, 60, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, {200, 50, 0, 140}, 40, TCL(TH_X, TH_O, TH_X, TH_O), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
-    {RG, SQ_FUNC_HAT, 40, 0, TH_OFFS, 0, TW(0,0,0,0, 0,0,0,4, 0,0,0,0, 0,0,0,5), 30, 170, 15, TH_O, TH_NOCLS, 0, 25, TH_F_HAT, 0, TH_HAND},
-    {RG, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {220, 160, 255, 200}, 30, TCL(TH_X, TH_O, TH_X, TH_O), 1, 40, 0, 15, TH_F_NONE, 0, TH_HAND},
-    {RG, SQ_FUNC_RIM, 60, 0, 0, 0, TW(0,0,0,12, 0,0,12,0, 0,0,5,4, 0,0,6,0), 50, 220, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
-    {RG, SQ_FUNC_RIM, 40, 0, 0, 0, TW(0,0,12,0, 0,3,0,0, 0,0,12,0, 0,3,4,0), 40, 210, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
-    {RG, SQ_FUNC_CONGA, 60, 0, TB(0), 0, TW(0,0,0,9, 0,0,12,0, 7,0,0,8, 0,0,9,0), 40, 230, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
-    {RG, SQ_FUNC_CONGA, 40, TB(3), 0, 0, TW(0,0,4,0, 3,0,10,0, 0,0,0,7, 0,7,8,0), 40, 220, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
-    {RG, SQ_FUNC_PERC, 0, 0, 0, 0, TW(0,0,0,2, 0,0,9,0, 0,0,3,0, 3,0,9,1), 40, 220, 3, TH_O, TH_NOCLS, 0, 30, TH_F_BUSY, 0, TH_HAND},
-    {RG, SQ_FUNC_BASS, 65, TB(0), 0, 0, TW(0,0,0,10, 0,0,3,0, 15,0,0,10, 0,0,3,2), 40, 220, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
-    {RG, SQ_FUNC_BASS, 35, TB(0), 0, 0, TW(0,0,0,0, 0,0,9,0, 15,0,0,0, 0,0,9,0), 40, 210, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
-    {RG, SQ_FUNC_LOGDRUM, 0, TB(0), 0, 0, TW(0,0,0,5, 0,0,5,0, 0,0,9,0, 0,9,0,2), 50, 230, 0, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, TH_K_APART, TH_HAND},
-    {RG, SQ_FUNC_CHORD, 60, 0, TB(0), 0, TW(0,0,0,9, 0,0,9,0, 6,0,0,8, 0,0,8,0), 40, 210, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
-    {RG, SQ_FUNC_CHORD, 40, 0, TB(0), 0, TW(0,0,0,0, 0,0,9,0, 0,0,9,0, 0,0,0,0), 30, 170, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_APART, TH_HAND},
-    {RG, SQ_FUNC_LEAD, 55, 0, TB(0), 0, TW(0,0,0,12, 0,0,12,0, 0,0,7,0, 0,7,0,3), 30, 190, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
-    {RG, SQ_FUNC_LEAD, 45, 0, TB(0), 0, TW(0,0,7,0, 0,0,8,0, 0,0,7,0, 0,0,8,0), 40, 210, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_HAT, 55, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, {240, 120, 0, 220}, 60, TCL(TH_X, TH_O, TH_X, TH_O), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {RG, SQ_FUNC_HAT, 45, 0, TH_EIGHT, 0, TW(0,0,0,10, 0,0,0,10, 0,0,0,10, 0,0,0,10), 30, 230, 15, TH_O, TH_NOCLS, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {RG, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {250, 235, 255, 245}, 20, TCL(TH_X, TH_O, TH_X, TH_O), 1, 10, 0, 15, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_RIM, 60, 0, TB(3) | TB(6) | TB(14), 0, TW(0,0,0,0, 0,0,0,0, 9,0,5,12, 0,0,0,0), 40, 255, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_RIM, 40, 0, 0, 0, TW(0,0,13,0, 0,3,0,0, 0,0,13,0, 0,3,4,0), 40, 255, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_CONGA, 60, 0, TB(0) | TB(6) | TB(14), 0, TW(0,0,9,13, 0,0,0,0, 12,0,9,13, 0,9,0,0), 40, 255, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_CONGA, 40, TB(3), TB(6), 0, TW(0,0,9,0, 8,0,0,0, 0,0,0,12, 0,12,13,0), 30, 255, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_PERC, 40, 0, 0, 0, TW(6,0,0,15, 0,0,15,0, 0,0,6,15, 6,0,15,0), 70, 255, 3, TH_O, TH_NOCLS, 0, 30, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_PERC, 60, 0, TB(7), 0, TW(0,0,0,11, 7,0,0,0, 0,0,13,0, 13,0,7,13), 70, 255, 3, TH_O, TH_NOCLS, 0, 30, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_BASS, 65, TB(0), TB(8), 0, TW(0,0,0,15, 0,0,12,0, 0,0,0,15, 0,0,12,3), 110, 255, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {RG, SQ_FUNC_BASS, 35, TB(0), TB(8), 0, TW(0,0,0,9, 0,0,15,0, 0,0,0,9, 0,0,15,0), 110, 255, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {RG, SQ_FUNC_LOGDRUM, 0, TB(0), TB(10) | TB(13), 0, TW(0,0,3,12, 0,0,11,0, 3,0,0,0, 0,0,0,2), 40, 255, 0, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, TH_K_APART, TH_HAND},
+    {RG, SQ_FUNC_CHORD, 60, 0, TB(0) | TB(8), 0, TW(0,0,0,13, 0,0,13,0, 0,0,0,13, 0,0,13,0), 100, 255, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_CHORD, 40, 0, TB(0), 0, TW(0,0,0,0, 0,0,13,0, 0,0,13,0, 0,0,0,0), 100, 255, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_APART, TH_HAND},
+    {RG, SQ_FUNC_LEAD, 55, 0, TB(0) | TB(6), 0, TW(0,0,6,15, 4,0,0,0, 13,0,6,3, 6,0,15,0), 100, 255, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_LEAD, 45, 0, TB(0) | TB(8), 0, TW(0,0,11,11, 9,0,13,0, 0,0,11,0, 11,0,13,0), 100, 255, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
     /* ---- BALANI (0.29): the balafon's music at the street parties of Bamako, fast - the kick in four, the clap on 2 and 4
      * with its ghosts at the end of the bar; the hats on the off-beats or in 8ths, the shaker's 16ths with a hole on an
      * 'e' now and then; the djembe's 3-3-2 on the perc and the low conga; the toms rolling into the next phrase. The bass
      * on 1 and 3, or on the tresillo; the BALAFON's ostinato - 16ths, the hands in turn - or its figures on the beats; the
      * MC's shouts; the chords (when asked: the band has none) on the off-beats */
-    {BA, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,0, 0,0,3,0, 0,0,0,4, 0,0,2,3), 20, 170, 3, TH_O, TH_NOCLS, 0, 40, TH_F_PICK, 0, TH_HAND},
+    {BA, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,0, 0,0,9,0, 0,0,0,12, 0,0,6,9), 20, 230, 3, TH_O, TH_NOCLS, 0, 40, TH_F_PICK, 0, TH_HAND},
     {BA, SQ_FUNC_CLAP, 0, TB(4) | TB(12), 0, 0, TW(0,0,0,0, 0,0,0,5, 0,0,0,0, 0,2,3,6), 40, 200, 6, TH_G, TH_NOCLS, 0, 30, TH_F_ROLL, 0, TH_HAND},
     {BA, SQ_FUNC_HAT, 55, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, {90, 60, 0, 200}, 80, TCL(TH_X, TH_O, TH_X, TH_X), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
     {BA, SQ_FUNC_HAT, 45, 0, TH_EIGHT, 0, TW0, 0, 0, 0, TH_O, {0, 50, 0, 230}, 120, TCL(TH_X, TH_O, TH_X, TH_X), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
-    {BA, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 110, 255, 255}, 160, TCL(TH_X, TH_O, TH_X, TH_O), 1, 30, 0, 15, TH_F_NONE, 0, TH_HAND},
-    {BA, SQ_FUNC_PERC, 0, 0, 0, 0, TW(0,0,8,0, 0,8,0,7, 0,0,8,0, 0,8,0,7), 70, 230, 3, TH_O, TH_NOCLS, 0, 40, TH_F_BUSY, 0, TH_HAND},
-    {BA, SQ_FUNC_CONGA, 60, TB(0), 0, 0, TW(0,0,8,9, 0,0,8,0, 8,0,8,9, 0,0,8,0), 60, 220, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
-    {BA, SQ_FUNC_CONGA, 40, TB(0), 0, 0, TW(0,0,0,9, 0,0,9,0, 0,0,8,0, 0,9,0,0), 50, 200, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
-    {BA, SQ_FUNC_TOM, 0, 0, 0, 0, TW(0,0,0,0, 0,0,6,0, 0,0,0,0, 4,4,7,7), 30, 160, 3, TH_O, TH_NOCLS, 0, 50, TH_F_BUSY, 0, TH_HAND},
-    {BA, SQ_FUNC_BASS, 70, TB(0), TB(8), 0, TW(0,0,0,4, 0,0,6,0, 0,0,4,0, 0,0,6,0), 60, 210, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, TH_K_WITH, TH_HAND},
-    {BA, SQ_FUNC_BASS, 30, TB(0), 0, 0, TW(0,0,0,9, 0,0,9,0, 0,0,8,0, 0,9,0,0), 60, 210, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 245, 255, 255}, 100, TCL(TH_X, TH_O, TH_X, TH_O), 1, 30, 0, 15, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_PERC, 70, 0, TB(0) | TB(3), 0, TW(0,0,4,0, 0,6,12,4, 12,3,8,12, 8,4,10,6), 120, 255, 3, TH_O, TH_NOCLS, 0, 40, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_PERC, 30, 0, TB(2) | TB(10), 0, TW(0,0,0,0, 0,12,4,12, 0,0,0,4, 0,12,0,12), 120, 255, 3, TH_O, TH_NOCLS, 0, 40, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_CONGA, 60, TB(0), TB(2) | TB(8) | TB(10), 0, TW(0,0,0,13, 0,0,13,0, 0,0,0,13, 0,0,13,0), 40, 255, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_CONGA, 40, TB(0), 0, 0, TW(0,0,0,13, 0,0,13,0, 0,0,12,0, 0,13,0,0), 40, 255, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_TOM, 0, 0, 0, 0, TW(9,0,0,3, 0,0,11,0, 0,0,8,0, 12,9,15,9), 30, 255, 3, TH_O, TH_NOCLS, 0, 50, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_BASS, 70, TB(0), TB(8), 0, TW(0,0,0,11, 3,0,13,0, 0,0,11,0, 3,0,13,0), 90, 255, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {BA, SQ_FUNC_BASS, 30, TB(0), 0, 0, TW(0,0,0,12, 6,0,12,0, 9,0,11,0, 0,12,6,0), 90, 255, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
     {BA, SQ_FUNC_BALAFON, 70, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 200, 255, 255}, 180, TCL(TH_X, TH_O, TH_X, TH_O), 0, 30, 0, 25, TH_F_NONE, 0, TH_HAND},
     {BA, SQ_FUNC_BALAFON, 30, 0, TB(0) | TB(2) | TB(4), 0, TW(0,0,0,0, 0,0,7,0, 9,0,8,0, 9,0,7,6), 60, 220, 15, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
-    {BA, SQ_FUNC_VOX, 0, 0, TB(0), 0, TW(0,0,0,4, 0,0,0,0, 0,0,7,0, 0,0,0,0), 40, 170, 3, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_VOX, 0, 0, 0, 0, TW(9,0,3,9, 9,0,0,0, 3,0,11,0, 9,0,0,3), 40, 255, 3, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, 0, TH_HAND},
     {BA, SQ_FUNC_CHORD, 0, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
     /* ---- FREE: no genre. The metre (the one, the beats, the 8ths, the 16ths) and what a family of parts does: a kick
      * leans on the beats, a snare on 2 and 4, a hat on the 8ths, the percussion off them. One rule a family. */

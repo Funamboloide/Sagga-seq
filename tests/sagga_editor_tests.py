@@ -77,7 +77,7 @@ def t_converter():
     on = [s for s in j['steps'] if s[3]['flags'] & 1]
     check(len(on) >= 9 and j['step_default']['note'] == [60, 255, 255, 255, 255, 255] and j['step_default']['lane'] == [255] * 8,
           'the steps that are not a new project\'s, sparse (%d on)' % len(on))
-    check(len(j['names']['condition']) == 16 and j['names']['role'][1] == 'KICK' and len(j['names']['scale']) == 16, 'the core\'s names')
+    check(len(j['names']['condition']) == 16 and j['names']['role'][1] == 'KICK' and len(j['names']['scale']) == 21, 'the core\'s names (0.29: 21 scales)')
     out = os.path.join(d, 'same.sgq')
     r = apply(HW, [], out)
     j2 = read(out)
@@ -107,14 +107,14 @@ def t_converter():
           '0.19 the MIDI FX chain: mfxc on, amt / time / fb per effect; the track shows its first, whatever the patch said (%s %s)' % (m3, r.stderr))
     # 0.20: the new MIDI FX (CHANCE 40 % and GLITCH on), the order (GLITCH first), an envelope, a MOD slot; a broken
     # order (an effect twice) goes back to the default
-    r = apply(out, ['mfxd 2 on - 17', 'mfxd 2 amt 0 40', 'mfxd 2 order 0 9', 'mfxd 2 order 7 7', 'mfxd 2 time 4 2',
+    r = apply(out, ['mfxd 2 on - 17', 'mfxd 2 amt 0 40', 'mfxd 2 order 0 9', 'mfxd 2 order 8 7', 'mfxd 2 time 4 2',
                     'mfxd 5 order 0 3', 'lfoe 4 a - 3', 'lfoe 4 s - 70', 'mod 1 src - 6', 'mod 1 src_i - 21', 'mod 1 dst - 8', 'mod 1 dst_i - 2',
                     'mod 1 amt - -60', 'lfo 4 shape - 8', 'lfo 4 dest - 6'], out2)
     j6 = read(out2)
     m2, m5 = j6.get('mfxd', [{}] * 16)[2], j6.get('mfxd', [{}] * 16)[5]
     md, le = j6.get('mod', [{}] * 8)[1], j6.get('lfoe', [{}] * 16)[4]
-    check(r.returncode == 0 and m2.get('on') == 17 and m2.get('amt', [0])[0] == 40 and m2.get('order') == [9, 5, 4, 6, 2, 1, 8, 7, 3]
-          and m2.get('time', [0] * 5)[4] == 2 and m5.get('order') == [7, 5, 4, 6, 2, 1, 8, 9, 3],
+    check(r.returncode == 0 and m2.get('on') == 17 and m2.get('amt', [0])[0] == 40 and m2.get('order') == [9, 5, 4, 11, 6, 2, 1, 8, 7, 10, 3]
+          and m2.get('time', [0] * 5)[4] == 2 and m5.get('order') == [7, 5, 4, 11, 6, 2, 1, 8, 9, 10, 3],   # (0.29: eleven, ACCENT and ROLL in)
           '0.20 mfxd: on, values, the order (a broken one back to the default) (%s %s %s)' % (m2, m5, r.stderr))
     check(md == {'src': 6, 'src_i': 21, 'dst': 8, 'dst_i': 2, 'amt': -60} and le.get('a') == 3 and le.get('s') == 70
           and j6['lfo'][4]['shape'] == 8 and j6['lfo'][4]['dest'] == 6,
@@ -122,11 +122,11 @@ def t_converter():
     # 0.23: what the THEORY engines know of a pattern they made - the SOURCE, the next seed, a record a pattern (track
     # * 8 + pattern) - comes through a read, a patch that touches something else, and goes when the patch says so; a
     # style there is not is put right (the record is nobody's)
-    r = apply(out, ['th - src - 1', 'th - seed - 41', 'thp 19 style - %d' % (11 | 0x40), 'thp 19 seed - 7', 'thp 19 func - 1', 'thp 19 var - 3', 'thp 19 vary - 40',
-                    'thp 19 energy - 60', 'thp 95 style - 26', 'thp 95 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)
+    r = apply(out, ['th - src - 1', 'th - seed - 41', 'thp 19 style - %d' % (9 | 0x40), 'thp 19 seed - 7', 'thp 19 func - 1', 'thp 19 var - 3', 'thp 19 vary - 40',
+                    'thp 19 energy - 60', 'thp 95 style - 23', 'thp 95 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)   # (0.29: REGGAETON 1 + 8, FREE 1 + 22)
     j7 = read(out2)
     check(r.returncode == 0 and j7.get('th') == {'src': 1, 'seed': 41} and len(j7.get('thp', [])) == 96
-          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60, 'metre': 0} and j7['thp'][95]['style'] == 26 and j7['thp'][95]['seed'] == 998,
+          and j7['thp'][19] == {'seed': 7, 'style': 9 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60, 'metre': 0} and j7['thp'][95]['style'] == 23 and j7['thp'][95]['seed'] == 998,
           '0.23 THEORY: the SOURCE, the next seed, the record of a pattern (track 3 pattern 4: REGGAETON, 64 steps, seed 8, variation 3) (%s %s)' % (j7.get('th'), r.stderr))
     check(j7['thp'][5] == {'seed': 0, 'style': 0, 'func': 0, 'var': 0, 'vary': 0, 'energy': 0, 'metre': 0}, '... a style there is not: the record is put right - nobody\'s (%s)' % j7['thp'][5])
     out3 = os.path.join(d, 'th2.sgq')
@@ -470,7 +470,7 @@ def t015_converter():
     check(r.returncode == 0 and nm == 'NOTTE _', 'the name: upper case, a character the FM-1 cannot draw becomes _ (%r %s)' % (nm, r.stderr))
     check(j['chain'][2]['groove'] == 3 and j['chain'][2]['groove_amt'] == 60 and j['chain'][3]['groove'] == 0 and j['chain'][4]['groove_amt'] == 100,
           'the GROOVE: template and amount; out of range put right (%s)' % [j['chain'][k] for k in (2, 3, 4)])
-    check(j['names']['groove'][:4] == ['OFF', 'HOUSE', 'GARAGE', 'DILLA'] and len(j['names']['groove']) == 10, 'the core\'s GROOVE names (%s)' % j['names']['groove'])
+    check(j['names']['groove'][:4] == ['OFF', 'HOUSE', 'GARAGE', 'DILLA'] and len(j['names']['groove']) == 13, 'the core\'s GROOVE names (0.29: 13) (%s)' % j['names']['groove'])
     check(j['track'][5]['tape_bars'] == 2 and j['track'][5]['tape_quant'] == 30 and j['tape_len'][5] == 2 * 1536, 'the tape\'s loop: bars, quantise, its length in ticks')
     check(j['tape'] == [[5, 0, 192, 60, 100], [5, 768, 96, 64, 90], [6, 10, 20, 30, 40]] and j['tape_cnt'][5] == 2 and j['tape_n'] == 3,
           'the events: sorted, one past the 2-bar loop dropped (%s)' % j['tape'])
@@ -568,8 +568,8 @@ def t023_page():
     r = apply(HW, ['th - src - 1', 'th - seed - 41', 'thp 16 style - 11', 'thp 16 seed - 7', 'thp 16 func - 1', 'thp 16 var - 3', 'thp 16 vary - 40', 'thp 16 energy - 50',
                    'thp 40 style - 1', 'thp 40 seed - 20', 'thp 40 energy - 50', 'step 2,0,3 flags - 3', 'step 2,0,3 note 0 38', 'step 5,0,0 flags - 3'], name)
     check(r.returncode == 0, 'a project with two patterns of the engines (%s)' % r.stderr)
-    # ... and one with the SOURCE on FREE: track 1's pattern made by the rules of no genre (style 26), from seed 4
-    r = apply(HW, ['th - src - 2', 'th - seed - 6', 'thp 0 style - 26', 'thp 0 seed - 3', 'thp 0 energy - 50', 'step 0,0,0 flags - 3'], os.path.join(pr, 'libero.sgq'))
+    # ... and one with the SOURCE on FREE: track 1's pattern made by the rules of no genre (style 23; 0.28: 26), from seed 4
+    r = apply(HW, ['th - src - 2', 'th - seed - 6', 'thp 0 style - 23', 'thp 0 seed - 3', 'thp 0 energy - 50', 'step 0,0,0 flags - 3'], os.path.join(pr, 'libero.sgq'))
     check(r.returncode == 0, 'a project with the SOURCE on FREE (%s)' % r.stderr)
     state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
     state.editor.control = os.path.join(d, 'run')

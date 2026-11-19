@@ -394,9 +394,9 @@ more: CC again (and FOLLOW stops).
 
 | row | pads |
 |---|---|
-| 1 | genre 1-12. Page 1: techno, hard techno, dub techno, house, UK garage, UK funky, grime, dubstep, jungle, bassline, reggaeton, batida; page 2: gqom, experimental, electro, drum+bass, afro house, amapiano, footwork, trance, UK drill, hardcore, phonk, baile funk (24 genres in 0.10: breakbeat, trap, minimal and lo-fi left); page 3 (0.16): merengue; **PAGE** (13: blue page 1, cyan page 2, violet page 3); **LOAD** (14: BEAT on the scope; again: the next variation); **KIT** (15; SHIFT: **BAND**); **DICE ALL** (16) |
+| 1 | genre 1-12. **0.29**: page 1: techno, hard techno, dub techno, house, UK garage, UK funky, dubstep, jungle, reggaeton, batida, gqom, experimental; page 2: electro, drum+bass, balani, footwork, trance, UK drill, hardcore, phonk, baile funk, merengue (22 genres: grime, bassline, afro house and amapiano went into others; until 0.28 25, on three pages); **PAGE** (13: blue page 1, cyan page 2); **LOAD** (14: BEAT on the scope; again: the next variation); **KIT** (15; SHIFT: **BAND**); **DICE ALL** (16) |
 | 2 | the genre's **parts** (0.11: its band, violet, then PROG and KIT; more than nine: pads 1-8 a page, pad 9 the next page); **scope**: this track, bank, all, drums, melodic, CUSTOM (10-15); **WRITE LIVE** (16, orange while the track has a live layer) |
-| 3 | the genre's **progressions** 1-6 (cyan: playing); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16). **0.23, SOURCE THEORY or FREE** (SEQ 8 K1): the **seeds** in their place - 11-16 six seeds (white: the next one), 10 the six after them; SHIFT shows on rows 5-6 what the engines would make of the seed |
+| 3 | the genre's **progressions** 1-6 (cyan: playing; 0.29: 7 and 8 are on the VIAGGIO view and SEQ 4 K2); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16). **0.23, SOURCE THEORY or FREE** (SEQ 8 K1): the **seeds** in their place - 11-16 six seeds (white: the next one), 10 the six after them; SHIFT shows on rows 5-6 what the engines would make of the seed |
 | 4 | **DICE** SEQ, CC, LFO, GROOVE, ALL (1-5); **KEEP** (6); **BACK** (7); targets RHYTHM, +NOTES, +CC, +NOTES+CC, +CC+LFO, ALL (9-14); **the roll before / after** (15 / 16, yellow when there is one) |
 | 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-12. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
 | 6 | EUCLID rotation 0 .. 15 |
@@ -439,7 +439,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 4 | the moves 1-11 (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW; SHIFT: BREAK all / LOOP 4 bars; **0.24: SHIFT + HALF = SHORTER, SHIFT + DOUBLE = LONGER: every track's length half / twice**, at the phrase's end, stopped at once); 15 **INDIETRO**; 16 **cancel** the last |
 | 5 | the energy 0-100 (the bar: what sounds; the target in the waiting colour while it glides) |
 | 6 | the patterns of the selected track: the one playing red, the proposals lit; tap one: SWAP (IN track) or IN at the boundary; 16: the dice |
-| 7 | the progressions: 1-6 the genre's, 7-10 yours (violet; ARP 5 writes them), queued (0.17: with the HARMONY off, READY) |
+| 7 | the progressions: **0.29**: 1-8 the genre's, 9-12 yours (violet; ARP 5 writes them), 13 DICE/PI, queued (0.17: with the HARMONY off, READY); 14-16 the chord playing, in turn (white: the progression's first). Until 0.28: 1-6 the genre's, 7-10 yours |
 | 8 | the trail: 16 = this phrase, 15 = one back ... (queues INDIETRO that far) |
 
 ### REGIA (VIAGGIO again, 0.9; only when a regista on the Pi has spoken)
@@ -466,7 +466,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | row | pads |
 |---|---|
 | 1 | root C .. B (1-12) |
-| 2 | scale: chromatic (key off), major, minor, dorian, phrygian, lydian, mixolydian, locrian, harmonic minor, melodic minor, major pentatonic, minor pentatonic, blues, whole tone, phrygian dominant, hirajoshi |
+| 2 | scale: chromatic (key off), major, minor, dorian, phrygian, lydian, mixolydian, locrian, harmonic minor, melodic minor, major pentatonic, minor pentatonic, blues, whole tone, phrygian dominant, hirajoshi; **0.29, SHIFT + pads 1-5**: hungarian minor, double harmonic, lydian dominant, major blues, in sen |
 | 3 | shift -24, -12, -7, -5, -3, -2, -1, 0, +1, +2, +3, +5, +7, +12, +24 semitones |
 | 4 | the mode of track 1-12: FREE, IN KEY (cyan), DRUM (amber), a tap moves to the next |
 | 5 | **the MASTER knob: TEMPO, MORPH, FILTER (1-3)**; **the remote: OFF, CH 14, 13 + 14 (5; accent: 13 + 14)**; BAKE the key into the patterns, press twice (14); all tracks but the drum tracks follow the key (15); none (16) |
@@ -492,7 +492,7 @@ The colour of a bar is its page: green 1-16, cyan 17-32, blue 33-48, violet 49-6
 | row | pads |
 |---|---|
 | 1 | voicing CLOSE, INV 1, INV 2, DROP 2, OPEN (1-5); strum -50 .. +50 % (6-16, pad 11 = 0; minus: from the top) |
-| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5; 0.16: a tap READY, orange; again: it starts, white; on the one playing: it stops; each with the values it had on the track; 0.19: they play together, in a chain - every one that plays is white; OFF tapped twice: all stop; **0.20: SHIFT + pads 2-6: CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH**); amount -5 .. +5 (6-16, pad 11 = 0) of the one shown (0.20, a new one: its K2 from its lowest to its highest over pads 6-16) |
+| 2 | MIDI FX OFF, HARM, OCTAVE, ECHO, VEL CURVE (1-5; 0.16: a tap READY, orange; again: it starts, white; on the one playing: it stops; each with the values it had on the track; 0.19: they play together, in a chain - every one that plays is white; OFF tapped twice: all stop; **0.20: SHIFT + pads 2-6: CHANCE, RANDOM, NOTE FILTER, GATE, GLITCH**; **0.29: SHIFT + pads 7, 8: ROLL, ACCENT**); amount -5 .. +5 (6-16, pad 11 = 0) of the one shown (0.20, a new one: its K2 from its lowest to its highest over pads 6-16) |
 | 3 | ECHO time 1/32 .. 1/4 (1-8; OCTAVE: ALT, RANDOM, 3RD, 4TH); how much each ECHO keeps / the HARM voice's velocity 20 .. 100 % (9-16); 0.20, a new effect: its K3 on 1-8 and its K4 on 9-16, each over its range (a short range: a value a pad) |
 | 4 | algorithm OFF, TURING, CELL, ACCENT, DENSITY (1-5) of the slot shown (**0.16: a tap READY, orange; again: it starts with what rows 5-6 set, white; a tap on the one playing stops it**); FOLLOW (6); EUCLID LIVE (7); **the slot 1-4** (8, 0.11: tap for the next); C (9-16): TURING rhythm / notes / both, CELL every 1 / 2 / 4 bars / loop, ACCENT offset |
 | 5 | A: TURING mutation, CELL rule, ACCENT style, DENSITY (16 levels, 0 .. 200 %) — of the READY algorithm if there is one, else of the one playing. **0.23.1, the sixteen CELL rules from the calm to the wild**: 204 (the row stays as it is: a tap while a CELL plays holds the row of that bar), 170 (it slides a step earlier every row), 240 (a step later), 184 (it slides, hits in a row open up), 51 (hits and rests swap), 90, 150, 105, 60 (loops of a few rows through the written rhythm), 54 (thin and thick in turn), 18, 22, 126, 122, 110 (longer stories), 30 (no loop in sight). A tap says on the FM-1's screen what that rule makes of the track's rhythm (`T1 CELL RULE 90: A LOOP OF 8 ROWS`); so does a pad of row 6 on a CELL |

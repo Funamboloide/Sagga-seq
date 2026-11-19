@@ -58,7 +58,9 @@ const RATES = ['16 BAR','8 BAR','4 BAR','3 BAR','2 BAR','1.5 BAR','1 BAR','3/4 B
 const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING','MOD ONLY'];
 const QUANT = ['AUTO','NOW','BEAT','BAR','2 BARS','4 BARS','8 BARS'];
 const EVERY = ['BEAT','2 BEATS','BAR','2 BARS'];
-const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE','CHANCE','RANDOM','NOTE FILTER','GATE','GLITCH'];
+const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE','CHANCE','RANDOM','NOTE FILTER','GATE','GLITCH','ROLL','ACCENT'];   // 0.29: ROLL, ACCENT
+const ROLL_V = ['LEVEL','RISING','FALLING'];
+const MFX_N = 11;                                     // the effects in the chain (0.20 - 0.28: 9)
 const ECHO_T = ['1/32','1/16','1/8T','1/16.','1/8','1/4T','1/8.','1/4'], OCT_W = ['ALT','RANDOM','3RD','4TH'];
 const GATE_F = ['X1/4','X1/2','X3/4','X1','X3/2','X2','X4'], GATE_X = ['OFF','1/32','1/16','1/8','1/4','1/2','1 BAR','2 BARS'];
 const GLITCH_K = ['MIX','STUTTER','RISE','JUMP','CUT'];
@@ -80,17 +82,19 @@ function mfxRow(t, fx) {
   case 7: p = ' dalla ' + notesel('mfxd', t, 'amt', 2) + ' alla ' + notesel('mfxd', t, 'time', 2) + ' una ogni ' + num('mfxd', t, 'fb', 2, 1, 8, 'w2'); break;
   case 8: p = ' durata ' + sel('mfxd', t, 'amt', 3, GATE_F, -3) + ' fissa ' + sel('mfxd', t, 'time', 3, GATE_X) + ' a caso &plusmn; % ' + num('mfxd', t, 'fb', 3, 0, 50, 'w2'); break;
   case 9: p = ' quante % ' + num('mfxd', t, 'amt', 4, 0, 100, 'w2') + ' ' + sel('mfxd', t, 'time', 4, GLITCH_K) + ' pezzi ' + num('mfxd', t, 'fb', 4, 1, 8, 'w2'); break;
+  case 10: p = ' colpi ' + num('mfxd', t, 'amt', 5, 2, 6, 'w2') + ' ' + sel('mfxd', t, 'time', 5, ROLL_V) + ' quante % ' + num('mfxd', t, 'fb', 5, 0, 100, 'w2'); break;
+  case 11: p = ' accento ' + num('mfxd', t, 'amt', 6, -60, 60, 'w2') + ' ogni ' + num('mfxd', t, 'time', 6, 2, 8, 'w2') + ' step, dal ' + num('mfxd', t, 'fb', 6, 0, 7, 'w2'); break;
   default: break;
   }
   return L(MFX[fx] || '?', o + p + mv);
 }
-function mfxChain(t) { let s = ''; for (let k = 0; k < 9; k++) s += mfxRow(t, get('mfxd', String(t), 'order', String(k))); return s; }
+function mfxChain(t) { let s = ''; for (let k = 0; k < MFX_N; k++) s += mfxRow(t, get('mfxd', String(t), 'order', String(k))); return s; }
 document.addEventListener('click', ev => {                  // 0.20: an arrow of the chain: that effect one place earlier / later
   const b = ev.target.closest ? ev.target.closest('[data-mv]') : null;
   if (!b) return;
-  const [t, fx, d] = b.dataset.mv.split(',').map(Number), o = range(0, 8, k => get('mfxd', String(t), 'order', String(k)));
+  const [t, fx, d] = b.dataset.mv.split(',').map(Number), o = range(0, MFX_N - 1, k => get('mfxd', String(t), 'order', String(k)));
   const i = o.indexOf(fx), j = i + d;
-  if (i < 0 || j < 0 || j > 8) return;
+  if (i < 0 || j < 0 || j > MFX_N - 1) return;
   set('mfxd', String(t), 'order', String(i), o[j]); set('mfxd', String(t), 'order', String(j), o[i]);
   commit(); render();
 });
@@ -361,7 +365,7 @@ function rTracce() {
   for (let t = 0; t < NT; t++) {
     const c = P.track[t], m = thOf(t, V.pat);            // 0.23: a pattern the THEORY engines made says so, with its seed
     o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="' +
-      (m ? 'fatto dai motori THEORY' + ((m.style & 31) === 26 ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano (non in un RUMBLE o in un SUB che segue la cassa: quelli vengono rifatti interi).' : 'impostazioni della traccia') +
+      (m ? 'fatto dai motori THEORY' + ((m.style & 31) === THF ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano (non in un RUMBLE o in un SUB che segue la cassa: quelli vengono rifatti interi).' : 'impostazioni della traccia') +
       '">' + h(trackLabel(t)) + (m ? ' <b class="thb">◆' + (m.seed + 1) + '</b>' : '') + '<i class="pp" id="pp' + t + '"></i></span>';
     if (c.flags & 0x20) { o += '<span class="tape">TAPE: ' + (TP[t] || []).length + ' note · <a href="#" onclick="V.tt=' + t + ';V.tab=\'tape\';keepView();render();return false">apri nella scheda Tape</a></span></div>'; continue; }
     for (let s = 0; s < 64; s++) {
@@ -519,6 +523,7 @@ function rTraccia() {
 // emptied or moved here is no longer what they made: they forget it (else the FM-1's ENERGY would write into it again);
 // a copy onto another pattern of the same track takes what they know with it.
 const TH_F = ['seed', 'style', 'func', 'var', 'vary', 'energy', 'metre'];   // (0.26: the metre too - a pattern made in its bar says which)
+const THF = 23;                                       // a record's style byte for FREE: 1 + SQ_TH_FREE (0.29: 22 genres; 0.28: 26)
 function thOf(t, p) { const m = P.thp && P.thp[t * 8 + p]; return m && (m.style & 31) ? m : null; }
 function thForget(t, p) { if (P.thp && P.thp[t * 8 + p]) for (const f of TH_F) set('thp', t * 8 + p, f, '-', 0); }
 function copyPat() {

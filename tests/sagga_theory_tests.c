@@ -625,8 +625,8 @@ static void t_golden(void)
     static const uint32_t GOLD29[SQ_TH_STYLES] = {
         0xda69cc0cu /* TECHNO */, 0xbc97ad7fu /* HARDTECHNO */, 0x4f38255cu /* DUBTECHNO */, 0xb009357cu /* HOUSE */,
         0xbfa4859fu /* UKG */, 0x66ca1bc0u /* UKFUNKY */, 0xf2a2cb8fu /* DUBSTEP */, 0x9ce25562u /* JUNGLE */,
-        0xa094e697u /* REGGAETON */, 0x59193f94u /* BATIDA */, 0x1ef1869bu /* GQOM */, 0xb5545368u /* EXPERIMENTAL */,
-        0x9991e9d7u /* ELECTRO */, 0x12b0d092u /* DNB */, 0x37476dc1u /* BALANI */, 0x58872efcu /* FOOTWORK */,
+        0x8e8dea8cu /* REGGAETON */, 0x59193f94u /* BATIDA */, 0x1ef1869bu /* GQOM */, 0xb5545368u /* EXPERIMENTAL */,
+        0x9991e9d7u /* ELECTRO */, 0x12b0d092u /* DNB */, 0x2b58098bu /* BALANI */, 0x58872efcu /* FOOTWORK */,
         0x520609e8u /* TRANCE */, 0x2390746au /* UKDRILL */, 0xd6b779deu /* HARDCORE */, 0xe3ceb0cfu /* PHONK */,
         0xbaa521d1u /* BAILEFUNK */, 0xf7113e96u /* MERENGUE */, 0x8746bea5u /* FREE */
     };

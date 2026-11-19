@@ -8085,7 +8085,7 @@ def t020_new_fx():
         t = seq_page(s, t, 0, keys=[wk(5)])
         t = mfx_add(s, t, -5)                                          # OCTAVE (+1, ALT)
         if move:
-            t = pg(s, t, HOME, 5, [(K1, -4)], sel=True)                # SEL + K1: OCTAVE plays first
+            t = pg(s, t, HOME, 5, [(K1, -5)], sel=True)                # SEL + K1: OCTAVE plays first (0.29: five places - ACCENT came before it)
         s.at(t, "dump", 0)
         p = t + 100
         s.tap_btn(p, PLAY)
@@ -9025,8 +9025,9 @@ def t023_theory_genres():
         for n, en in enumerate((e, 10, 95)):
             head, parts = text(G, 0, en)
             got = [at(log, k, n) for k in range(9)]
-            check(all(got[k][0]["on"] == onoff(parts[k][1]) and got[k][1]["energy"] == en for k in range(9)), "REGGAETON at energy %d: every part is the engines' (%s)" % (
-                en, [parts[k][0] for k in range(9) if got[k][0]["on"] != onoff(parts[k][1])]))
+            same = [got[k][0]["on"] == onoff(parts[k][1]) if ("REGGAETON", parts[k][0]) not in minds else "x" in got[k][0]["on"] for k in range(9)]   # (the bass leans on the kick that plays)
+            check(all(same[k] and got[k][1]["energy"] == en for k in range(9)), "REGGAETON at energy %d: every part is the engines' (%s)" % (
+                en, [parts[k][0] for k in range(9) if not same[k]]))
         lo, hi = [at(log, k, 1)[0]["on"] for k in range(9)], [at(log, k, 2)[0]["on"] for k in range(9)]
         check(all(x == "." or y == "x" for a, b in zip(lo, hi) for x, y in zip(a, b)), "... what plays at 10 is all there at 95")
         check(sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2, "... and 95 is much fuller (%d hits, %d)" % (sum(r.count("x") for r in lo), sum(r.count("x") for r in hi)))
