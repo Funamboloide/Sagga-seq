@@ -184,7 +184,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in MOD_CH12 and name == "sagga_mod")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -292,7 +292,12 @@ def structural():
     check(m.ARP_LABELS == re.findall(r'"([^"]+)"', src[i:src.index("};", i)]), "SAGGA Live: ARP names as the FM-1's")
     core = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.c")).read()
     i = core.index("const char *sq_chord_shape_name")
-    check(m.CHORD_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]) and d["chord"].max == 31, "SAGGA Live: the 32 CHORD shapes as the FM-1's")
+    check(m.CHORD_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]) and d["chord"].max == 35, "SAGGA Live: the 36 CHORD shapes as the FM-1's (0.29: four more)")
+    gsrc = core[core.index("GROOVE_NAME[SQ_GROOVES] = {"):]
+    check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', gsrc[:gsrc.index("};")]) and d["groove"].max == 12, "SAGGA Live: the 13 GROOVEs as the FM-1's (0.29: MALI, DEMBOW, BROKEN)")
+    dsrc = open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()
+    msrc = dsrc[dsrc.index("MFX_NAME[SQ_MFXS] = {"):]
+    check(m.MFX_LABELS == re.findall(r'"([^"]+)"', msrc[:msrc.index("};")]) and d["mfx"].max == 11, "SAGGA Live: the 11 MIDI FX as the FM-1's (0.29: ROLL, ACCENT)")
     i = core.index("GROOVE_NAME[SQ_GROOVES]")
     check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]), "SAGGA Live: GROOVE names as the FM-1's")
     check(m.RATE_LABELS == ["1/4", "1/2", "ROLL", "1", "2", "3", "4"] and d["arp_rate"].max == 6, "SAGGA Live: RATE in the FM-1's knob order")
@@ -311,7 +316,15 @@ def structural():
           "SAGGA Live: SOURCE is a knob of three positions, named as the FM-1 names them: LIBRARY, THEORY, FREE (%s, %s)" % (m.SOURCE_LABELS, srcs))
     m, cls = load_plugin("sagga_mod")
     g = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "genre"][0]
-    check(g.param.max == 24 and m.GENRE_LABELS[24] == "MERENGUE", "SAGGA Mod: GENRE reaches MERENGUE (25 genres)")
+    check(g.param.max == 21 and m.GENRE_LABELS[21] == "MERENGUE" and m.GENRE_LABELS[14] == "BALANI", "SAGGA Mod: GENRE reaches MERENGUE (0.29: 22 genres)")
+    beats = open(os.path.join(ROOT, "firmware", "src", "sagga_beats_data.h")).read()
+    names = re.search(r'GENRE_NAME\[SQ_GENRES\] = \{([^}]*)\}', beats).group(1)
+    check([x.strip().strip('"') for x in names.split(",")] == m.GENRE_LABELS, "SAGGA Mod: the genres with the FM-1's names, in its order")
+    pr = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "prog"][0]
+    hdr = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.h")).read()
+    lib = int(re.search(r"#define SQ_LIB_PROGS (\d+)u", hdr).group(1))
+    check(pr.param.max == 12 and pr.cc == 117 and m.PROG_LABELS[lib - 1] == "PROG 8" and m.PROG_LABELS[lib] == "USER 1" and m.PROG_LABELS[12] == "DICE/PI"
+          and len(m.PROG_LABELS) == lib + 4 + 1, "SAGGA Mod: PROGRESSION, the genre's eight (0.29), the player's four, DICE/PI: the FM-1's 0..12 (%d)" % pr.param.max)
     for k in [k for k in list(sys.modules) if k.startswith("raspimidihub")]:
         del sys.modules[k]
 
@@ -338,7 +351,7 @@ def bsp_tests():
           "SAGGA BeatStep: the 16 encoders are SAGGA Live's knobs (%s)" % [e for e in m.ENCODERS if knobs.get(e[0]) != e[1:]])
     bad = [a for a in m.ACTIONS if not ((a[1] == 11 and a[2] in CH12_CCS) or (a[1] == 13 and a[2] in CH14_CCS) or (a[1] == 12 and a[2] in CH13_CCS))]
     check(len(m.ACTIONS) == 16 and not bad, "SAGGA BeatStep: every action a command the FM-1 answers (%s)" % bad)
-    check(cls.VERSION == "0.28" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
+    check(cls.VERSION == "0.29" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
     p = cls()
     p.on_start()
     bsp_learn(p)
@@ -349,7 +362,7 @@ def bsp_tests():
     p.on_cc(0, 10, 127); p.on_cc(0, 11, 0); p.on_cc(0, 11, 1); p.on_cc(0, 18, 64)
     p.on_note_on(9, 40, 100); p.on_note_off(9, 40)
     p.on_note_on(9, 47, 100); p.on_note_off(9, 47); p.on_note_on(9, 48, 100); p.on_note_off(9, 48)
-    check(p.ccs == [(12, 112, 11), (11, 3, 0), (11, 9, 5), (13, 52, 127), (13, 52, 0), (13, 59, 127), (13, 59, 0)],
+    check(p.ccs == [(12, 112, 11), (11, 3, 0), (11, 9, 6), (13, 52, 127), (13, 52, 0), (13, 59, 127), (13, 59, 0)],   # (0.29: eleven effects)
           "SAGGA BeatStep: TRACK 12 (0.28: the last), PATTERN 1 (once), MIDI FX halfway, pad 5 = MUTE 5, pad 12 = MUTE 12, pad 13 nothing (%s)" % p.ccs)
     p.set_param("pads", "ACTIONS"); p.set_param("encoders", "RELATIVE")
     p.ccs = []

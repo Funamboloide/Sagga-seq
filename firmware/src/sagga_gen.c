@@ -1185,8 +1185,8 @@ static void harm_genre_set(uint8_t g)
     ui_dirty = grid_dirty = 1u;
 }
 
-/* 0.16 ARP 4 K2: FREE, then the 25 genres. FREE keeps the progression playing (its genre stays harm_genre, for what
- * reads it) and from then on no pattern loaded moves it; K2 on ARP 3 goes through every genre's six */
+/* 0.16 ARP 4 K2: FREE, then the 22 genres (0.29; 25 before). FREE keeps the progression playing (its genre stays harm_genre, for what
+ * reads it) and from then on no pattern loaded moves it; K2 on ARP 3 goes through every genre's eight (0.29) */
 static uint8_t harm_genre_pos(void) { return project.gen.harm_free ? 0u : (uint8_t)(project.gen.harm_genre + 1u); }
 static void harm_genre_turn(int32_t d)
 {
@@ -1222,6 +1222,7 @@ static void harm_toggle(void)
 
 /* a progression of the genre, or one of the player's (6..9), 0.11 the DICE/PI one (10). 0.16: with the HARMONY off it is
  * READY, ARP 3 K1 starts it (0.11-0.15 choosing one switched the HARMONY on: live, before you had the one you wanted) */
+typedef char sq_lib_progs_fit[SQ_LIB_PROGS == SQ_PROGS ? 1 : -1];   /* (0.29: eight a genre, in the library and in harm_prog) */
 static void harm_prog_set(uint8_t i)
 {
     project.gen.harm_prog = i < SQ_PROGS_ALL ? i : 0u;
@@ -1229,8 +1230,8 @@ static void harm_prog_set(uint8_t i)
     else harm_say("READY ", ": K1 ON");
     ui_dirty = grid_dirty = 1u;
 }
-/* 0.11 SEQ 4 K2: the next progression, of the MOOD chosen (SEL + K3) when there is one: the genre's six, the player's
- * four, the DICE/PI one when it holds a progression; past them the Pi's (sagga_pipat.c) */
+/* 0.11 SEQ 4 K2: the next progression, of the MOOD chosen (SEL + K3) when there is one: the genre's eight (0.29; six
+ * until then), the player's four, the DICE/PI one when it holds a progression; past them the Pi's (sagga_pipat.c) */
 static uint8_t piprog_enter(void);
 static void piprog_turn(int32_t d);
 static uint8_t piprog_browsing(void);
@@ -1243,8 +1244,8 @@ static uint8_t harm_lib_mood(uint8_t g, uint8_t p)
     sq_hprog_lib(&h, pg->deg, pg->col, pg->n, project.gen.harm_bars ? project.gen.harm_bars : pg->bars, r);
     return sq_hprog_mood(&h, project.key_scale);
 }
-/* 0.16 FREE: K2 goes through the 25 genres' six (TECHNO 1 .. MERENGUE 6), then the player's, DICE/PI, the Pi's;
- * the MOOD chooses among all of them */
+/* 0.16 FREE: K2 goes through every genre's progressions (TECHNO 1 .. MERENGUE 8: 0.29, 22 genres of eight), then the
+ * player's, DICE/PI, the Pi's; the MOOD chooses among all of them */
 static void harm_free_turn(int32_t d)
 {
     const int32_t lib = (int32_t)SQ_GENRES * SQ_PROGS, total = lib + (int32_t)(SQ_PROGS_ALL - SQ_PROGS);
@@ -1414,7 +1415,7 @@ static void beat_onto(uint8_t t, uint8_t func, uint8_t var);
  * a track that was a tune's goes back to HOLD, the ways the player chose for held notes (RETRIG, LEGATO) stay. */
 static uint8_t follow_way_for(const sq_track_cfg_t *c, uint8_t func)
 {
-    if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) return SQ_FM_MELODY;
+    if (sq_func_tune(func)) return SQ_FM_MELODY;      /* (0.29: the balafon too) */
     /* 0.26 THE CHORDS MOVE LITTLE: the chords a hand holds (a PAD, a PIANO) follow SMOOTH - each note to the nearest note
      * of the chord playing; a riff's chords (a STAB, the CHORD part) go on moving whole, as riffs do */
     if (func == SQ_FUNC_PAD || func == SQ_FUNC_PIANO)

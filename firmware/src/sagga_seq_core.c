@@ -928,7 +928,7 @@ void sq_track_sanitize(sq_track_cfg_t *c)
     c->octave = (int8_t)clampi(c->octave, -3, 3);
     if (c->key_slot >= SQ_KEYS && c->key_slot != SQ_KEY_FOLLOW) c->key_slot = SQ_KEY_FOLLOW;
     if (c->src_func >= 64u && c->src_func != 255u) c->src_func = 255u;   /* (the library checks the rest) */
-    if (c->src_genre >= 64u) c->src_genre = 255u;
+    if (c->src_genre >= SQ_SET_GENRES && c->src_genre != 255u) c->src_genre = 255u;   /* (0.29: a genre there is, or not known) */
     if (c->follow_mode >= SQ_FMS) c->follow_mode = SQ_FM_HOLD;
     if (c->euc_fam >= SQ_RF_COUNT) c->euc_fam = SQ_RF_EUCLID;
     if (c->arp_rate > SQ_ARP_RATE_MAX) c->arp_rate = 0u;
@@ -991,12 +991,12 @@ static void sanitize_snap(sq_snap_t *sn)
     sn->mac[2] = (int8_t)clampi(sn->mac[2], -25, 25);
     sn->mac[3] = (int8_t)clampi(sn->mac[3], -64, 63);
     sn->harm_on = sn->harm_on ? 1u : 0u;
-    if (sn->genre >= 64u) sn->genre = 0u;             /* (the library checks the genre itself) */
+    if (sn->genre >= SQ_SET_GENRES) sn->genre = 0u;   /* (0.29: a genre there is - the library's are the set's) */
     if (sn->harm_prog >= SQ_PROGS_ALL) sn->harm_prog = 0u;
     if (sn->harm_bars > 8u) sn->harm_bars = 0u;
     if (sn->morph_b >= SQ_SCENES) sn->morph_b = 1u;
     if (sn->key_cur >= SQ_KEYS) sn->key_cur = 0u;
-    if (sn->harm_genre >= 64u) sn->harm_genre = sn->genre;
+    if (sn->harm_genre >= SQ_SET_GENRES) sn->harm_genre = sn->genre;
     sn->reserved[0] = 0u;
     for (i = 0; i < SQ_TRACKS; i++) sq_track_sanitize(&sn->track[i]);
     for (i = 0; i < SQ_LFOS; i++) sanitize_lfo(&sn->lfo[i]);
@@ -1066,8 +1066,8 @@ void sq_project_sanitize(sq_project_t *p)
     for (n = 0; n < SQ_LFOS; n++) sanitize_lfo(&p->lfo[n]);
     {
         sq_gen_t *g = &p->gen;
-        if (g->genre >= 64u) g->genre = 0u;            /* (the library checks the genre itself) */
-        if (g->func >= 16u) g->func = 0u;
+        if (g->genre >= SQ_SET_GENRES) g->genre = 0u;  /* (0.29: a genre there is - the library's are the set's) */
+        if (g->func >= 32u) g->func = 0u;              /* (0.29: every part - until then 16, and a LEAD came back a KICK) */
         if (g->var >= 16u) g->var = 0u;
         if (g->scope >= SQ_SCOPES) g->scope = SQ_SCOPE_THIS;
         g->targets = (uint8_t)((g->targets & (SQ_GT_NOTES | SQ_GT_CC | SQ_GT_LFO)) | SQ_GT_RHYTHM);
@@ -1085,7 +1085,7 @@ void sq_project_sanitize(sq_project_t *p)
         if (g->every >= SQ_EVERYS) g->every = SQ_EVERY_OFF;
         if (g->every_tool >= 16u && g->every_tool != 255u) g->every_tool = 255u;
         if (g->lib_len >= SQ_LLS) g->lib_len = SQ_LL_PHRASE;   /* (0.24: LIBRARY LEN 64 was 2) */
-        if (g->harm_genre >= 64u) g->harm_genre = g->genre;
+        if (g->harm_genre >= SQ_SET_GENRES) g->harm_genre = g->genre;
         g->harm_lock = g->harm_lock ? 1u : 0u;
         g->harm_free = g->harm_free ? 1u : 0u;      /* (0.16; a 0.15 image: 0) */
         if (g->harm_rhythm >= SQ_HRS) g->harm_rhythm = SQ_HR_BARS;
@@ -1294,6 +1294,8 @@ void sq_mfx_defaults(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
     case SQ_MFX_FILTER:   *amt = 0; *time = 127u; *fb = 1u; break;    /* every note, every time */
     case SQ_MFX_GATE:     *amt = -2; *time = 0u; *fb = 0u; break;     /* half as long */
     case SQ_MFX_GLITCH:   *amt = 25; *time = SQ_GL_MIX; *fb = 4u; break;   /* a step in four, any kind, four pieces */
+    case SQ_MFX_ROLL:     *amt = 3; *time = SQ_ROLL_FLAT; *fb = 100u; break; /* 0.29: three a step, level, every note */
+    case SQ_MFX_ACCENT:   *amt = 30; *time = 3u; *fb = 0u; break;          /* 0.29: +30, every third step, from the first */
     default: break;
     }
 }
@@ -1312,6 +1314,8 @@ void sq_mfx_range(uint8_t fx, uint8_t knob, uint8_t in_key, int32_t *lo, int32_t
     case SQ_MFX_FILTER:   if (knob == 0u || knob == 1u) *hi = 127; else { *lo = 1; *hi = 8; } break;
     case SQ_MFX_GATE:     if (knob == 0u) { *lo = -3; *hi = 3; } else if (knob == 1u) *hi = SQ_GATE_FIXED - 1; else *hi = 50; break;
     case SQ_MFX_GLITCH:   if (knob == 0u) *hi = 100; else if (knob == 1u) *hi = SQ_GLITCHES - 1; else { *lo = 1; *hi = 8; } break;
+    case SQ_MFX_ROLL:     if (knob == 0u) { *lo = 2; *hi = 6; } else if (knob == 1u) *hi = SQ_ROLLS - 1; else *hi = 100; break;   /* hits; FLAT UP DOWN; how often */
+    case SQ_MFX_ACCENT:   if (knob == 0u) { *lo = -60; *hi = 60; } else if (knob == 1u) { *lo = 2; *hi = 8; } else *hi = 7; break;   /* how much; every; from */
     default: break;
     }
 }
@@ -1337,9 +1341,9 @@ static void mfx_clamp(uint8_t fx, int8_t *amt, uint8_t *time, uint8_t *fb)
     if (fx == SQ_MFX_FILTER && *time < (uint8_t)*amt) *time = (uint8_t)*amt;   /* (the highest note is never under the lowest) */
 }
 
-/* ---- 0.20: the five new effects and the order */
-const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN] = {SQ_MFX_FILTER, SQ_MFX_CHANCE, SQ_MFX_VELOCITY, SQ_MFX_RANDOM, SQ_MFX_OCTAVE,
-                                              SQ_MFX_HARM, SQ_MFX_GATE, SQ_MFX_GLITCH, SQ_MFX_ECHO};
+/* ---- 0.20: the five new effects and the order (0.29: two more - ACCENT after VEL CURVE, ROLL before ECHO) */
+const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN] = {SQ_MFX_FILTER, SQ_MFX_CHANCE, SQ_MFX_VELOCITY, SQ_MFX_ACCENT, SQ_MFX_RANDOM,
+                                              SQ_MFX_OCTAVE, SQ_MFX_HARM, SQ_MFX_GATE, SQ_MFX_GLITCH, SQ_MFX_ROLL, SQ_MFX_ECHO};
 
 void sq_mfxd_default(sq_mfxd_t *d)
 {
@@ -1353,7 +1357,7 @@ void sq_mfxd_sanitize(sq_mfxd_t *d)
 {
     uint32_t k, seen = 0u, ok = 1u;
     d->on &= (uint8_t)((1u << SQ_MFX_NEW) - 1u);
-    for (k = 0; k < SQ_MFX_ALLN; k++) {                /* the order: each of the nine once, or the default */
+    for (k = 0; k < SQ_MFX_ALLN; k++) {                /* the order: each of the eleven once, or the default */
         uint8_t fx = d->order[k];
         if (!fx || fx >= SQ_MFXS || (seen & (1u << fx))) { ok = 0u; break; }
         seen |= 1u << fx;
@@ -2338,7 +2342,8 @@ void sq_name_sanitize(char *n, uint32_t len)
 }
 
 /* ---- 0.15 GROOVE: a 16th each, the bar's 16 */
-static const char *const GROOVE_NAME[SQ_GROOVES] = {"OFF", "HOUSE", "GARAGE", "DILLA", "AFRO", "SAMBA", "LAID BACK", "PUSH", "HUMAN", "TRAP"};
+static const char *const GROOVE_NAME[SQ_GROOVES] = {"OFF", "HOUSE", "GARAGE", "DILLA", "AFRO", "SAMBA", "LAID BACK", "PUSH", "HUMAN", "TRAP",
+                                                    "MALI", "DEMBOW", "BROKEN"};
 static const int8_t GROOVE_T[SQ_GROOVES][16] = {
     {0},
     {0, 6, 2, 6, 0, 6, 2, 6, 0, 6, 2, 6, 0, 6, 2, 6},                              /* HOUSE: the 16ths a touch late */
@@ -2350,6 +2355,9 @@ static const int8_t GROOVE_T[SQ_GROOVES][16] = {
     {0, -6, -8, -12, 0, -6, -8, -12, 0, -6, -8, -12, 0, -6, -8, -12},              /* PUSH: ahead of it */
     {0, 3, -2, 4, -3, 2, 1, -4, 2, -1, 3, -2, 0, 4, -3, 1},                        /* HUMAN: a player's small misses */
     {0, 2, 0, 4, 0, 2, 0, 4, 0, 2, 0, 4, 0, 2, 0, 4},                              /* TRAP: tight, the accents do it */
+    {0, 30, 0, -24, 0, 30, 0, -24, 0, 30, 0, -24, 0, 30, 0, -24},                  /* 0.29 MALI: the 'e' late, the 'a' early - three a beat */
+    {0, 0, 0, 8, 0, 0, 2, 0, 0, 0, 0, 8, 0, 0, 2, 0},                              /* DEMBOW: the snare's 'a' a hair late */
+    {0, -6, 4, 12, 0, -4, 6, 14, 0, -6, 4, 12, 0, -4, 6, 14},                      /* BROKEN: the 'e' early, the 'a' late */
 };
 static const int8_t GROOVE_V[SQ_GROOVES][16] = {
     {0},
@@ -2362,6 +2370,9 @@ static const int8_t GROOVE_V[SQ_GROOVES][16] = {
     {6, -8, 0, 8, 6, -8, 0, 8, 6, -8, 0, 8, 6, -8, 0, 8},
     {4, -6, 2, -4, 3, -5, 1, -3, 5, -6, 2, -4, 2, -5, 3, -2},
     {14, -20, 4, -16, 14, -20, 4, -16, 14, -20, 4, -16, 14, -20, 4, -16},
+    {10, -6, 4, -2, 10, -6, 4, -2, 10, -6, 4, -2, 10, -6, 4, -2},
+    {8, -10, -6, 14, 6, -10, 6, -8, 8, -10, -6, 14, 6, -10, 6, -8},
+    {10, -12, 6, -4, 8, -14, 4, -2, 10, -12, 6, -4, 8, -14, 4, -2},
 };
 const char *sq_groove_name(uint8_t g) { return GROOVE_NAME[g < SQ_GROOVES ? g : 0u]; }
 int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step)
@@ -2444,6 +2455,11 @@ static const uint16_t SCALE_MASK[SQ_SCALES] = {
     B_(0) | B_(2) | B_(4) | B_(6) | B_(8) | B_(10),                               /* whole tone */
     B_(0) | B_(1) | B_(4) | B_(5) | B_(7) | B_(8) | B_(10),                       /* phrygian dominant */
     B_(0) | B_(2) | B_(3) | B_(7) | B_(8),                                        /* hirajoshi */
+    B_(0) | B_(2) | B_(3) | B_(6) | B_(7) | B_(8) | B_(11),                       /* 0.29 hungarian minor */
+    B_(0) | B_(1) | B_(4) | B_(5) | B_(7) | B_(8) | B_(11),                       /* double harmonic */
+    B_(0) | B_(2) | B_(4) | B_(6) | B_(7) | B_(9) | B_(10),                       /* lydian dominant */
+    B_(0) | B_(2) | B_(3) | B_(4) | B_(7) | B_(9),                                /* major blues */
+    B_(0) | B_(1) | B_(5) | B_(7) | B_(10),                                       /* in sen */
 };
 
 uint16_t sq_scale_mask(uint8_t scale) { return SCALE_MASK[scale < SQ_SCALES ? scale : 0u]; }
@@ -2451,7 +2467,8 @@ uint16_t sq_scale_mask(uint8_t scale) { return SCALE_MASK[scale < SQ_SCALES ? sc
 const char *sq_scale_name(uint8_t scale)
 {
     static const char *const N[SQ_SCALES] = {"CHROMA", "MAJOR", "MINOR", "DORIAN", "PHRYG", "LYDIAN", "MIXOLY", "LOCRIAN",
-                                             "H.MINOR", "M.MINOR", "PENT.+", "PENT.-", "BLUES", "WHOLE", "PHR.DOM", "HIRAJO"};
+                                             "H.MINOR", "M.MINOR", "PENT.+", "PENT.-", "BLUES", "WHOLE", "PHR.DOM", "HIRAJO",
+                                             "HUN.MIN", "DBL.HAR", "LYD.DOM", "BLUES+", "IN SEN"};
     return N[scale < SQ_SCALES ? scale : 0u];
 }
 
@@ -2460,7 +2477,8 @@ const char *sq_scale_long_name(uint8_t scale)
     static const char *const N[SQ_SCALES] = {"CHROMATIC (OFF)", "MAJOR (IONIAN)", "MINOR (AEOLIAN)", "DORIAN", "PHRYGIAN",
                                              "LYDIAN", "MIXOLYDIAN", "LOCRIAN", "HARMONIC MINOR", "MELODIC MINOR",
                                              "PENTATONIC MAJOR", "PENTATONIC MINOR", "BLUES", "WHOLE TONE",
-                                             "PHRYGIAN DOMINANT", "HIRAJOSHI"};
+                                             "PHRYGIAN DOMINANT", "HIRAJOSHI", "HUNGARIAN MINOR", "DOUBLE HARMONIC",
+                                             "LYDIAN DOMINANT", "MAJOR BLUES", "IN SEN"};
     return N[scale < SQ_SCALES ? scale : 0u];
 }
 
@@ -2569,7 +2587,9 @@ uint8_t sq_harm_scale(uint8_t scale)
     if (scale_iv(scale, iv) == 7u) return scale;
     switch (scale) {
     case SQ_SC_PENT_MAJOR: return SQ_SC_MAJOR;
+    case SQ_SC_MAJ_BLUES:  return SQ_SC_MAJOR;          /* (0.29) */
     case SQ_SC_WHOLE:      return SQ_SC_LYDIAN;
+    case SQ_SC_IN_SEN:     return SQ_SC_PHRYGIAN;       /* (0.29: its flat 2nd) */
     default:               return SQ_SC_MINOR;          /* no key, pentatonic minor, blues, hirajoshi */
     }
 }
@@ -3280,10 +3300,10 @@ static uint32_t rd_u16(rd_t *r) { uint8_t b[2] = {0u, 0u}; rd_get(r, b, 2); retu
 typedef char sq_step_size[(sizeof(sq_step_t) == 22u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 104u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 1292u && sizeof(sq_ext_t) % 4u == 0u &&
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1388u && sizeof(sq_ext_t) % 4u == 0u &&   /* (0.29: 1388 - ROLL, ACCENT) */
                           __builtin_offsetof(sq_ext_t, name) - __builtin_offsetof(sq_ext_t, motion_bars) ==
                           __builtin_offsetof(sq27_ext_t, name) - __builtin_offsetof(sq27_ext_t, motion_bars)) ? 1 : -1];
-typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
+typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 33u && sizeof(sq27_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
 typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
                                 SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t) &&
                                 __builtin_offsetof(sq_snap_t, track) == SQ_SNAP_HEAD) ? 1 : -1];
@@ -3338,7 +3358,184 @@ static uint8_t st27_alike(const sq_step_t *s, const sq27_step_t *def27)   /* its
     return (uint8_t)!bdiff_(&x, def27, sizeof x);
 }
 
-/* a track's settings as 0.27 has them, and back; the settings of its lanes 7-8 */
+/* 0.29: the genres are 22 (0.28: 25) - AMAPIANO went into REGGAETON, BASSLINE into UK GARAGE, GRIME into DUBSTEP, AFRO
+ * HOUSE into GQOM, BALANI came where AFRO HOUSE was. The image keeps 0.28's numbers, so that a 0.28 opens it with its own
+ * genres (BALANI as AFRO HOUSE), and says in chunk 5 (SQ_CHUNK_X29) that it is 0.29's. A number past them (a THEORY
+ * style FREE: 25 then, 22 now) maps too; 255 (not known) and anything else stay as they are */
+#define SQ_GENRES28 25u
+#define SQ_GENRE28_AFRO 16u
+#define SQ_GENRE29_BALANI 14u                /* (sagga_beats.h SQ_GENRE_BALANI: the core does not include the library) */
+static const uint8_t GENRE_FROM28[SQ_GENRES28 + 1u] = {0u, 1u, 2u, 3u, 4u, 5u, 6u /* GRIME: DUBSTEP */, 6u, 7u, 4u /* BASSLINE:
+    UK GARAGE */, 8u, 9u, 10u, 11u, 12u, 13u, 10u /* AFRO HOUSE: GQOM */, 8u /* AMAPIANO: REGGAETON */, 15u, 16u, 17u, 18u, 19u,
+    20u, 21u, SQ_TH_FREE};
+static const uint8_t GENRE_TO28[SQ_TH_FREE + 1u] = {0u, 1u, 2u, 3u, 4u, 5u, 7u, 8u, 10u, 11u, 12u, 13u, 14u, 15u,
+    SQ_GENRE28_AFRO /* BALANI */, 18u, 19u, 20u, 21u, 22u, 23u, 24u, SQ_GENRES28};
+typedef char sq_genre_maps_fit[(SQ_TH_FREE == 22u && SQ_SET_GENRES == 22u) ? 1 : -1];
+uint8_t sq_genre_from28(uint8_t g, uint8_t v29)
+{
+    if (g > SQ_GENRES28) return g;
+    return (v29 && g == SQ_GENRE28_AFRO) ? (uint8_t)SQ_GENRE29_BALANI : GENRE_FROM28[g];
+}
+uint8_t sq_genre_to28(uint8_t g) { return g <= SQ_TH_FREE ? GENRE_TO28[g] : g; }
+static uint8_t thstyle_to28(uint8_t st)         /* a pattern's THEORY style byte (0: not the engines'): bits 0-4, 1 + the style */
+{
+    return (st & 31u) ? (uint8_t)((st & ~31u) | ((sq_genre_to28((uint8_t)((st & 31u) - 1u)) + 1u) & 31u)) : st;
+}
+static uint8_t thstyle_from28(uint8_t st, uint8_t v29)
+{
+    return (st & 31u) ? (uint8_t)((st & ~31u) | ((sq_genre_from28((uint8_t)((st & 31u) - 1u), v29) + 1u) & 31u)) : st;
+}
+#define TR27_SRC_GENRE (__builtin_offsetof(sq_track_cfg_t, src_genre) - (SQ27_TRACK_HEAD + 4u * SQ_LANES))   /* in the tail */
+typedef char tr27_src_genre_in_tail[(__builtin_offsetof(sq_track_cfg_t, src_genre) >= SQ27_TRACK_HEAD + 4u * SQ_LANES &&
+                                     TR27_SRC_GENRE < SQ27_TRACK_TAIL) ? 1 : -1];
+/* 0.29: the genre's progressions are eight (0.28: six). harm_prog: 0..7 the genre's, 8..11 the player's, 12 the Pi's;
+ * the image keeps 0.28's numbers (0..5, 6..9, 10) - the genre's 7th and 8th go as its 1st, and chunk 5 says which they
+ * were. A number 0.28 did not have reads as 0 (0.28 made it so) */
+#define SQ_PROGS28 6u
+typedef char sq_progs28_fit[(SQ_LIB_PROGS > SQ_PROGS28 && SQ_PROGS_ALL == SQ_LIB_PROGS + SQ_UPROGS + 1u) ? 1 : -1];
+uint8_t sq_prog_from28(uint8_t p)
+{
+    return p < SQ_PROGS28 ? p : p <= SQ_PROGS28 + SQ_UPROGS ? (uint8_t)(p + (SQ_LIB_PROGS - SQ_PROGS28)) : 0u;
+}
+uint8_t sq_prog_to28(uint8_t p)
+{
+    return p < SQ_PROGS28 ? p : p < SQ_LIB_PROGS ? 0u : p < SQ_PROGS_ALL ? (uint8_t)(p - (SQ_LIB_PROGS - SQ_PROGS28)) : 0u;
+}
+static uint8_t prog_new29(uint8_t p) { return (uint8_t)(p >= SQ_PROGS28 && p < SQ_LIB_PROGS); }
+/* 0.29: the BALAFON, a part and a role 0.28 has not: in the image it is 0.28's LEAD, and chunk 5 marks where it is the
+ * balafon (a 0.28 plays a lead there) */
+#define SQ_FUNC29_BALAFON 26u                /* (sagga_beats.h SQ_FUNC_BALAFON: the core does not include the library) */
+#define SQ_FUNC28_LEAD 24u                   /* (... SQ_FUNC_LEAD) */
+#define TR27_TAIL_AT(f) (__builtin_offsetof(sq_track_cfg_t, f) - (SQ27_TRACK_HEAD + 4u * SQ_LANES))
+typedef char tr27_role_func_in_tail[(__builtin_offsetof(sq_track_cfg_t, role) >= SQ27_TRACK_HEAD + 4u * SQ_LANES &&
+                                     TR27_TAIL_AT(src_func) < SQ27_TRACK_TAIL) ? 1 : -1];
+static uint8_t bal_role(uint8_t r) { return r == SQ_ROLE_BALAFON ? (uint8_t)SQ_ROLE_LEAD : r; }
+static uint8_t bal_func(uint8_t f) { return f == SQ_FUNC29_BALAFON ? (uint8_t)SQ_FUNC28_LEAD : f; }
+/* chunk 5 (SQ_CHUNK_X29): its first byte 1, the genres are 0.29's; 2, what 0.28 has not follows - the progressions as
+ * 0.29 numbers them (the project's, each snapshot's), then where the balafon is (a bit a track whose role is, whose
+ * part is; a byte a track, a bit a pattern the engines made as one; the BEAT part; each snapshot's two bits a track),
+ * then each track's MIDI effects as 0.29 has them (eleven: the image's own block holds 0.28's nine) */
+#define X29_PROG 0u
+#define X29_ROLE (1u + SQ_SNAPS)
+#define X29_FUNC (X29_ROLE + 2u)
+#define X29_TH (X29_FUNC + 2u)
+#define X29_GEN (X29_TH + SQ_TRACKS)
+#define X29_SNAP (X29_GEN + 1u)
+#define X29_MFX (X29_SNAP + 4u * SQ_SNAPS)
+#define X29_DATA (X29_MFX + SQ_TRACKS * (uint32_t)sizeof(sq_mfxd_t))
+#define SQ_X29_LEN (1u + X29_DATA)
+typedef char x29_fits[(SQ_TRACKS <= 16u && SQ_PATTERNS <= 8u) ? 1 : -1];
+/* a project that has BALANI somewhere: the only genre whose 0.28 number (AFRO HOUSE's) reads back as another without
+ * chunk 5 - every other one goes to 0.28's number and back as it was, so an image without BALANI is 0.28's byte for byte
+ * (and without the genre's progressions 7 and 8: uses_prog78) */
+static uint8_t uses_prog78(const sq_project_t *p)
+{
+    uint32_t k;
+    if (prog_new29(p->gen.harm_prog)) return 1u;
+    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used && prog_new29(p->snap[k].harm_prog)) return 1u;
+    return 0u;
+}
+static uint8_t uses_balafon(const sq_project_t *p)
+{
+    uint32_t t, k;
+    if (p->gen.func == SQ_FUNC29_BALAFON) return 1u;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].role == SQ_ROLE_BALAFON || p->track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
+        for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) return 1u;
+    }
+    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used)
+        for (t = 0; t < SQ_TRACKS; t++) if (p->snap[k].track[t].role == SQ_ROLE_BALAFON || p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
+    return 0u;
+}
+/* chunk 5's data, of a project */
+static void x29_of(const sq_project_t *p, uint8_t *x)
+{
+    uint32_t t, k;
+    for (k = 0; k < X29_DATA; k++) x[k] = 0u;
+    x[X29_PROG] = p->gen.harm_prog;
+    for (k = 0; k < SQ_SNAPS; k++) x[X29_PROG + 1u + k] = p->snap[k].harm_prog;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].role == SQ_ROLE_BALAFON) x[X29_ROLE + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        if (p->track[t].src_func == SQ_FUNC29_BALAFON) x[X29_FUNC + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) x[X29_TH + t] |= (uint8_t)(1u << k);
+    }
+    if (p->gen.func == SQ_FUNC29_BALAFON) x[X29_GEN] = 1u;
+    for (k = 0; k < SQ_SNAPS; k++) for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->snap[k].track[t].role == SQ_ROLE_BALAFON) x[X29_SNAP + 4u * k + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        if (p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) x[X29_SNAP + 4u * k + 2u + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+    }
+    for (t = 0; t < SQ_TRACKS; t++) bcopy_(x + X29_MFX + t * (uint32_t)sizeof(sq_mfxd_t), &p->ext.mfxd[t], sizeof(sq_mfxd_t));
+}
+static uint8_t mfxd27_loses(const sq_mfxd_t *d);
+static uint8_t uses_mfx29(const sq_project_t *p)       /* a track whose effects 0.28's block cannot hold */
+{
+    uint32_t t;
+    for (t = 0; t < SQ_TRACKS; t++) if (mfxd27_loses(&p->ext.mfxd[t])) return 1u;
+    return 0u;
+}
+static uint8_t x29_bit(const uint8_t *x, uint32_t at, uint32_t t) { return (uint8_t)(t < 16u && ((x[at + (t >> 3)] >> (t & 7u)) & 1u)); }
+static void bal_track_in(sq_track_cfg_t *c, const uint8_t *x, uint32_t role_at, uint32_t func_at, uint32_t t)   /* (t: the image's track) */
+{
+    if (x29_bit(x, role_at, t) && c->role == SQ_ROLE_LEAD) c->role = SQ_ROLE_BALAFON;
+    if (x29_bit(x, func_at, t) && c->src_func == SQ_FUNC28_LEAD) c->src_func = SQ_FUNC29_BALAFON;
+}
+/* the balafon back where chunk 5 says it was (the image's tracks onto the project's, by map) */
+static void balafon_in(sq_project_t *p, const uint8_t *x, const uint8_t *map)
+{
+    uint32_t t, k;
+    if (x[X29_GEN] & 1u && p->gen.func == SQ_FUNC28_LEAD) p->gen.func = SQ_FUNC29_BALAFON;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        uint8_t nt = map_track((uint8_t)t, map);
+        if (nt >= SQ_TRACKS) continue;
+        bcopy_(&p->ext.mfxd[nt], x + X29_MFX + t * (uint32_t)sizeof(sq_mfxd_t), sizeof(sq_mfxd_t));   /* (the effects: sanitised after) */
+        bal_track_in(&p->track[nt], x, X29_ROLE, X29_FUNC, t);
+        for (k = 0; k < SQ_PATTERNS; k++)
+            if (((x[X29_TH + t] >> k) & 1u) && p->th.pat[nt][k].func == SQ_FUNC28_LEAD) p->th.pat[nt][k].func = SQ_FUNC29_BALAFON;
+        for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used) bal_track_in(&p->snap[k].track[nt], x, X29_SNAP + 4u * k, X29_SNAP + 4u * k + 2u, t);
+    }
+}
+static uint8_t uses_balani(const sq_project_t *p)
+{
+    uint32_t t, k;
+    const uint8_t B = (uint8_t)SQ_GENRE29_BALANI;
+    if (p->gen.genre == B || p->gen.harm_genre == B || p->viaggio.set_genre == B) return 1u;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].src_genre == B) return 1u;
+        for (k = 0; k < SQ_PATTERNS; k++) if ((p->th.pat[t][k].style & 31u) == B + 1u) return 1u;
+    }
+    for (k = 0; k < SQ_SNAPS; k++) {
+        const sq_snap_t *sn = &p->snap[k];
+        if (!sn->used) continue;
+        if (sn->genre == B || sn->harm_genre == B) return 1u;
+        for (t = 0; t < SQ_TRACKS; t++) if (sn->track[t].src_genre == B) return 1u;
+    }
+    return 0u;
+}
+/* every genre and progression a project keeps, read with 0.28's numbers (v29: the image says it is 0.29's; x29: chunk
+ * 5's data - the progressions as 0.29 numbered them, where the balafon is - or 0) */
+static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29, const uint8_t *map)
+{
+    uint32_t t, k;
+    p->gen.genre = sq_genre_from28(p->gen.genre, v29);
+    p->gen.harm_genre = sq_genre_from28(p->gen.harm_genre, v29);
+    p->gen.harm_prog = x29 ? x29[X29_PROG] : sq_prog_from28(p->gen.harm_prog);
+    if (x29) balafon_in(p, x29, map);
+    p->viaggio.set_genre = sq_genre_from28(p->viaggio.set_genre, v29);
+    for (t = 0; t < SQ_TRACKS; t++) {
+        p->track[t].src_genre = sq_genre_from28(p->track[t].src_genre, v29);
+        for (k = 0; k < SQ_PATTERNS; k++) p->th.pat[t][k].style = thstyle_from28(p->th.pat[t][k].style, v29);
+    }
+    for (k = 0; k < SQ_SNAPS; k++) {
+        sq_snap_t *sn = &p->snap[k];
+        if (!sn->used) continue;
+        sn->genre = sq_genre_from28(sn->genre, v29);
+        sn->harm_genre = sq_genre_from28(sn->harm_genre, v29);
+        sn->harm_prog = x29 ? x29[X29_PROG + 1u + k] : sq_prog_from28(sn->harm_prog);
+        for (t = 0; t < SQ_TRACKS; t++) sn->track[t].src_genre = sq_genre_from28(sn->track[t].src_genre, v29);
+    }
+}
+
+/* a track's settings as 0.27 has them, and back; the settings of its lanes 7-8 (0.29: its genre with 0.28's number) */
 static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
 {
     const uint8_t *b = (const uint8_t *)c;
@@ -3349,6 +3546,9 @@ static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
         o->lane_flags[k] = c->lane_flags[k]; o->lane_hi[k] = c->lane_hi[k];
     }
     bcopy_(o->tail, b + SQ27_TRACK_HEAD + 4u * SQ_LANES, SQ27_TRACK_TAIL);
+    o->tail[TR27_SRC_GENRE] = sq_genre_to28(c->src_genre);
+    o->tail[TR27_TAIL_AT(role)] = bal_role(c->role);                  /* (0.29: the balafon as 0.28's LEAD) */
+    o->tail[TR27_TAIL_AT(src_func)] = bal_func(c->src_func);
 }
 static void tr27_in(const sq27_track_t *o, sq_track_cfg_t *c)   /* (the lanes 7-8 stay as they are) */
 {
@@ -3365,7 +3565,7 @@ static uint8_t tr27_differ(const sq_track_cfg_t *a, const sq_track_cfg_t *b)
 {
     sq27_track_t x, y;
     tr27_out(a, &x); tr27_out(b, &y);
-    return (uint8_t)bdiff_(&x, &y, sizeof x);
+    return (uint8_t)(bdiff_(&x, &y, sizeof x) || a->role != b->role || a->src_func != b->src_func);   /* (a LEAD is not the balafon) */
 }
 static void tr_lx_get(const sq_track_cfg_t *c, uint8_t *x)
 {
@@ -3424,8 +3624,8 @@ static void sh27_out(const sq_snap_t *sn, sq27_snap_head_t *o)
     o->mute = (uint16_t)(sn->mute & ((1u << SQ_TRACKS) - 1u));
     o->solo = (uint16_t)(sn->solo & ((1u << SQ_TRACKS) - 1u));
     for (k = 0; k < 4u; k++) o->mac[k] = sn->mac[k];
-    o->harm_on = sn->harm_on; o->genre = sn->genre; o->harm_prog = sn->harm_prog; o->harm_bars = sn->harm_bars;
-    o->morph_b = sn->morph_b; o->key_cur = sn->key_cur; o->harm_genre = sn->harm_genre; o->reserved[0] = sn->reserved[0];
+    o->harm_on = sn->harm_on; o->genre = sq_genre_to28(sn->genre); o->harm_prog = sq_prog_to28(sn->harm_prog); o->harm_bars = sn->harm_bars;
+    o->morph_b = sn->morph_b; o->key_cur = sn->key_cur; o->harm_genre = sq_genre_to28(sn->harm_genre); o->reserved[0] = sn->reserved[0];
 }
 static void sh27_in(const sq27_snap_head_t *o, sq_snap_t *sn, const uint8_t *map)
 {
@@ -3443,7 +3643,7 @@ static void sh27_in(const sq27_snap_head_t *o, sq_snap_t *sn, const uint8_t *map
 static void vg27_out(const sq_viaggio_t *v, sq27_viaggio_t *o)
 {
     uint32_t t;
-    o->on = v->on; o->phrase_bars = v->phrase_bars; o->energy = v->energy; o->set_genre = v->set_genre;
+    o->on = v->on; o->phrase_bars = v->phrase_bars; o->energy = v->energy; o->set_genre = sq_genre_to28(v->set_genre);
     for (t = 0; t < SQ27_TRACKS; t++) o->state[t] = t < SQ_TRACKS ? v->state[t] : (uint8_t)SQ_TS_EMPTY;
     o->phrase_count = v->phrase_count; o->quant = v->quant;
     bcopy_(o->reserved, v->reserved, sizeof o->reserved);
@@ -3459,11 +3659,42 @@ static void vg27_in(const sq27_viaggio_t *o, sq_viaggio_t *v, const uint8_t *map
 
 /* the 0.13 block (chunk 1) in 0.27's layout; read back from the chunk's own bytes, the k of them it has (an older
  * image has fewer: the rest stays the default) */
+/* 0.29: a track's effects as 0.20 - 0.28 keep them (the nine, their order without ROLL and ACCENT), and back (ROLL and
+ * ACCENT where the default order has them: after VEL CURVE, before ECHO; their values the defaults - chunk 5 holds
+ * 0.29's whole) */
+static void mfxd27_out(const sq_mfxd_t *d, sq27_mfxd_t *o)
+{
+    uint32_t k, n = 0u;
+    o->on = (uint8_t)(d->on & ((1u << SQ_MFX_NEW28) - 1u));
+    for (k = 0; k < SQ_MFX_ALLN && n < SQ_MFX_ALLN28; k++) if (d->order[k] < SQ_MFXS_020) o->order[n++] = d->order[k];
+    for (k = 0; k < SQ_MFX_NEW28; k++) { o->amt[k] = d->amt[k]; o->time[k] = d->time[k]; o->fb[k] = d->fb[k]; }
+}
+static void mfxd27_in(const sq27_mfxd_t *o, sq_mfxd_t *d)
+{
+    uint32_t k, n = 0u;
+    sq_mfxd_default(d);
+    d->on = (uint8_t)(o->on & ((1u << SQ_MFX_NEW28) - 1u));
+    for (k = 0; k < SQ_MFX_ALLN28; k++) {
+        if (o->order[k] == SQ_MFX_ECHO) d->order[n++] = SQ_MFX_ROLL;
+        d->order[n++] = o->order[k];
+        if (o->order[k] == SQ_MFX_VELOCITY) d->order[n++] = SQ_MFX_ACCENT;
+    }
+    for (k = 0; k < SQ_MFX_NEW28; k++) { d->amt[k] = o->amt[k]; d->time[k] = o->time[k]; d->fb[k] = o->fb[k]; }
+    sq_mfxd_sanitize(d);                                /* (a block that is not nine effects once each: the default order) */
+}
+static uint8_t mfxd27_loses(const sq_mfxd_t *d)        /* what 0.28's block cannot hold of it */
+{
+    sq27_mfxd_t o;
+    sq_mfxd_t back;
+    mfxd27_out(d, &o); mfxd27_in(&o, &back);
+    return (uint8_t)bdiff_(&back, d, sizeof back);
+}
 static void wr_ext27(wr_t *w, const sq_ext_t *x)
 {
     sq_trackx_t tx;
     sq_mfxc_t cx;
     sq_mfxd_t dx;
+    sq27_mfxd_t d27;
     uint32_t t;
     trackx_default(&tx); mfxc_default(&cx); sq_mfxd_default(&dx);
     wr_put(w, x->lfo, sizeof x->lfo);
@@ -3471,7 +3702,7 @@ static void wr_ext27(wr_t *w, const sq_ext_t *x)
     wr_put(w, &x->motion_bars, EXT_MID);
     wr_put(w, x->name, sizeof x->name);
     for (t = 0; t < SQ27_TRACKS; t++) wr_put(w, t < SQ_TRACKS ? &x->mfxc[t] : &cx, sizeof cx);
-    for (t = 0; t < SQ27_TRACKS; t++) wr_put(w, t < SQ_TRACKS ? &x->mfxd[t] : &dx, sizeof dx);
+    for (t = 0; t < SQ27_TRACKS; t++) { mfxd27_out(t < SQ_TRACKS ? &x->mfxd[t] : &dx, &d27); wr_put(w, &d27, sizeof d27); }
     wr_put(w, x->lfoe, sizeof x->lfoe);
     wr_put(w, x->mod, sizeof x->mod);
     wr_put(w, x->scene_metre, sizeof x->scene_metre);
@@ -3501,8 +3732,11 @@ static void ext27_in(const uint8_t *src, uint32_t k, sq_ext_t *x, const uint8_t 
         if (map[t] >= SQ_TRACKS) continue;
         if (X27_OFF(mfxc) + (t + 1u) * sizeof(sq_mfxc_t) <= k)
             bcopy_(&x->mfxc[map[t]], src + X27_OFF(mfxc) + t * sizeof(sq_mfxc_t), sizeof(sq_mfxc_t));
-        if (X27_OFF(mfxd) + (t + 1u) * sizeof(sq_mfxd_t) <= k)
-            bcopy_(&x->mfxd[map[t]], src + X27_OFF(mfxd) + t * sizeof(sq_mfxd_t), sizeof(sq_mfxd_t));
+        if (X27_OFF(mfxd) + (t + 1u) * sizeof(sq27_mfxd_t) <= k) {
+            sq27_mfxd_t d27;
+            bcopy_(&d27, src + X27_OFF(mfxd) + t * sizeof(sq27_mfxd_t), sizeof d27);
+            mfxd27_in(&d27, &x->mfxd[map[t]]);
+        }
     }
     x27_range(x->lfoe, src, k, X27_OFF(lfoe), sizeof x->lfoe);
     if (X27_OFF(mod) < k) {
@@ -3638,11 +3872,13 @@ typedef struct {
     sq_step_t *row;
     sq_thpat_t *th;
     const uint8_t *map;
+    uint8_t v29;                                      /* 0.29: chunk 5 was there (the genres are 0.29's) */
+    const uint8_t *x29;                               /* ... and what 0.28 has not (X29_*: in the image itself), or 0 */
 } parse_t;
 static void parse_init(parse_t *q)
 {
     q->p = 0; q->want_t = 255u; q->want_new = 255u; q->want_pat = 0u;
-    q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME;
+    q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME; q->v29 = 0u; q->x29 = 0;
 }
 static void x28_in(const uint8_t *src, uint32_t n, parse_t *q)
 {
@@ -3797,7 +4033,8 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
     }
     for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }
     wr_put(&w, p->lfo, sizeof p->lfo);
-    wr_put(&w, &p->gen, sizeof p->gen);
+    { sq_gen_t g = p->gen; g.genre = sq_genre_to28(g.genre); g.harm_genre = sq_genre_to28(g.harm_genre); g.harm_prog = sq_prog_to28(g.harm_prog);
+      g.func = bal_func(g.func); wr_put(&w, &g, sizeof g); }
     wr_put(&w, &p->song, sizeof p->song);
     wr_put(&w, &p->live, sizeof p->live);
     { sq27_viaggio_t x; vg27_out(&p->viaggio, &x); wr_put(&w, &x, sizeof x); }
@@ -3863,9 +4100,12 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
                 for (pk = 0; pk < SQ_PATTERNS; pk++) {
                     uint8_t at[2];
                     if (!p->th.pat[tk][pk].style) continue;
+                    sq_thpat_t m = p->th.pat[tk][pk];
+                    m.style = thstyle_to28(m.style);
+                    m.func = bal_func(m.func);
                     at[0] = (uint8_t)tk; at[1] = (uint8_t)pk;
                     wr_put(&w, at, 2);
-                    wr_put(&w, &p->th.pat[tk][pk], sizeof(sq_thpat_t));
+                    wr_put(&w, &m, sizeof(sq_thpat_t));
                 }
         }
     }
@@ -3893,6 +4133,12 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             if (c.bad) w.bad = 1;
             else { wr_u8(&w, SQ_CHUNK_X28); wr_u16(&w, c.pos); x28_body(&w, p, parts); }
         }
+    }
+    if (uses_balani(p) || uses_prog78(p) || uses_balafon(p) || uses_mfx29(p)) {   /* 0.29: chunk 5 (BALANI, a 7th or 8th progression, the balafon, ROLL or ACCENT) */
+        uint8_t x[3u + SQ_X29_LEN];
+        x[0] = SQ_CHUNK_X29; x[1] = (uint8_t)(SQ_X29_LEN & 0xFFu); x[2] = (uint8_t)(SQ_X29_LEN >> 8); x[3] = 2u;
+        x29_of(p, x + 4);
+        wr_put(&w, x, sizeof x);
     }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
     return w.bad ? 0u : w.pos;
@@ -4062,12 +4308,25 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
         } else if (h[0] == SQ_CHUNK_X28 && (p || q->cfg || q->row)) {
             x28_in(in + r.pos, n, q);
             rd_skip(&r, n);
+        } else if (h[0] == SQ_CHUNK_X29 && n >= 1u) {
+            q->v29 = in[r.pos] >= 1u ? 1u : 0u;
+            if (in[r.pos] >= 2u && n >= SQ_X29_LEN) q->x29 = in + r.pos + 1u;
+            rd_skip(&r, n);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
     if (p && ext_n < SQ27_EXT_019)                     /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
-    if (p) { refs_in(p, map); sq_project_sanitize(p); }
+    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29, map); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
+    if (!p && q->cfg) {                                   /* (RELOAD: the one track) */
+        q->cfg->src_genre = sq_genre_from28(q->cfg->src_genre, q->v29);
+        if (q->x29) bal_track_in(q->cfg, q->x29, X29_ROLE, X29_FUNC, q->want_t);
+    }
+    if (!p && q->th) {
+        q->th->style = thstyle_from28(q->th->style, q->v29);
+        if (q->x29 && q->want_t < SQ_TRACKS && q->want_pat < SQ_PATTERNS && ((q->x29[X29_TH + q->want_t] >> q->want_pat) & 1u) &&
+            q->th->func == SQ_FUNC28_LEAD) q->th->func = SQ_FUNC29_BALAFON;
+    }
     return 0;
 }
 
@@ -4613,7 +4872,7 @@ const char *sq_role_name(uint8_t role)
 {
     static const char *const N[SQ_ROLE_COUNT] = {"NONE", "KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP",
         "CLAP", "OPEN HAT", "RIDE", "SHAKER", "CONGA", "TOM", "RIM", "CRASH", "COWBELL", "RUMBLE", "SUB", "LOG DRUM",
-        "STAB", "PAD", "PIANO", "LEAD", "VOX"};
+        "STAB", "PAD", "PIANO", "LEAD", "VOX", "BALAFON"};
     return N[role < SQ_ROLE_COUNT ? role : 0u];
 }
 uint8_t sq_role_family(uint8_t role)
@@ -4624,7 +4883,7 @@ uint8_t sq_role_family(uint8_t role)
         SQ_ROLE_PERC /* CONGA */, SQ_ROLE_PERC /* TOM */, SQ_ROLE_SNARE /* RIM */, SQ_ROLE_PERC /* CRASH */,
         SQ_ROLE_PERC /* COWBELL */, SQ_ROLE_BASS /* RUMBLE */, SQ_ROLE_BASS /* SUB */, SQ_ROLE_BASS /* LOG DRUM */,
         SQ_ROLE_CHORD /* STAB */, SQ_ROLE_CHORD /* PAD */, SQ_ROLE_CHORD /* PIANO */, SQ_ROLE_ARP /* LEAD */,
-        SQ_ROLE_ARP /* VOX */};
+        SQ_ROLE_ARP /* VOX */, SQ_ROLE_ARP /* BALAFON */};
     return F[role < SQ_ROLE_COUNT ? role : 0u];
 }
 uint8_t sq_role_melodic(uint8_t role) { uint8_t f = sq_role_family(role); return (uint8_t)(f >= SQ_ROLE_BASS); }
@@ -4633,7 +4892,7 @@ const char *sq_chord_shape_name(uint8_t shape)
 {
     static const char *const N[SQ_CH_COUNT] = {"OFF", "OCTAVE", "POWER", "5-8", "MAJOR", "MINOR", "DIM", "AUG", "SUS2", "SUS4",
         "MAJ6", "MIN6", "DOM7", "MIN7", "MAJ7", "MINMAJ7", "DIM7", "M7B5", "7SUS4", "ADD9", "MINADD9", "DOM9", "MIN9", "MAJ9",
-        "9SUS4", "6/9", "MIN6/9", "MIN11", "DOM13", "SHELL7", "MINSHELL", "1-3-5-8"};
+        "9SUS4", "6/9", "MIN6/9", "MIN11", "DOM13", "SHELL7", "MINSHELL", "1-3-5-8", "7#9", "7B9", "MAJ7#11", "QUARTAL"};
     return N[shape < SQ_CH_COUNT ? shape : 0u];
 }
 const char *sq_chord_key_name(uint8_t ck)
@@ -4677,6 +4936,10 @@ static const int8_t CHORD_SEMI[SQ_CH_COUNT][SQ_POLY_OUT] = {
     {0, 4, 10, -1, -1, -1},      /* SHELL7: root, third, seventh */
     {0, 3, 10, -1, -1, -1},      /* MINSHELL: the minor stab */
     {0, 4, 7, 12, -1, -1},       /* 1-3-5-8 */
+    {0, 4, 7, 10, 15, -1},       /* 0.29 7#9: the funk's (the minor third over the major) */
+    {0, 4, 7, 10, 13, -1},       /* 7B9: dark, the phrygian dominant's */
+    {0, 4, 7, 11, 18, -1},       /* MAJ7#11: the lydian's, deep house and dub */
+    {0, 5, 10, 15, -1, -1},      /* QUARTAL: in fourths, no third */
 };
 /* a semitone interval as steps of a seven-note scale (0..21: the unison to the 13th) */
 static const int8_t SEMI_STEP[22] = {0, 1, 1, 2, 2, 3, 4, 4, 5, 5, 6, 6, 7, 8, 8, 9, 9, 10, 11, 11, 12, 12};
@@ -5112,26 +5375,23 @@ const sq_brk_chop_t *sq_brk_chop(uint8_t i) { return &BRK_CHOP[i < SQ_BRK_CHOPS 
 /* the chops of each genre (the order of sagga_beats_data.h's GENRE_NAME), the ones that belong to it, in the order COOK
  * walks them: the first byte is how many, then the chops (0 STRAIGHT 1 END ROLL 2 RUSH 3 REPEAT 4 DOUBLE 5 HALF
  * 6 BACKWARDS 7 GHOST 8 LOW 9 HIGH 10 SHUFFLE 11 THINK 12 APACHE 13 SNARES 14 TRIPLE 15 BUILD) */
-#define BRK_GENRES 25u                     /* (SQ_GENRES: the core does not include the library) */
+#define BRK_GENRES 22u                     /* (SQ_GENRES: the core does not include the library; 0.29: 22) */
 static const uint8_t BRK_GENRE[BRK_GENRES][8] = {
     {5, 0, 7, 5, 8, 1},              /* TECHNO: straight, ghosts, half, the low end, the end roll */
     {5, 0, 4, 2, 15, 1},             /* HARDTECHNO: straight, double, rush, build, end roll */
     {4, 0, 5, 7, 8},                 /* DUB TECHNO: straight, half, ghosts, low */
     {4, 0, 7, 10, 1},                /* HOUSE: straight, ghosts, shuffle, end roll */
-    {5, 10, 7, 13, 11, 1},           /* UK GARAGE: shuffle, ghosts, snares, think, end roll */
+    {6, 10, 7, 13, 11, 3, 1},        /* UK GARAGE: shuffle, ghosts, snares, think, repeat (0.29: the bassline's), end roll */
     {4, 10, 14, 7, 13},              /* UK FUNKY: shuffle, triple, ghosts, snares */
-    {5, 5, 7, 8, 13, 1},             /* GRIME: half, ghosts, low, snares, end roll */
-    {5, 5, 8, 7, 13, 15},            /* DUBSTEP: half, low, ghosts, snares, build */
+    {6, 5, 8, 7, 13, 15, 1},         /* DUBSTEP: half, low, ghosts, snares, build, end roll (0.29: the grime's) */
     {7, 0, 11, 12, 10, 13, 14, 1},   /* JUNGLE: straight, think, apache, shuffle, snares, triple, end roll */
-    {4, 10, 7, 3, 1},                /* BASSLINE: shuffle, ghosts, repeat, end roll */
-    {4, 0, 7, 3, 13},                /* REGGAETON: straight, ghosts, repeat, snares */
+    {6, 0, 7, 3, 13, 5, 8},          /* REGGAETON: straight, ghosts, repeat, snares, half, low (0.29: the amapiano's) */
     {4, 14, 10, 7, 2},               /* BATIDA: triple, shuffle, ghosts, rush */
-    {4, 5, 8, 7, 15},                /* GQOM: half, low, ghosts, build */
+    {6, 5, 8, 7, 15, 10, 14},        /* GQOM: half, low, ghosts, build, shuffle, triple (0.29: the afro house's) */
     {6, 6, 10, 2, 9, 14, 15},        /* EXPERIMENT: backwards, shuffle, rush, high, triple, build */
     {5, 0, 4, 3, 7, 1},              /* ELECTRO: straight, double, repeat, ghosts, end roll */
     {7, 0, 11, 12, 4, 13, 1, 2},     /* DRUM+BASS: straight, think, apache, double, snares, end roll, rush */
-    {4, 10, 7, 14, 8},               /* AFRO HOUSE: shuffle, ghosts, triple, low */
-    {4, 5, 7, 8, 10},                /* AMAPIANO: half, ghosts, low, shuffle */
+    {5, 4, 2, 14, 7, 1},             /* BALANI (0.29): double, rush, triple, ghosts, end roll - the hailstones */
     {6, 14, 2, 3, 4, 13, 15},        /* FOOTWORK: triple, rush, repeat, double, snares, build */
     {4, 0, 4, 15, 1},                /* TRANCE: straight, double, build, end roll */
     {5, 5, 7, 13, 14, 8},            /* UK DRILL: half, ghosts, snares, triple, low */

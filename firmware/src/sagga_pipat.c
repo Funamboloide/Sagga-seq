@@ -187,7 +187,7 @@ static void pipat_save(void)
 }
 
 /* ---- 0.11: the progressions the Pi keeps (tools/hub/sagga_progs.py: <the projects folder>/progressions, a file a genre,
- * each progression with its mood). SEQ 4 K2 goes on past the FM-1's progressions (the genre's six, the player's four, the
+ * each progression with its mood). SEQ 4 K2 goes on past the FM-1's progressions (the genre's eight, the player's four, the
  * DICE/PI one) into the Pi's of the HARMONY's genre and of the MOOD chosen (ANY: all), the most like the progression
  * that played first; each comes into the fifth slot (DICE/PI) and plays. K2 back below the first: the one before. On
  * SEQ 4 (the progression playing) and SEQ 8 (the one being written) SEQ + SAVE sends it to the Pi, with its mood.

@@ -18,12 +18,14 @@
  *
  * Nothing here knows the FM-1: it is the core (the simulator, the Pi's tools and the firmware share it). */
 /* A style is a genre of the library, or FREE (SQ_TH_FREE: sagga_seq_core.h, with what a project keeps of a pattern the
- * engines made). Four have rules written by hand; the others have rules counted from the library itself
- * (tools/theory/gen_rules.py -> sagga_theory_data.h). */
+ * engines made). Six have rules written by hand (0.29: REGGAETON and BALANI too); the others have rules counted from
+ * the library itself (tools/theory/gen_rules.py -> sagga_theory_data.h). */
 #define SQ_TH_TECHNO  SQ_GENRE_TECHNO
 #define SQ_TH_HOUSE   SQ_GENRE_HOUSE
 #define SQ_TH_DNB     SQ_GENRE_DNB
 #define SQ_TH_DUBSTEP SQ_GENRE_DUBSTEP
+#define SQ_TH_REGGAETON SQ_GENRE_REGGAETON
+#define SQ_TH_BALANI  SQ_GENRE_BALANI
 
 typedef struct {
     uint8_t style;               /* SQ_TH_* */

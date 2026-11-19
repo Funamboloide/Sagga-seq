@@ -5,6 +5,34 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.28
+
+**Twelve tracks** instead of sixteen, and with the memory they leave **chords of six notes** and **eight CC lanes** a
+track. The projects of before open with their first twelve tracks; a 0.27 opens a project of 0.28, without what it
+has no room for.
+
+* **Twelve tracks.** The MIDI channels stay sixteen: a track can be on any of them. **HOME + white 1-12** picks a
+  track, whites 13-16 do nothing for now. The black keys: 1-8 the tracks of the bank, 9 the other bank - the banks
+  are **1-8 and 9-12** (in 9-12, blacks 5-8 do nothing). GLO + white 1-12: the mutes. DICE ALL rolls the eight
+  tracks of the selected one's side: 1-8, or 5-12. On the grid the pads of tracks 13-16 are dark; the remote's
+  commands for tracks 13-16 do nothing, and SAGGA Live, Motori, Mutes and BeatStep on the Pi show twelve.
+* **Chords of six notes**: a step holds up to six notes (four until 0.27). SEL + keys takes up to six within 0.45 s
+  (`CHORD FULL (6 NOTES)` past that); MIDI REC, the grid and the Pi's editor write six too. **EDIT + SEL + K1-K4**
+  still set notes 1-4; the line says notes 5 and 6 when the step has them. The ARP, the strum and the voicing work on
+  all six; at most six sound from a step, with a CHORD shape too.
+* **Eight CC lanes** a track (six until 0.27): the ENV pages go `LANE 1/8` .. `LANE 8/8`; in a new project lane 7 is
+  CC 73 (attack) and lane 8 CC 72 (release). The grid's CC view (pads 1-8), the CC learn (a ninth CC: `NO FREE LANE`),
+  the scenes and the snapshots keep all eight. The remote's lane knobs: lanes 1-6 channel 13 CC 101-106, lanes 7 and 8
+  (0.28.1) channel 12 CC 62 / 63 - SAGGA Mod has all eight.
+* **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO or a
+  MOD aimed at one of them stops, an LFO's TRIG from one of them goes back to CLOCK; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
+  for the notes 5-6 and the lanes 7-8: a 0.27 opens it, without them. A MIDI file read into a project on the Pi:
+  channels 1-12 become tracks 1-12, channels 13-16 are left out (`sagga_sgqmid` says how many notes).
+* **The memory**: a project is 15 KB smaller (163 KB in RAM; a step is 22 bytes, a track's settings 104).
+
+On the Pi: the editor shows twelve tracks, six notes a step and eight lanes; the bridge sends the previews and the
+phrases to tracks 1-12, up to six notes. Install the FM-1 and the Pi together.
+
 ## What is new in 0.27
 
 Four proposals of the map of the generators ([MAPPA-GENERATORI.md](../MAPPA-GENERATORI.md)), a fix asked for and one

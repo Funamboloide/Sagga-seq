@@ -1,25 +1,25 @@
 # SAGGA SEQ 0.23 - gli strumenti dei motori THEORY
 
 I motori THEORY sono **nel firmware** dalla 0.23: sull'FM-1 si accendono da SEQ pagina 8, K1 (SOURCE THEORY: le regole del genere; SOURCE FREE: le regole di nessun genere). Cosa
-sono, come si usano e cosa fa ognuno è scritto in `docs/TEORIA.md`; le regole dei 21 generi contati dalla libreria in
+sono, come si usano e cosa fa ognuno è scritto in `docs/TEORIA.md`; le regole dei 16 generi contati dalla libreria in
 `docs/TEORIA-GENERI.md`.
 
 Qui ci sono gli strumenti che girano sul computer. Non servono per suonare.
 
 | il file | cosa fa |
 | --- | --- |
-| `gen_rules.py` | **conta la libreria** e scrive le regole dei 21 generi che non ne hanno di scritte a mano: `firmware/src/sagga_theory_data.h` (per il firmware) e `docs/TEORIA-GENERI.md` (da leggere). `--check`: dice se i due file sono quelli che la libreria dà (lo fa la suite dei test). Se cambi la libreria, rilancialo. |
+| `gen_rules.py` | **conta la libreria** e scrive le regole dei 16 generi che non ne hanno di scritte a mano: `firmware/src/sagga_theory_data.h` (per il firmware) e `docs/TEORIA-GENERI.md` (da leggere). `--check`: dice se i due file sono quelli che la libreria dà (lo fa la suite dei test). Se cambi la libreria, rilancialo. |
 | `libdump.c` | la libreria del firmware come testo, per `gen_rules.py` (lo compila lui). |
 | `sagga_theory.c` | i motori dalla riga di comando: una band o una parte come testo, nella notazione della libreria. `--rules`: tutte le tabelle. |
 | `compare.py` | i motori **contro la libreria**, genere per genere e parte per parte: quanti colpi, dove cadono, quanto dista una battuta fatta dalla più vicina scritta. |
-| `regole.py` | scrive in italiano le regole fatte a mano (TECHNO, HOUSE, DRUM+BASS, DUBSTEP, FREE) dentro `docs/TEORIA.md`. `--check`: come sopra. |
+| `regole.py` | scrive in italiano le regole fatte a mano (TECHNO, HOUSE, DRUM+BASS, DUBSTEP, REGGAETON, BALANI, FREE) dentro `docs/TEORIA.md`. `--check`: come sopra. |
 | `render.py` | per **ascoltare senza l'FM-1**: per uno stile e un seme fa un progetto `.sgq`, un file MIDI (General MIDI) e un testo, otto scene. |
 
 ```sh
 cc -std=c11 -O2 -Ifirmware/src tools/theory/sagga_theory.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_theory
 build/sagga_theory REGGAETON 6                       # STILE SEME [VARIAZIONE QUANTO ENERGIA LUNGHEZZA] [PARTE ...]
 build/sagga_theory "UK GARAGE" 1 2 60 80 64 BASS VOX # la variazione 2 al 60 %, energia 80, quattro battute
-python3 tools/theory/compare.py 100 TRANCE AMAPIANO  # 100 semi, due generi
+python3 tools/theory/compare.py 100 TRANCE BALANI    # 100 semi, due generi
 python3 tools/theory/render.py build/teoria --styles all --seeds 1
 ```
 

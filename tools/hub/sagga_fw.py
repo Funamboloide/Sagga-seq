@@ -255,6 +255,11 @@ class State:
         self.patterns = sagga_patterns.Patterns(pat_dir, writer=(pat_writer or BootWriter(pat_dir)).write)
         prog_dir = os.path.join(proj_dir, 'progressions')                # 0.11: the progressions the grid bridge serves
         self.progs = sagga_progs.Progressions(prog_dir, writer=(pat_writer or BootWriter(prog_dir)).write)
+        for lib in (self.patterns, self.progs):                          # 0.29: yours of the four genres that left go where they went
+            try:
+                lib.retire()
+            except Exception as e:                                       # (a folder that cannot be written now: next start)
+                print('sagga hub: the genres of 0.28 not moved yet: %s' % e, file=sys.stderr)
         self.editor = sagga_editor.Editor(proj_dir, self.writer)       # 0.14: the projects' web editor
         self.lock = threading.Lock()
         self.proc = None                                    # the install running

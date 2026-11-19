@@ -1014,11 +1014,12 @@ static void vg_prog_turn(int32_t d)                         /* the PRESETS encod
     uint8_t cur = i >= 0 ? vg_q.m[i].a : project.gen.harm_prog;
     char name[24];
     cur = (uint8_t)(((int32_t)cur + d + SQ_PROGS_ALL * 4) % SQ_PROGS_ALL);
-    if (cur >= SQ_PROGS) sq_uprog_name(&project.uprog[(cur - SQ_PROGS) % SQ_UPROGS], project.key_scale, name, sizeof name);
+    /* (0.29: DICE/PI is the fifth slot, the Pi's - its own chords and its own name: it read the first user slot's) */
+    if (cur >= SQ_PROGS) sq_uprog_name(&project.uprog[cur - SQ_PROGS], project.key_scale, name, sizeof name);
     else sq_prog_name(vg_lib_genre(), cur, project.key_scale, name, sizeof name);
     if (!project.gen.harm_on) { project.gen.harm_prog = cur; harm_say("READY ", ": ARP 3 K1 ON"); ui_dirty = grid_dirty = 1u; return; }   /* 0.17: the HARMONY off: READY, as in 0.16 (0.9-0.16 here: switched on) */
-    if (!playing) { project.gen.harm_prog = cur; vg_msg2(cur >= SQ_PROGS ? "USER PROG " : "PROG ", name); return; }
-    if (!vg_queue(SQ_MV_PROG, cur, 0u)) vg_msg2("QUEUED: PROG ", name);
+    if (!playing) { project.gen.harm_prog = cur; vg_msg2(cur == SQ_PROG_PI ? "DICE/PI " : cur >= SQ_PROGS ? "USER PROG " : "PROG ", name); return; }
+    if (!vg_queue(SQ_MV_PROG, cur, 0u)) vg_msg2(cur == SQ_PROG_PI ? "QUEUED: DICE/PI " : "QUEUED: PROG ", name);
 }
 
 /* ---- the remote on channel 13: CC 1-16 tap on the track, 17-27 the moves, 28 INDIETRO, 29 cancel, 30 the phrase,

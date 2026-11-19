@@ -8,7 +8,7 @@ A part marked * is a main part: 12 variations in the FM-1's flash; the others ge
 The variations come from SEEDS: the 0.10 library's own patterns (written by hand, by genre) where the part was there
 (a TECHNO CLAP is 0.10's TECHNO SNARE, a STAB its CHORD), and for the new parts the patterns below, written for each
 genre where the genre has its own (an amapiano log drum, a gqom tom, a phonk cowbell ...) and else the part's common
-ones. From the seeds, small musical changes (a ghost on a 16th, a hit moved a step, an accent, a roll into the bar, a
+ones (0.29: and MOVED, the best of the genres that left, after the genre's own). From the seeds, small musical changes (a ghost on a 16th, a hit moved a step, an accent, a roll into the bar, a
 held note, another note of the chord ...) make the candidates. The variations are then ORDERED by likeness: the first
 is the genre's most typical (the first seed), each next the closest to the one before, the density rising, the odd
 ones last - so that COOK, which walks a track towards the next variation, takes small steps.
@@ -30,18 +30,18 @@ import zlib
 # the parts, in SQ_FUNC_* order: 0..6 as 0.10, 7 PROG and 8 KIT (no patterns of their own), then 0.11's
 PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
          'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL',
-         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX']
+         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX', 'BALAFON']   # (0.29: the balafon)
 SHOWN = dict(OHAT='OPEN HAT', LOGDRUM='LOG DRUM')
 DRUM = {'KICK', 'SNARE', 'HAT', 'PERC', 'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL'}
-MONO = {'BASS', 'ARP', 'RUMBLE', 'SUB', 'LOGDRUM', 'LEAD', 'VOX'}
+MONO = {'BASS', 'ARP', 'RUMBLE', 'SUB', 'LOGDRUM', 'LEAD', 'VOX', 'BALAFON'}
 CHORDS = {'CHORD', 'STAB', 'PAD', 'PIANO'}
 FAMILY = dict(KICK='KICK', SNARE='SNARE', HAT='HAT', PERC='PERC', BASS='BASS', CHORD='CHORD', ARP='ARP',
               CLAP='SNARE', OHAT='HAT', RIDE='HAT', SHAKER='HAT', CONGA='PERC', TOM='PERC', RIM='SNARE', CRASH='PERC',
               COWBELL='PERC', RUMBLE='BASS', SUB='BASS', LOGDRUM='BASS', STAB='CHORD', PAD='CHORD', PIANO='CHORD',
-              LEAD='ARP', VOX='ARP')
+              LEAD='ARP', VOX='ARP', BALAFON='ARP')
 # the note a drum part plays (General MIDI) unless the genre's KIT says (KICK SNARE HAT PERC), the register of the others
 NOTE = dict(CLAP=39, OHAT=46, RIDE=51, SHAKER=70, CONGA=63, TOM=45, RIM=37, CRASH=49, COWBELL=56,
-            BASS=36, RUMBLE=36, SUB=36, LOGDRUM=43, CHORD=55, STAB=60, PAD=60, PIANO=60, ARP=67, LEAD=72, VOX=72)
+            BASS=36, RUMBLE=36, SUB=36, LOGDRUM=43, CHORD=55, STAB=60, PAD=60, PIANO=60, ARP=67, LEAD=72, VOX=72, BALAFON=72)
 
 # BAND: the parts in order ('*': a main part, 12 variations); MAP: where a part's seeds come from in the 0.10 library;
 # EXTRA: 0.10 parts kept to browse
@@ -50,20 +50,18 @@ BANDS = {
     'HARDTECHNO':   ('KICK* RUMBLE* CLAP* HAT* OHAT RIDE PERC* STAB LEAD', dict(RUMBLE='BASS', CLAP='SNARE', STAB='CHORD', LEAD='ARP'), ''),
     'DUBTECHNO':    ('KICK* RIM* HAT* SHAKER PERC BASS* CHORD* PAD', dict(RIM='SNARE'), 'ARP'),
     'HOUSE':        ('KICK* CLAP* HAT* OHAT* SHAKER PERC BASS* PIANO* PAD VOX', dict(CLAP='SNARE', PIANO='CHORD'), 'ARP'),
-    'UKGARAGE':     ('KICK* SNARE* HAT* OHAT SHAKER PERC* BASS* CHORD* VOX', {}, 'ARP'),
+    'UKGARAGE':     ('KICK* SNARE* HAT* OHAT SHAKER PERC* BASS* SUB CHORD* STAB VOX', {}, 'ARP'),   # (0.29: + the bassline's SUB, STAB)
     'UKFUNKY':      ('KICK* SNARE* HAT* RIM CONGA* PERC* TOM BASS* CHORD* LEAD', dict(LEAD='ARP'), ''),
-    'GRIME':        ('KICK* SNARE* HAT* PERC CRASH BASS* SUB STAB* LEAD*', dict(STAB='CHORD', LEAD='ARP'), ''),
-    'DUBSTEP':      ('KICK* SNARE* HAT* PERC* CRASH SUB* BASS* PAD LEAD', dict(PAD='CHORD', LEAD='ARP'), ''),
+    'DUBSTEP':      ('KICK* SNARE* HAT* PERC* CRASH SUB* BASS* PAD STAB LEAD', dict(PAD='CHORD', LEAD='ARP'), ''),   # (0.29: + the grime's STAB)
     'JUNGLE':       ('KICK* SNARE* HAT* RIDE PERC* CRASH SUB* BASS* PAD* VOX', dict(PAD='CHORD'), 'ARP'),
-    'BASSLINE':     ('KICK* SNARE* HAT* OHAT PERC BASS* SUB STAB* VOX', dict(STAB='CHORD'), 'ARP'),
-    'REGGAETON':    ('KICK* SNARE* HAT* RIM CONGA* PERC BASS* CHORD* LEAD', dict(LEAD='ARP'), ''),
-    'BATIDA':       ('KICK* SNARE* HAT* SHAKER CONGA* PERC* TOM BASS* CHORD* LEAD', dict(LEAD='ARP'), ''),
-    'GQOM':         ('KICK* SNARE* HAT* PERC* TOM* BASS* PAD VOX', dict(PAD='CHORD'), 'ARP'),
+    'REGGAETON':    ('KICK* SNARE* HAT* SHAKER RIM CONGA* PERC BASS* LOGDRUM* CHORD* LEAD', dict(LEAD='ARP'), ''),   # (0.29: + the amapiano's SHAKER, LOG DRUM)
+    'BATIDA':       ('KICK* SNARE* HAT* SHAKER CONGA* PERC* RIM TOM BASS* CHORD* LEAD', dict(LEAD='ARP'), ''),   # (0.29: + the afro house's RIM)
+    'GQOM':         ('KICK* SNARE* HAT* SHAKER PERC* CONGA TOM* BASS* PAD VOX', dict(PAD='CHORD'), 'ARP'),   # (0.29: + the afro house's SHAKER, CONGA)
     'EXPERIMENTAL': ('KICK* SNARE* HAT* PERC* CRASH TOM BASS* PAD* ARP*', dict(PAD='CHORD'), ''),
     'ELECTRO':      ('KICK* SNARE* CLAP HAT* OHAT COWBELL BASS* STAB ARP*', dict(STAB='CHORD'), 'PERC'),
     'DNB':          ('KICK* SNARE* HAT* RIDE SHAKER PERC* SUB* BASS* PAD* LEAD', dict(PAD='CHORD', LEAD='ARP'), ''),
-    'AFROHOUSE':    ('KICK* CLAP* HAT* SHAKER* CONGA* PERC* RIM TOM BASS* CHORD* VOX', dict(CLAP='SNARE'), 'ARP'),
-    'AMAPIANO':     ('KICK* CLAP* SHAKER* HAT* RIM PERC LOGDRUM* BASS PIANO* PAD VOX', dict(CLAP='SNARE', LOGDRUM='BASS', PIANO='CHORD'), 'ARP'),
+    # 0.29: the djembe as the low CONGA and the PERC, the BALAFON its own part (its ostinatos are the genre's ARP)
+    'BALANI':       ('KICK* CLAP* HAT* SHAKER PERC* CONGA TOM BASS* BALAFON* VOX', dict(CLAP='SNARE', BALAFON='ARP'), 'CHORD'),
     'FOOTWORK':     ('KICK* SNARE* CLAP HAT* PERC* TOM SUB* CHORD* VOX*', dict(SUB='BASS', VOX='ARP'), ''),
     'TRANCE':       ('KICK* CLAP* HAT* OHAT* RIDE CRASH PERC BASS* PAD* ARP* LEAD*', dict(CLAP='SNARE', PAD='CHORD'), ''),
     'UKDRILL':      ('KICK* SNARE* HAT* PERC RIM SUB* PAD* LEAD VOX', dict(SUB='BASS', PAD='CHORD', LEAD='ARP'), ''),
@@ -109,10 +107,8 @@ OWN = {
     ('DUBTECHNO', 'PAD'): [("x---------------x---------------", "n...............n..............."), ("x-------........", "n...............")],
     ('UKFUNKY', 'CONGA'): ["x..x..x...x.x..x", "..x.x..x..x...x.", "x.xx..x.x.xx..x."],
     ('UKFUNKY', 'TOM'): ["..........x..x..", "......x.......xx"],
-    ('GRIME', 'SUB'): [("x---------x-----", "0.........0....."), ("x-------x-x-----", "0.......0.1.....")],
     ('DUBSTEP', 'SUB'): [("x-------x-------", "0.......0......."), ("x---------------", "0..............."), ("x-------x---x---", "0.......0...3...")],
     ('JUNGLE', 'SUB'): [("x-------..x-----", "0.........0....."), ("x-----x---------", "0.....5.........")],
-    ('BASSLINE', 'SUB'): [("x---x---x---x---", "0...0...0...0...")],
     ('REGGAETON', 'RIM'): ["...x..x....x..x.", "...x..x.x..x..x."],
     ('REGGAETON', 'CONGA'): ["x..x..x.x..x..x.", "..x..x.x..x..x.x"],
     ('BATIDA', 'CONGA'): ["x..x..x...x..x..", "x.xx..x.x.xx..x.", "..x..x....x..x.."],
@@ -123,17 +119,6 @@ OWN = {
     ('ELECTRO', 'CLAP'): ["....x.......x...", "....x..x....x..."],
     ('DNB', 'SUB'): [("x---------x-----", "0.........0....."), ("x-------..x---x-", "0.........7...5.")],
     ('DNB', 'RIDE'): ["..x...x...x...x.", "x.x.x.x.x.x.x.x."],
-    ('AFROHOUSE', 'SHAKER'): ["xoxoxoxoxoxoxoxo", "xo.oxoxoxo.oxoxo", "..o...o...o...o."],
-    ('AFROHOUSE', 'CONGA'): ["x..x..x.o.x.x..o", "..o.x..x..o.x.x.", "x.ox..x.x.ox..x.", "x..x..x...x.x..xx..x..x.o.x.x.oo"],
-    ('AFROHOUSE', 'RIM'): ["...x..x.......x.", "...x..x....x...x"],
-    ('AFROHOUSE', 'TOM'): ["............x.x.", "......x.......x.", "..........x..x.."],
-    ('AFROHOUSE', 'VOX'): [("......x.........", "......0........."), ("...x......x.....", "...7......5.....")],
-    ('AMAPIANO', 'SHAKER'): ["xoxoxoxoxoxoxoxo", "xoxo.oxoxoxo.oxo", "xoxoxoxoxoxoxoxoxoxo.oxoxoxoxo.o"],
-    ('AMAPIANO', 'RIM'): ["...x......x.....", "...x..x...x...x.", "......x..x....x."],
-    ('AMAPIANO', 'LOGDRUM'): [("x.....x...x.....x.....x..x......", "0.....0...7.....0.....5..3......"),
-                              ("x..x......x..x..", "0..0......7..5.."), ("x-....x...x-.x..", "0.....0...7..5..")],
-    ('AMAPIANO', 'BASS'): [("x-------x-------", "0.......0......."), ("x-----..x-----..", "0.......5.......")],
-    ('AMAPIANO', 'PAD'): [("x---------------x---------------", "n...............N...............")],
     ('FOOTWORK', 'TOM'): ["..x..x..x..x..x.", "x..x..x..x..x..x"],
     ('FOOTWORK', 'CLAP'): ["....x.......x...", "...x..x....x..x."],
     ('TRANCE', 'OHAT'): ["..x...x...x...x.", "..X...X...X...X.", "..x...x...x...xx"],
@@ -148,6 +133,68 @@ OWN = {
     ('BAILEFUNK', 'TOM'): ["x..x..x...x..x..", "x..x..x.x..x..x.", "......x..x....x."],
     ('MERENGUE', 'CONGA'): ["x.ox..x.x.ox..x.", "..x..xx...x..xx.", "x..x.xx.x..x.xx."],
     ('MERENGUE', 'VOX'): [("x...x.......x...", "0...4.......7..."), ("....x...x...x...", "....7...4...0...")],
+    # 0.29 balani: a shaker of 16ths, the djembe's 3-3-2 figures on the low conga, the toms' rolls, the MC's shouts, and
+    # the balafon's ostinatos - the high note struck again between the others, the hands in turn - first
+    ('BALANI', 'SHAKER'): ["xxxxxxxxxxxxxxxx", "xoxoxoxoxoxoxoxo", "x.xxx.xxx.xxx.xx"],
+    ('BALANI', 'CONGA'): ["x..x..x...x..x..", "..x..x.x..x..x.x", "x.xx..x.x.xx..x."],
+    ('BALANI', 'TOM'): ["......x.......x.", "x..x..x...x...x.", "............xxxx"],
+    ('BALANI', 'VOX'): [("x...............", "0..............."), ("....x.......x...", "....7.......c...")],
+    ('BALANI', 'BALAFON'): [("xxxxxxxxxxxxxxxx", "c7c9c7c4c7c9c742"), ("x.xxx.xxx.xxx.xx", "0.479.c97.424.79"),
+                         ("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "479c479c9742974247979c9c7c947420")],
+}
+
+# 0.29: parts that take none of the common seeds (their own are many and of another kind: the balafon is not a lead)
+PURE = {('BALANI', 'BALAFON')}
+
+# 0.29: four genres left the library (the user's choice): AMAPIANO went into REGGAETON, BASSLINE into UK GARAGE (speed
+# garage with the bass in front), GRIME into DUBSTEP, AFRO HOUSE into GQOM and BATIDA. Their best patterns - the ones
+# written by hand, the core of each - are seeds of the genre they joined, after its own (its first variation is still its
+# most typical; COOK walks from there into them)
+MOVED = {
+    # AMAPIANO -> REGGAETON: the log drum (its own phrases, then its 0.10 bass lines), the 16th shakers, the rims, the
+    # piano's chords of sevenths, the kick with the shuffle, the claps off the beat, the hats in threes, the arpeggios
+    ('REGGAETON', 'LOGDRUM'): [("x.....x...x.....x.....x..x......", "0.....0...7.....0.....5..3......"),
+                               ("x..x......x..x..", "0..0......7..5.."), ("x-....x...x-.x..", "0.....0...7..5.."),
+                               ("...x..x...x.x...", "...0..7...5.3..."), ("x..x....x.x...x.", "0..c....7.5...3."),
+                               ("..x..x.x..x..x..", "..0..0.7..3..5..")],
+    ('REGGAETON', 'SHAKER'): ["xoxoxoxoxoxoxoxo", "xoxo.oxoxoxo.oxo", "xoxoxoxoxoxoxoxoxoxo.oxoxoxoxo.o"],
+    ('REGGAETON', 'RIM'): ["...x......x.....", "......x..x....x."],
+    ('REGGAETON', 'CHORD'): [("x.....x...x.....", "n.....n...n....."), ("..x...x...x...x.", "..N...N...n...n.")],
+    ('REGGAETON', 'KICK'): ["X..x....X..x....X.......X..x..x."],
+    ('REGGAETON', 'SNARE'): ["......x.......x.", "...x...x...x..x."],
+    ('REGGAETON', 'HAT'): ["oxxooxxooxxooxxo"],
+    ('REGGAETON', 'PERC'): ["..x..x....x..x..", "...x...x...x..xx...x...x..x.x.xx"],
+    ('REGGAETON', 'LEAD'): [("x..x..x..x..x...", "0..3..7..a..c..."), ("..x.x...x.x...x.", "..7.3...0.3...5.")],
+    # BASSLINE -> UK GARAGE: the four-to-the-floor kicks of speed garage, the bass riffs that jump the octave, the
+    # organ's stabs, the sub on the beats, the hats and the perc of a 4x4, the octave arpeggio
+    ('UKGARAGE', 'KICK'): ["X...X...X...X...", "X...X...X...X..x", "X......xX...X...", "X...X..x..X.X...X...X...X..xX.x."],
+    ('UKGARAGE', 'HAT'): ["..x.x.xx..x.x.xx", ".xx..xx..xx..xx..xx..xx..xx.xxxx"],
+    ('UKGARAGE', 'PERC'): ["x.g.x.g.x.g.x.g."],
+    ('UKGARAGE', 'BASS'): [("x.x.x.x.x.x.x.x.", "0.c.0.c.0.c.0.c."), ("x..x..x...x..x..", "0..c..0...7..5.."),
+                           ("xx..x.x.xx..x.x.", "0c..0.7.0c..3.5.")],
+    ('UKGARAGE', 'SUB'): [("x---x---x---x---", "0...0...0...0...")],
+    ('UKGARAGE', 'STAB'): [("..x...x...x...x.", "..m...m...m...m."), ("x..x..x...x.....", "m..m..m...m.....")],
+    ('UKGARAGE', 'ARP'): [("xxxxxxxxxxxxxxxx", "0c0c3c3c5c5c7c7c")],
+    # GRIME -> DUBSTEP: the eskibeat leads of square waves, the string stabs, the broken kicks, the snare on 2 and 4 of
+    # its double time, the hats that skip, the bass hits on the flat second, its subs
+    ('DUBSTEP', 'KICK'): ["X.....x...X.....", "X..x......x..x.."],
+    ('DUBSTEP', 'SNARE'): ["....X.......X...", "........X..x...."],
+    ('DUBSTEP', 'HAT'): ["x.x.xxx.x.x.xxx."],
+    ('DUBSTEP', 'PERC'): [".......x.......x.......x.....x.x"],
+    ('DUBSTEP', 'BASS'): [("x.....x...x.....", "0.....0...1....."), ("X.......X..x....", "0.......0..c...."),
+                          ("x..x..x.........", "0..3..5.........")],
+    ('DUBSTEP', 'SUB'): [("x---------x-----", "0.........0....."), ("x-------x-x-----", "0.......0.1.....")],
+    ('DUBSTEP', 'STAB'): [("x..x..x.........", "m..m..m........."), ("x.....x.....x...", "5.....5.....5...")],
+    ('DUBSTEP', 'LEAD'): [("x.x.x.x.x.x.x.x.", "0.3.0.7.0.3.0.a."), ("xxxxxxxxxxxxxxxx", "0c3c7c3c0c3c7c5c")],
+    # AFRO HOUSE -> GQOM and BATIDA: the congas in call and answer, the shakers, the toms, the rims, the percussions
+    ('GQOM', 'CONGA'): ["x..x..x.o.x.x..o", "..o.x..x..o.x.x.", "x..x..x...x.x..xx..x..x.o.x.x.oo"],
+    ('GQOM', 'SHAKER'): ["xoxoxoxoxoxoxoxo", "xo.oxoxoxo.oxoxo"],
+    ('GQOM', 'PERC'): ["..x.x..x..x.x..x", "x.x..x..x.x..x..x.x..x..x.x.xx.x"],
+    ('GQOM', 'TOM'): ["............x.x.", "..........x..x.."],
+    ('BATIDA', 'CONGA'): ["x.ox..x.x.ox..x.", "..o.x..x..o.x.x."],
+    ('BATIDA', 'SHAKER'): ["xo.oxoxoxo.oxoxo", "..o...o...o...o."],
+    ('BATIDA', 'RIM'): ["...x..x.......x.", "...x..x....x...x"],
+    ('BATIDA', 'HAT'): ["..xx..x...xx..x."],
 }
 
 KINDS = dict(m=0, M=1, n=2, N=3, s=5)                 # (7 and 5 stay as written)

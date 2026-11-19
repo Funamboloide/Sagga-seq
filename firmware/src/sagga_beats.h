@@ -11,30 +11,34 @@
  * character per step: a semitone above the root (hex digit, 0-f), or for CHORD the kind of chord (m minor, M major,
  * n minor 7th, N major 7th, 7 dominant, s sus4, 5 power chord). The data is tools/gen_beats.py's (sagga_beats_data.h;
  * the same script writes VIAGGIO's set genres, sagga_setgenre_data.h, one per genre in this order). */
-#define SQ_GENRES 25u                                           /* 0.16: 25 with the merengue */
-#define SQ_FUNCS  26u        /* KICK SNARE HAT PERC BASS CHORD ARP from the patterns, PROG the tonic chord, KIT the drums of
-                              * the band; 0.11: the parts of the bands (CLAP .. VOX) */
+#define SQ_GENRES 22u                                           /* 0.16: 25 with the merengue; 0.29: 22 (amapiano, bassline,
+                                                                 * grime, afro house went into others; balani came) */
+#define SQ_FUNCS  27u        /* KICK SNARE HAT PERC BASS CHORD ARP from the patterns, PROG the tonic chord, KIT the drums of
+                              * the band; 0.11: the parts of the bands (CLAP .. VOX); 0.29: the BALAFON */
+#define SQ_FUNCS28 26u       /* (0.28's: every part but the balafon) */
 #define SQ_BEAT_VARS 12u     /* 0.11: the variations of a part in flash, at most (a main part 12, the others 6); the Pi has more */
-#define SQ_PROGS 6u          /* progressions per genre */
+#define SQ_PROGS 8u          /* progressions per genre (0.29: 8; 0.8-0.28: 6 - sagga_seq_core.h SQ_LIB_PROGS) */
 #define SQ_BAND_MAX 11u      /* 0.11: the parts of a genre's band, at most */
 #define SQ_PARTS_MAX 14u     /* 0.11: the parts a genre has (its band and the parts kept to browse), at most */
 
-/* the genres, in the order of the library (and of the grid's BEAT view: two pages of 12) */
+/* the genres, in the order of the library (and of the grid's BEAT view: two pages of 12). 0.29: an image of 0.28 or
+ * before numbers them as 0.28 did (25: sq_genre_from28 in sagga_seq_core.c) */
 enum { SQ_GENRE_TECHNO = 0, SQ_GENRE_HARDTECHNO, SQ_GENRE_DUBTECHNO, SQ_GENRE_HOUSE, SQ_GENRE_UKG, SQ_GENRE_UKFUNKY,
-       SQ_GENRE_GRIME, SQ_GENRE_DUBSTEP, SQ_GENRE_JUNGLE, SQ_GENRE_BASSLINE, SQ_GENRE_REGGAETON, SQ_GENRE_BATIDA,
-       SQ_GENRE_GQOM, SQ_GENRE_EXPERIMENTAL, SQ_GENRE_ELECTRO, SQ_GENRE_DNB, SQ_GENRE_AFROHOUSE, SQ_GENRE_AMAPIANO,
-       SQ_GENRE_FOOTWORK, SQ_GENRE_TRANCE, SQ_GENRE_UKDRILL, SQ_GENRE_HARDCORE, SQ_GENRE_PHONK, SQ_GENRE_BAILEFUNK,
-       SQ_GENRE_MERENGUE };                                       /* 0.16 */
+       SQ_GENRE_DUBSTEP, SQ_GENRE_JUNGLE, SQ_GENRE_REGGAETON, SQ_GENRE_BATIDA, SQ_GENRE_GQOM, SQ_GENRE_EXPERIMENTAL,
+       SQ_GENRE_ELECTRO, SQ_GENRE_DNB, SQ_GENRE_BALANI, SQ_GENRE_FOOTWORK, SQ_GENRE_TRANCE, SQ_GENRE_UKDRILL,
+       SQ_GENRE_HARDCORE, SQ_GENRE_PHONK, SQ_GENRE_BAILEFUNK, SQ_GENRE_MERENGUE };   /* 0.16; 0.29: BALANI */
 enum { SQ_FUNC_KICK = 0, SQ_FUNC_SNARE, SQ_FUNC_HAT, SQ_FUNC_PERC, SQ_FUNC_BASS, SQ_FUNC_CHORD, SQ_FUNC_ARP, SQ_FUNC_PROG,
        SQ_FUNC_KIT,
-       /* 0.11: the parts of the bands, in the order of the roles SQ_ROLE_CLAP .. SQ_ROLE_VOX */
+       /* 0.11: the parts of the bands, in the order of the roles SQ_ROLE_CLAP .. SQ_ROLE_BALAFON */
        SQ_FUNC_CLAP, SQ_FUNC_OHAT, SQ_FUNC_RIDE, SQ_FUNC_SHAKER, SQ_FUNC_CONGA, SQ_FUNC_TOM, SQ_FUNC_RIM, SQ_FUNC_CRASH,
        SQ_FUNC_COWBELL, SQ_FUNC_RUMBLE, SQ_FUNC_SUB, SQ_FUNC_LOGDRUM, SQ_FUNC_STAB, SQ_FUNC_PAD, SQ_FUNC_PIANO, SQ_FUNC_LEAD,
-       SQ_FUNC_VOX };
+       SQ_FUNC_VOX,
+       SQ_FUNC_BALAFON };        /* 0.29: the balafon of BALANI - struck notes, a tune (0.28: none; its images: a LEAD) */
 enum { SQ_KIND_DRUM = 0, SQ_KIND_MONO, SQ_KIND_CHORD };   /* 0.11: what a part's notes are */
 uint8_t sq_func_kind(uint8_t func);        /* a drum (one note), a line (a note above the root), chords */
 uint8_t sq_func_family(uint8_t func);      /* the 0.10 function it belongs to: SQ_FUNC_KICK .. SQ_FUNC_ARP */
 uint8_t sq_func_role(uint8_t func);        /* the track's role for it (SQ_ROLE_*); PROG: CHORD, KIT: KICK */
+uint8_t sq_func_tune(uint8_t func);        /* 0.29: a tune - LEAD, VOX, BALAFON (it follows the chords as a MELODY) */
 uint8_t sq_role_func(uint8_t role);        /* the part of a role (255: NONE) */
 /* 0.11: the parts a genre has: its BAND first (sq_genre_band of them, in the band's order), then the 0.10 parts it
  * keeps to browse; PROG and KIT are not in the list. Returns how many (at most SQ_PARTS_MAX). */

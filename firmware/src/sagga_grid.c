@@ -682,6 +682,7 @@ static void gr_pad_track3(uint8_t x, uint8_t y)
     case 1:
         if (x < 5u) mfx_pad(t, (uint8_t)(gr_shift() && x ? SQ_MFXS_019 + x - 1u : x));   /* 0.16: a tap READY (orange), again: it starts; 0.19: on one that plays: it stops; 0.20: SHIFT + 2-6 the new five */
         else if (x == 5u && gr_shift()) mfx_pad(t, SQ_MFX_GLITCH);
+        else if ((x == 6u || x == 7u) && gr_shift()) mfx_pad(t, (uint8_t)(x == 6u ? SQ_MFX_ROLL : SQ_MFX_ACCENT));   /* 0.29: SHIFT + 7, 8 */
         else if (x >= 5u) {
             sq_track_cfg_t *v = mfx_view(t);
             if (v->mfx >= SQ_MFXS_019) {                /* 0.20: the new ones over their whole range */
@@ -955,7 +956,7 @@ static void gr_pad_proj(uint8_t x, uint8_t y)
     uint32_t i;
     switch (y) {
     case 0: if (x < 12u) { project.key_root = x; key_toast(); } break;
-    case 1: project.key_scale = x; key_toast(); break;
+    case 1: { uint32_t sc = x + (gr_shift() ? 16u : 0u); if (sc < SQ_SCALES) { project.key_scale = (uint8_t)sc; key_toast(); } break; }   /* (0.29: SHIFT, 17-21) */
     case 2: if (x < 15u) { project.key_shift = GR_SHIFT[x]; key_toast(); } break;
     case 3:                                             /* the mode of track x: FREE, IN KEY, DRUM */
         if (x >= SQ_TRACKS) break;                      /* (0.28: twelve tracks) */
@@ -1420,14 +1421,14 @@ static void gr_render_viaggio(void)
         gr_put(x, 5, role);
     }
     {                                                      /* row 7: the progressions, the chord playing */
-        int q = sq_queue_find(&vg_q, SQ_MV_PROG, 0u);
-        uint8_t hi = harm_index(), pn;                     /* (0.10: pads 1-6 the genre's progressions, 7-10 the player's) */
-        if (project.gen.harm_prog >= SQ_PROGS) pn = project.uprog[(project.gen.harm_prog - SQ_PROGS) % SQ_UPROGS].n;
-        else pn = sq_prog_get(vg_lib_genre(), project.gen.harm_prog)->n;
+        int q = sq_queue_find(&vg_q, SQ_MV_PROG, 0u);      /* (0.29: pads 1-8 the genre's progressions, 9-12 the player's,
+                                                            * 13 DICE/PI; 14-16 the chord playing, in turn - white: the
+                                                            * progression's first. 0.10-0.28: 1-6, 7-10, 11, 12-16) */
+        uint8_t hi = harm_index(), on = (uint8_t)(project.gen.harm_on && playing);
         for (x = 0; x < 16u; x++) {
             uint8_t role = GL_OFF;
             if (x < SQ_PROGS_ALL) role = (q >= 0 && vg_q.m[q].a == x) ? GL_PEND : x == project.gen.harm_prog ? (project.gen.harm_on ? GL_ACCENT : GL_CURSOR) : x >= SQ_PROGS ? (project.uprog[x - SQ_PROGS].n ? GL_VIOLET : GL_FAINT) : GL_DIM;
-            else if (x >= 10u && x - 10u < pn) role = (project.gen.harm_on && playing && x - 10u == hi) ? GL_CYAN : GL_FAINT;
+            else if (on && x - SQ_PROGS_ALL == hi % (16u - SQ_PROGS_ALL)) role = hi ? GL_CYAN : GL_WHITE;
             gr_put(x, 6, role);
         }
     }
@@ -1665,7 +1666,8 @@ static void gr_render_track3(void)
         amt = 5 + gr_spread_pad(lo2, hi2, mv->mfx_amt, 11u) - 10;
     }
     for (x = 0; x < 16u; x++) {
-        uint8_t fxp = (uint8_t)(x < 5u ? (sh && x ? SQ_MFXS_019 + x - 1u : x) : (sh && x == 5u ? SQ_MFX_GLITCH : 255u));   /* 0.20: SHIFT: the new five */
+        uint8_t fxp = (uint8_t)(x < 5u ? (sh && x ? SQ_MFXS_019 + x - 1u : x) : (sh && x == 5u ? SQ_MFX_GLITCH : sh && x == 6u ? SQ_MFX_ROLL :
+                                sh && x == 7u ? SQ_MFX_ACCENT : 255u));   /* 0.20: SHIFT: the new five; 0.29: and ROLL, ACCENT */
         gr_put(x, 0, x < SQ_VOICES ? (c->voicing == x ? GL_WHITE : GL_VIOLET) : (int32_t)x - 10 == strum ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
         gr_put(x, 1, fxp < SQ_MFXS ? (mfx_on(t, fxp) ? GL_WHITE : mfx_shown(t) == fxp ? GL_ORANGE : GL_VIOLET)   /* 0.16: orange READY; 0.19: white, every one that plays */
                      : !mv->mfx ? GL_OFF : (int32_t)x - 10 == amt ? GL_WHITE : x == 10u ? GL_DIM : GL_FAINT);
@@ -1803,7 +1805,7 @@ static void gr_render_proj(void)
     for (x = 0; x < SQ_MKS; x++) gr_put(x, 4, project.live.master_fn == x ? GL_WHITE : GL_VIOLET);   /* the MASTER knob */
     gr_put(4, 4, project.live.remote_mode == SQ_RM_OFF ? GL_FAINT : project.live.remote_mode == SQ_RM_14 ? GL_ON : GL_ACCENT);   /* the remote: 14, 13 + 14 */
     for (x = 0; x < 16u; x++) {
-        gr_put(x, 1, project.key_scale == x ? GL_WHITE : GL_VIOLET);
+        { uint32_t sc = x + (gr_shift() ? 16u : 0u); gr_put(x, 1, sc >= SQ_SCALES ? GL_OFF : project.key_scale == sc ? GL_WHITE : GL_VIOLET); }
         if (x < SQ_TRACKS) gr_put(x, 3, track_drum(x) ? GL_ORANGE : track_in_key(x) ? GL_CYAN : GL_FAINT);
         gr_put(x, 7, bar == x ? GL_PLAY : GL_FAINT);
     }

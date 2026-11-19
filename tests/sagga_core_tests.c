@@ -22,9 +22,9 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 12u * 104u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 36u && sizeof(sq27_snap_head_t) == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole). 0.28: twelve tracks */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 12u * 104u + 16u * 127u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 24u + 1292u + 772u + 24u + 2u + 2u + 1536u * 6u + 12u * 8u * 64u * 22u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 12u * 104u + 16u * 127u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 24u + 1388u + 772u + 24u + 2u + 2u + 1536u * 6u + 12u * 8u * 64u * 22u + 2u;
         CHECK(sizeof(sq_viaggio_t) == 24u && sizeof(sq27_viaggio_t) == 28u && sizeof(sq_phrase_t) == 22u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
-        CHECK(sizeof(sq_ext_t) == 1292u && sizeof(sq27_ext_t) == 1524u && sizeof(sq_theory_t) == 772u);
+        CHECK(sizeof(sq_ext_t) == 1388u && sizeof(sq27_ext_t) == 1524u && sizeof(sq_theory_t) == 772u);   /* (0.29: two MIDI effects more) */
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
     }
@@ -797,8 +797,12 @@ static void test_scales(void)
     static sq_project_t p;
     uint32_t sc, root, n, k;
     char buf[8];
-    CHECK(SQ_SCALES == 16u);
+    CHECK(SQ_SCALES == 21u && SQ_SCALES28 == 16u);       /* (0.29: five more) */
     CHECK(sq_scale_mask(SQ_SC_CHROMATIC) == 0xFFFu && sq_scale_mask(SQ_SC_MAJOR) == 0xAB5u && sq_scale_mask(SQ_SC_PENT_MINOR) == 0x4A9u);
+    CHECK(sq_scale_mask(SQ_SC_HUNG_MINOR) == 0x9CDu && sq_scale_mask(SQ_SC_DBL_HARM) == 0x9B3u && sq_scale_mask(SQ_SC_LYD_DOM) == 0x6D5u &&
+          sq_scale_mask(SQ_SC_MAJ_BLUES) == 0x29Du && sq_scale_mask(SQ_SC_IN_SEN) == 0x4A3u);
+    CHECK(sq_harm_scale(SQ_SC_HUNG_MINOR) == SQ_SC_HUNG_MINOR && sq_harm_scale(SQ_SC_MAJ_BLUES) == SQ_SC_MAJOR && sq_harm_scale(SQ_SC_IN_SEN) == SQ_SC_PHRYGIAN &&
+          !strcmp(sq_scale_name(SQ_SC_DBL_HARM), "DBL.HAR") && !strcmp(sq_scale_long_name(SQ_SC_LYD_DOM), "LYDIAN DOMINANT"));
     CHECK(sq_scale_mask(200u) == 0xFFFu);
     for (sc = 0; sc < SQ_SCALES; sc++) {
         uint16_t m = sq_scale_mask((uint8_t)sc);
@@ -1109,14 +1113,14 @@ static void test_beats(void)
 {
     static sq_step_t row[SQ_STEPS];
     uint32_t g, f, v, i;
-    CHECK(SQ_GENRES == 25u && SQ_FUNCS == 26u && SQ_GENRE_HARDCORE == 21 && SQ_GENRE_BAILEFUNK == 23 && SQ_GENRE_MERENGUE == 24 && SQ_BEAT_VARS == 12u);
+    CHECK(SQ_GENRES == 22u && SQ_FUNCS == 27u && SQ_FUNC_BALAFON == 26 && SQ_GENRE_BALANI == 14 && SQ_GENRE_HARDCORE == 18 && SQ_GENRE_BAILEFUNK == 20 && SQ_GENRE_MERENGUE == 21 && SQ_BEAT_VARS == 12u);
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_TECHNO), "TECHNO") && !strcmp(sq_genre_name(SQ_GENRE_GQOM), "GQOM"));
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKG), "UK GARAGE") && !strcmp(sq_genre_name(SQ_GENRE_REGGAETON), "REGGAETON"));
     {   /* 0.10: the 24 genres by name (breakbeat, trap, minimal and lo-fi left; UK drill, hardcore, phonk, baile funk came);
-         * 0.16: the merengue, the 25th */
+         * 0.16: the merengue, the 25th; 0.29: 22 - grime, bassline, afro house, amapiano went into others, balani came */
         static const char *const NAMES[SQ_GENRES] = {"TECHNO", "HARDTECHNO", "DUB TECHNO", "HOUSE", "UK GARAGE", "UK FUNKY",
-            "GRIME", "DUBSTEP", "JUNGLE", "BASSLINE", "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS",
-            "AFRO HOUSE", "AMAPIANO", "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK", "MERENGUE"};
+            "DUBSTEP", "JUNGLE", "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS",
+            "BALANI", "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK", "MERENGUE"};
         for (g = 0; g < SQ_GENRES; g++) CHECK(!strcmp(sq_genre_name((uint8_t)g), NAMES[g]) && strlen(NAMES[g]) <= 10u);
         CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKDRILL), "UK DRILL") && !strcmp(sq_genre_name(SQ_GENRE_DNB), "DRUM+BASS"));
     }
@@ -1144,10 +1148,12 @@ static void test_beats(void)
         CHECK(sw == 54u && gv == SQ_GROOVE_OFF);                                  /* the kick: the anchor */
         sq_genre_groove(SQ_GENRE_HOUSE, SQ_FUNC_SHAKER, &sw, &gv, &ga);
         CHECK(sw == 54u && gv == SQ_GROOVE_HOUSE && ga == 100u);
-        sq_genre_groove(SQ_GENRE_AMAPIANO, SQ_FUNC_RIM, &sw, &gv, &ga);
-        CHECK(sw == 58u && gv == SQ_GROOVE_AFRO && ga == 80u);                    /* a rim carries the groove (the percussion's) */
-        sq_genre_groove(SQ_GENRE_AMAPIANO, SQ_FUNC_LOGDRUM, &sw, &gv, &ga);
-        CHECK(sw == 58u && gv == SQ_GROOVE_OFF);
+        sq_genre_groove(SQ_GENRE_REGGAETON, SQ_FUNC_RIM, &sw, &gv, &ga);
+        CHECK(sw == 50u && gv == SQ_GROOVE_AFRO && ga == 60u);                    /* a rim carries the groove (the percussion's) */
+        sq_genre_groove(SQ_GENRE_REGGAETON, SQ_FUNC_LOGDRUM, &sw, &gv, &ga);
+        CHECK(sw == 50u && gv == SQ_GROOVE_OFF);                                  /* 0.29: the log drum, now the reggaeton's */
+        sq_genre_groove(SQ_GENRE_BALANI, SQ_FUNC_CONGA, &sw, &gv, &ga);
+        CHECK(sw == 52u && gv == SQ_GROOVE_AFRO && ga == 60u);                    /* 0.29: the djembe played */
         sq_genre_groove(SQ_GENRE_BAILEFUNK, SQ_FUNC_PERC, &sw, &gv, &ga);
         CHECK(sw == 50u && gv == SQ_GROOVE_SAMBA && ga == 100u);
         sq_genre_groove(SQ_GENRE_UKDRILL, SQ_FUNC_HAT, &sw, &gv, &ga);
@@ -1282,8 +1288,26 @@ static void test_beats(void)
     CHECK(!strcmp(sq_beat_text(SQ_GENRE_TECHNO, SQ_FUNC_KICK, 0u, 0), "X...X...X...X...") && !strcmp(sq_beat_text(SQ_GENRE_TECHNO, SQ_FUNC_CLAP, 0u, 0), "....X.......X..."));
     CHECK(!strcmp(sq_beat_text(SQ_GENRE_HOUSE, SQ_FUNC_PIANO, 0u, 0), "..x...x...x...x.") && sq_genre_has(SQ_GENRE_HOUSE, SQ_FUNC_ARP) && !sq_genre_has(SQ_GENRE_HOUSE, SQ_FUNC_SNARE));
     CHECK(sq_genre_part_for(SQ_GENRE_HOUSE, SQ_FUNC_SNARE) == SQ_FUNC_CLAP && sq_genre_part_for(SQ_GENRE_TECHNO, SQ_FUNC_CHORD) == SQ_FUNC_STAB);
-    CHECK(sq_genre_part_for(SQ_GENRE_AMAPIANO, SQ_FUNC_LOGDRUM) == SQ_FUNC_LOGDRUM && sq_genre_part_for(SQ_GENRE_TECHNO, SQ_FUNC_LOGDRUM) == SQ_FUNC_BASS);
-    CHECK(sq_genre_band(SQ_GENRE_TECHNO) == 10u && sq_genre_band(SQ_GENRE_AFROHOUSE) == 11u && sq_genre_band(SQ_GENRE_TRANCE) == 11u && sq_genre_band(SQ_GENRE_GQOM) == 8u);
+    CHECK(sq_genre_part_for(SQ_GENRE_REGGAETON, SQ_FUNC_LOGDRUM) == SQ_FUNC_LOGDRUM && sq_genre_part_for(SQ_GENRE_TECHNO, SQ_FUNC_LOGDRUM) == SQ_FUNC_BASS);
+    CHECK(sq_genre_band(SQ_GENRE_TECHNO) == 10u && sq_genre_band(SQ_GENRE_REGGAETON) == 11u && sq_genre_band(SQ_GENRE_TRANCE) == 11u && sq_genre_band(SQ_GENRE_GQOM) == 10u);
+    {   /* 0.29: where the four genres went - each target keeps its most typical first and has the best of the one it took in */
+        const char *nt = 0;
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_REGGAETON, SQ_FUNC_LOGDRUM, 0u, &nt), "x.....x...x.....x.....x..x......") && sq_beat_variants(SQ_GENRE_REGGAETON, SQ_FUNC_LOGDRUM) == 12u);
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_REGGAETON, SQ_FUNC_KICK, 0u, 0), "X...X...X...X...") && var_of(SQ_GENRE_REGGAETON, SQ_FUNC_KICK, "X..x....X..x....X.......X..x..x.") < 12u);
+        CHECK(var_of(SQ_GENRE_UKG, SQ_FUNC_BASS, "x.x.x.x.x.x.x.x.") < 12u && sq_genre_has(SQ_GENRE_UKG, SQ_FUNC_SUB) && sq_genre_has(SQ_GENRE_UKG, SQ_FUNC_STAB));
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_UKG, SQ_FUNC_KICK, 0u, 0), "X.........X.....") && var_of(SQ_GENRE_UKG, SQ_FUNC_KICK, "X......xX...X...") < 12u);
+        CHECK(var_of(SQ_GENRE_DUBSTEP, SQ_FUNC_LEAD, "xxxxxxxxxxxxxxxx") < 12u && sq_genre_has(SQ_GENRE_DUBSTEP, SQ_FUNC_STAB));
+        CHECK(sq_genre_has(SQ_GENRE_GQOM, SQ_FUNC_CONGA) && sq_genre_has(SQ_GENRE_GQOM, SQ_FUNC_SHAKER) && sq_genre_has(SQ_GENRE_BATIDA, SQ_FUNC_RIM));
+        CHECK(!strcmp(sq_beat_text(SQ_GENRE_GQOM, SQ_FUNC_CONGA, 0u, 0), "x..x..x.o.x.x..o"));          /* the afro house's congas */
+        {   uint16_t lo, hi;
+            sq_genre_bpm(SQ_GENRE_REGGAETON, &lo, &hi); CHECK(lo == 90u && hi == 112u);
+            sq_genre_bpm(SQ_GENRE_UKG, &lo, &hi); CHECK(lo == 130u && hi == 140u);
+            sq_genre_bpm(SQ_GENRE_BALANI, &lo, &hi); CHECK(lo == 160u && hi == 180u);
+        }
+        CHECK(sq_beat_text(SQ_GENRE_BALANI, SQ_FUNC_BALAFON, 0u, &nt) && !strcmp(sq_beat_text(SQ_GENRE_BALANI, SQ_FUNC_BALAFON, 0u, &nt), "xxxxxxxxxxxxxxxx") &&
+              !strcmp(nt, "c7c9c7c4c7c9c742") && !sq_beat_text(SQ_GENRE_BALANI, SQ_FUNC_LEAD, 0u, &nt));   /* the balafon, its own part (0.29) */
+        CHECK(sq_genre_band(SQ_GENRE_BALANI) == 10u && sq_genre_scale(SQ_GENRE_BALANI, 1u) == SQ_SC_PENT_MAJOR && sq_brk_genre_chops(SQ_GENRE_BALANI) == 5u);
+    }
     {   uint8_t parts[SQ_PARTS_MAX], n = sq_genre_parts(SQ_GENRE_TECHNO, parts);
         static const uint8_t WANT[11] = {SQ_FUNC_KICK, SQ_FUNC_CLAP, SQ_FUNC_HAT, SQ_FUNC_OHAT, SQ_FUNC_RIDE, SQ_FUNC_PERC, SQ_FUNC_RUMBLE, SQ_FUNC_BASS, SQ_FUNC_STAB, SQ_FUNC_PAD, SQ_FUNC_ARP};
         CHECK(n == 11u && !memcmp(parts, WANT, 11u));                             /* the band of 10, the ARP kept */
@@ -1388,7 +1412,8 @@ static void test_beats(void)
             CHECK(s->ladder[0] <= 15u);                                            /* the kick comes first */
         }
         CHECK(SET_GENRE[SQ_GENRE_DUBSTEP].half_time && SET_GENRE[SQ_GENRE_UKDRILL].half_time && !SET_GENRE[SQ_GENRE_JUNGLE].half_time && !SET_GENRE[SQ_GENRE_DNB].half_time);
-        CHECK(SET_GENRE[SQ_GENRE_REGGAETON].afro && SET_GENRE[SQ_GENRE_GQOM].afro && SET_GENRE[SQ_GENRE_AMAPIANO].afro && !SET_GENRE[SQ_GENRE_TECHNO].afro);
+        CHECK(SET_GENRE[SQ_GENRE_REGGAETON].afro && SET_GENRE[SQ_GENRE_GQOM].afro && SET_GENRE[SQ_GENRE_BALANI].afro && !SET_GENRE[SQ_GENRE_TECHNO].afro);
+        CHECK(SET_GENRE[SQ_GENRE_HOUSE].genre2 == SQ_GENRE_UKG && SET_GENRE[SQ_GENRE_UKDRILL].genre2 == SQ_GENRE_DUBSTEP && SET_GENRE[SQ_GENRE_BALANI].genre2 == SQ_GENRE_BATIDA);
         CHECK(SET_GENRE[SQ_GENRE_JUNGLE].ladder[1] <= 10u && SET_GENRE[SQ_GENRE_DUBTECHNO].ladder[5] <= 30u);   /* the break's snare early; the dub chord early */
     }
 }
@@ -1888,7 +1913,7 @@ static void test_v09(void)
     proj_a.track[5].expo.shape = 9u; proj_a.track[5].expo.hits = 1u; proj_a.track[5].expo.curve = 50; proj_a.track[5].expo.span = 9u; proj_a.track[5].expo.gate = 0u; proj_a.track[5].expo.jitter = 99u; proj_a.track[5].expo.notes = 9u;
     proj_a.track[7].role = 40u; proj_a.track[7].chord = 40u; proj_a.track[7].chord_key = 9u; proj_a.track[7].octave = 9; proj_a.track[7].key_slot = 20u; proj_a.track[7].arp_rate = 9u; proj_a.track[7].lane_flags[0] = 0xFFu;
     proj_a.scene[2].key_slot = 30u; proj_a.song.e[2].bpm = 999u; proj_a.live.cc_lead_ms = 99u; proj_a.key[9].scale = 99u; proj_a.device[2] = 9u;
-    proj_a.uprog[2].n = 9u; proj_a.uprog[3].deg[0] = 9; proj_a.gen.harm_prog = 11u; proj_a.gen.when = 9u; proj_a.gen.every = 9u; proj_a.gen.genre_mode = 9u;
+    proj_a.uprog[2].n = 9u; proj_a.uprog[3].deg[0] = 9; proj_a.gen.harm_prog = 13u; proj_a.gen.when = 9u; proj_a.gen.every = 9u; proj_a.gen.genre_mode = 9u;   /* (0.29: 13 progressions) */
     n = sq_serialize(&proj_a, image, sizeof image);
     CHECK(sq_deserialize(&proj_b, image, n) == 0 && proj_b.track[1].delay_ms == SQ_DELAY_MAX && proj_b.track[2].delay_ms == -SQ_DELAY_MAX);
     CHECK(proj_b.track[5].expo.shape == SQ_XS_OFF && proj_b.track[5].expo.hits == 2u && proj_b.track[5].expo.curve == 8
@@ -3006,17 +3031,17 @@ static void test_v026_gaps(void)
         n = sq_harm_apply(b, 6u, 0u, SQ_SC_MAJOR, 0, SQ_HC_7, 1u);
         CHECK(n == 6u && b[0] == 48u && b[1] == 50u && b[2] == 52u && b[3] == 53u && b[4] == 59u && b[5] == 57u);
     }
-    /* a chord of the key that is none of the 32 shapes goes to the Pi as the nearest of its kind: the ii of a minor
+    /* a chord of the key that is none of the shapes goes to the Pi as the nearest of its kind: the ii of a minor
      * key with a ninth (a diminished chord, the flat ninth): half-diminished; with a sus4 (the fifth is flat): SUS4;
      * the III of a harmonic minor with its seventh (augmented, a major seventh): AUG; its V with a ninth (the flat
-     * one): a dominant ninth */
+     * one): 0.29 has it, 7B9 (until then the nearest, a dominant ninth) */
     {   uint8_t semi = 0u, shape = 0u;
         sq_hchord_t x = {1, SQ_HC_9, 255u, 0u};
         sq_hchord_explicit(SQ_SC_MINOR, &x, &semi, &shape); CHECK(semi == 2u && shape == SQ_HSHAPE_CH + SQ_CH_M7B5);
         x.col = SQ_HC_SUS4; sq_hchord_explicit(SQ_SC_MINOR, &x, &semi, &shape); CHECK(semi == 2u && shape == SQ_HSHAPE_CH + SQ_CH_SUS4);
         x.col = SQ_HC_SUS2; sq_hchord_explicit(SQ_SC_PHRYGIAN, &x, &semi, &shape); CHECK(shape > SQ_HSHAPE_CH);
         x.deg = 2; x.col = SQ_HC_7; sq_hchord_explicit(SQ_SC_HARM_MINOR, &x, &semi, &shape); CHECK(semi == 3u && shape == SQ_HSHAPE_CH + SQ_CH_AUG);
-        x.deg = 4; x.col = SQ_HC_9; sq_hchord_explicit(SQ_SC_HARM_MINOR, &x, &semi, &shape); CHECK(semi == 7u && shape == SQ_HSHAPE_CH + SQ_CH_9);
+        x.deg = 4; x.col = SQ_HC_9; sq_hchord_explicit(SQ_SC_HARM_MINOR, &x, &semi, &shape); CHECK(semi == 7u && shape == SQ_HSHAPE_CH + SQ_CH_7B9);
         CHECK(!strcmp(sq_degree_name(10u), "bVII") && !strcmp(sq_degree_name(12u), "I"));
     }
     /* a bar from outside divided in many beats: its split is written whole, however long */
@@ -3540,7 +3565,7 @@ static void test_v012_break(void)
         }
         CHECK(sq_brk_genre_chop((uint8_t)k, n) == sq_brk_genre_chop((uint8_t)k, 0u));   /* (past the end: the first) */
     }
-    CHECK(sq_brk_genre_chops(8u) == 7u && sq_brk_genre_chop(8u, 0u) == 0u && sq_brk_genre_chop(8u, 1u) == 11u && sq_brk_genre_chop(8u, 2u) == 12u);
+    CHECK(sq_brk_genre_chops(SQ_GENRE_JUNGLE) == 7u && sq_brk_genre_chop(SQ_GENRE_JUNGLE, 0u) == 0u && sq_brk_genre_chop(SQ_GENRE_JUNGLE, 1u) == 11u && sq_brk_genre_chop(SQ_GENRE_JUNGLE, 2u) == 12u);
     CHECK(sq_brk_genre_chops(99u) == sq_brk_genre_chops(0u));
     /* STRAIGHT over a bar from pen 36: notes 36..51, one a step, accents on the beats */
     sq_brk_apply(row, 0u, 16u, 0u, 36u, 16u);
@@ -4097,6 +4122,196 @@ static void test_v028_image(void)
     }
 }
 
+/* 0.29: 22 genres. The image keeps 0.28's numbers (a 0.28 opens it with its own genres), chunk 5 says AFRO HOUSE's number
+ * is BALANI; an image of 0.28 brings its four gone genres into the ones that took them in */
+#define X29_LEN (59u + 12u * 33u)                /* chunk 5's data (sagga_seq_core.c SQ_X29_LEN: 0.29, 455 - the eleven MIDI effects of each track) */
+#define X29_AT (1u + 3u + X29_LEN)               /* ... its id, so many bytes before the image's end */
+static void test_v029_genres(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    static sq_track_cfg_t cfg;
+    static sq_step_t row[SQ_STEPS];
+    uint32_t g, n, k;
+    for (g = 0; g <= SQ_TH_FREE; g++) {                /* every genre to 0.28's number and back; BALANI back only with chunk 5 */
+        CHECK(sq_genre_from28(sq_genre_to28((uint8_t)g), 1u) == g);
+        CHECK(sq_genre_from28(sq_genre_to28((uint8_t)g), 0u) == (g == SQ_GENRE_BALANI ? (uint32_t)SQ_GENRE_GQOM : g));
+    }
+    CHECK(sq_genre_from28(6u, 0u) == SQ_GENRE_DUBSTEP && sq_genre_from28(9u, 0u) == SQ_GENRE_UKG && sq_genre_from28(16u, 0u) == SQ_GENRE_GQOM &&
+          sq_genre_from28(17u, 0u) == SQ_GENRE_REGGAETON && sq_genre_from28(16u, 1u) == SQ_GENRE_BALANI);   /* grime, bassline, afro, amapiano */
+    CHECK(sq_genre_from28(10u, 0u) == SQ_GENRE_REGGAETON && sq_genre_from28(24u, 0u) == SQ_GENRE_MERENGUE && sq_genre_from28(25u, 0u) == SQ_TH_FREE &&
+          sq_genre_from28(255u, 0u) == 255u && sq_genre_to28(SQ_GENRE_BALANI) == 16u && sq_genre_to28(SQ_TH_FREE) == 25u && sq_genre_to28(255u) == 255u);
+    /* a project with BALANI in every place a genre is kept: the image has chunk 5 and its fields 0.28's numbers */
+    sq_project_init(&a);
+    a.gen.genre = SQ_GENRE_BALANI; a.gen.harm_genre = SQ_GENRE_REGGAETON; a.viaggio.set_genre = SQ_GENRE_BALANI;
+    a.track[3].src_genre = SQ_GENRE_BALANI; a.track[4].src_genre = SQ_GENRE_MERENGUE; a.track[5].src_genre = 255u;
+    a.th.pat[2][1].seed = 7u; a.th.pat[2][1].style = SQ_THP_PACK(SQ_GENRE_BALANI, 16u); a.th.pat[2][1].func = SQ_FUNC_KICK;
+    a.th.pat[6][0].seed = 9u; a.th.pat[6][0].style = SQ_THP_PACK(SQ_TH_FREE, 32u); a.th.pat[6][0].func = SQ_FUNC_HAT;
+    a.snap[1].used = 1u; for (k = 0; k < SQ_TRACKS; k++) a.snap[1].track[k] = a.track[k];
+    memcpy(a.snap[1].lfo, a.lfo, sizeof a.lfo);
+    a.snap[1].genre = SQ_GENRE_DUBSTEP; a.snap[1].harm_genre = SQ_GENRE_BALANI; a.snap[1].track[7].src_genre = SQ_GENRE_BALANI;
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    /* (chunk 5: its id, 59 bytes - 2, the project's progression, the eight snapshots', where the balafon is - and the end) */
+    CHECK(n > X29_AT && img[n - 1u] == 0u && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 1u] == (X29_LEN & 0xFFu) && img[n - X29_AT + 2u] == (X29_LEN >> 8) &&
+          img[n - X29_AT + 3u] == 2u && img[n - X29_AT + 4u] == a.gen.harm_prog && img[n - X29_AT + 6u] == a.snap[1].harm_prog);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));       /* back whole: BALANI where it was */
+    CHECK(sq_image_track_th(img, n, 2u, 1u, &cfg, row, &b.th.pat[0][0]) == 0 && SQ_THP_STYLE(&b.th.pat[0][0]) == SQ_GENRE_BALANI);
+    CHECK(sq_image_track(img, n, 3u, 0u, &cfg, row) == 0 && cfg.src_genre == SQ_GENRE_BALANI);       /* RELOAD: the track's genre */
+    /* the same image without chunk 5 (as a 0.28 saves it again): AFRO HOUSE's number is GQOM, everything else as it was */
+    img[n - X29_AT] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.gen.genre == SQ_GENRE_GQOM && b.gen.harm_genre == SQ_GENRE_REGGAETON &&
+          b.viaggio.set_genre == SQ_GENRE_GQOM && b.track[3].src_genre == SQ_GENRE_GQOM && b.track[4].src_genre == SQ_GENRE_MERENGUE &&
+          b.track[5].src_genre == 255u && SQ_THP_STYLE(&b.th.pat[2][1]) == SQ_GENRE_GQOM && SQ_THP_STYLE(&b.th.pat[6][0]) == SQ_TH_FREE &&
+          b.snap[1].genre == SQ_GENRE_DUBSTEP && b.snap[1].harm_genre == SQ_GENRE_GQOM && b.snap[1].track[7].src_genre == SQ_GENRE_GQOM);
+    /* no BALANI: no chunk 5, the image is what 0.28 writes (its numbers), and it reads back whole */
+    a.gen.genre = SQ_GENRE_TRANCE; a.viaggio.set_genre = SQ_GENRE_TRANCE; a.gen.harm_genre = SQ_GENRE_TRANCE;
+    a.track[3].src_genre = SQ_GENRE_UKG; a.th.pat[2][1].style = SQ_THP_PACK(SQ_GENRE_DUBSTEP, 16u);
+    a.snap[1].harm_genre = SQ_GENRE_JUNGLE; a.snap[1].track[7].src_genre = SQ_GENRE_PHONK; a.snap[1].track[3].src_genre = SQ_GENRE_HOUSE;
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > X29_AT && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+}
+
+/* 0.29: eight progressions a genre (0.28: six). harm_prog 0..7 the genre's, 8..11 the player's, 12 DICE/PI; the image
+ * keeps 0.28's numbers (0..5, 6..9, 10), the 7th and 8th as the 1st there, and chunk 5 says which they were */
+static void test_v029_progs(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    uint32_t p, n, k;
+    CHECK(SQ_PROGS == 8u && SQ_LIB_PROGS == 8u && SQ_PROG_PI == 12u && SQ_PROGS_ALL == 13u);
+    for (p = 0; p < SQ_PROGS_ALL; p++)                  /* every one to 0.28's number and back - but the two new ones */
+        CHECK(sq_prog_from28(sq_prog_to28((uint8_t)p)) == (p == 6u || p == 7u ? 0u : p));
+    CHECK(sq_prog_to28(6u) == 0u && sq_prog_to28(7u) == 0u && sq_prog_to28(8u) == 6u && sq_prog_to28(11u) == 9u && sq_prog_to28(12u) == 10u && sq_prog_to28(13u) == 0u);
+    CHECK(sq_prog_from28(5u) == 5u && sq_prog_from28(6u) == 8u && sq_prog_from28(9u) == 11u && sq_prog_from28(10u) == SQ_PROG_PI && sq_prog_from28(11u) == 0u);
+    for (k = 0; k < 22u; k++) CHECK(sq_prog_get((uint8_t)k, 7u)->n >= 1u && sq_prog_get((uint8_t)k, 6u)->n >= 1u);   /* every genre has its eight */
+    /* the 7th: chunk 5 there, it reads back whole (and the snapshots' too); without it (a 0.28 saved it again), the 1st */
+    sq_project_init(&a);
+    a.gen.harm_prog = 6u; a.gen.genre = SQ_GENRE_HOUSE;
+    a.snap[2].used = 1u; for (k = 0; k < SQ_TRACKS; k++) a.snap[2].track[k] = a.track[k];
+    memcpy(a.snap[2].lfo, a.lfo, sizeof a.lfo);
+    a.snap[2].harm_prog = 7u; a.snap[2].genre = SQ_GENRE_HOUSE; a.snap[2].harm_genre = SQ_GENRE_HOUSE;
+    a.snap[3].used = 1u; for (k = 0; k < SQ_TRACKS; k++) a.snap[3].track[k] = a.track[k];
+    memcpy(a.snap[3].lfo, a.lfo, sizeof a.lfo);
+    a.snap[3].harm_prog = SQ_PROG_PI; a.snap[3].genre = SQ_GENRE_HOUSE; a.snap[3].harm_genre = SQ_GENRE_HOUSE;
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > X29_AT && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 3u] == 2u && img[n - X29_AT + 4u] == 6u && img[n - X29_AT + 7u] == 7u && img[n - X29_AT + 8u] == SQ_PROG_PI);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    img[n - X29_AT] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.gen.harm_prog == 0u && b.snap[2].harm_prog == 0u && b.snap[3].harm_prog == SQ_PROG_PI && b.gen.genre == SQ_GENRE_HOUSE);
+    /* the player's and the Pi's: no chunk 5 - 0.28's own numbers in the image, back whole */
+    a.gen.harm_prog = SQ_LIB_PROGS + 3u; a.snap[2].harm_prog = SQ_LIB_PROGS; a.snap[3].harm_prog = 5u;
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > X29_AT && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+}
+
+/* 0.29: the BALAFON, a part and a role 0.28 has not. In the image it is 0.28's LEAD (a 0.28 plays a lead there), and
+ * chunk 5 marks where it is the balafon: the tracks' roles and parts, the patterns the engines made, the BEAT part, the
+ * snapshots' tracks. A LEAD stays a LEAD; RELOAD brings the balafon back too */
+static void test_v029_balafon(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    static sq_track_cfg_t cfg;
+    static sq_step_t row[SQ_STEPS];
+    static sq_thpat_t th;
+    uint32_t n, k;
+    CHECK(sq_role_func(SQ_ROLE_BALAFON) == SQ_FUNC_BALAFON && sq_func_role(SQ_FUNC_BALAFON) == SQ_ROLE_BALAFON && sq_func_family(SQ_FUNC_BALAFON) == SQ_FUNC_ARP &&
+          sq_func_kind(SQ_FUNC_BALAFON) == SQ_KIND_MONO && sq_func_tune(SQ_FUNC_BALAFON) && !strcmp(sq_role_name(SQ_ROLE_BALAFON), "BALAFON") &&
+          !strcmp(sq_func_name(SQ_FUNC_BALAFON), "BALAFON") && sq_genre_has(SQ_GENRE_BALANI, SQ_FUNC_BALAFON) && !sq_genre_has(SQ_GENRE_TECHNO, SQ_FUNC_BALAFON));
+    sq_project_init(&a);
+    a.gen.genre = SQ_GENRE_BALANI; a.gen.harm_genre = SQ_GENRE_BALANI; a.viaggio.set_genre = SQ_GENRE_BALANI;
+    a.gen.func = SQ_FUNC_BALAFON;
+    a.track[6].role = SQ_ROLE_BALAFON; a.track[6].src_func = SQ_FUNC_BALAFON; a.track[6].src_genre = SQ_GENRE_BALANI; a.track[6].src_var = 2u;
+    a.track[7].role = SQ_ROLE_LEAD; a.track[7].src_func = SQ_FUNC_LEAD; a.track[7].src_genre = SQ_GENRE_TECHNO; a.track[7].src_var = 1u;   /* a LEAD stays one */
+    a.th.pat[6][2].seed = 11u; a.th.pat[6][2].style = SQ_THP_PACK(SQ_GENRE_BALANI, 16u); a.th.pat[6][2].func = SQ_FUNC_BALAFON;
+    a.th.pat[7][0].seed = 12u; a.th.pat[7][0].style = SQ_THP_PACK(SQ_GENRE_BALANI, 16u); a.th.pat[7][0].func = SQ_FUNC_LEAD;
+    a.snap[4].used = 1u; for (k = 0; k < SQ_TRACKS; k++) a.snap[4].track[k] = a.track[k];
+    memcpy(a.snap[4].lfo, a.lfo, sizeof a.lfo);
+    a.snap[4].genre = SQ_GENRE_BALANI; a.snap[4].harm_genre = SQ_GENRE_BALANI;
+    a.snap[4].track[6].role = SQ_ROLE_LEAD; a.snap[4].track[6].src_func = SQ_FUNC_LEAD;         /* the snapshot: a LEAD there, */
+    a.snap[4].track[9].role = SQ_ROLE_BALAFON; a.snap[4].track[9].src_func = SQ_FUNC_BALAFON;   /* the balafon here */
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > X29_AT && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 3u] == 2u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));        /* back whole */
+    CHECK(sq_image_track(img, n, 6u, 0u, &cfg, row) == 0 && cfg.role == SQ_ROLE_BALAFON && cfg.src_func == SQ_FUNC_BALAFON);   /* RELOAD */
+    CHECK(sq_image_track(img, n, 7u, 0u, &cfg, row) == 0 && cfg.role == SQ_ROLE_LEAD && cfg.src_func == SQ_FUNC_LEAD);
+    CHECK(sq_image_track_th(img, n, 6u, 2u, &cfg, row, &th) == 0 && th.func == SQ_FUNC_BALAFON);
+    CHECK(sq_image_track_th(img, n, 7u, 0u, &cfg, row, &th) == 0 && th.func == SQ_FUNC_LEAD);
+    /* without chunk 5 (a 0.28 saved it again): the balafon is a LEAD everywhere, BALANI GQOM */
+    img[n - X29_AT] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.track[6].role == SQ_ROLE_LEAD && b.track[6].src_func == SQ_FUNC_LEAD &&
+          b.th.pat[6][2].func == SQ_FUNC_LEAD && b.gen.func == SQ_FUNC_LEAD && b.snap[4].track[9].role == SQ_ROLE_LEAD &&
+          b.snap[4].track[9].src_func == SQ_FUNC_LEAD && b.gen.genre == SQ_GENRE_GQOM && b.track[7].role == SQ_ROLE_LEAD);
+    /* 0.29 also keeps the BEAT part past the sixteenth (until 0.28 a LEAD chosen came back a KICK) */
+    sq_project_init(&a);
+    a.gen.func = SQ_FUNC_VOX;
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(sq_deserialize(&b, img, n) == 0 && b.gen.func == SQ_FUNC_VOX && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
+}
+
+/* 0.29: ROLL and ACCENT (the image's own block holds 0.28's nine effects: chunk 5 the eleven), three grooves, four chord
+ * shapes */
+static void test_v029_more(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    uint8_t out[SQ_POLY_OUT], n;
+    uint32_t k;
+    int8_t amt; uint8_t tm, fb;
+    CHECK(SQ_MFXS == 12u && SQ_MFX_ALLN == 11u && SQ_MFX_NEW == 7u && SQ_GROOVES == 13u && SQ_CH_COUNT == 36u && SQ_HSHAPES == 41u);
+    CHECK(!strcmp(sq_groove_name(SQ_GROOVE_MALI), "MALI") && !strcmp(sq_groove_name(SQ_GROOVE_BROKEN), "BROKEN") &&
+          sq_groove_time(SQ_GROOVE_MALI, 100u, 1u) == 30 && sq_groove_time(SQ_GROOVE_MALI, 50u, 3u) == -12 && sq_groove_vel(SQ_GROOVE_DEMBOW, 100u, 3u) == 14);
+    CHECK(!strcmp(sq_chord_shape_name(SQ_CH_7S9), "7#9") && !strcmp(sq_chord_shape_name(SQ_CH_QUARTAL), "QUARTAL"));
+    n = sq_chord_build(60u, SQ_CH_7S9, SQ_CK_FREE, 0u, SQ_SC_CHROMATIC, out);
+    CHECK(n == 5u && out[0] == 60u && out[1] == 64u && out[2] == 67u && out[3] == 70u && out[4] == 75u);
+    n = sq_chord_build(60u, SQ_CH_QUARTAL, SQ_CK_FREE, 0u, SQ_SC_CHROMATIC, out);
+    CHECK(n == 4u && out[1] == 65u && out[2] == 70u && out[3] == 75u);
+    sq_project_init(&a);
+    for (k = 0; k < SQ_MFX_ALLN; k++) CHECK(a.ext.mfxd[0].order[k] == SQ_MFX_ORDER_DEF[k]);
+    sq_mfx_get(&a.ext, 0u, SQ_MFX_ROLL, &amt, &tm, &fb); CHECK(amt == 3 && tm == SQ_ROLL_FLAT && fb == 100u);
+    sq_mfx_get(&a.ext, 0u, SQ_MFX_ACCENT, &amt, &tm, &fb); CHECK(amt == 30 && tm == 3u && fb == 0u);
+    /* a project of 0.29 effects: nothing new on - no chunk 5, the image what 0.28 writes, back whole */
+    sq_mfx_set_on(&a.ext, 2u, SQ_MFX_GATE, 1u); sq_mfx_put(&a.ext, 2u, SQ_MFX_GATE, -1, 2u, 10u);
+    n = (uint8_t)sq_serialize(&a, img, sizeof img);
+    k = sq_serialize(&a, img, sizeof img);
+    CHECK(k > X29_AT && img[k - X29_AT] != SQ_CHUNK_X29 && img[k - 5u] != SQ_CHUNK_X29);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, k) == 0 && !memcmp(&a, &b, sizeof a));
+    /* ROLL on track 3, ACCENT's values changed on track 5, the order moved on track 7: chunk 5, back whole */
+    sq_mfx_set_on(&a.ext, 3u, SQ_MFX_ROLL, 1u); sq_mfx_put(&a.ext, 3u, SQ_MFX_ROLL, 5, SQ_ROLL_UP, 80u);
+    sq_mfx_put(&a.ext, 5u, SQ_MFX_ACCENT, -40, 4u, 1u);
+    sq_mfx_order_move(&a.ext, 7u, SQ_MFX_ROLL, -9);
+    sq_project_sanitize(&a);
+    k = sq_serialize(&a, img, sizeof img);
+    CHECK(k > X29_AT && img[k - X29_AT] == SQ_CHUNK_X29 && img[k - X29_AT + 3u] == 2u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, k) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(sq_mfx_order_pos(&b.ext, 7u, SQ_MFX_ROLL) == 0 && sq_mfx_is_on(&b.ext, 3u, SQ_MFX_ROLL) && sq_mfx_is_on(&b.ext, 2u, SQ_MFX_GATE));
+    /* without it (a 0.28 saved it again): ROLL off, ACCENT's values the defaults, the nine as they were and the two new
+     * ones where the default order has them */
+    img[k - X29_AT] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, k - X29_AT + 1u) == 0 && !sq_mfx_is_on(&b.ext, 3u, SQ_MFX_ROLL) && sq_mfx_is_on(&b.ext, 2u, SQ_MFX_GATE));
+    sq_mfx_get(&b.ext, 5u, SQ_MFX_ACCENT, &amt, &tm, &fb); CHECK(amt == 30 && tm == 3u);
+    sq_mfx_get(&b.ext, 2u, SQ_MFX_GATE, &amt, &tm, &fb); CHECK(amt == -1 && tm == 2u && fb == 10u);
+    CHECK(sq_mfx_order_pos(&b.ext, 7u, SQ_MFX_ROLL) == sq_mfx_order_pos(&b.ext, 7u, SQ_MFX_ECHO) - 1 &&
+          sq_mfx_order_pos(&b.ext, 7u, SQ_MFX_ACCENT) == sq_mfx_order_pos(&b.ext, 7u, SQ_MFX_VELOCITY) + 1);
+    (void)n;
+}
+
 int main(void)
 {
     test_v012_break();
@@ -4140,6 +4355,10 @@ int main(void)
     test_v027_return();
     test_v027_mark();
     test_v028_image();
+    test_v029_genres();
+    test_v029_progs();
+    test_v029_balafon();
+    test_v029_more();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

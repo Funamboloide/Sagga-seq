@@ -30,7 +30,8 @@ changes them.
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
   0.13: RATE goes on to the triplets (1/4T, 1/8T, 1/16T, 1/32T), as the FM-1's LFO RATE does. 0.18: GENRE reaches
-  MERENGUE (25 genres); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1.
+  MERENGUE (25 genres; 0.29: 22, with BALANI); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1. 0.29:
+  PROGRESSION reaches PROG 8 (PROG 1-8 the genre's, USER 1-4, DICE / PI).
 * **SAGGA Live** (0.18, channel 12): the tablet's track, everything at hand while the FM-1 works on another - TRACK and
   MODE, MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW; ARP, OCTAVES, RATE (1/4, 1/2:
   a note every 4 / 2 steps), RUN; CHORD; MIDI FX (READY), FX AMOUNT, FX GO (0.19: the effect shown joins the track's chain, again: it leaves); ALGO (READY), A, B, C, ALGO GO; PULSES,
@@ -42,6 +43,8 @@ changes them.
   rhythm (`TAB T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW`); 0.23.2: on a CELL, A is the rule, twice the knob - the even rules: 85 is 170, 102 is 204,
   120 is 240 (0.23.1 spread the knob over 0-255: the even rules up to 126, the odd ones from 129, and the rules that
   slide or stay could not be had); 51 and 105 stay the panel's and the grid's; with EUCLID's family on NUMERIC, PULSES picks one of sixteen rhythms.
+  0.29: GROOVE has MALI, DEMBOW and BROKEN; CHORD the shapes 7#9, 7B9, MAJ7#11 and QUARTAL; MIDI FX ROLL and ACCENT
+  (they need an FM-1 0.29: an older one does not know them).
 
 To update from an older SAGGA: copy the folders again (the same commands as below) and restart the hub; the plugins
 keep their place in the matrix.

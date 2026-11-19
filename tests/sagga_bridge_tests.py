@@ -1605,10 +1605,12 @@ def t_patterns():
     check(not lib.fm1_sysex(H + [0x21, 0, 0, 0xF7]) and not lib.fm1_sysex(H + [0x40, 1, 0xF7]), "other frames are not the patterns'")
     check(lib.fm1_sysex(H + [0x60, 99, 0, 0xF7]) and out[-1][4] == 0x65, "a genre that does not exist: nothing answered")
     P = B._patterns_module()
-    check(P.GENRES[0] == "TECHNO" and P.GENRES[23] == "BAILEFUNK" and P.GENRES[24] == "MERENGUE" and len(P.GENRES) == 25 and P.PARTS.index("VOX") == 25 and P.PARTS.index("CLAP") == 9, "the names in the FM-1's order")
+    check(P.GENRES[0] == "TECHNO" and P.GENRES[14] == "BALANI" and P.GENRES[20] == "BAILEFUNK" and P.GENRES[21] == "MERENGUE" and len(P.GENRES) == 22 and P.PARTS.index("VOX") == 25 and P.PARTS.index("BALAFON") == 26 and P.PARTS.index("CLAP") == 9, "the names in the FM-1's order (0.29: the BALAFON)")
     gen = os.path.join(ROOT, "tools", "hub", "patterns")
-    check(sorted(os.listdir(gen)) == sorted("%s.txt" % g for g in P.GENRES) and P.Patterns(d, stock=gen).summary()["TECHNO"].get("KICK") == 12,
+    check(sorted(f for f in os.listdir(gen) if f.endswith(".txt")) == sorted("%s.txt" % g for g in P.GENRES) and P.Patterns(d, stock=gen).summary()["TECHNO"].get("KICK") == 12,
           "the stock library: a file a genre, 12 more kicks for TECHNO (%s)" % P.Patterns(d, stock=gen).summary()["TECHNO"].get("KICK"))
+    check(sorted(os.listdir(os.path.join(gen, "retired"))) == sorted("%s.txt" % g for g in P.RETIRED) and set(P.RETIRED.values()) <= set(P.GENRES),
+          "0.29: the four genres that left, as 0.28 had them (to tell yours from the stock's)")
 
 
 def t_progressions():
@@ -1667,7 +1669,8 @@ def t_progressions():
           and (B.SX_PROG_ASK, B.SX_PROG_SAVED) == (0x66, 0x6B), "the commands as the FM-1 has them")
     gen = os.path.join(ROOT, "tools", "hub", "progressions")
     summ = P.Progressions(d, stock=gen).summary()
-    check(sorted(os.listdir(gen)) == sorted("%s.txt" % g for g in P.GENRES) and sum(summ["TECHNO"].values()) >= 30 and summ["TRANCE"].get("EPIC", 0) >= 6,
+    check(sorted(f for f in os.listdir(gen) if f.endswith(".txt")) == sorted("%s.txt" % g for g in P.GENRES) and sum(summ["TECHNO"].values()) >= 30 and summ["TRANCE"].get("EPIC", 0) >= 6
+          and sorted(os.listdir(os.path.join(gen, "retired"))) == sorted("%s.txt" % g for g in P.RETIRED),
           "the stock: a file a genre, 30 or more for TECHNO, EPIC ones for TRANCE (%s)" % summ["TRANCE"])
 
 

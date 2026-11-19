@@ -37,7 +37,10 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "firmware", "src", "sagga_theory_data.h")
 DOC = os.path.join(ROOT, "docs", "TEORIA-GENERI.md")
-HAND = (0, 3, 7, 15)             # TECHNO HOUSE DUBSTEP DRUM+BASS: their rules are written by hand (sagga_theory.c)
+# 0.29: a genre has eight progressions; its chords are counted from the first six, the ones it had until 0.28, so that the
+# engines go on making the chords they made (a seed's band, DICE PROG): tests/sagga_theory_tests.c, the engines of 0.25
+PROGS25 = 6
+HAND = (0, 3, 6, 8, 13, 14)      # TECHNO HOUSE DUBSTEP REGGAETON DRUM+BASS BALANI: their rules are written by hand (sagga_theory.c; 0.29: 22 genres, two more by hand)
 ON = "Xxog234"
 ROLLS = "234"
 T_SAME = 3.0                     # variations this near (16ths a bar) are one family
@@ -50,7 +53,7 @@ METRIC = [1.0, 0.2, 0.4, 0.2, 0.7, 0.2, 0.4, 0.2, 0.9, 0.2, 0.4, 0.2, 0.7, 0.2, 
 F_KICK, F_SNARE, F_HAT, F_PERC, F_BASS, F_CHORD, F_ARP = range(7)
 FUNC = {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6, "CLAP": 9, "OPEN HAT": 10, "RIDE": 11,
         "SHAKER": 12, "CONGA": 13, "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20,
-        "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25}
+        "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25, "BALAFON": 26}
 FILL = {"KICK": "TH_F_PICK", "SNARE": "TH_F_ROLL", "CLAP": "TH_F_ROLL", "HAT": "TH_F_HAT", "PERC": "TH_F_BUSY",
         "CONGA": "TH_F_BUSY", "TOM": "TH_F_BUSY"}
 
@@ -269,7 +272,7 @@ def part_rules(g, G_all, func, part, kick_common, stats, doc):
                 if i + 1 < len(v.hits) and v.hits[i + 1] in ON:
                     adj += 1
     per_bar = on_n / sum(len(v.hits) / 16.0 for v in vs)
-    apart = (not drum) and adj == 0 and per_bar <= 4.0 and part["name"] not in ("ARP", "LEAD", "VOX")
+    apart = (not drum) and adj == 0 and per_bar <= 4.0 and part["name"] not in ("ARP", "LEAD", "VOX", "BALAFON")
     if part["name"] == "RUMBLE" and kick_common and on_k <= 0.08 * on_n:
         kick.append("TH_K_AVOID")
     elif part["name"] == "SUB" and kick_common and on_k * 16.0 >= 1.5 * on_n * len(kick_common):
@@ -569,7 +572,8 @@ def prog_rule(g, scale_names):
 
     n_w, bars_w, move, last, col = (collections.Counter() for _ in range(5))
     first = same = 0
-    for n, bars, degs, cols in g["progs"]:
+    progs = g["progs"][:PROGS25]
+    for n, bars, degs, cols in progs:
         n_w[min(n, 4)] += 1
         bars_w[bars if bars in (1, 2, 4, 8) else 2] += 1
         first += degs[0] == 0
@@ -581,7 +585,7 @@ def prog_rule(g, scale_names):
             last[degs[-1] % 7] += 1
         for c in cols:
             col[c] += 1
-    np_ = len(g["progs"])
+    np_ = len(progs)
     lw = weights(last, range(7))
     lw[0] = 0                    # (the last chord of three or four is never home: sq_th_prog)
     push = {2: (45, 40, 15), 3: (45, 15, 40)}.get(g["hrhythm"], (100, 0, 0))
@@ -624,7 +628,7 @@ def generate(lines):
                 c, say = chord_rule(g, func, part)
                 chords.append(c)
                 says.append(say)
-            elif part["name"] in ("LEAD", "VOX"):
+            elif part["name"] in ("LEAD", "VOX", "BALAFON"):
                 c, say = lead_rule(g, func, part, major)
                 leads.append(c)
                 says.append(say)
@@ -649,8 +653,9 @@ def generate(lines):
                n_rules, len(lns), len(leads), len(chords), len(progs)),
            "#ifndef SAGGA_THEORY_DATA_H", "#define SAGGA_THEORY_DATA_H", "",
            "#define TH_DATA_MID_E %du    /* the energy the second half of what a family always plays comes in at */" % MID_E, "",
-           "/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them) */",
-           "#define TH_DATA_ARP4 0x%08Xu" % arp4, ""]
+           "/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them). 0.29: written bit by bit - as a",
+           " * number it can look like one of the FM-1's registers to the build's check (0x11C90 did) */",
+           "#define TH_DATA_ARP4 (%s)" % (" | ".join("(1u << %d)" % b for b in range(32) if (arp4 >> b) & 1) or "0u"), ""]
     for name, body in (("TH_DATA_RULES", rules), ("TH_DATA_LINES", lns), ("TH_DATA_LEADS", leads), ("TH_DATA_CHORDS", chords), ("TH_DATA_PROGS", progs)):
         out.append("#define %s \\" % name)
         out += body
@@ -662,9 +667,9 @@ def generate(lines):
 DOC_HEAD = """# SAGGA SEQ 0.23 - i motori THEORY, genere per genere
 
 Questo foglio lo scrive `tools/theory/gen_rules.py` **contando la libreria dell'FM-1**: non si corregge a mano (la
-suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 21 generi le cui regole
-sono contate. TECHNO, HOUSE, DRUM+BASS e DUBSTEP hanno regole scritte a mano: sono in `TEORIA.md`, che spiega anche
-cosa sono i motori e come si usano.
+suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 16 generi le cui regole
+sono contate. TECHNO, HOUSE, DUBSTEP, REGGAETON, DRUM+BASS e BALANI hanno regole scritte a mano: sono in
+`TEORIA.md`, che spiega anche cosa sono i motori e come si usano.
 
 ## Come si legge
 

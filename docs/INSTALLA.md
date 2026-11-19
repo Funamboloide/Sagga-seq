@@ -28,6 +28,11 @@ Pi, porta 8090). Non mentre suoni: l'FM-1 si riavvia, e si riavvia anche RaspiMI
 I progetti negli slot dell'FM-1 e nella libreria del Pi restano. Il formato dei progetti è `SGQB` dalla 0.10.
 **Dalla 0.28** le tracce sono dodici: un progetto di prima si apre con le sue prime dodici tracce. Se torni alla 0.27,
 apre i progetti della 0.28, senza le note 5-6 e le lane 7-8.
+**Dalla 0.29** i generi sono 22: un progetto di prima si apre con ogni genere dove è andato (AMAPIANO come REGGAETON,
+BASSLINE come UK GARAGE, GRIME come DUBSTEP, AFRO HOUSE come GQOM). Se torni alla 0.28, apre i progetti della 0.29:
+BALANI come AFRO HOUSE, il BALAFON come un LEAD, PROG 7 e 8 come PROG 1, senza ROLL e ACCENT; le scale, i groove e le
+forme d'accordo nuove tornano a quelle di partenza. Sul Pi i pattern e le progressioni che avevi salvato nei generi
+tolti passano nei generi dove sono andati.
 
 ## La prima volta sul Pi
 

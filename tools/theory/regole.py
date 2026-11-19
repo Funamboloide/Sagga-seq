@@ -3,7 +3,7 @@
 """SAGGA SEQ, the THEORY engines: the rules written by hand, written out (in Italian, for docs/TEORIA.md).
 
 The rules are the tables of firmware/src/sagga_theory.c; `sagga_theory --rules` prints them, a line each, and this writes
-the ones of the four genres with rules written by hand, and of FREE, as the sheet shows them (the other 21 genres: their
+the ones of the six genres with rules written by hand, and of FREE, as the sheet shows them (the other 16 genres: their
 rules are counted from the library, and tools/theory/gen_rules.py writes them out in docs/TEORIA-GENERI.md). The sheet
 holds one block a style between two marks:
 
@@ -21,7 +21,7 @@ import subprocess
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-STYLES = ["TECHNO", "HOUSE", "DNB", "DUBSTEP", "FREE"]
+STYLES = ["TECHNO", "HOUSE", "DNB", "DUBSTEP", "REGGAETON", "BALANI", "FREE"]   # (0.29: REGGAETON, BALANI)
 NAME = {"DNB": "DRUM+BASS"}                      # (a mark is a word; the FM-1's name of the genre has a sign in it)
 FILL = {1: "levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)",
         2: "un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi",

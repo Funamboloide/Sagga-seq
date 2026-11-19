@@ -1,13 +1,13 @@
-# SAGGA SEQ 0.28.1
+# SAGGA SEQ 0.29
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
 SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 12 tracks on 16 MIDI channels (0.28: chords of
-six notes a step, eight CC lanes a track), 8 patterns of up to 64 steps per track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks; 0.26: the engines make a part IN that bar, a click on its beats, the scenes bring their metre; 0.27: the profile SEMPLICE hides the lab's pages), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
+six notes a step, eight CC lanes a track), 8 patterns of up to 64 steps per track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks; 0.26: the engines make a part IN that bar, a click on its beats, the scenes bring their metre; 0.27: the profile SEMPLICE hides the lab's pages), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 22 genres (0.29: BALANI is new, four went into others; a band of 8 to 11 parts each, 12
 variations a part in order of likeness, notes of their own length), the THEORY engines (0.23: a band MADE from the rules
-of a genre and a seed, in all 25 genres and in none, that the ENERGY fills and empties), live Euclidean rhythms and four algorithm slots per
+of a genre and a seed, in all 22 genres and in none, that the ENERGY fills and empties), live Euclidean rhythms and four algorithm slots per
 track, a harmony that the tracks follow (the genre's progressions or yours, on any root, with lengths in 16ths, pushes,
-the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, nine MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch), envelopes and a MOD MATRIX, eight CC lanes with slides and NRPN, tools that wait for the bar or repeat
+the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, eleven MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch; 0.29: roll, accent), envelopes and a MOD MATRIX, eight CC lanes with slides and NRPN, tools that wait for the bar or repeat
 every so many, TAPE tracks and EXPO curves, the journey (every set cut into phrases; the MOSSE, PERF's third page,
 queue moves for the phrase, the bar or the beat, and what you played becomes a song), BREAK tracks (a drum break in slices, sixteen chops on the white keys, re-ordered live),
 TAKE and THROWS, every knob also set from the keys (PICK, from the grid too), the buttons' pages as windows a tap
@@ -36,10 +36,10 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.28.1.md](RELEASE-NOTES-0.28.1.md): what changed in this version (Italian): the SAGGA Mod page with all eight lanes, SHAPE up to ENV and DEST up to MOD ONLY; an LFO's target that stays a track, a proposal that enters in time. 0.28's (twelve tracks, chords of six notes, eight CC lanes a track): [docs/storia/RELEASE-NOTES-0.28.md](docs/storia/RELEASE-NOTES-0.28.md). 0.27's (the arpeggio of a band with no key on the root, RANDOM a roll of the dice, EVOLVE's RETURN, the screen says who is acting, the profile SEMPLICE): [docs/storia/RELEASE-NOTES-0.27.md](docs/storia/RELEASE-NOTES-0.27.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
+* [RELEASE-NOTES-0.29.md](RELEASE-NOTES-0.29.md): what changed in this version (Italian): 22 genres (AMAPIANO into REGGAETON, BASSLINE into UK GARAGE, GRIME into DUBSTEP, AFRO HOUSE into GQOM and BATIDA; BALANI new, with the BALAFON), eight progressions a genre, REGGAETON and BALANI's THEORY rules written by hand, ROLL and ACCENT, five scales, three grooves, four chord shapes. 0.28.1's (the SAGGA Mod page with all eight lanes): [docs/storia/RELEASE-NOTES-0.28.1.md](docs/storia/RELEASE-NOTES-0.28.1.md). 0.28's (twelve tracks, chords of six notes, eight CC lanes a track): [docs/storia/RELEASE-NOTES-0.28.md](docs/storia/RELEASE-NOTES-0.28.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
 * [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what was joined and hidden in 0.27 (RANDOM a roll of the dice, DRIFT inside EVOLVE, who is acting, the profile SEMPLICE).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
-  [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 21 genres, counted from the library (Italian).
+  [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 16 genres, counted from the library (Italian).
 * [docs/SAGGA-ESPLORATORE.md](docs/SAGGA-ESPLORATORE.md): the explorer, on a computer, on the FM-1 and on the banco (Italian).
 * [tools/hub/LEGGIMI.md](tools/hub/LEGGIMI.md): the Pi's page - the firmware library, the projects and their editor, the
   update, the keeper of the FM-1's cells, the banco (Italian). [tools/raspimidihub/README.md](tools/raspimidihub/README.md): the

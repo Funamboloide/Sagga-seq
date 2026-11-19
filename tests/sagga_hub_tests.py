@@ -418,6 +418,18 @@ def t_patterns():
         except ValueError:
             check(True, '')
     check(lib.delete('TECHNO', 'KICK', 0) and lib.of('TECHNO', 'KICK')[0][0] == 'X.x.X...X...X...' and not lib.delete('TECHNO', 'KICK', 9), 'a pattern deleted, by its number')
+    # 0.29: the patterns you kept in AMAPIANO (a genre that left) go to REGGAETON, each under its part or its family's
+    os.makedirs(os.path.join(stock, 'retired'))
+    open(os.path.join(stock, 'retired', 'AMAPIANO.txt'), 'w').write('# 0.28\nKICK\tX...X...X...X...\t-\nPIANO\tx..x....\tn..n....\n')
+    open(os.path.join(stock, 'REGGAETON.txt'), 'w').write('# reggaeton\nKICK\tX...X...X...X...\t-\nSNARE\t...X..x....X..x.\t-\nCHORD\tx.......\tm.......\n')
+    open(os.path.join(mine, 'AMAPIANO.txt'), 'w').write('# 0.28 and mine\nKICK\tX...X...X...X...\t-\nPIANO\tx..x....\tn..n....\n'
+                                                        'KICK\tX..x....X.......\t-\nCLAP\t....x..x\t-\nPIANO\t..x...x.\t..N...N.\nCOWBELL\tx.x.x.x.\t-\n')
+    n = lib.retire()
+    rg = lib.lines('REGGAETON')
+    check(n == 3 and lib.of('REGGAETON', 'KICK') == [('X...X...X...X...', None), ('X..x....X.......', None)] and lib.of('REGGAETON', 'SNARE')[1] == ('....x..x', None)
+          and lib.of('REGGAETON', 'CHORD')[1] == ('..x...x.', '..N...N.') and any(ln.startswith('# 0.29') for ln in rg),
+          '0.29: yours of AMAPIANO into REGGAETON - the kick, the clap as a SNARE, the piano as a CHORD; 0.28\'s own and a part of no family it has stay (%d %s)' % (n, rg[-4:]))
+    check(lib.retire() == 0 and len(lib.lines('REGGAETON')) == len(rg) and os.path.isfile(os.path.join(mine, 'AMAPIANO.txt')), '... once; the old file left as it was')
     # the page
     fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'projects')
     os.makedirs(fw)
@@ -428,7 +440,7 @@ def t_patterns():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % srv.server_address[1]
     j = json.loads(urllib.request.urlopen(base + '/api/patterns?genre=techno', timeout=5).read())
-    check(j['genre'] == 'TECHNO' and len(j['genres']) == 25 and [p['part'] for p in j['parts']] == ['KICK', 'BASS'] and len(j['parts'][0]['list']) == 2,
+    check(j['genre'] == 'TECHNO' and len(j['genres']) == 22 and [p['part'] for p in j['parts']] == ['KICK', 'BASS'] and len(j['parts'][0]['list']) == 2,
           'GET /api/patterns: the genre part by part (%s)' % [(p['part'], len(p['list'])) for p in j['parts']])
     req = urllib.request.Request(base + '/api/patterns/delete?genre=TECHNO&part=BASS&i=0', method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['ok'] and not lib.of('TECHNO', 'BASS'), 'POST delete: the bass is gone')
@@ -465,6 +477,13 @@ def t_progressions():
             Q.parse(bad); check(False, 'not a progression: %r' % bad)
         except ValueError:
             check(True, '')
+    # 0.29: the progressions you kept in GRIME go to DUBSTEP (0.28's own stay behind)
+    os.makedirs(os.path.join(stock, 'retired'))
+    open(os.path.join(stock, 'retired', 'GRIME.txt'), 'w').write('# 0.28\nDARK\ti bII\n')
+    open(os.path.join(mine, 'GRIME.txt'), 'w').write('# 0.28 and mine\nDARK\ti bII\nTENSE\ti bV i\tmine\n')
+    n = lib.retire()
+    check(n == 1 and [(m, Q.name(r), nm) for m, r, nm in lib.of('DUBSTEP')] == [('TENSE', 'i #IV i', 'mine')] and lib.retire() == 0,
+          '0.29: yours of GRIME into DUBSTEP, once (%d %s)' % (n, lib.of('DUBSTEP')))
     # the page
     fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'projects')
     os.makedirs(fw)
@@ -474,7 +493,7 @@ def t_progressions():
     threading.Thread(target=srv.serve_forever, daemon=True).start()
     base = 'http://127.0.0.1:%d' % srv.server_address[1]
     j = json.loads(urllib.request.urlopen(base + '/api/progressions?genre=house', timeout=5).read())
-    check(j['genre'] == 'HOUSE' and len(j['genres']) == 25 and j['moods'][0] == 'ANY' and len(j['list']) == 5 and j['list'][4]['chords'] == 'IVmaj9:8 Imaj9:8^1',
+    check(j['genre'] == 'HOUSE' and len(j['genres']) == 22 and j['moods'][0] == 'ANY' and len(j['list']) == 5 and j['list'][4]['chords'] == 'IVmaj9:8 Imaj9:8^1',
           'GET /api/progressions: the genre\'s, with their moods (%s)' % [x['chords'] for x in j['list']])
     req = urllib.request.Request(base + '/api/progressions/add?genre=HOUSE&mood=EPIC&chords=' + urllib.parse.quote('i bVI bIII bVII'), method='POST')
     check(json.loads(urllib.request.urlopen(req, timeout=5).read())['i'] == 1 and len(lib.of('HOUSE', 'EPIC')) == 2, 'POST add: written on the page, the 2nd EPIC')

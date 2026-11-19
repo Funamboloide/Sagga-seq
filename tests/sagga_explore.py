@@ -465,15 +465,16 @@ def sit_house_lock(s):
     return _play(s, t + 100)
 
 
-def sit_amapiano_fermo(s):
-    t = _genre(s, 200, 17)
+def sit_balani_fermo(s):
+    """0.29: a BALANI band (the new genre: the balafon, the djembe, 6/8 over 4/4), stopped (until 0.28: AMAPIANO's)"""
+    t = _genre(s, 200, 14)
     return _band(s, t) + 100
 
 
 def sit_user_prog(s):
     t = _band(s, 200)
     t = S.uprog_knobs(s, t, [(S.K3, 1), (S.K2, 1), (S.K3, 9), (S.K2, 1), (S.K3, 11), (S.K2, 1), (S.K3, 1)])   # USER 1: i bVI bVII i (ARP 5)
-    t = S.harm_knobs(s, t, [(S.K2, 6)])                     # HARMONY (ARP 3): USER 1
+    t = S.harm_knobs(s, t, [(S.K2, 8)])                     # HARMONY (ARP 3): USER 1 (0.29: past the genre's eight)
     s.enc(t, S.E_SEL, 7); t += 60                           # track 8 (the band's bass or chords)
     t = S.harm2_knobs(s, t, [(S.K1, 1), (S.K4, 4)])         # HARMONY 2 (ARP 4): RETRIG, 3+3+2
     t = S.pg(s, t, S.ARP, 0)
@@ -503,7 +504,7 @@ def sit_genre_live(s):
 
 def sit_break(s):
     """0.12: a JUNGLE band, track 1 a BREAK (HOME 4 K1 to BREAK), the AMEN ROLL chop, playing"""
-    t = _genre(s, 200, 8)                                   # JUNGLE
+    t = _genre(s, 200, 7)                                   # JUNGLE (0.29: number 7)
     t = _band(s, t)
     t = S.pg(s, t, S.HOME, 3, encs=[(S.K1, 4)])             # the mode: FREE -> BREAK (4 clicks)
     t = S.pg(s, t, S.HOME, 0)
@@ -597,8 +598,9 @@ def sit_theory_techno(s):
 
 
 def sit_theory_live(s):
-    """0.23: THEORY, REGGAETON (rules counted from the library), GENRE LIVE (a change of genre makes the band again), in play"""
-    t = _genre(s, 200, 10)
+    """0.23: THEORY, REGGAETON (0.29: rules written by hand; counted from the library until then), GENRE LIVE (a change of
+    genre makes the band again), in play"""
+    t = _genre(s, 200, 8)                                   # (0.29: REGGAETON is number 8)
     t = _theory(s, t)
     t = S.tools_knobs(s, t, [(S.K4, 1)])                    # TOOLS (SEQ 6): GENRE ON -> LIVE
     t = S.pg(s, t, S.SEQ, 0)
@@ -629,10 +631,11 @@ def sit_theory_mosse(s):
 
 
 def sit_theory_tablet(s):
-    """0.23: THEORY, an AMAPIANO band (counted rules, eleven parts), the tablet and the grid, in play"""
+    """0.23: THEORY, a band of counted rules with many parts, the tablet and the grid, in play (0.29: GQOM's ten, with
+    the afro house's percussion; until 0.28 AMAPIANO's eleven)"""
     s.press(150, S.SAVE); s.enc(180, S.K2, 1); s.release(250, S.SAVE)
     s.raw(300, "attach")
-    t = _genre(s, 400, 17)
+    t = _genre(s, 400, 10)
     t = _theory(s, t)
     t = _band(s, t)
     return _play(s, t + 100)
@@ -752,7 +755,7 @@ def sit_025_melody(s):
     t = S.pg(s, t, S.SEQ, 0)
     t = _band(s, t)
     t = S.uprog_knobs(s, t, [(S.K3, 1), (S.K2, 1), (S.K3, 9), (S.K2, 1), (S.K3, 11), (S.K2, 1), (S.K3, 1)])   # USER 1: i bVI bVII i (ARP 5)
-    t = S.harm_knobs(s, t, [(S.K2, 6)])                     # HARMONY (ARP 3): USER 1 (the band left it ON)
+    t = S.harm_knobs(s, t, [(S.K2, 8)])                     # HARMONY (ARP 3): USER 1 (the band left it ON; 0.29: past the genre's eight)
     t = S.harm2_knobs(s, t, [(S.K4, 4)])                    # HARMONY 2 (ARP 4): 3+3+2
     t = S.pg(s, t, S.ARP, 0)
     s.enc(t, S.E_SEL, 7); t += 60                           # track 8: the LEAD
@@ -764,7 +767,7 @@ SITUAZIONI = [
     Situazione("vuoto, in play", sit_vuoto_play, band=False),
     Situazione("TECHNO band in play", sit_techno),
     Situazione("HOUSE band, armonia LOCK, in play", sit_house_lock),
-    Situazione("AMAPIANO band, fermo", sit_amapiano_fermo),
+    Situazione("BALANI band, fermo", sit_balani_fermo),
     Situazione("progressione USER, FOLLOW RETRIG, 3+3+2, in play", sit_user_prog),
     Situazione("GENRE LIVE, band in play", sit_genre_live),
     Situazione("BREAK sulla traccia 1, band in play", sit_break),
@@ -778,10 +781,10 @@ SITUAZIONI = [
     Situazione("0.18 tablet e grid, band in play", sit_tablet, grid=True, tablet=True),
     Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),
     Situazione("0.23 THEORY: TECHNO band dei motori, in play", sit_theory_techno),
-    Situazione("0.23 THEORY: REGGAETON (regole contate), GENRE LIVE, in play", sit_theory_live),
+    Situazione("0.23 THEORY: REGGAETON (regole scritte a mano), GENRE LIVE, in play", sit_theory_live),
     Situazione("0.23 THEORY: SOURCE FREE (nessun genere), pattern di 4 battute, fermo", sit_theory_free,
                lens={1: (64, 64), 2: (64, 64), 8: (64, 64)}),
-    Situazione("0.23 THEORY: AMAPIANO, tablet e grid, in play", sit_theory_tablet, grid=True, tablet=True),
+    Situazione("0.23 THEORY: GQOM, tablet e grid, in play", sit_theory_tablet, grid=True, tablet=True),
     Situazione("0.23 THEORY: HOUSE, le MOSSE (RISER, DROP, energia), in play", sit_theory_mosse),
     Situazione("0.24 le lunghezze: traccia 1 da 32 e traccia 8 da 19 con le copie, le MOSSE alla battuta, in play", sit_024_lengths,
                lens={1: (32, 16), 2: (16, 16), 8: (19, 16)}),

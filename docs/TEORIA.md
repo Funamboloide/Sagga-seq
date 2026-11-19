@@ -1,13 +1,14 @@
-# SAGGA SEQ 0.26 - i motori THEORY
+# SAGGA SEQ 0.29 - i motori THEORY
 
 Questo foglio spiega i motori THEORY: cosa sono, come si usano, cosa fa ognuno e perché, e a quali strumenti che
 esistono già somigliano. In fondo ci sono i dettagli, per chi li vuole.
 
-Le regole dei 21 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
+Le regole dei 16 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
 
 I motori sono nati nella 0.23. Dalla **0.25** le parti **si ascoltano fra loro**, la melodia **conosce l'accordo**, e i
 motori lavorano in **qualunque metro** (7/8, 5/4, 6/8...). Sono i punti 9, 10 e 11 più sotto. Dalla **0.26** scrivono
-la parte **dentro la battuta** del metro, e una risposta **ha le note**: sono i punti 11 e 12.
+la parte **dentro la battuta** del metro, e una risposta **ha le note**: sono i punti 11 e 12. Dalla **0.29** anche
+REGGAETON e BALANI (un genere nuovo) hanno le loro regole scritte a mano.
 
 ## In breve
 
@@ -25,7 +26,7 @@ Dalla 0.23 puoi scegliere, con la manopola **SOURCE** (SEQ pagina 8, K1). Ha tre
 Poi:
 
 * Lo stesso seme dà sempre la stessa band. Un altro seme, un'altra band dello stesso genere. I semi sono 999.
-* Vale per tutti i **25 generi** dell'FM-1, e per **FREE** (nessun genere).
+* Vale per tutti i **22 generi** dell'FM-1, e per **FREE** (nessun genere).
 * I motori fanno la batteria, i bassi, gli accordi, gli arpeggi, i motivi (LEAD, VOX) e le progressioni.
 * Quello che esce è un pattern come gli altri: lo modifichi, lo salvi, lo metti nelle scene. In più l'FM-1 ricorda da
   quale seme l'ha fatto, e per questo può **riempirlo e svuotarlo con l'ENERGIA** e portarlo a una **variazione**.
@@ -66,8 +67,8 @@ Tre cose da sapere:
 
 * L'energia **aggiunge soltanto**: salendo, i colpi che c'erano restano dove sono e le note tengono la loro altezza.
 * Uno step che scrivi a mano in un pattern dei motori **resta**, anche quando l'energia cambia. Fanno eccezione le
-  parti che seguono la cassa: il RUMBLE (TECHNO, HARDTECHNO) e il SUB (DRUM+BASS, DUBSTEP, JUNGLE, GRIME, BASSLINE,
-  FOOTWORK, PHONK, UK DRILL, BAILE FUNK). Quelle, quando l'energia cambia, vengono rifatte tutte intorno alla cassa, e
+  parti che seguono la cassa: il RUMBLE (TECHNO, HARDTECHNO), il SUB (DRUM+BASS, DUBSTEP, JUNGLE, UK GARAGE,
+  FOOTWORK, PHONK, UK DRILL, BAILE FUNK) e il BASS di REGGAETON e BALANI. Quelle, quando l'energia cambia, vengono rifatte tutte intorno alla cassa, e
   lo step scritto a mano si perde. Se ci tieni, incolla il pattern su se stesso (non è più dei motori) o scrivilo
   dopo aver scelto l'energia.
 * Se incolli, raddoppi o svuoti un pattern, non è più dei motori: l'energia non lo tocca più. BEAT ne fa uno nuovo.
@@ -119,14 +120,14 @@ le due cose separate vuol dire che ogni band è diversa ma resta nel genere.
 **A cosa somiglia.** A *Grids* di Mutable Instruments, che ha una mappa di pattern di batteria ricavata da loop veri e
 per ogni canale decide i colpi confrontando un livello con una soglia. E a *GESMI* (Eigenfeldt e Pasquier), che ha
 contato su cento brani quante volte ogni sedicesimo ha un colpo e da lì genera: è il modo in cui sono nate le regole di
-21 generi su 25 (vedi più sotto).
+16 generi su 22 (vedi più sotto).
 
 ### 2. L'energia
 
 **Cosa fa.** Riempie una parte o la svuota. A energia zero resta lo **scheletro**: per un hat in ottavi, il levare;
-per la cassa in quattro del reggaeton o della trance, i colpi sull'1 e sul 3 (in TECHNO e HOUSE, scritti a mano, la
-cassa resta in quattro a qualunque energia). Da 25 c'è il pattern intero. Salendo ancora entrano i colpi in più, prima
-i più probabili. A 50 una parte somiglia a quelle della libreria; a 100 è molto piena.
+per la cassa in quattro della trance, i colpi sull'1 e sul 3 (in TECHNO, HOUSE, REGGAETON e BALANI, scritti a mano,
+la cassa resta in quattro a qualunque energia). Da 25 c'è il pattern intero. Salendo ancora entrano i colpi in più,
+prima i più probabili. A 50 una parte somiglia a quelle della libreria; a 100 è molto piena.
 
 **Perché.** In un live l'energia è il gesto più usato. Se svuotando una parte i colpi sparissero a caso, il genere
 sparirebbe con loro. Qui spariscono per ultimi quelli che contano di più: gli accenti, e quello che la libreria stessa
@@ -228,13 +229,13 @@ si alternano si sentono tutte e due. È la differenza fra otto loop messi uno su
 **A cosa somiglia.** Al bassista dei Session Players di Logic Pro, che può seguire il ritmo di un'altra traccia. E al
 vecchio trucco del "call and response": una parte chiama, l'altra risponde nei vuoti.
 
-**Quanto.** Misurato su 60 semi per ognuno dei 26 stili:
+**Quanto.** Misurato su 150 semi per ognuno dei 23 stili (0.29):
 
 | | colpi sugli attacchi dell'altra | colpi subito dopo | colpi in tutto |
 | --- | --- | --- | --- |
-| lead, voci, arpeggi con gli accordi | 23 % in meno | 14 % in più | quasi uguali |
+| lead, voci, arpeggi con gli accordi | 25 % in meno | 13 % in più | quasi uguali |
 | percussioni con il rullante | 28 % in meno | 18 % in più | uguali |
-| bassi con il lead | 28 % in meno | 15 % in più | 10 % in meno |
+| bassi con il lead | 30 % in meno | 14 % in più | 12 % in meno |
 
 Tre cose da sapere:
 
@@ -348,13 +349,15 @@ suona le note. È il modo più semplice di far sentire che due parti parlano fra
 
 ## Da dove vengono le regole
 
-* **TECHNO, HOUSE, DRUM AND BASS, DUBSTEP**: scritte a mano, da quello che si legge su come si costruiscono questi
-  generi (le fonti sono in fondo) e controllate sulla libreria. Sono più sotto in questo foglio.
-* **Gli altri 21 generi**: **contate dalla tua libreria**. Un programma (`tools/theory/gen_rules.py`) legge tutti i
+* **TECHNO, HOUSE, DRUM AND BASS, DUBSTEP** e, dalla 0.29, **REGGAETON e BALANI**: scritte a mano, da quello che si
+  legge su come si costruiscono questi generi (le fonti sono in fondo) e controllate sulla libreria. Sono più sotto in
+  questo foglio.
+* **Gli altri 16 generi**: **contate dalla tua libreria**. Un programma (`tools/theory/gen_rules.py`) legge tutti i
   pattern di un genere, mette insieme quelli che sono lo stesso pattern con altri dettagli (una famiglia), e conta. Quello
   che quasi tutti suonano diventa "c'è sempre". Quello che suonano alcuni diventa un peso. Dai pattern di due e quattro
-  battute impara cosa fa la seconda battuta. Dalle note impara quali usa un basso e come si muove un motivo. Dalle sei
-  progressioni del genere impara come si muovono gli accordi. Le trovi in `TEORIA-GENERI.md`.
+  battute impara cosa fa la seconda battuta. Dalle note impara quali usa un basso e come si muove un motivo. Dalle
+  progressioni del genere impara come si muovono gli accordi (dalle prime sei: le due nuove della 0.29 restano fuori,
+  così i generi di prima suonano come prima). Le trovi in `TEORIA-GENERI.md`.
 * **FREE**: scritto a mano. Usa solo il metro: una cassa sta sui tempi, un rullante sul 2 e sul 4, un hat sugli ottavi.
 
 Se cambi la libreria, le regole contate si possono rifare con un comando.
@@ -363,22 +366,27 @@ Se cambi la libreria, le regole contate si possono rifare con un comando.
 
 Misurato dal programma `tools/theory/compare.py`, 60 semi per genere, energia 50:
 
-* su 229 parti, **218** cadono dove cade la libreria: gli stessi sedicesimi, con frequenze simili;
-* in media una battuta fatta dai motori è a **mezzo sedicesimo** dalla battuta scritta più vicina, e **due battute su
-  tre** sono battute che la libreria ha già, colpo per colpo (sette su dieci nei 21 generi contati, quattro su dieci
-  nei quattro scritti a mano);
-* delle 11 parti lontane, 9 sono nei quattro generi scritti a mano, dove alcune parti sono volute diverse (la
-  percussione tre-contro-quattro della techno non è nella libreria);
+* su 208 parti, **191** cadono dove cade la libreria: gli stessi sedicesimi, con frequenze simili;
+* in media una battuta fatta dai motori è a **meno di un sedicesimo** dalla battuta scritta più vicina, e **una battuta
+  su due** è una battuta che la libreria ha già, colpo per colpo (sei su dieci nei 16 generi contati, una su tre nei
+  sei scritti a mano);
+* delle 17 parti lontane, 14 sono nei sei generi scritti a mano, dove alcune parti sono volute diverse (la
+  percussione tre-contro-quattro della techno non è nella libreria) o la libreria è cambiata dopo le regole (nella
+  0.29 nel DUBSTEP sono entrati i pattern migliori del GRIME, e le sue parti lontane sono fra quelle). Cinque sono
+  shaker che nella libreria suonano quasi tutti i sedicesimi: lì il confronto dei posti dice poco;
 * le note dei bassi hanno le stesse proporzioni della libreria. I motivi usano le stesse note ma più terze e meno
   quarte.
 
 Detto chiaro: a energia 50, nei generi contati, i motori stanno **molto vicini alla libreria**. Il nuovo viene da come
 le battute si combinano fra le parti, dalle note (che non sono quelle scritte), dall'energia e dalle variazioni.
 
-E i controlli sul motore (43 milioni, su 150 semi per ognuno dei 26 stili): una parte non è mai vuota; salendo di
-energia nessun colpo si perde; una nota che resta tiene la sua altezza (ne cambiano 7 su diecimila, le ultime di un
-motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre. Dalla 0.25 anche: una parte che
-risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e resta uguale se non risponde a nessuno.
+E i controlli sul motore (200 milioni, su 150 semi per ognuno dei 23 stili, in 4/4 e in altri 19 metri): una parte non
+è mai vuota; salendo di energia nessun colpo si perde; una nota che resta tiene la sua altezza (ne cambia una su
+mille, le ultime di un motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre. Dalla
+0.25 anche: una parte che risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e resta uguale se
+non risponde a nessuno. Dalla 0.29 anche: nel REGGAETON la cassa sta su tutti e quattro i tempi e il rullante fa il
+dembow a ogni energia, e la batteria a energia 100 ha più del doppio dei colpi che a energia 0; nel BALANI il clap sta
+sul 2 e sul 4, e il balafon non tiene mai una nota, corre in sedicesimi e sta sulla pentatonica.
 
 ## Cosa non sanno fare
 
@@ -433,7 +441,7 @@ Una battuta è sedici sedicesimi. Nei blocchi li leggi così, come nella libreri
 
 Una parte non è mai vuota: se a quell'energia non le toccherebbe niente, ha il colpo che entrerebbe per primo.
 
-Le **regole contate** (i 21 generi di `TEORIA-GENERI.md`) usano gli stessi pesi, e in più:
+Le **regole contate** (i 16 generi di `TEORIA-GENERI.md`) usano gli stessi pesi, e in più:
 
 * **famiglie**: più regole per la stessa parte; il seme ne sceglie una, secondo quante variazioni della libreria le
   somigliano;
@@ -498,13 +506,13 @@ Lo stesso seme in due stili dà la stessa tonica (la scala la sceglie ogni stile
 
 ### ENERGIA e VARIAZIONE, misurate
 
-Su 150 semi per stile, 26 stili, tutte le parti, otto livelli di energia (`tests/sagga_theory_tests.c`, 36 milioni di
-controlli):
+Su 150 semi per stile, 23 stili, tutte le parti, otto livelli di energia (`tests/sagga_theory_tests.c`, in 4/4 42
+milioni di controlli):
 
 * salendo di energia **nessun colpo si perde** (il rumble a parte, dove entra una cassa: sulla cassa non suona mai);
-* una nota che resta **tiene la sua altezza**: su quattro milioni ne cambiano tremila, e sono le note che chiudono un
+* una nota che resta **tiene la sua altezza**: su quattro milioni ne cambiano quattromila, e sono le note che chiudono un
   motivo (l'ultima cambia quando l'energia ne aggiunge una dopo);
-* una variazione dello 0 % non cambia niente; del 10, 25, 50, 75, 100 % cambia in media **3, 6, 12, 18, 22** step su
+* una variazione dello 0 % non cambia niente; del 10, 25, 50, 75, 100 % cambia in media **3, 7, 14, 19, 24** step su
   cento (gli altri sono pause in tutte e due, o colpi che ci sono "sempre");
 * quale **famiglia** segue una parte lo decide il seme, e nessuna variazione lo cambia.
 
@@ -934,6 +942,282 @@ LA PROGRESSIONE
 ```
 <!-- /regole -->
 
+### REGGAETON (101 BPM)
+
+Il **dembow**: la cassa in quattro, sempre; il rullante su `...x..x....x..x.` a ogni energia, con gli accenti
+sull'ultimo sedicesimo dell'1 e del 3 (oppure, una famiglia su quattro, sui due colpi dopo). L'hat in ottavi, e i
+sedicesimi entrano con l'energia; lo shaker in sedicesimi (quello dell'amapiano); il rim con i primi due colpi del
+rullante, oppure sulle "e"; le congas sul tresillo (3+3+2); il timbale sui posti del dembow, oppure intorno
+all'ultimo sedicesimo del 2. Il basso sull'1 e sul 3, e fra loro in 3+3+2; il **log drum** dell'amapiano scivola fra
+le note, mai due colpi vicini. Gli accordi sul tresillo, il lead in 3+3+2. A energia bassa resta il dembow con
+l'ossatura del resto: il resto entra con l'energia.
+
+L'armonia: **quattro accordi**, uno a battuta, quasi sempre (i VI III VII); le fondamentali scendono di una terza o
+salgono di una quinta o di una quarta. In minore; triadi, qualche settima e qualche nona (l'amapiano).
+
+<!-- regole REGGAETON -->
+```text
+KICK
+    sempre   X...X...X...X...
+    pesi     ...9...2...9..24   densità 8-82 %   fino a peso 3: 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
+
+SNARE
+  una famiglia (75 % dei semi)
+    sempre   ...X..x....X..x.
+    pesi     ..3....5.23....6   densità 16-75 %   fino a peso 3: 'g'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+  una famiglia (25 % dei semi)
+    sempre   ...x..X....x..X.
+    pesi     ..3..2....35...4   densità 12-71 %   fino a peso 3: 'g'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+
+HAT
+  una famiglia (55 % dei semi)
+    sempre   ..x...x...x...x.
+    classi   tempi 94 % 'x'   e 47 % 'o'   a 86 % 'o'   a energia 0 il 24 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+  una famiglia (45 % dei semi)
+    sempre   x.x.x.x.x.x.x.x.
+    pesi     ...a...a...a...a   densità 12-90 %   tutti 'o'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+
+SHAKER
+    classi   tempi 98 % 'x'   e 92 % 'o'   & sempre 'x'   a 96 % 'o'   (insieme)   a energia 0 il 8 % di queste
+             un colpo della classe manca: 4 %
+    battute 2 e 4: 15 % delle scelte rifatte
+
+RIM
+  una famiglia (60 % dei semi)
+    sempre   ...x..x.......x.
+    pesi     ........9.5c....   densità 16-100 %
+    battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (40 % dei semi)
+    pesi     ..d..3....d..34.   densità 16-100 %   fino a peso 3: 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+
+CONGA
+  una famiglia (60 % dei semi)
+    sempre   x.....x.......x.
+    pesi     ..9d....c.9d.9..   densità 16-100 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (40 % dei semi)
+    sempre   ...X..x.........
+    pesi     ..9.8......c.cd.   densità 12-100 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+PERC
+  una famiglia (40 % dei semi)
+    pesi     6..f..f...6f6.f.   densità 27-100 %
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (60 % dei semi)
+    sempre   .......x........
+    pesi     ...b7.....d.d.7d   densità 27-100 %
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+BASS
+  una famiglia (65 % dei semi)
+    sempre   X.......x.......
+    pesi     ...f..c....f..c3   densità 43-100 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (35 % dei semi)
+    sempre   X.......x.......
+    pesi     ...9..f....9..f.   densità 43-100 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
+    note     fondamentale 65 %, quinta 14 %, ottava 12 %, terza 6 %, settima 3 %
+             sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 23 % (entro 3 sedicesimi), la nota del tempo 27 %
+             nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 23 % (al massimo 3 sedicesimi)
+
+LOG DRUM
+    sempre   X.........x..x..
+    pesi     ..3c..b.3......2   densità 16-100 %
+    mai due colpi su sedicesimi vicini   battute 2 e 4: 40 % delle scelte rifatte
+    note     fondamentale 45 %, quinta 18 %, ottava 14 %, terza 12 %, settima 6 %, quarta 3 %, seconda 2 %
+             sull'uno la fondamentale 86 %   sui tempi fondamentale, quinta o ottava 59 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 31 % (entro 3 sedicesimi), la nota del tempo 8 %
+             nell'ultimo ottavo una nota che riporta a casa 43 %   tenute 47 % (al massimo 4 sedicesimi), fino a 1 sedicesimo di pausa prima della nota dopo
+
+CHORD
+  una famiglia (60 % dei semi)
+    sempre   x.......x.......
+    pesi     ...d..d....d..d.   densità 39-100 %
+    battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (40 % dei semi)
+    sempre   x...............
+    pesi     ......d...d.....   densità 39-100 %
+    mai due colpi su sedicesimi vicini   battute 2 e 4: 30 % delle scelte rifatte
+    accordi  triade 70 %, settima 30 %   lo stesso tipo per tutto il pattern 86 %   tenuti 23 %
+
+LEAD
+  una famiglia (55 % dei semi)
+    sempre   x.....x.........
+    pesi     ..6f4...d.636.f.   densità 39-100 %   tutti 'o'
+    battute 2 e 4: 35 % delle scelte rifatte
+  una famiglia (45 % dei semi)
+    sempre   x.......x.......
+    pesi     ..bb9.d...b.b.d.   densità 39-100 %   tutti 'o'
+    battute 2 e 4: 35 % delle scelte rifatte
+    motivo   scala: pentatonica 78 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
+             profilo: scende 35 %, sale 15 %, arco 30 %, due note alternate 20 %   ampiezza 2-4 gradini
+             ripete la nota del suo tempo 31 %   un gradino fuori posto 20 %   un salto di due 6 %
+             nota dell'accordo: sull'uno sempre, sui tempi 82 %, fuori dai tempi 27 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 74 %   tenute 31 %
+
+LA PROGRESSIONE
+    scala          minore 65 %, dorica 15 %, frigia 5 %, maggiore 5 %, minore armonica 10 %
+    accordi        uno 5 %, due 20 %, tre 5 %, quattro 70 %
+    durata         1 battuta 75 %, 2 battute 25 %
+    parte da casa  85 %
+    la fondamentale si muove di  un grado sopra 5 %, una terza sopra 5 %, una quarta sopra 20 %, una quinta sopra 30 %, una terza sotto 25 %, un grado sotto 15 %
+    l'ultimo di tre o quattro    II 5 %, III 10 %, IV 15 %, V 15 %, VI 25 %, VII 30 %
+    colori         triade 70 %, settima 18 %, nona 8 %, sus2 4 %   lo stesso per tutti 75 %
+    entra          sulla battuta 85 %, un sedicesimo prima 15 %
+```
+<!-- /regole -->
+
+### BALANI (170 BPM)
+
+La musica del **balafon** delle feste di strada di Bamako, veloce. La cassa in quattro, il clap sul 2 e sul 4 con i
+suoi ghost in fondo alla battuta. L'hat sui levare o in ottavi, lo shaker in sedicesimi con un buco su una "e" ogni
+tanto. Il 3-3-2 del djembe sulla percussione (oppure la sua risposta, fuori dai tempi) e sulla conga bassa; i tom
+che rullano verso la frase dopo. Il basso sull'1 e sul 3, oppure sul tresillo. Il **BALAFON**: l'ostinato in
+sedicesimi, le due mani a turno (due note che si alternano, sulla pentatonica), oppure le sue figure sui tempi; le
+note sono battute, mai tenute. Le grida dell'MC. Gli accordi (se li chiedi: la band non li ha) sui levare.
+
+L'armonia: **un accordo solo, o due** (I - V, I - IV), di due o quattro battute; la fondamentale sale di una quarta o
+di una quinta. Maggiore o misolidia; triadi.
+
+<!-- regole BALANI -->
+```text
+KICK
+    sempre   X...X...X...X...
+    pesi     ......9....c..69   densità 8-90 %
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
+
+CLAP
+    sempre   ....X.......X...
+    pesi     .......5.....236   densità 16-78 %   tutti 'g'
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+
+HAT
+  una famiglia (55 % dei semi)
+    sempre   ..x...x...x...x.
+    classi   tempi 35 % 'x'   e 23 % 'o'   a 78 % 'x'   a energia 0 il 31 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+  una famiglia (45 % dei semi)
+    sempre   x.x.x.x.x.x.x.x.
+    classi   e 20 % 'o'   a 90 % 'x'   a energia 0 il 47 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+
+SHAKER
+    classi   tempi sempre 'x'   e 96 % 'o'   & sempre 'x'   a sempre 'o'   (insieme)   a energia 0 il 39 % di queste
+             un colpo della classe manca: 12 %
+    battute 2 e 4: 15 % delle scelte rifatte
+
+PERC
+  una famiglia (70 % dei semi)
+    sempre   x..x............
+    pesi     ..4..6c4c38c84a6   densità 47-100 %   fino a peso 3: 'o'
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (30 % dei semi)
+    sempre   ..x.......x.....
+    pesi     .....c4c...4.c.c   densità 47-100 %
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+CONGA
+  una famiglia (60 % dei semi)
+    sempre   X.x.....x.x.....
+    pesi     ...d..d....d..d.   densità 16-100 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (40 % dei semi)
+    sempre   X...............
+    pesi     ...d..d...c..d..   densità 16-100 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+TOM
+    pesi     9..3..b...8.c9f9   densità 12-100 %   fino a peso 3: 'o'
+    battute 2 e 4: 50 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+BASS
+  una famiglia (70 % dei semi)
+    sempre   X.......x.......
+    pesi     ...b3.d...b.3.d.   densità 35-100 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 35 % delle scelte rifatte
+  una famiglia (30 % dei semi)
+    sempre   X...............
+    pesi     ...c6.c.9.b..c6.   densità 35-100 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    note     fondamentale 60 %, quinta 20 %, ottava 10 %, terza 5 %, quarta 5 %
+             sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 20 % (entro 3 sedicesimi), la nota del tempo 23 %
+             nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 16 % (al massimo 2 sedicesimi)
+
+BALAFON
+  una famiglia (70 % dei semi)
+    classi   tempi sempre 'x'   e 78 % 'o'   & sempre 'x'   a sempre 'o'   a energia 0 il 71 % di queste
+             un colpo della classe manca: 12 %
+    battute 2 e 4: 25 % delle scelte rifatte
+  una famiglia (30 % dei semi)
+    sempre   x.x.x...........
+    pesi     ......7.9.8.9.76   densità 24-86 %   tutti 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+    motivo   scala: pentatonica 94 %, altrimenti tutte e sette le note; fino a 15 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
+             profilo: scende 15 %, sale 15 %, arco 20 %, due note alternate 50 %   ampiezza 3-5 gradini
+             ripete la nota del suo tempo 12 %   un gradino fuori posto 23 %   un salto di due 10 %
+             nota dell'accordo: sull'uno sempre, sui tempi 78 %, fuori dai tempi 35 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 59 %   tenute 0 %
+
+VOX
+    pesi     9.399...3.b.9..3   densità 16-100 %   fino a peso 3: 'o'
+    battute 2 e 4: 40 % delle scelte rifatte
+    motivo   scala: pentatonica 86 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 40 %, la terza 20 %
+             profilo: scende 40 %, sale 10 %, arco 20 %, due note alternate 30 %   ampiezza 1-2 gradini
+             ripete la nota del suo tempo 47 %   un gradino fuori posto 16 %   un salto di due 2 %
+             nota dell'accordo: sull'uno sempre, sui tempi 86 %, fuori dai tempi 59 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 59 %   tenute 47 %
+
+CHORD
+    sempre   ..x...x...x...x.
+    battute 2 e 4: 30 % delle scelte rifatte
+    accordi  triade 90 %, settima 5 %, quinta vuota 5 %   lo stesso tipo per tutto il pattern 90 %   tenuti 0 %
+
+LA PROGRESSIONE
+    scala          maggiore 65 %, misolidia 35 %
+    accordi        uno 40 %, due 45 %, tre 5 %, quattro 10 %
+    durata         1 battuta 5 %, 2 battute 35 %, 4 battute 45 %, 8 battute 15 %
+    parte da casa  95 %
+    la fondamentale si muove di  un grado sopra 5 %, una terza sopra 5 %, una quarta sopra 40 %, una quinta sopra 35 %, una terza sotto 10 %, un grado sotto 5 %
+    l'ultimo di tre o quattro    II 5 %, III 5 %, IV 35 %, V 40 %, VI 15 %
+    colori         triade 85 %, settima 5 %, sus4 5 %, sus2 5 %   lo stesso per tutti 90 %
+    entra          sulla battuta 100 %
+```
+<!-- /regole -->
+
 ### FREE
 
 Nessun genere. Una cassa che sta sull'uno e si appoggia ai tempi, un rullante che cerca il 2 e il 4, un hat a classi
@@ -1048,4 +1332,6 @@ I generi scritti a mano:
 * [Attack Magazine, Beat Dissected: Raw Drum & Bass](https://www.attackmagazine.com/technique/beat-dissected/raw-drum-bass/)
 * [MusicRadar, How to program 6 different jungle and drum 'n' bass grooves](https://www.musicradar.com/how-to/how-to-program-6-different-jungle-and-drum-n-bass-grooves)
 * [Sound On Sound, Dubstep Drums](https://www.soundonsound.com/techniques/dubstep-drums)
+* [MusicRadar, Beat Building: how to make a reggaeton beat](https://www.musicradar.com/news/beat-building-how-to-produce-a-reggaeton-beat)
+* [FACT, Balani Show: the electronic music taking over Mali's capital city](https://factmag.com/2015/10/28/balani-show)
 * La libreria di SAGGA SEQ: `tools/hub/patterns/`.

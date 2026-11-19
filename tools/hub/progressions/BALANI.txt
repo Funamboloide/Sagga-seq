@@ -1,0 +1,26 @@
+# SAGGA SEQ 0.11 progressions, BALANI (tools/gen_progs.py): MOOD, the chords above the key's root, a name.
+# I bII II bIII III IV #IV V bVI VI bVII VII, small for minor; then the shape (7 maj7 9 sus2 o ...);
+# :N its own length in 16ths, ^N 16ths early. Add your own; SEQ + SAVE on SEQ 4 / SEQ 8 adds the FM-1's.
+EUPHORIC	I V vi IV
+EUPHORIC	vi IV I V
+EUPHORIC	IV I V vi
+EUPHORIC	I iii IV V
+EUPHORIC	I V IV V
+EUPHORIC	IV V vi I
+EUPHORIC	I IV vi V
+EUPHORIC	bVI bVII I I
+SATISFYING	ii7 V7 Imaj7
+SATISFYING	IV V I
+SATISFYING	I IV V I
+SATISFYING	ii V I vi
+SATISFYING	IV V iii vi
+SATISFYING	iv V7 i
+SATISFYING	bVI bVII i
+SATISFYING	I vi ii V
+ENERGETIC	i:8 bVII:8 bVI:8 bVII:8
+ENERGETIC	I:8 V:8 vi:8 IV:8
+ENERGETIC	i:4 i:4 bVII:4 bVI:4
+ENERGETIC	i:8 bVII:8
+ENERGETIC	I:8 bVII:8 IV:16
+ENERGETIC	i:8 iv:8 bVI:8 bVII:8
+ENERGETIC	vi:8 IV:8 I:8 V:8

@@ -17,11 +17,13 @@ import os
 import re
 
 try:
-    from sagga_patterns import GENRES
-except ImportError:                                   # (alone: the same list, the FM-1's order)
-    GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-              'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+    from sagga_patterns import GENRES, RETIRED
+except ImportError:                                   # (alone: the same lists, the FM-1's order; 0.29: 22 genres)
+    GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'DUBSTEP', 'JUNGLE',
+              'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'BALANI', 'FOOTWORK', 'TRANCE',
               'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
+    RETIRED = {'AMAPIANO': 'REGGAETON', 'BASSLINE': 'UKGARAGE', 'GRIME': 'DUBSTEP', 'AFROHOUSE': 'GQOM'}
+RETIRED_MARK = '# 0.29: the progressions you kept in %s (a genre that left the library) are here, after these'
 
 # sagga_seq_core.h SQ_MOOD_*
 MOODS = ['ANY', 'SAD', 'MELANCHOLY', 'SATISFYING', 'ENERGETIC', 'EUPHORIC', 'EPIC', 'DREAMY', 'DARK', 'TENSE', 'SUSPENDED']
@@ -32,13 +34,15 @@ SHAPES = {1: (False, '8'), 2: (False, '5'), 3: (False, '5/8'), 4: (False, ''), 5
           13: (True, '7'), 14: (False, 'maj7'), 15: (True, 'mM7'), 16: (True, 'o7'), 17: (True, 'm7b5'),
           18: (False, '7sus4'), 19: (False, 'add9'), 20: (True, 'add9'), 21: (False, '9'), 22: (True, '9'),
           23: (False, 'maj9'), 24: (False, '9sus4'), 25: (False, '6/9'), 26: (True, '6/9'), 27: (True, '11'),
-          28: (False, '13'), 29: (False, '7sh'), 30: (True, 'sh'), 31: (False, '1358')}
+          28: (False, '13'), 29: (False, '7sh'), 30: (True, 'sh'), 31: (False, '1358'),
+          32: (False, '7#9'), 33: (False, '7b9'), 34: (False, 'maj7#11'), 35: (False, 'q4')}   # (0.29: four more)
 _BY_NAME = {(small, suf): k for k, (small, suf) in SHAPES.items()}
 _ALIAS = {(True, 'ø'): 17, (True, 'ø7'): 17, (False, 'M7'): 14, (False, 'Δ'): 14, (False, 'Δ7'): 14, (True, 'm7'): 13,
           (True, 'm'): 5, (False, 'dim'): 6, (True, 'dim'): 6, (False, 'aug'): 7, (True, 'min7'): 13}
 # the kind of each shape (for likeness): 0 major 1 minor 2 diminished 3 augmented 4 no third (sus, power)
 KIND = {1: 4, 2: 4, 3: 4, 4: 0, 5: 1, 6: 2, 7: 3, 8: 4, 9: 4, 10: 0, 11: 1, 12: 0, 13: 1, 14: 0, 15: 1, 16: 2, 17: 2,
-        18: 4, 19: 0, 20: 1, 21: 0, 22: 1, 23: 0, 24: 4, 25: 0, 26: 1, 27: 1, 28: 0, 29: 0, 30: 1, 31: 0}
+        18: 4, 19: 0, 20: 1, 21: 0, 22: 1, 23: 0, 24: 4, 25: 0, 26: 1, 27: 1, 28: 0, 29: 0, 30: 1, 31: 0,
+        32: 0, 33: 0, 34: 0, 35: 4}
 ROMAN = ['I', 'bII', 'II', 'bIII', 'III', 'IV', '#IV', 'V', 'bVI', 'VI', 'bVII', 'VII']
 _NUM = {'I': 0, 'II': 2, 'III': 4, 'IV': 5, 'V': 7, 'VI': 9, 'VII': 11}
 _TOKEN = re.compile(r'^([b#]?)(VII|VI|IV|V|III|II|I|vii|vi|iv|v|iii|ii|i)([^:^]*)(?::(\d+))?(?:\^(\d))?$')
@@ -213,6 +217,34 @@ class Progressions:
         lines.append('%s\t%s%s' % (mood, name(rows), '\t' + label if label else ''))
         self._write(genre, lines)
         return len(self.of(genre, mood)) - 1
+
+    def retire(self):
+        """0.29: the progressions you kept yourself in a genre that left the library go to the end of the genre it went
+        into (the old file is left as it was). Once: the genre's file says so. -> how many moved"""
+        moved = 0
+        for old, new in RETIRED.items():
+            if not os.path.isfile(os.path.join(self.folder, '%s.txt' % old)):
+                continue
+            mark = RETIRED_MARK % old
+            lines = self.lines(new)
+            if any(ln.startswith(mark) for ln in lines):
+                continue
+            stock = set()
+            path = os.path.join(self.stock, 'retired', '%s.txt' % old) if self.stock else None
+            if path and os.path.isfile(path):
+                stock = {(m, tuple(r)) for _, m, r, _ in Progressions(os.path.join(self.stock, 'retired'), stock=None).entries(old)}
+            yours = [(m, r, nm) for _, m, r, nm in Progressions(self.folder, stock=None).entries(old) if (m, tuple(r)) not in stock]
+            if not yours:
+                continue
+            lines = lines or ['# SAGGA SEQ 0.11 progressions, %s: MOOD, the chords above the key\'s root, a name.' % new]
+            lines.append(mark)
+            for mood, rows, label in yours:
+                if valid(rows):
+                    continue
+                lines.append('%s\t%s%s' % (mood, name(rows), '\t' + label if label else ''))
+                moved += 1
+            self._write(new, lines)
+        return moved
 
     def delete(self, genre, k):
         """takes progression k (of all the genre's, in the file's order) away; True if there was one"""

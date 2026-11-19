@@ -26,12 +26,14 @@ RATE_LABELS = ["16 BAR", "8 BAR", "4 BAR", "3 BAR", "2 BAR", "1.5 BAR", "1 BAR",
                "1/2 BAR", "3/8 BAR", "1/4 BAR", "3/16", "1/8 BAR", "3/32", "1/16", "1/32",
                "1/4T", "1/8T", "1/16T", "1/32T"]                     # 0.13: the triplets (the FM-1's LFO RATE after 1/32)
 DEST_LABELS = ["CC", "VEL", "GATE", "CHANCE", "TIMING", "SWING", "MOD ONLY"]          # 0.28.1: + MOD ONLY (the panel's since 0.20)
-GENRE_LABELS = ["TECHNO", "HARDTECHNO", "DUB TECHNO", "HOUSE", "UK GARAGE", "UK FUNKY", "GRIME", "DUBSTEP", "JUNGLE",
-                "BASSLINE", "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS", "AFRO HOUSE", "AMAPIANO",
+# 0.29: 22 (GRIME into DUBSTEP, BASSLINE into UK GARAGE, AMAPIANO into REGGAETON, AFRO HOUSE out, BALANI in)
+GENRE_LABELS = ["TECHNO", "HARDTECHNO", "DUB TECHNO", "HOUSE", "UK GARAGE", "UK FUNKY", "DUBSTEP", "JUNGLE",
+                "REGGAETON", "BATIDA", "GQOM", "EXPERIMENT", "ELECTRO", "DRUM+BASS", "BALANI",
                 "FOOTWORK", "TRANCE", "UK DRILL", "HARDCORE", "PHONK", "BAILE FUNK",
                 "MERENGUE"]
 KEY_LABELS = ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"]
-PROG_LABELS = ["PROG %d" % (i + 1) for i in range(6)] + ["USER 1", "USER 2", "USER 3", "USER 4", "DICE/PI"]
+# 0.29: the genre's eight (until 0.28: six), then the player's four and the Pi's - the FM-1's harm_prog 0..12
+PROG_LABELS = ["PROG %d" % (i + 1) for i in range(8)] + ["USER 1", "USER 2", "USER 3", "USER 4", "DICE/PI"]
 HARM_LABELS = ["OFF", "ON", "LOCK"]
 
 
@@ -70,7 +72,7 @@ CELLS = [
     knob("energy", "ENERGY", 114, 1, 9, 0, 127, 64),
     knob("genre", "GENRE", 115, 2, 9, 0, len(GENRE_LABELS) - 1, 0, GENRE_LABELS),
     knob("key", "KEY", 116, 3, 9, 0, 11, 0, KEY_LABELS),
-    knob("prog", "PROGRESSION", 117, 4, 9, 0, 10, 0, PROG_LABELS),
+    knob("prog", "PROGRESSION", 117, 4, 9, 0, len(PROG_LABELS) - 1, 0, PROG_LABELS),
     knob("harm", "HARMONY", 118, 4, 2, 0, 2, 0, HARM_LABELS),
 
     *[LayoutCell(Button("lfo_sw%d" % i, "L%d" % (i + 1), color="green"), col=1 + i % 4, row=10 + i // 4, channel=CH13, cc=0) for i in range(16)],
@@ -88,7 +90,7 @@ class SaggaMod(ControllerBase):
     NAME = "SAGGA Mod"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, VIAGGIO's energy, genre, key, harmony"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.28.1"
+    VERSION = "0.29"
     HELP = """\
 LFO picks one of the sixteen (the one the FM-1 shows under LFO); LFO ON, SHAPE (ENV: the envelope), RATE, DEPTH, DEST
 (MOD ONLY: a source for the MOD MATRIX, it sends nothing) set it.

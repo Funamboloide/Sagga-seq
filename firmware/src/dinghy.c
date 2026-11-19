@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.28.1"
+#define SQ_VERSION "0.29"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -1255,6 +1255,29 @@ static uint8_t mfx_run(uint32_t t, uint8_t ch, uint8_t slice_no, uint8_t *note, 
                 uint32_t g = ev[t].slice_us / (4u * (fb ? fb : 1u)) + 1u;
                 for (i = 0; i < n0; i++) if (mfx_ev[i].gate > g) mfx_ev[i].gate = g;
             }
+            break;
+        }
+        case SQ_MFX_ROLL: {                            /* 0.29: each note K2 hits in its step (FLAT, rising, falling), K4 how often */
+            uint32_t pcs = a < 2 ? 2u : (uint32_t)a, per = ev[t].slice_us / pcs, r;
+            if ((int32_t)((h >> 13) % 100u) >= clamp_i32(mfx_scale(t, fb), 0, 100)) break;   /* (a step its own throw: the same at every pass) */
+            if (!per) per = 1u;
+            for (i = 0; i < n0; i++) {
+                uint32_t v0 = mfx_ev[i].vel;
+                if (mfx_ev[i].drop) continue;
+                if (mfx_ev[i].gate > per * 3u / 5u) mfx_ev[i].gate = per * 3u / 5u + 1u;
+                if (tm == SQ_ROLL_UP) mfx_ev[i].vel = (uint8_t)(v0 * 2u / (pcs + 1u) + 1u);   /* (from softer up to the note's own) */
+                for (r = 1u; r < pcs; r++) {
+                    uint32_t v = tm == SQ_ROLL_UP ? v0 * (r + 2u) / (pcs + 1u) : tm == SQ_ROLL_DOWN ? v0 * (pcs - r) / pcs : v0;
+                    mfx_add(mfx_ev[i].note, (uint8_t)(v < 1u ? 1u : v > 127u ? 127u : v), mfx_ev[i].at + per * r, mfx_ev[i].gate, 0u);
+                }
+            }
+            break;
+        }
+        case SQ_MFX_ACCENT: {                          /* 0.29: every K3-th step from K4 louder (K2: softer, below 0); the others as they are */
+            uint32_t every = tm < 2u ? 2u : tm, step = ev[t].step_index;
+            int32_t acc = mfx_scale(t, a);
+            if ((step + every * 8u - fb) % every) break;
+            for (i = 0; i < n0; i++) mfx_ev[i].vel = (uint8_t)clamp_i32((int32_t)mfx_ev[i].vel + acc, 1, 127);
             break;
         }
         case SQ_MFX_ECHO:
@@ -3176,8 +3199,9 @@ static void mfx_sel_reset(void)                 /* a project loaded: K1 shows ea
         for (k = 0; k < SQ_MFX_ALLN; k++) if (mfx_on(t, project.ext.mfxd[t].order[k])) { mfx_sel[t] = project.ext.mfxd[t].order[k]; break; }
     }
 }
-static const char *const MFX_NAME[SQ_MFXS] = {"OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH"};
-static const char *const MFX_SHORT[SQ_MFXS] = {"OFF", "HARM", "OCT", "ECHO", "VEL", "CHNC", "RND", "FILT", "GATE", "GLIT"};
+static const char *const MFX_NAME[SQ_MFXS] = {"OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH",
+                                              "ROLL", "ACCENT"};   /* (0.29: ROLL, ACCENT) */
+static const char *const MFX_SHORT[SQ_MFXS] = {"OFF", "HARM", "OCT", "ECHO", "VEL", "CHNC", "RND", "FILT", "GATE", "GLIT", "ROLL", "ACC"};
 /* the chain as it plays, in the track's order: "VEL+OCT+HARM+ECHO" (nothing: "OFF"); with `also` (not OFF) that effect
  * too, playing or not, and ">" between them (the order) */
 static char *mfx_chain_put2(char *p, uint32_t t, uint8_t also)
@@ -3268,7 +3292,7 @@ static void mfx_pad(uint32_t t, uint8_t fx)
 }
 static void mfx_amount(sq_track_cfg_t *c, int32_t d)
 {
-    int32_t lo, hi, step = (c->mfx == SQ_MFX_CHANCE || c->mfx == SQ_MFX_GLITCH) ? 5 : 1;   /* (the percentages, 5 at a time) */
+    int32_t lo, hi, step = (c->mfx == SQ_MFX_CHANCE || c->mfx == SQ_MFX_GLITCH || c->mfx == SQ_MFX_ACCENT) ? 5 : 1;   /* (the percentages, 5 at a time; 0.29: the accent too) */
     sq_mfx_range(c->mfx, 0u, track_in_key(selected_track), &lo, &hi);
     c->mfx_amt = (int8_t)clamp_i32((int32_t)c->mfx_amt + d * step, lo, hi);
 }

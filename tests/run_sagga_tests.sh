@@ -20,9 +20,13 @@ step "core" tail 1 build/sagga_core_tests
 # 0.28: twelve tracks, six notes, eight lanes - and the image still 0.27's: 0.27 (its core from git) opens what 0.28
 # saves, 0.28 what 0.27 saves again, and a 0.27 project of sixteen tracks keeps its first twelve
 step "compat 0.27" tail 2 sh tests/sagga_compat27.sh
+# 0.29: 22 genres - and the image still keeps 0.28's numbers: 0.28 (its core from git) opens what 0.29 saves (BALANI as
+# AFRO HOUSE), 0.29 what 0.28 saves again (AFRO HOUSE as GQOM), and a 0.28 project in each of its 25 genres opens where
+# that genre went
+step "compat 0.28" tail 2 sh tests/sagga_compat28.sh
 # 0.23: the THEORY engines (parts made from the rules of a genre, not loaded). First the rules counted from the library
-# (21 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
-# makes of the library as it is now), then what the engines promise over many seeds in the 25 genres and FREE, then the
+# (0.29: 16 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
+# makes of the library as it is now), then what the engines promise over many seeds in the 22 genres and FREE, then the
 # sheet of the rules written by hand (docs/TEORIA.md) against the tables it is written from
 step "theory counted" tail 1 python3 tools/theory/gen_rules.py --check
 cc -std=c11 -O2 -Wall -Wextra -Werror -Ifirmware/src tests/sagga_theory_tests.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_theory_tests

@@ -232,6 +232,7 @@ enum { SQ_ROLE_NONE = 0, SQ_ROLE_KICK, SQ_ROLE_SNARE, SQ_ROLE_HAT, SQ_ROLE_PERC,
        SQ_ROLE_CLAP, SQ_ROLE_OHAT, SQ_ROLE_RIDE, SQ_ROLE_SHAKER, SQ_ROLE_CONGA, SQ_ROLE_TOM, SQ_ROLE_RIM, SQ_ROLE_CRASH,
        SQ_ROLE_COWBELL, SQ_ROLE_RUMBLE, SQ_ROLE_SUB, SQ_ROLE_LOGDRUM, SQ_ROLE_STAB, SQ_ROLE_PAD, SQ_ROLE_PIANO,
        SQ_ROLE_LEAD, SQ_ROLE_VOX,
+       SQ_ROLE_BALAFON,          /* 0.29 (a 0.28 image: a LEAD, chunk 5 says it is the balafon) */
        SQ_ROLE_COUNT };
 #define SQ_ROLE_FAMILIES 8u      /* NONE + KICK .. ARP */
 const char *sq_role_name(uint8_t role);
@@ -243,7 +244,11 @@ uint8_t sq_role_melodic(uint8_t role);  /* 0.11: 1 for the families BASS, CHORD,
 enum { SQ_CH_OFF = 0, SQ_CH_OCT, SQ_CH_POWER, SQ_CH_5_8, SQ_CH_MAJ, SQ_CH_MIN, SQ_CH_DIM, SQ_CH_AUG, SQ_CH_SUS2, SQ_CH_SUS4,
        SQ_CH_MAJ6, SQ_CH_MIN6, SQ_CH_7, SQ_CH_MIN7, SQ_CH_MAJ7, SQ_CH_MINMAJ7, SQ_CH_DIM7, SQ_CH_M7B5, SQ_CH_7SUS4,
        SQ_CH_ADD9, SQ_CH_MADD9, SQ_CH_9, SQ_CH_MIN9, SQ_CH_MAJ9, SQ_CH_9SUS4, SQ_CH_69, SQ_CH_MIN69, SQ_CH_MIN11,
-       SQ_CH_13, SQ_CH_SHELL7, SQ_CH_MSHELL, SQ_CH_1358, SQ_CH_COUNT };
+       SQ_CH_13, SQ_CH_SHELL7, SQ_CH_MSHELL, SQ_CH_1358,
+       /* 0.29: 7#9 (funk) 7b9 (drill and phonk) maj7#11 (deep) in fourths */
+       SQ_CH_7S9, SQ_CH_7B9, SQ_CH_MAJ7S11, SQ_CH_QUARTAL,
+       SQ_CH_COUNT };
+#define SQ_CH_COUNT28 32u        /* (0.28's: a 0.28 opens one of the four new ones as OFF) */
 /* the shapes 0.10's first cut had, for the tests and the tools that named them */
 #define SQ_CH_TRIAD SQ_CH_MAJ
 #define SQ_CH_6     SQ_CH_MAJ6
@@ -358,7 +363,11 @@ enum { SQ_MFX_OFF = 0, SQ_MFX_HARM, SQ_MFX_OCTAVE, SQ_MFX_ECHO, SQ_MFX_VELOCITY,
        SQ_MFX_FILTER,                 /* NOTE FILTER: only the notes between two, or one of every N */
        SQ_MFX_GATE,                   /* the length: times a factor, or a fixed one, a little at random */
        SQ_MFX_GLITCH,                 /* now and then a step stutters, rises, jumps an octave or is cut short */
+       SQ_MFXS_020,                   /* (0.20 - 0.28 know up to here: the image's own block holds these, 0.29's chunk 5 the rest) */
+       SQ_MFX_ROLL = SQ_MFXS_020,     /* 0.29: each note a roll - 2..6 in its step, level, rising or falling (the trap hats) */
+       SQ_MFX_ACCENT,                 /* 0.29: an accent every 2..8 steps, from a step of its own: three over four */
        SQ_MFXS };
+enum { SQ_ROLL_FLAT = 0, SQ_ROLL_UP, SQ_ROLL_DOWN, SQ_ROLLS };   /* ROLL K3: the hits' velocity */
 #define SQ_GATE_FACTORS 7u       /* GATE K2 -3..+3: x1/4 x1/2 x3/4 x1 x3/2 x2 x4 */
 #define SQ_GATE_FIXED 8u         /* GATE K3: OFF, 1/32 1/16 1/8 1/4 1/2 1 BAR 2 BARS */
 enum { SQ_GL_MIX = 0, SQ_GL_STUTTER, SQ_GL_RISE, SQ_GL_JUMP, SQ_GL_CUT, SQ_GLITCHES };   /* GLITCH K3 */
@@ -449,7 +458,12 @@ typedef struct __attribute__((packed)) {
 /* 0.15 GROOVE: a template a track plays its steps with - each 16th of the bar a little early or late (% of a step, on
  * top of the step's nudge and the swing) and louder or softer; the amount scales both */
 enum { SQ_GROOVE_OFF = 0, SQ_GROOVE_HOUSE, SQ_GROOVE_GARAGE, SQ_GROOVE_DILLA, SQ_GROOVE_AFRO, SQ_GROOVE_SAMBA,
-       SQ_GROOVE_LAIDBACK, SQ_GROOVE_PUSH, SQ_GROOVE_HUMAN, SQ_GROOVE_TRAP, SQ_GROOVES };
+       SQ_GROOVE_LAIDBACK, SQ_GROOVE_PUSH, SQ_GROOVE_HUMAN, SQ_GROOVE_TRAP,
+       SQ_GROOVE_MALI,           /* 0.29: the djembe's 16ths, leaning towards three a beat (balani) */
+       SQ_GROOVE_DEMBOW,         /* ... reggaeton's: the snare's two on the 'a' late and loud */
+       SQ_GROOVE_BROKEN,         /* ... broken beat: the 'e' early, the 'a' late, uneven */
+       SQ_GROOVES };
+#define SQ_GROOVES28 10u         /* (0.28's: a 0.28 opens one of the three new ones as OFF) */
 const char *sq_groove_name(uint8_t g);
 int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step);   /* % of a step, - early */
 int32_t sq_groove_vel(uint8_t g, uint8_t amt, uint32_t step);    /* velocity, +/- */
@@ -493,16 +507,18 @@ void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c);       /* the track's 
 void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m);   /* a 0.18 track's one effect, as a chain */
 /* 0.20: the five new effects of a track, and the ORDER all nine play in (the player's: SEL + K1 in HOME 6). A 0.19
  * image has none: the defaults, and the order keeps 0.19's VEL CURVE, OCTAVE, HARM, ECHO with the new ones around it */
-#define SQ_MFX_NEW (SQ_MFXS - SQ_MFXS_019)   /* 5: effect x at [x - SQ_MFXS_019] */
-#define SQ_MFX_ALLN (SQ_MFXS - 1u)           /* 9 */
+#define SQ_MFX_NEW (SQ_MFXS - SQ_MFXS_019)   /* 7 (0.20 - 0.28: 5): effect x at [x - SQ_MFXS_019] */
+#define SQ_MFX_ALLN (SQ_MFXS - 1u)           /* 11 (0.20 - 0.28: 9) */
+#define SQ_MFX_NEW28 (SQ_MFXS_020 - SQ_MFXS_019)   /* 5: 0.28's */
+#define SQ_MFX_ALLN28 (SQ_MFXS_020 - 1u)           /* 9 */
 typedef struct __attribute__((packed)) {
     uint8_t on;                  /* bit (1 << (fx - SQ_MFXS_019)): that effect plays */
-    uint8_t order[SQ_MFX_ALLN];  /* the nine effects in the order they play, each once */
+    uint8_t order[SQ_MFX_ALLN];  /* the effects in the order they play, each once (0.29: eleven) */
     int8_t amt[SQ_MFX_NEW];      /* K2 of each new effect */
     uint8_t time[SQ_MFX_NEW];    /* K3 */
     uint8_t fb[SQ_MFX_NEW];      /* K4 */
-} sq_mfxd_t;                     /* 25 bytes */
-extern const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN];   /* FILTER CHANCE VEL RANDOM OCTAVE HARM GATE GLITCH ECHO */
+} sq_mfxd_t;                     /* 33 bytes (0.20 - 0.28: 25, the image's block: sq27_mfxd_t) */
+extern const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN];   /* FILTER CHANCE VEL ACCENT RANDOM OCTAVE HARM GATE GLITCH ROLL ECHO */
 void sq_mfxd_default(sq_mfxd_t *d);
 void sq_mfxd_sanitize(sq_mfxd_t *d);
 /* any effect of track t, old or new: on, its values (clamped to the effect's range), the count that plays */
@@ -596,8 +612,9 @@ uint8_t sq_click_render(sq_click_t *c, int32_t *out, uint32_t frames, uint32_t f
 /* 0.23 THEORY: a pattern can be MADE by the engines (sagga_theory.h) from the rules of a style instead of loaded from
  * the library. The project keeps where its patterns come from, the seed of the next one, and for every pattern the
  * engines made what it was made from - so it can be made again at another energy, or walked to its next variation. */
-#define SQ_TH_FREE 25u           /* a style is a genre of the library (SQ_GENRE_* of sagga_beats.h: 0..24), or FREE: no genre */
-#define SQ_TH_STYLES 26u
+#define SQ_TH_FREE 22u           /* a style is a genre of the library (SQ_GENRE_* of sagga_beats.h: 0..21), or FREE: no genre
+                                  * (0.29: 22; 0.28's images: 25, sq_genre_from28) */
+#define SQ_TH_STYLES 23u
 #define SQ_TH_SEEDS 999u         /* the seeds of the FM-1: 0..998 (the screen shows 1..999) */
 enum { SQ_SRC_LIBRARY = 0,      /* the patterns are loaded from the library */
        SQ_SRC_THEORY,           /* ... made by the engines, in the style of the genre (of no genre while the GENRE mode is FREE) */
@@ -671,10 +688,15 @@ enum { SQ_EVERY_OFF = 0, SQ_EVERY_1, SQ_EVERY_2, SQ_EVERY_4, SQ_EVERY_8, SQ_EVER
  * length a pattern was loaded at - and the track made that long. The length is the track's now: 16 reads as COPY,
  * 32 and 64 as PHRASE.) */
 enum { SQ_LL_COPY = 0, SQ_LL_PHRASE, SQ_LLS };
+#define SQ_LIB_PROGS 8u          /* the library's progressions a genre (sagga_beats.h SQ_PROGS; 0.29: 8, until then 6) */
 #define SQ_UPROGS 4u             /* 0.10: progressions written by the player; harm_prog SQ_PROGS.. picks them */
-#define SQ_UPROG_SLOTS (SQ_UPROGS + 1u)   /* 0.11: and one more, the progression that came from the Pi (harm_prog 10) */
-#define SQ_PROG_PI (6u + SQ_UPROGS)       /* 0.11: harm_prog of the Pi's progression (uprog[SQ_UPROGS]) */
-#define SQ_PROGS_ALL (6u + SQ_UPROGS + 1u)
+#define SQ_UPROG_SLOTS (SQ_UPROGS + 1u)   /* 0.11: and one more, the progression that came from the Pi (harm_prog 12) */
+#define SQ_PROG_PI (SQ_LIB_PROGS + SQ_UPROGS)       /* 0.11: harm_prog of the Pi's progression (uprog[SQ_UPROGS]) */
+#define SQ_PROGS_ALL (SQ_LIB_PROGS + SQ_UPROGS + 1u)
+/* 0.29: a harm_prog as 0.28 numbered it (0..5 the genre's, 6..9 the player's, 10 the Pi's) and back: the image keeps
+ * 0.28's numbers; the genre's 7th and 8th go to 0.28 as its 1st (chunk 5 keeps which they were) */
+uint8_t sq_prog_from28(uint8_t p);
+uint8_t sq_prog_to28(uint8_t p);
 typedef struct __attribute__((packed)) {
     uint8_t genre, func, var;    /* the BEAT library: what LOAD brings; genre: THE genre */
     uint8_t scope;               /* SQ_SCOPE_*: which tracks the generators work on */
@@ -686,7 +708,8 @@ typedef struct __attribute__((packed)) {
     uint8_t evo_drift;           /* 0: every change starts from the seed again; 1: each change starts from the last */
     uint8_t harm_on;             /* 0.8 HARMONY: the progression plays; the tracks with SQ_TF_FOLLOW move with it */
     uint8_t genre_mode;          /* 0.10: SQ_GM_* */
-    uint8_t harm_prog;           /* ... which progression: 0..5 the genre's, 6..9 the player's (uprog) */
+    uint8_t harm_prog;           /* ... which progression: 0..7 the genre's, 8..11 the player's (uprog), 12 the Pi's
+                                  * (0.29; 0.28: 0..5, 6..9, 10 - and so in the image: sq_prog_to28) */
     uint8_t harm_bars;           /* ... bars a chord: 0 the progression's own, else 1, 2, 4, 8 */
     uint16_t custom;             /* SCOPE CUSTOM: bit per track */
     uint8_t panel_lights;        /* 0 unset (HIGH), else 1..5 OFF..MAX */
@@ -842,7 +865,7 @@ uint8_t sq_song_locate(const sq_song_t *sg, const uint8_t *scene_metre, uint8_t 
 #define SQ_PHRASE_MAX 16u
 #define SQ_MOVES     16u             /* the queue */
 #define SQ_TRAIL     128u            /* phrases remembered */
-#define SQ_SET_GENRES 25u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h) */
+#define SQ_SET_GENRES 22u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h); 0.29: 22 */
 #define SQ_ROLES     7u              /* KICK SNARE HAT PERC BASS CHORD ARP (sagga_beats.h SQ_FUNC_*) */
 enum { SQ_VQ_PHRASE = 0, SQ_VQ_BAR, SQ_VQ_BEAT, SQ_VQS };   /* 0.10: when VIAGGIO's moves happen: the phrase boundary, every bar, every beat */
 enum { SQ_TS_EMPTY = 0, SQ_TS_PROPOSED, SQ_TS_IN, SQ_TS_OUT };
@@ -856,7 +879,7 @@ enum { SQ_MV_NONE = 0,
        SQ_MV_DROP,               /* every track with a phrase in, energy 100 at once, a fill before */
        SQ_MV_HALF, SQ_MV_DOUBLE, /* the next phrase at half / twice the speed (the step, not the tempo) */
        SQ_MV_TRANSPOSE,          /* a: 12 + semitones (-12..+12) */
-       SQ_MV_PROG,               /* a: the progression 0..5 */
+       SQ_MV_PROG,               /* a: the progression (harm_prog) */
        SQ_MV_GENRE,              /* a: the set genre 0..SQ_SET_GENRES-1 */
        SQ_MV_THIN, SQ_MV_SWELL,  /* two tracks out / two proposals in */
        SQ_MV_LOOP,               /* a: track; b: 0 the whole phrase, 1 four bars repeated */
@@ -1271,10 +1294,16 @@ int16_t sq_lfo_offset(const sq_lfo_t *l, uint8_t index, uint32_t tick, uint16_t 
 /* ---- scales and modes: the key of the project. The notes of the tracks with SQ_TF_SCALE are moved by key_shift and
  * then to the nearest note of the key (a tie goes down) when they are played, so a change of root, scale or shift
  * applies at once to every pattern, chord and arpeggio, and changing back brings the written notes back. */
-#define SQ_SCALES 16u
+#define SQ_SCALES 21u             /* 0.29: 21 (0.28: 16 - a 0.28 opens one of the five new ones as CHROMATIC) */
+#define SQ_SCALES28 16u
 enum { SQ_SC_CHROMATIC = 0, SQ_SC_MAJOR, SQ_SC_MINOR, SQ_SC_DORIAN, SQ_SC_PHRYGIAN, SQ_SC_LYDIAN, SQ_SC_MIXOLYDIAN,
        SQ_SC_LOCRIAN, SQ_SC_HARM_MINOR, SQ_SC_MEL_MINOR, SQ_SC_PENT_MAJOR, SQ_SC_PENT_MINOR, SQ_SC_BLUES, SQ_SC_WHOLE,
-       SQ_SC_PHRYG_DOM, SQ_SC_HIRAJOSHI };
+       SQ_SC_PHRYG_DOM, SQ_SC_HIRAJOSHI,
+       SQ_SC_HUNG_MINOR,         /* 0.29: HUNGARIAN MINOR (the harmonic minor with a raised 4th: drill, phonk) */
+       SQ_SC_DBL_HARM,           /* ... DOUBLE HARMONIC (the flat 2nd and the major 3rd, two augmented seconds) */
+       SQ_SC_LYD_DOM,            /* ... LYDIAN DOMINANT (the raised 4th and the flat 7th: funk, jazz) */
+       SQ_SC_MAJ_BLUES,          /* ... MAJOR BLUES (the major pentatonic with the minor 3rd) */
+       SQ_SC_IN_SEN };           /* ... IN SEN (Japanese: 1 b2 4 5 b7) */
 uint16_t sq_scale_mask(uint8_t scale);             /* bit i: the note i semitones above the root belongs to the scale */
 const char *sq_scale_name(uint8_t scale);          /* at most 7 characters: "DORIAN" */
 const char *sq_scale_long_name(uint8_t scale);     /* "HARMONIC MINOR" */
@@ -1310,7 +1339,7 @@ void sq_harm_chord_name(uint8_t scale, int8_t deg, uint8_t color, char *out);   
  * made from the library's or the player's by the HARMONY's RHYTHM: BARS (a chord every so many bars, 0.10), the
  * genre's own, a push of a 16th or an 8th, 3+3+2 (6, 6, 4 16ths), two a bar, 3+5, 3+1, a chord every two bars. */
 #define SQ_HSHAPE_CH 5u          /* shape > 5: the chord shape SQ_CH_* (shape - 5) */
-#define SQ_HSHAPES (SQ_HSHAPE_CH + SQ_CH_COUNT)   /* 0..5 the key's chord + colour, 6..37 the 32 shapes */
+#define SQ_HSHAPES (SQ_HSHAPE_CH + SQ_CH_COUNT)   /* 0..5 the key's chord + colour, 6.. the shapes (0.29: 36, to 40) */
 typedef struct { int8_t deg; uint8_t col, semi, shape; } sq_hchord_t;
 #define SQ_HPROG_CH 8u            /* chords in a progression */
 #define SQ_HPROG_MAX 24u          /* entries of its row: a rhythm of 2 or 3 lengths is laid over the chords round after
@@ -1434,6 +1463,10 @@ int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len);
  * what was aimed at them: an LFO stops, a MOD slot goes OFF, their mutes go) */
 /* 0 if sq_deserialize() would take the image whole (it reads nothing into a project): check first, then replace */
 int sq_image_ok(const uint8_t *in, uint32_t len);
+/* 0.29: a genre (or a THEORY style) of 0.28's numbering as 0.29 numbers it (v29: the image is 0.29's - its AFRO HOUSE is
+ * BALANI), and back (BALANI: AFRO HOUSE) */
+uint8_t sq_genre_from28(uint8_t g, uint8_t v29);
+uint8_t sq_genre_to28(uint8_t g);
 uint32_t sq_crc32(const uint8_t *p, uint32_t n);
 
 #endif
