@@ -77,3 +77,7 @@ aprono come sono.
 * Con l'FM-1 ancora sulla 0.28, LANE 7 e LANE 8 non fanno niente (il resto della pagina sì).
 * Se avevi cambiato a mano il CC di qualche cella della pagina Mod, resta come l'avevi messo: le celle nuove sono solo
   LANE 7 e LANE 8.
+
+## La dimensione
+
+Il firmware cala di 64 byte: 483.044 su 581.564 (la 0.28: 483.108). La RAM non cambia: 67.696 su 98.304.
