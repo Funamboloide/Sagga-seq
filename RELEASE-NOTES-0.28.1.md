@@ -55,7 +55,7 @@ lane.
 | il cuore del sequencer | 30.968.676 controlli, 0 errori |
 | i motori THEORY | 215.628.289 controlli, 0 errori |
 | il simulatore (il firmware vero che gira sul computer) | 1.541 controlli, 0 errori; 26 giri di gesti a caso con i rilevatori degli errori di memoria: 0 errori |
-| l'esploratore | ESPLORA |
+| l'esploratore: ogni gesto del pannello, del grid e della pagina, in 30 situazioni | 102.082 gesti da soli, 11.995 coppie di gesti, 200 sessioni a caso: 0 errori (al primo giro, con il tablet: la proposta fuori tempo, sopra; corretta) |
 | l'editor del Pi, il bridge del grid, la pagina del Pi, le pagine SAGGA, il banco | 265 + 325 + 176 + 90 + 76 controlli, 0 errori |
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
