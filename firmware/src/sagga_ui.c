@@ -458,7 +458,7 @@ static void ui_build(void)
         else ui_cell(1, lab, cc == SQ_LANE_NONE ? "OFF" : f_cc(cc), lc);
         ui_cell(2, "BASE", cfg->lane_base[n] == SQ_LANE_NONE ? "--" : f_u(cfg->lane_base[n]), cfg->lane_base[n] == SQ_LANE_NONE ? SQ_C_DIM : lc);
         ui_cell(3, "MODE", (fl & SQ_LF_NRPN) ? "NRPN" : (fl & (SQ_LF_SLIDE | SQ_LF_TRIGLESS)) == (SQ_LF_SLIDE | SQ_LF_TRIGLESS) ? "SLIDE+TL" : (fl & SQ_LF_SLIDE) ? "SLIDE" : (fl & SQ_LF_TRIGLESS) ? "TRIGLESS" : "NORMAL", fl ? C_ACCENT : SQ_C_DIM);
-        p = b; p = put_s(p, "ENV LANE "); p = put_u(p, n + 1u); p = put_s(p, "/6  ");
+        p = b; p = put_s(p, "ENV LANE "); p = put_u(p, n + 1u); p = put_s(p, "/"); p = put_u(p, SQ_LANES); p = put_s(p, "  ");   /* (0.28: eight) */
         p = put_s(p, learn_kind ? "LEARN: MOVE A SYNTH KNOB" : (record_arm && playing) ? "REC: K1 WRITES THE STEPS" : "ENV+REC: LEARN THE CC"); finish(p);
         ui_line(2, b, learn_kind ? C_PLAY : C_WARN);
         break;
