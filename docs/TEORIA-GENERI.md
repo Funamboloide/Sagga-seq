@@ -1,9 +1,9 @@
 # SAGGA SEQ 0.23 - i motori THEORY, genere per genere
 
 Questo foglio lo scrive `tools/theory/gen_rules.py` **contando la libreria dell'FM-1**: non si corregge a mano (la
-suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 21 generi le cui regole
-sono contate. TECHNO, HOUSE, DRUM+BASS e DUBSTEP hanno regole scritte a mano: sono in `TEORIA.md`, che spiega anche
-cosa sono i motori e come si usano.
+suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 16 generi le cui regole
+sono contate. TECHNO, HOUSE, DUBSTEP, REGGAETON, DRUM+BASS e BALANI hanno regole scritte a mano: sono in
+`TEORIA.md`, che spiega anche cosa sono i motori e come si usano.
 
 ## Come si legge
 
@@ -58,7 +58,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** RUMBLE: fondamentale 97 %. STAB: triadi 65 %, accordi di settima 18 %, quinte vuote 18 %. LEAD: un motivo - fa un arco 50 %, scende 17 %, sale 17 %, alterna due note 17 %; scala pentatonica 65 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 60 %, quinta 30 %, terza 10 %.
 
-**La progressione.** due accordi 58 %, quattro accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 58 %, 1 battuta 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 96 volte su 100; la fondamentale si muove di un grado sopra 36 %, un grado sotto 28 %, una terza sotto 19 %, una quarta sopra 11 %, una terza sopra 3 %, una quinta sopra 3 %; colori: triade 88 %, sus2 6 %. Le scale del genere: PHRYG, MINOR, LOCRIAN.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di un grado sotto 42 %, un grado sopra 29 %, una terza sotto 17 %, una terza sopra 4 %, una quarta sopra 4 %, una quinta sopra 4 %; colori: triade 83 %, sus2 9 %. Le scale del genere: PHRYG, MINOR, LOCRIAN.
 
 ## DUB TECHNO
 
@@ -91,7 +91,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 86 %, terza 10 %. CHORD: accordi di settima 85 %, triadi 15 %. PAD: accordi di settima 90 %, triadi 10 %; tenuti. ARP: le note dell'accordo in fila, con la settima.
 
-**La progressione.** due accordi 58 %, un accordo 25 %, quattro accordi 14 %, tre accordi 3 %; ogni accordo dura 2 battute 58 %, 4 battute 25 %, 1 battuta 14 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di un grado sotto 26 %, un grado sopra 15 %, una terza sopra 15 %, una quarta sopra 15 %, una quinta sopra 15 %, una terza sotto 15 %; colori: settima 47 %, nona 30 %, triade 7 %, sus4 7 %, sesta 7 %. Le scale del genere: MINOR, DORIAN, PHRYG.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sotto 29 %, un grado sopra 17 %, una quarta sopra 17 %, una quinta sopra 17 %, una terza sotto 17 %, una terza sopra 4 %; colori: settima 49 %, nona 22 %, triade 9 %, sus4 9 %, sesta 9 %. Le scale del genere: MINOR, DORIAN, PHRYG.
 
 ## UK GARAGE
 
@@ -133,7 +133,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 44 %, ottava 17 %, quarta 16 %, quinta 14 %, terza 9 %. SUB: fondamentale 74 %, quinta 11 %, settima 11 %, terza 5 %; note tenute. CHORD: accordi di settima 95 %, triadi 5 %. STAB: triadi 65 %, accordi di settima 35 %. VOX: un motivo - scende 50 %, sale 17 %, fa un arco 17 %, alterna due note 17 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 46 %, fondamentale 31 %, terza 23 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** quattro accordi 68 %, due accordi 25 %, un accordo 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 79 %, 2 battute 14 %, 4 battute 3 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di una quarta sopra 27 %, una quinta sopra 22 %, un grado sopra 17 %, un grado sotto 17 %, una terza sotto 12 %, una terza sopra 7 %; colori: settima 35 %, triade 31 %, nona 28 %, sus4 4 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: MINOR, DORIAN, MAJOR.
+**La progressione.** quattro accordi 60 %, due accordi 32 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 74 %, 2 battute 18 %, 4 battute 4 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di una quarta sopra 38 %, un grado sopra 17 %, una quinta sopra 17 %, una terza sopra 9 %, una terza sotto 9 %, un grado sotto 9 %; colori: settima 47 %, nona 38 %, triade 6 %, sus4 6 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: MINOR, DORIAN, MAJOR.
 
 ## UK FUNKY
 
@@ -175,7 +175,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 36 %, quinta 24 %, quarta 17 %, terza 14 %, ottava 9 %. CHORD: accordi di settima 88 %, triadi 12 %. LEAD: un motivo - fa un arco 48 %, sale 31 %, scende 16 %, alterna due note 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 35 %, quinta 35 %, terza 29 %.
 
-**La progressione.** due accordi 58 %, quattro accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 47 %, 1 battuta 36 %, 4 battute 14 %, 8 battute 3 %; parte da casa 66 volte su 100; la fondamentale si muove di una quarta sopra 34 %, un grado sopra 26 %, un grado sotto 18 %, una quinta sopra 10 %, una terza sotto 10 %; colori: settima 69 %, nona 25 %; gli accordi entrano spesso un ottavo prima. Le scale del genere: MINOR, DORIAN, PHRYG.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di un grado sopra 26 %, una quarta sopra 26 %, una quinta sopra 15 %, una terza sotto 15 %, un grado sotto 15 %, una terza sopra 3 %; colori: settima 76 %, nona 16 %; gli accordi entrano spesso un ottavo prima. Le scale del genere: MINOR, DORIAN, PHRYG.
 
 ## JUNGLE
 
@@ -206,51 +206,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** SUB: fondamentale 59 %, terza 15 %, quarta 11 %, ottava 7 %, settima 7 %; note tenute. BASS: fondamentale 63 %, terza 17 %, ottava 10 %, quarta 10 %. PAD: accordi di settima 73 %, triadi 27 %; tenuti. VOX: un motivo - scende 50 %, sale 17 %, fa un arco 17 %, alterna due note 17 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 40 %, terza 33 %, fondamentale 27 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** due accordi 47 %, quattro accordi 36 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 47 %, 1 battuta 36 %, 4 battute 14 %, 8 battute 3 %; parte da casa 66 volte su 100; la fondamentale si muove di un grado sotto 31 %, un grado sopra 24 %, una quarta sopra 24 %, una terza sopra 9 %, una terza sotto 9 %; colori: settima 58 %, nona 32 %, triade 6 %. Le scale del genere: MINOR, DORIAN, PHRYG.
-
-## REGGAETON
-
-| parte | famiglia | base | pieno | in più | |
-| --- | --- | --- | --- | --- | --- |
-| KICK | 1 di 2 · 58 % | `X.......X.......`<br>`X.......X.......` | `X...X...X...X...`<br>`X...X...X...X...` | `..4f.4.....f...4`<br>`.4.4...f......f4` | rullate |
-|  | 2 di 2 · 42 % | `X.......X.......`<br>`X.......X.......` | `X..X....X..x....`<br>`X.......X..x..x.` | `.6........6.....`<br>`.............6..` | rullate |
-| SNARE | 1 di 2 · 75 % | `...X.......X..x.` | `...X.......X..x.` | `.....3f9..3..6.6` | rullate |
-|  | 2 di 2 · 25 % | `......x.......x.` | `......x.......x.` | `.......9....9...` | rullate |
-| HAT | 1 di 4 · 33 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.6.1.1.6.d.1.1.1` | chiusura |
-|  | 2 di 4 · 25 % | `..x...x...x...x.` | `x.xx.xx.x.xx.xx.` | `.f..1..1.9..1..1` | chiusura, rullate |
-|  | 3 di 4 · 25 % | `o.xo.xx.o.xo.xx.` | `oxxo.xxooxxooxxo` | `....f...........` | chiusura |
-|  | 4 di 4 · 17 % | `......x.......x.` | `..x...x...x...x.` | `11.111.d11.111.1` | chiusura, rullate |
-| SHAKER | 1 di 2 · 83 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `xoxoxoxoxoxoxoxo`<br>`xoxo.oxoxoxoxoxo` | `................`<br>`....f...........` |  |
-|  | 2 di 2 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
-| RIM | 1 di 3 · 67 % | `...x..x.......x.` | `...x..x.......x.` | `........9..f....` |  |
-|  | 2 di 3 · 17 % | `...x......x.....` | `...x......x.....` | `................` |  |
-|  | 3 di 3 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `................` |  |
-| CONGA | 1 di 4 · 36 % | `x.....x.......x.` | `x..x..x.x..x..x.` | `..d.11.6..d.16.1` | chiusura, rullate |
-|  | 2 di 4 · 27 % | `...X..x.......x.` | `...X..x....x.xx.` | `191.19.11.1.1...` | chiusura |
-|  | 3 di 4 · 27 % | `..o.X.........x.` | `..o.X..x....x.x.` | `1..1.91.1.f1.1..` | chiusura |
-|  | 4 di 4 · 9 % | `x..x..x.o.......` | `x..x..x.o.x.x..o` | `..1.11.1...1.11.` | chiusura |
-| PERC | 1 di 4 · 40 % | `......x.......x.` | `......x.......x.` | `1.1d11.1..1d11.1` |  |
-|  | 2 di 4 · 20 % | `......x...x.x...` | `x..x..x...x.x...` | `.......1...1..11` |  |
-|  | 3 di 4 · 20 % | `...x...x......x.`<br>`..........x.x.x.` | `...x...x...x..xx`<br>`...x...x..x.x.xx` | `......1...1.1...`<br>`......1.........` |  |
-|  | 4 di 4 · 20 % | `....x.......x...`<br>`....x.....x.x...` | `....x..x....x..x`<br>`....x..x..x.x..x` | `...1..1...11..1.`<br>`...1..1.......1.` |  |
-| BASS | 1 di 2 · 67 % | `x.......x.......` | `x..x....x..x....` | `.....1f...3..3d.` |  |
-|  | 2 di 2 · 33 % | `x.......x.......` | `x.....x.x.....x.` | `...1.6.....1....` |  |
-| LOG DRUM | 1 di 4 · 60 % | `x.........x..x..` | `x.........x..x..` | `..1f.1a11...1.1.` |  |
-|  | 2 di 4 · 20 % | `..x.......x..x..` | `..x..x.x..x..x..` | `1..1..1.........` |  |
-|  | 3 di 4 · 10 % | `......x...x.....` | `...x..x...x.x...` | `1.1..........1..` |  |
-|  | 4 di 4 · 10 % | `x.........x.....` | `x...x.....x.x...` | `..11..1......1..` |  |
-| CHORD | 1 di 4 · 33 % | `x.......x.......` | `x..x..x.x..x..x.` | `.61..6...61.....` |  |
-|  | 2 di 4 · 25 % | `x.....x...x.....` | `x.....x...x.....` | `..11.9..1..1..1.` |  |
-|  | 3 di 4 · 25 % | `..x.......x.....` | `..x...x...x...x.` | `1..1....19.1....` |  |
-|  | 4 di 4 · 17 % | `x.......X.......` | `x.......X.......` | `..11..1...11..1d` |  |
-| LEAD | 1 di 4 · 33 % | `x.......x.......` | `x..x..x.x.......` | `..1.11.1.11d1.d.` |  |
-|  | 2 di 4 · 33 % | `..x.....x.....x.` | `..x.x...x.x...x.` | `d..1.1d1.1.1d...` |  |
-|  | 3 di 4 · 17 % | `x.....x.....x...` | `x..x..x..x..x...` | `..1.1...1.1...1.` |  |
-|  | 4 di 4 · 17 % | `x..x....x...x.x.` | `x.xx.x.xx.x.x.x.` | `....1.1.........` |  |
-
-**Le note.** BASS: fondamentale 62 %, quarta 18 %, quinta 8 %, terza 5 %, ottava 3 %, settima 3 %. LOG DRUM: fondamentale 40 %, quinta 23 %, quarta 23 %, terza 9 %, ottava 6 %. CHORD: triadi 62 %, accordi di settima 38 %. LEAD: un motivo - sale 61 %, fa un arco 30 %, scende 5 %, alterna due note 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 38 %, terza 38 %, quinta 25 %.
-
-**La progressione.** quattro accordi 79 %, due accordi 14 %, un accordo 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 79 %, 2 battute 14 %, 4 battute 3 %, 8 battute 3 %; parte da casa 86 volte su 100; la fondamentale si muove di un grado sopra 32 %, una quarta sopra 28 %, una terza sotto 23 %, una quinta sopra 14 %; colori: triade 76 %, settima 10 %, nona 10 %. Le scale del genere: MINOR, H.MINOR, PHR.DOM.
+**La progressione.** due accordi 46 %, quattro accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di una quarta sopra 34 %, un grado sopra 23 %, un grado sotto 23 %, una terza sotto 13 %, una terza sopra 3 %, una quinta sopra 3 %; colori: settima 55 %, nona 32 %, triade 8 %. Le scale del genere: MINOR, DORIAN, PHRYG.
 
 ## BATIDA
 
@@ -295,7 +251,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 41 %, terza 18 %, quarta 18 %, quinta 16 %, ottava 7 %. CHORD: triadi 91 %, accordi di settima 9 %. LEAD: un motivo - fa un arco 48 %, sale 31 %, scende 16 %, alterna due note 5 %; scala pentatonica 65 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 46 %, quinta 38 %, terza 15 %.
 
-**La progressione.** quattro accordi 79 %, due accordi 14 %, un accordo 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 79 %, 2 battute 14 %, 4 battute 3 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di una quarta sopra 23 %, un grado sopra 19 %, una terza sotto 19 %, un grado sotto 19 %, una quinta sopra 14 %, una terza sopra 6 %; colori: triade 89 %, settima 4 %, nona 4 %. Le scale del genere: MINOR, MAJOR, DORIAN.
+**La progressione.** quattro accordi 88 %, un accordo 4 %, due accordi 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 88 %, 2 battute 4 %, 4 battute 4 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di un grado sopra 23 %, una terza sotto 23 %, una quarta sopra 18 %, una quinta sopra 18 %, un grado sotto 18 %; colori: triade 94 %. Le scale del genere: MINOR, MAJOR, DORIAN.
 
 ## GQOM
 
@@ -335,7 +291,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 70 %, seconda 14 %, terza 9 %, quinta 5 %. PAD: accordi di settima 60 %, triadi 40 %; tenuti. VOX: un motivo - scende 38 %, alterna due note 38 %, fa un arco 19 %, sale 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 46 %, fondamentale 38 %, terza 15 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** due accordi 68 %, un accordo 25 %, tre accordi 3 %, quattro accordi 3 %; ogni accordo dura 2 battute 68 %, 4 battute 25 %, 1 battuta 3 %, 8 battute 3 %; parte da casa 96 volte su 100; la fondamentale si muove di una terza sotto 34 %, un grado sopra 19 %, una quarta sopra 19 %, un grado sotto 19 %, una terza sopra 4 %, una quinta sopra 4 %; colori: triade 65 %, settima 15 %, nona 8 %, sus4 8 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
+**La progressione.** due accordi 74 %, un accordo 18 %, tre accordi 4 %, quattro accordi 4 %; ogni accordo dura 2 battute 74 %, 4 battute 18 %, 1 battuta 4 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di un grado sopra 22 %, una quarta sopra 22 %, una terza sotto 22 %, un grado sotto 22 %, una terza sopra 5 %, una quinta sopra 5 %; colori: triade 80 %, sus4 10 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
 
 ## EXPERIMENT
 
@@ -371,7 +327,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 26 %, quarta 23 %, seconda 19 %, terza 15 %, settima 15 %, quinta 3 %. PAD: triadi 50 %, accordi di settima 37 %, quinte vuote 13 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** due accordi 47 %, quattro accordi 47 %, un accordo 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 47 %, 2 battute 47 %, 4 battute 3 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di una terza sopra 38 %, un grado sotto 20 %, un grado sopra 14 %, una quarta sopra 14 %, una quinta sopra 14 %; colori: settima 24 %, nona 21 %, sus2 21 %, sus4 17 %, sesta 13 %, triade 5 %. Le scale del genere: WHOLE, HIRAJO, LOCRIAN.
+**La progressione.** due accordi 46 %, quattro accordi 46 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 46 %, 2 battute 46 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di una terza sopra 41 %, un grado sotto 26 %, una quinta sopra 18 %, un grado sopra 10 %; colori: settima 27 %, nona 22 %, sus4 17 %, sus2 17 %, sesta 12 %, triade 7 %. Le scale del genere: WHOLE, HIRAJO, LOCRIAN.
 
 ## ELECTRO
 
@@ -407,49 +363,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 45 %, ottava 31 %, quarta 10 %, quinta 8 %, terza 4 %. STAB: triadi 71 %, accordi di settima 29 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** due accordi 58 %, quattro accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 58 %, 1 battuta 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 86 volte su 100; la fondamentale si muove di un grado sopra 31 %, una quarta sopra 21 %, un grado sotto 21 %, una terza sopra 12 %, una terza sotto 12 %, una quinta sopra 3 %; colori: triade 78 %, settima 11 %, sus4 6 %. Le scale del genere: MINOR, PHRYG, DORIAN.
-
-## BALANI
-
-| parte | famiglia | base | pieno | in più | |
-| --- | --- | --- | --- | --- | --- |
-| KICK | 1 di 3 · 75 % | `....X...X...X...`<br>`X.....X.X...X...` | `X...X...X..xX...`<br>`X..x..X.X...X.xx` | `..3..........3.3`<br>`.....3.......6..` | rullate |
-|  | 2 di 3 · 17 % | `X.......X.......` | `X...X...X...X...` | `.......d......d.` |  |
-|  | 3 di 3 · 8 % | `X.....X...X.....` | `X..x..X...X..x..` | `................` |  |
-| CLAP | 1 di 2 · 92 % | `....X.......X...`<br>`....X.......X...` | `....X.......X...`<br>`....X.......X...` | `.......e.....2e7`<br>`.22....f..22..ef` | rullate |
-|  | 2 di 2 · 8 % | `....X.......X...` | `..x.X..x..x.X..x` | `................` |  |
-| HAT | 1 di 3 · 42 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1.5...1.5.1.f.5` | chiusura |
-|  | 2 di 3 · 42 % | `x.x.x.x.x.x.x.x.` | `x.xxx.xxx.xxx.xx` | `.f...5...5...f..` | chiusura, rullate |
-|  | 3 di 3 · 17 % | `......x.......x.` | `..x...x...x...x.` | `1d.11..11..111.d` | chiusura |
-| SHAKER | 1 di 3 · 67 % | `x.xxx.xxx.xxx.xx` | `xxxxxxxxxxxxxxxx` | `................` |  |
-|  | 2 di 3 · 17 % | `..x...x...x...x.` | `x.xxx.xxx.xxx.xx` | `.1...1...1...1..` |  |
-|  | 3 di 3 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
-| PERC | 1 di 4 · 33 % | `..........x..x.x` | `..x..x.x..x..x.x` | `1..1..6.1..61.1.` |  |
-|  | 2 di 4 · 25 % | `x..x....x.......` | `x..x..x.x..x..x.` | `..1..9.9..1..1.1` | rullate |
-|  | 3 di 4 · 25 % | `..x..x.x..X..x.x` | `x.xx.x.xx.Xx.x.x` | `.9....1..9....1.` |  |
-|  | 4 di 4 · 17 % | `x.........x....x`<br>`x.......x.x....x` | `x..x......x.x..x`<br>`x..x..x.x.x.x.xx` | `..1..1d11..1.11.`<br>`..1..d.1...1.1..` | rullate |
-| CONGA | 1 di 4 · 40 % | `x.x.....x.x.....` | `x.xx..x.x.xx..x.` | `....11.1....11.1` | chiusura |
-|  | 2 di 4 · 20 % | `x.....x...x.....` | `x..x..x...x..x..` | `..1....11..11.11` | chiusura |
-|  | 3 di 4 · 20 % | `x.....x.o.x.....` | `x..x..x.o.x.x..o` | `..1....1...1.11.` | chiusura |
-|  | 4 di 4 · 20 % | `..o.......o...x.` | `..o.x..x..o.x.x.` | `1..1..1.1..1.1.1` | chiusura |
-| TOM | 1 di 4 · 33 % | `......x.........` | `......x.........` | `d..1......1.d1d1` | chiusura |
-|  | 2 di 4 · 33 % | `............x.xx` | `............x.xx` | `1..1..1...1..d..` | chiusura |
-|  | 3 di 4 · 17 % | `..........x..x..` | `..........x..x..` | `1.....1.....1.11` | chiusura |
-|  | 4 di 4 · 17 % | `x.....x.......x.` | `x..x..x...x...x.` | `............11.1` | chiusura |
-| BASS | 1 di 2 · 75 % | `x.......x.......` | `x.......x.......` | `...1c.1...1.c1c.` |  |
-|  | 2 di 2 · 25 % | `x.....x...x.....` | `x..x..x...x..x..` | `........1.......` |  |
-| BALAFON | 1 di 3 · 42 % | `x.xxx.xxx.xxx.xx` | `xxxxxxxxxxxxxxxx` | `................` |  |
-|  | 2 di 3 · 33 % | `x.x.x...x...x...` | `x.x.xxx.x.x.xxx.` | `.1.6...1.1.1...1` |  |
-|  | 3 di 3 · 25 % | `x.x.x.x.x...x...` | `x.xxx.xxx.xxx.xx` | `.1...1...1...1..` |  |
-| VOX | 1 di 3 · 33 % | `x...............` | `x...............` | `..111...d.d.1..1` |  |
-|  | 2 di 3 · 33 % | `...x......X.....` | `...x......X.....` | `1.1.1...1...1..d` |  |
-|  | 3 di 3 · 33 % | `....x.......x...` | `....x.......x...` | `1.d1....1.1....1` |  |
-| CHORD | 1 di 2 · 67 % | `X.....x.........` | `X.....x.........` | `..1.......1..61.` |  |
-|  | 2 di 2 · 33 % | `......X.......x.` | `..x...X...x...x.` | `1............d..` |  |
-
-**Le note.** BASS: fondamentale 51 %, quarta 18 %, quinta 16 %, terza 11 %, ottava 4 %. BALAFON: un motivo - fa un arco 79 %, scende 12 %, sale 5 %, alterna due note 5 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 35 %, quinta 35 %, terza 29 %. VOX: un motivo - alterna due note 55 %, scende 36 %, sale 5 %, fa un arco 5 %; scala pentatonica 65 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 55 %, fondamentale 45 %. CHORD: triadi 94 %, accordi di settima 6 %.
-
-**La progressione.** quattro accordi 58 %, due accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 1 battuta 58 %, 2 battute 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di una quarta sopra 35 %, un grado sotto 24 %, un grado sopra 19 %, una quinta sopra 13 %, una terza sotto 7 %; colori: triade 94 %. Le scale del genere: MAJOR, PENT.+, MIXOLY.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di una quarta sopra 29 %, un grado sotto 29 %, una terza sopra 17 %, una terza sotto 17 %, un grado sopra 4 %, una quinta sopra 4 %; colori: triade 70 %, settima 16 %, sus4 9 %. Le scale del genere: MINOR, PHRYG, DORIAN.
 
 ## FOOTWORK
 
@@ -484,7 +398,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** SUB: fondamentale 43 %, quarta 23 %, quinta 18 %, terza 11 %, ottava 5 %. CHORD: accordi di settima 56 %, triadi 44 %. VOX: un motivo - scende 32 %, fa un arco 32 %, alterna due note 32 %, sale 5 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 43 %, fondamentale 36 %, terza 21 %.
 
-**La progressione.** due accordi 58 %, quattro accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 58 %, 1 battuta 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di un grado sopra 28 %, una quarta sopra 28 %, una terza sotto 28 %, un grado sotto 11 %, una terza sopra 3 %, una quinta sopra 3 %; colori: settima 64 %, nona 25 %, sus4 6 %. Le scale del genere: MINOR, DORIAN, PENT.-.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 42 %, una terza sotto 29 %, una quarta sopra 17 %, una terza sopra 4 %, una quinta sopra 4 %, un grado sotto 4 %; colori: settima 63 %, nona 22 %, sus4 9 %. Le scale del genere: MINOR, DORIAN, PENT.-.
 
 ## TRANCE
 
@@ -518,7 +432,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 75 %, ottava 11 %, quarta 7 %, quinta 5 %. PAD: triadi 70 %, accordi di settima 30 %; tenuti. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava). LEAD: un motivo - fa un arco 55 %, scende 24 %, sale 16 %, alterna due note 5 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 35 %, quinta 35 %, terza 29 %.
 
-**La progressione.** quattro accordi 90 %, un accordo 3 %, due accordi 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 68 %, 2 battute 25 %, 4 battute 3 %, 8 battute 3 %; parte da casa 66 volte su 100; la fondamentale si muove di un grado sopra 31 %, una quinta sopra 22 %, una terza sotto 18 %, un grado sotto 14 %, una terza sopra 10 %, una quarta sopra 5 %; colori: triade 93 %, sus4 4 %. Le scale del genere: MINOR, H.MINOR, PHRYG.
+**La progressione.** quattro accordi 88 %, un accordo 4 %, due accordi 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 60 %, 2 battute 32 %, 4 battute 4 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di un grado sopra 24 %, una quinta sopra 24 %, una terza sotto 19 %, un grado sotto 19 %, una terza sopra 7 %, una quarta sopra 7 %; colori: triade 90 %, sus4 5 %. Le scale del genere: MINOR, H.MINOR, PHRYG.
 
 ## UK DRILL
 
@@ -547,7 +461,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** SUB: fondamentale 52 %, seconda 15 %, terza 12 %, sesta 9 %, ottava 6 %, quinta 3 %, quarta 3 %. PAD: triadi 50 %, accordi di settima 50 %; tenuti. LEAD: un motivo - fa un arco 63 %, scende 16 %, sale 16 %, alterna due note 5 %; scala pentatonica 52 volte su 100, altrimenti tutte e sette le note; fino a 10 semitoni sopra la fondamentale; poggia su fondamentale 38 %, terza 38 %, quinta 25 %. VOX: un motivo - scende 73 %, alterna due note 18 %, sale 5 %, fa un arco 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 50 %, fondamentale 25 %, terza 25 %.
 
-**La progressione.** quattro accordi 58 %, due accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 1 battuta 58 %, 2 battute 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 86 volte su 100; la fondamentale si muove di un grado sotto 26 %, un grado sopra 20 %, una terza sotto 20 %, una quarta sopra 14 %, una quinta sopra 14 %, una terza sopra 8 %; colori: triade 94 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
+**La progressione.** quattro accordi 46 %, due accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 1 battuta 46 %, 2 battute 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 28 %, una terza sotto 28 %, una quinta sopra 19 %, una quarta sopra 11 %, un grado sotto 11 %, una terza sopra 3 %; colori: triade 92 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
 
 ## HARDCORE
 
@@ -577,7 +491,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** STAB: triadi 54 %, quinte vuote 26 %, accordi di settima 21 %. LEAD: un motivo - fa un arco 48 %, sale 40 %, scende 8 %, alterna due note 5 %; scala pentatonica 51 volte su 100, altrimenti tutte e sette le note; fino a 13 semitoni sopra la fondamentale; poggia su fondamentale 55 %, quinta 27 %, terza 18 %. PAD: accordi di settima 80 %, triadi 20 %; tenuti. BASS: fondamentale 90 %, seconda 7 %, quarta 3 %.
 
-**La progressione.** quattro accordi 47 %, due accordi 36 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 1 battuta 47 %, 2 battute 36 %, 4 battute 14 %, 8 battute 3 %; parte da casa 86 volte su 100; la fondamentale si muove di un grado sopra 36 %, un grado sotto 29 %, una quinta sopra 16 %, una terza sotto 16 %; colori: triade 90 %, sus2 5 %. Le scale del genere: PHRYG, MINOR, H.MINOR.
+**La progressione.** due accordi 46 %, quattro accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di un grado sotto 44 %, un grado sopra 34 %, una terza sotto 13 %, una terza sopra 3 %, una quarta sopra 3 %, una quinta sopra 3 %; colori: triade 85 %, sus2 8 %. Le scale del genere: PHRYG, MINOR, H.MINOR.
 
 ## PHONK
 
@@ -606,7 +520,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** SUB: fondamentale 68 %, quinta 8 %, seconda 8 %, ottava 5 %, terza 5 %, settima 5 %. LEAD: un motivo - fa un arco 55 %, scende 24 %, sale 16 %, alterna due note 5 %; scala pentatonica 66 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 50 %, quinta 25 %, terza 25 %. PAD: accordi di settima 70 %, triadi 30 %; tenuti. VOX: un motivo - scende 45 %, alterna due note 45 %, sale 5 %, fa un arco 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 55 %, quinta 36 %, terza 9 %.
 
-**La progressione.** due accordi 58 %, quattro accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 2 battute 58 %, 1 battuta 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 96 volte su 100; la fondamentale si muove di una quarta sopra 28 %, una quinta sopra 19 %, una terza sotto 19 %, un grado sotto 19 %, un grado sopra 11 %, una terza sopra 3 %; colori: triade 78 %, settima 16 %. Le scale del genere: PHRYG, MINOR, H.MINOR.
+**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di un grado sotto 29 %, un grado sopra 17 %, una quarta sopra 17 %, una quinta sopra 17 %, una terza sotto 17 %, una terza sopra 4 %; colori: triade 83 %, settima 9 %. Le scale del genere: PHRYG, MINOR, H.MINOR.
 
 ## BAILE FUNK
 
@@ -646,7 +560,7 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** SUB: fondamentale 67 %, quinta 10 %, settima 10 %, terza 8 %, quarta 4 %. VOX: un motivo - alterna due note 58 %, scende 17 %, fa un arco 17 %, sale 8 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 46 %, quinta 38 %, terza 15 %. STAB: triadi 76 %, accordi di settima 24 %.
 
-**La progressione.** quattro accordi 58 %, due accordi 25 %, un accordo 14 %, tre accordi 3 %; ogni accordo dura 1 battuta 58 %, 2 battute 25 %, 4 battute 14 %, 8 battute 3 %; parte da casa 86 volte su 100; la fondamentale si muove di un grado sopra 35 %, una quinta sopra 19 %, una terza sotto 19 %, una quarta sopra 13 %, un grado sotto 13 %; colori: triade 94 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
+**La progressione.** quattro accordi 46 %, due accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 1 battuta 46 %, 2 battute 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 45 %, una quarta sopra 19 %, un grado sotto 19 %, una terza sotto 11 %, una terza sopra 3 %, una quinta sopra 3 %; colori: triade 92 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
 
 ## MERENGUE
 
@@ -680,4 +594,4 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **Le note.** BASS: fondamentale 53 %, quinta 42 %, ottava 4 %. PIANO: accordi di settima 73 %, triadi 27 %. LEAD: un motivo - fa un arco 71 %, sale 16 %, scende 8 %, alterna due note 5 %; scala pentatonica 51 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 40 %, quinta 40 %, terza 20 %. VOX: un motivo - scende 48 %, alterna due note 31 %, sale 16 %, fa un arco 5 %; scala pentatonica 65 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 43 %, quinta 43 %, terza 14 %.
 
-**La progressione.** quattro accordi 79 %, due accordi 14 %, un accordo 3 %, tre accordi 3 %; ogni accordo dura 1 battuta 90 %, 2 battute 3 %, 4 battute 3 %, 8 battute 3 %; parte da casa 76 volte su 100; la fondamentale si muove di una quarta sopra 41 %, un grado sopra 23 %, una terza sotto 19 %, una quinta sopra 14 %; colori: triade 70 %, settima 26 %. Le scale del genere: MAJOR, MIXOLY, MINOR.
+**La progressione.** quattro accordi 74 %, due accordi 18 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 88 %, 2 battute 4 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di una quarta sopra 47 %, un grado sopra 19 %, una quinta sopra 19 %, una terza sotto 13 %; colori: triade 68 %, settima 26 %. Le scale del genere: MAJOR, MIXOLY, MINOR.

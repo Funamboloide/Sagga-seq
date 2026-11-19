@@ -37,7 +37,10 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "firmware", "src", "sagga_theory_data.h")
 DOC = os.path.join(ROOT, "docs", "TEORIA-GENERI.md")
-HAND = (0, 3, 6, 13)             # TECHNO HOUSE DUBSTEP DRUM+BASS: their rules are written by hand (sagga_theory.c; 0.29: 22 genres)
+# 0.29: a genre has eight progressions; its chords are counted from the first six, the ones it had until 0.28, so that the
+# engines go on making the chords they made (a seed's band, DICE PROG): tests/sagga_theory_tests.c, the engines of 0.25
+PROGS25 = 6
+HAND = (0, 3, 6, 8, 13, 14)      # TECHNO HOUSE DUBSTEP REGGAETON DRUM+BASS BALANI: their rules are written by hand (sagga_theory.c; 0.29: 22 genres, two more by hand)
 ON = "Xxog234"
 ROLLS = "234"
 T_SAME = 3.0                     # variations this near (16ths a bar) are one family
@@ -569,7 +572,8 @@ def prog_rule(g, scale_names):
 
     n_w, bars_w, move, last, col = (collections.Counter() for _ in range(5))
     first = same = 0
-    for n, bars, degs, cols in g["progs"]:
+    progs = g["progs"][:PROGS25]
+    for n, bars, degs, cols in progs:
         n_w[min(n, 4)] += 1
         bars_w[bars if bars in (1, 2, 4, 8) else 2] += 1
         first += degs[0] == 0
@@ -581,7 +585,7 @@ def prog_rule(g, scale_names):
             last[degs[-1] % 7] += 1
         for c in cols:
             col[c] += 1
-    np_ = len(g["progs"])
+    np_ = len(progs)
     lw = weights(last, range(7))
     lw[0] = 0                    # (the last chord of three or four is never home: sq_th_prog)
     push = {2: (45, 40, 15), 3: (45, 15, 40)}.get(g["hrhythm"], (100, 0, 0))
@@ -662,9 +666,9 @@ def generate(lines):
 DOC_HEAD = """# SAGGA SEQ 0.23 - i motori THEORY, genere per genere
 
 Questo foglio lo scrive `tools/theory/gen_rules.py` **contando la libreria dell'FM-1**: non si corregge a mano (la
-suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 21 generi le cui regole
-sono contate. TECHNO, HOUSE, DRUM+BASS e DUBSTEP hanno regole scritte a mano: sono in `TEORIA.md`, che spiega anche
-cosa sono i motori e come si usano.
+suite dei test controlla che sia quello che la libreria dà). Dice cosa suonano i motori nei 16 generi le cui regole
+sono contate. TECHNO, HOUSE, DUBSTEP, REGGAETON, DRUM+BASS e BALANI hanno regole scritte a mano: sono in
+`TEORIA.md`, che spiega anche cosa sono i motori e come si usano.
 
 ## Come si legge
 

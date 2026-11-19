@@ -934,6 +934,270 @@ LA PROGRESSIONE
 ```
 <!-- /regole -->
 
+### REGGAETON (101 BPM)
+
+Il **dembow**: la cassa in quattro, sempre; il rullante su `...x..x....x..x.` a ogni energia, con gli accenti
+sull'ultimo sedicesimo dell'1 e del 3 (oppure, una famiglia su quattro, sui due colpi dopo). L'hat in ottavi, e i
+sedicesimi entrano con l'energia; lo shaker in sedicesimi (quello dell'amapiano); il rim con i primi due colpi del
+rullante, oppure sulle "e"; le congas sul tresillo (3+3+2); un timbale ogni tanto. Il basso sta con la cassa e prende
+i levare del tresillo (sull'ultimo sedicesimo dell'1 e del 3); il **log drum** dell'amapiano scivola fra le note,
+mai due colpi vicini. Gli accordi sul tresillo, il lead in 3+3+2.
+
+L'armonia: **quattro accordi**, uno a battuta, quasi sempre (i VI III VII); le fondamentali scendono di una terza o
+salgono di una quinta o di una quarta. In minore; triadi, qualche settima e qualche nona (l'amapiano).
+
+<!-- regole REGGAETON -->
+```text
+KICK
+    sempre   X...X...X...X...
+    pesi     ...2...1..13..22   densità 8-63 %   tutti 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
+
+SNARE
+  una famiglia (75 % dei semi)
+    sempre   ...X..x....X..x.
+    pesi     ..1....2..1....3   densità 12-59 %   tutti 'g'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+  una famiglia (25 % dei semi)
+    sempre   ...x..X....x..X.
+    pesi     ...........3...2   densità 8-55 %   tutti 'g'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+
+HAT
+  una famiglia (60 % dei semi)
+    sempre   x.x.x.x.x.x.x.x.
+    classi   e 16 % 'o'   a 43 % 'o'   a energia 0 il 24 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+  una famiglia (40 % dei semi)
+    sempre   ..x...x...x...x.
+    pesi     .......3.......4   densità 12-59 %   tutti 'o'
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+
+SHAKER
+    classi   tempi sempre 'x'   e 78 % 'o'   & sempre 'x'   a 86 % 'o'   (insieme)   a energia 0 il 55 % di queste
+             un colpo della classe manca: 16 %
+    battute 2 e 4: 15 % delle scelte rifatte
+
+RIM
+  una famiglia (60 % dei semi)
+    sempre   ...x..x.........
+    pesi     ..........54..6.   densità 16-67 %
+    battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (40 % dei semi)
+    sempre   ..x.......x.....
+    pesi     .....3.......34.   densità 12-59 %   fino a peso 3: 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+
+CONGA
+  una famiglia (60 % dei semi)
+    sempre   x.....x.........
+    pesi     ...9....7..8..9.   densità 24-86 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (40 % dei semi)
+    sempre   ...X..x.........
+    pesi     ..4.3......7.78.   densità 16-78 %   fino a peso 3: 'o'
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+PERC
+    pesi     ...2..9...3.3.91   densità 24-78 %   fino a peso 3: 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+BASS
+  una famiglia (65 % dei semi)
+    sempre   X.......x.......
+    pesi     ...a..3....a..32   densità 27-82 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (35 % dei semi)
+    sempre   X.......x.......
+    pesi     ......9.......9.   densità 24-78 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
+    note     fondamentale 65 %, quinta 14 %, ottava 12 %, terza 6 %, settima 3 %
+             sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 23 % (entro 3 sedicesimi), la nota del tempo 27 %
+             nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 23 % (al massimo 3 sedicesimi)
+
+LOG DRUM
+    sempre   X...............
+    pesi     ...5..5...9..9.2   densità 31-90 %
+    mai due colpi su sedicesimi vicini   battute 2 e 4: 40 % delle scelte rifatte
+    note     fondamentale 45 %, quinta 18 %, ottava 14 %, terza 12 %, settima 6 %, quarta 3 %, seconda 2 %
+             sull'uno la fondamentale 86 %   sui tempi fondamentale, quinta o ottava 59 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 31 % (entro 3 sedicesimi), la nota del tempo 8 %
+             nell'ultimo ottavo una nota che riporta a casa 43 %   tenute 47 % (al massimo 4 sedicesimi), fino a 1 sedicesimo di pausa prima della nota dopo
+
+CHORD
+  una famiglia (60 % dei semi)
+    sempre   x...............
+    pesi     ...9..9.6..8..8.   densità 20-78 %
+    battute 2 e 4: 30 % delle scelte rifatte
+  una famiglia (40 % dei semi)
+    sempre   x...............
+    pesi     ......9...9.....   densità 12-59 %
+    mai due colpi su sedicesimi vicini   battute 2 e 4: 30 % delle scelte rifatte
+    accordi  triade 70 %, settima 30 %   lo stesso tipo per tutto il pattern 86 %   tenuti 23 %
+
+LEAD
+  una famiglia (55 % dei semi)
+    sempre   x..x..x.........
+    pesi     ..........7..7.3   densità 12-67 %   tutti 'o'
+    battute 2 e 4: 35 % delle scelte rifatte
+  una famiglia (45 % dei semi)
+    sempre   x...............
+    pesi     ..7...8...7...8.   densità 24-78 %   tutti 'o'
+    battute 2 e 4: 35 % delle scelte rifatte
+    motivo   scala: pentatonica 78 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
+             profilo: scende 35 %, sale 15 %, arco 30 %, due note alternate 20 %   ampiezza 2-4 gradini
+             ripete la nota del suo tempo 31 %   un gradino fuori posto 20 %   un salto di due 6 %
+             nota dell'accordo: sull'uno sempre, sui tempi 82 %, fuori dai tempi 27 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 74 %   tenute 31 %
+
+LA PROGRESSIONE
+    scala          minore 65 %, dorica 15 %, frigia 5 %, maggiore 5 %, minore armonica 10 %
+    accordi        uno 5 %, due 20 %, tre 5 %, quattro 70 %
+    durata         1 battuta 75 %, 2 battute 25 %
+    parte da casa  85 %
+    la fondamentale si muove di  un grado sopra 5 %, una terza sopra 5 %, una quarta sopra 20 %, una quinta sopra 30 %, una terza sotto 25 %, un grado sotto 15 %
+    l'ultimo di tre o quattro    II 5 %, III 10 %, IV 15 %, V 15 %, VI 25 %, VII 30 %
+    colori         triade 70 %, settima 18 %, nona 8 %, sus2 4 %   lo stesso per tutti 75 %
+    entra          sulla battuta 85 %, un sedicesimo prima 15 %
+```
+<!-- /regole -->
+
+### BALANI (170 BPM)
+
+La musica del **balafon** delle feste di strada di Bamako, veloce. La cassa in quattro, il clap sul 2 e sul 4 con i
+suoi ghost in fondo alla battuta. L'hat sui levare o in ottavi, lo shaker in sedicesimi con un buco su una "e" ogni
+tanto. Il 3-3-2 del djembe sulla percussione e sulla conga bassa; i tom che rullano verso la frase dopo. Il basso
+sull'1 e sul 3, oppure sul tresillo. Il **BALAFON**: l'ostinato in sedicesimi, le due mani a turno (due note che si
+alternano, sulla pentatonica), oppure le sue figure sui tempi; le note sono battute, mai tenute. Le grida dell'MC. Gli
+accordi (se li chiedi: la band non li ha) sui levare.
+
+L'armonia: **un accordo solo, o due** (I - V, I - IV), di due o quattro battute; la fondamentale sale di una quarta o
+di una quinta. Maggiore o misolidia; triadi.
+
+<!-- regole BALANI -->
+```text
+KICK
+    sempre   X...X...X...X...
+    pesi     ......3....4..23   densità 8-67 %   fino a peso 3: 'o'
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura levare del kick sull'ultimo sedicesimo (da energia 25; da 75 anche il penultimo)
+
+CLAP
+    sempre   ....X.......X...
+    pesi     .......5.....236   densità 16-78 %   tutti 'g'
+    battute 2 e 4: 30 % delle scelte rifatte
+    chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
+
+HAT
+  una famiglia (55 % dei semi)
+    sempre   ..x...x...x...x.
+    classi   tempi 35 % 'x'   e 23 % 'o'   a 78 % 'x'   a energia 0 il 31 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+  una famiglia (45 % dei semi)
+    sempre   x.x.x.x.x.x.x.x.
+    classi   e 20 % 'o'   a 90 % 'x'   a energia 0 il 47 % di queste
+             un colpo della classe manca: 8 %
+    battute 2 e 4: 25 % delle scelte rifatte
+    chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
+
+SHAKER
+    classi   tempi sempre 'x'   e 43 % 'o'   & sempre 'x'   a sempre 'o'   (insieme)   a energia 0 il 63 % di queste
+             un colpo della classe manca: 12 %
+    battute 2 e 4: 15 % delle scelte rifatte
+
+PERC
+    pesi     ..8..8.7..8..8.7   densità 27-90 %
+    battute 2 e 4: 40 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+CONGA
+  una famiglia (60 % dei semi)
+    sempre   X...............
+    pesi     ..89..8.8.89..8.   densità 24-86 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+  una famiglia (40 % dei semi)
+    sempre   X...............
+    pesi     ...9..9...8..9..   densità 20-78 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+TOM
+    pesi     ......6.....4477   densità 12-63 %
+    battute 2 e 4: 50 % delle scelte rifatte
+    chiusura la seconda metà si riempie
+
+BASS
+  una famiglia (70 % dei semi)
+    sempre   X.......x.......
+    pesi     ...4..6...4...6.   densità 24-82 %
+    più probabile dove suona il kick (+5)   battute 2 e 4: 35 % delle scelte rifatte
+  una famiglia (30 % dei semi)
+    sempre   X...............
+    pesi     ...9..9...8..9..   densità 24-82 %
+    battute 2 e 4: 35 % delle scelte rifatte
+    note     fondamentale 60 %, quinta 20 %, ottava 10 %, terza 5 %, quarta 5 %
+             sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
+             fuori dai tempi: l'ottava della fondamentale del tempo 20 % (entro 3 sedicesimi), la nota del tempo 23 %
+             nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 16 % (al massimo 2 sedicesimi)
+
+BALAFON
+  una famiglia (60 % dei semi)
+    classi   tempi sempre 'x'   e 47 % 'o'   & sempre 'x'   a sempre 'o'   a energia 0 il 59 % di queste
+             un colpo della classe manca: 12 %
+    battute 2 e 4: 25 % delle scelte rifatte
+  una famiglia (40 % dei semi)
+    sempre   x.x.x...........
+    pesi     ......7.9.8.9.76   densità 24-86 %   tutti 'o'
+    battute 2 e 4: 30 % delle scelte rifatte
+    motivo   scala: pentatonica 94 %, altrimenti tutte e sette le note; fino a 15 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
+             profilo: scende 15 %, sale 15 %, arco 20 %, due note alternate 50 %   ampiezza 3-5 gradini
+             ripete la nota del suo tempo 12 %   un gradino fuori posto 23 %   un salto di due 10 %
+             nota dell'accordo: sull'uno sempre, sui tempi 78 %, fuori dai tempi 35 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 59 %   tenute 0 %
+
+VOX
+    sempre   x...............
+    pesi     ...4......7.....   densità 16-67 %
+    battute 2 e 4: 40 % delle scelte rifatte
+    motivo   scala: pentatonica 86 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
+             poggia su: la fondamentale 40 %, la quinta 40 %, la terza 20 %
+             profilo: scende 40 %, sale 10 %, arco 20 %, due note alternate 30 %   ampiezza 1-2 gradini
+             ripete la nota del suo tempo 47 %   un gradino fuori posto 16 %   un salto di due 2 %
+             nota dell'accordo: sull'uno sempre, sui tempi 86 %, fuori dai tempi 59 %
+             la battuta 2 chiude aperta (sulla quinta) e l'ultima a casa 59 %   tenute 47 %
+
+CHORD
+    sempre   ..x...x...x...x.
+    battute 2 e 4: 30 % delle scelte rifatte
+    accordi  triade 90 %, settima 5 %, quinta vuota 5 %   lo stesso tipo per tutto il pattern 90 %   tenuti 0 %
+
+LA PROGRESSIONE
+    scala          maggiore 65 %, misolidia 35 %
+    accordi        uno 40 %, due 45 %, tre 5 %, quattro 10 %
+    durata         1 battuta 5 %, 2 battute 35 %, 4 battute 45 %, 8 battute 15 %
+    parte da casa  95 %
+    la fondamentale si muove di  un grado sopra 5 %, una terza sopra 5 %, una quarta sopra 40 %, una quinta sopra 35 %, una terza sotto 10 %, un grado sotto 5 %
+    l'ultimo di tre o quattro    II 5 %, III 5 %, IV 35 %, V 40 %, VI 15 %
+    colori         triade 85 %, settima 5 %, sus4 5 %, sus2 5 %   lo stesso per tutti 90 %
+    entra          sulla battuta 100 %
+```
+<!-- /regole -->
+
 ### FREE
 
 Nessun genere. Una cassa che sta sull'uno e si appoggia ai tempi, un rullante che cerca il 2 e il 4, un hat a classi

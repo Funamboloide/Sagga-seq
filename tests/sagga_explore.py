@@ -598,7 +598,8 @@ def sit_theory_techno(s):
 
 
 def sit_theory_live(s):
-    """0.23: THEORY, REGGAETON (rules counted from the library), GENRE LIVE (a change of genre makes the band again), in play"""
+    """0.23: THEORY, REGGAETON (0.29: rules written by hand; counted from the library until then), GENRE LIVE (a change of
+    genre makes the band again), in play"""
     t = _genre(s, 200, 8)                                   # (0.29: REGGAETON is number 8)
     t = _theory(s, t)
     t = S.tools_knobs(s, t, [(S.K4, 1)])                    # TOOLS (SEQ 6): GENRE ON -> LIVE
@@ -780,7 +781,7 @@ SITUAZIONI = [
     Situazione("0.18 tablet e grid, band in play", sit_tablet, grid=True, tablet=True),
     Situazione("0.18 tablet e grid, 2 porte USB, band in play", sit_tablet2, grid=True, tablet=True, hw=False),
     Situazione("0.23 THEORY: TECHNO band dei motori, in play", sit_theory_techno),
-    Situazione("0.23 THEORY: REGGAETON (regole contate), GENRE LIVE, in play", sit_theory_live),
+    Situazione("0.23 THEORY: REGGAETON (regole scritte a mano), GENRE LIVE, in play", sit_theory_live),
     Situazione("0.23 THEORY: SOURCE FREE (nessun genere), pattern di 4 battute, fermo", sit_theory_free,
                lens={1: (64, 64), 2: (64, 64), 8: (64, 64)}),
     Situazione("0.23 THEORY: GQOM, tablet e grid, in play", sit_theory_tablet, grid=True, tablet=True),

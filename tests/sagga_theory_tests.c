@@ -504,47 +504,84 @@ static void t_mate(uint32_t seeds)
 /* ------------------------------------------------------------------ 0.26 */
 /* THE ENGINES OF 0.25, BIT FOR BIT: every part they make in 4/4 - all the styles, 24 seeds, every part, three lengths,
  * three energies, three variations, alone, with a kick, with a part to answer -, their levels, their chords, key and
- * root, as one number. The number of 0.25 (taken from its sources before 0.26 touched the engines): a pattern of an old
- * project is made again from its seed, so the engines must go on making THAT pattern. */
+ * root, as one number a style. The numbers of 0.25 (taken from its sources before 0.26 touched the engines): a pattern
+ * of an old project is made again from its seed, so the engines must go on making THAT pattern.
+ * 0.29: a number a style (until then one for all of them), in 0.29's numbering, of the 26 parts 0.25 had. Seventeen
+ * genres and FREE are 0.25's still (the two progressions a genre has more are not counted for its chords). UK GARAGE, REGGAETON, BATIDA and GQOM changed: their libraries took in the genres
+ * that left (their rules are counted from them, or - REGGAETON - written by hand now); BALANI is new: theirs are 0.29's
+ * numbers. And GOLD29: the same with the BALAFON, every style - what 0.30 must go on making. */
 static uint32_t h32(uint32_t h, const char *s) { while (*s) { h ^= (uint8_t)*s++; h *= 16777619u; } return h; }
-static uint32_t golden(uint8_t gen)
+static void golden(uint8_t gen, uint32_t *acc25, uint32_t *acc29)
 {
-    uint32_t style, seed, func, li, ei, vi, km, acc = 2166136261u;
+    uint32_t style, seed, func, li, ei, vi, km;
     static const uint8_t LEN[3] = {16, 32, 64}, EN[3] = {0, 50, 100};
     static const uint32_t VAR[3][2] = {{0, 0}, {1, 30}, {2, 80}};
     uint8_t kick[SQ_STEPS], mate[SQ_STEPS];
-    for (style = 0; style < SQ_TH_STYLES; style++) for (seed = 0; seed < 24u; seed++) {
-        uint32_t line = 2166136261u;
-        for (func = 0; func < SQ_FUNCS; func++) for (li = 0; li < 3u; li++) for (ei = 0; ei < 3u; ei++) for (vi = 0; vi < 3u; vi++) for (km = 0; km < 3u; km++) {
-            sq_th_t t;
-            char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
-            uint32_t i;
-            memset(&t, 0, sizeof t);
-            t.style = (uint8_t)style; t.energy = EN[ei]; t.vary = (uint8_t)VAR[vi][1]; t.var = VAR[vi][0]; t.seed = seed * 37u + 5u;
-            t.scale = (uint8_t)(seed % 3u == 0u ? SQ_SC_MINOR : seed % 3u == 1u ? SQ_SC_MAJOR : SQ_SC_DORIAN);
-            if (gen) { t.gen = 1u; t.bar_steps = (uint8_t)(gen == 1u ? 16u : 0u); t.bar_beats = gen == 1u ? SQ_BEATS_44 : 0u; }
-            for (i = 0; i < SQ_STEPS; i++) { kick[i] = (uint8_t)((i & 3u) == 0u ? 3u : (i % 7u) == 3u ? 2u : 0u); mate[i] = (uint8_t)((i % 5u) == 0u ? 3u : (i % 11u) == 4u ? 4u : 0u); }
-            t.kick = km == 1u ? kick : 0; t.mate = km == 2u ? mate : 0;
-            r[0] = nt[0] = 0;
-            if (!sq_th_part(&t, (uint8_t)func, LEN[li], r, nt)) continue;
-            line = h32(h32(line, r), nt);
-            if (km == 0u && vi == 0u) { uint8_t lev[SQ_STEPS]; sq_th_levels(&t, (uint8_t)func, LEN[li], lev); for (i = 0; i < SQ_STEPS; i++) line = (line ^ lev[i]) * 16777619u; }
+    for (style = 0; style < SQ_TH_STYLES; style++) {
+        acc25[style] = acc29[style] = 2166136261u;
+        for (seed = 0; seed < 24u; seed++) {
+            uint32_t line = 2166136261u, l29;
+            for (func = 0; func < SQ_FUNCS; func++) {
+                if (func == SQ_FUNCS28) {                   /* (0.25's parts done: the key, the chords, the root) */
+                    sq_th_t t; sq_uprog_t u; uint32_t i; memset(&t, 0, sizeof t); t.style = (uint8_t)style; t.seed = seed * 37u + 5u; t.scale = SQ_SC_MINOR; t.energy = 50u;
+                    sq_th_prog(&u, &t); for (i = 0; i < sizeof u; i++) line = (line ^ ((const uint8_t *)&u)[i]) * 16777619u;
+                    line = (line ^ sq_th_scale(&t)) * 16777619u; line = (line ^ sq_th_root(&t)) * 16777619u;
+                    acc25[style] = (acc25[style] ^ line) * 16777619u;
+                }
+                for (li = 0; li < 3u; li++) for (ei = 0; ei < 3u; ei++) for (vi = 0; vi < 3u; vi++) for (km = 0; km < 3u; km++) {
+                    sq_th_t t;
+                    char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
+                    uint32_t i;
+                    memset(&t, 0, sizeof t);
+                    t.style = (uint8_t)style; t.energy = EN[ei]; t.vary = (uint8_t)VAR[vi][1]; t.var = VAR[vi][0]; t.seed = seed * 37u + 5u;
+                    t.scale = (uint8_t)(seed % 3u == 0u ? SQ_SC_MINOR : seed % 3u == 1u ? SQ_SC_MAJOR : SQ_SC_DORIAN);
+                    if (gen) { t.gen = 1u; t.bar_steps = (uint8_t)(gen == 1u ? 16u : 0u); t.bar_beats = gen == 1u ? SQ_BEATS_44 : 0u; }
+                    for (i = 0; i < SQ_STEPS; i++) { kick[i] = (uint8_t)((i & 3u) == 0u ? 3u : (i % 7u) == 3u ? 2u : 0u); mate[i] = (uint8_t)((i % 5u) == 0u ? 3u : (i % 11u) == 4u ? 4u : 0u); }
+                    t.kick = km == 1u ? kick : 0; t.mate = km == 2u ? mate : 0;
+                    r[0] = nt[0] = 0;
+                    if (!sq_th_part(&t, (uint8_t)func, LEN[li], r, nt)) continue;
+                    line = h32(h32(line, r), nt);
+                    if (km == 0u && vi == 0u) { uint8_t lev[SQ_STEPS]; sq_th_levels(&t, (uint8_t)func, LEN[li], lev); for (i = 0; i < SQ_STEPS; i++) line = (line ^ lev[i]) * 16777619u; }
+                }
+            }
+            l29 = line;
+            acc29[style] = (acc29[style] ^ l29) * 16777619u;
         }
-        {   sq_th_t t; sq_uprog_t u; uint32_t i; memset(&t, 0, sizeof t); t.style = (uint8_t)style; t.seed = seed * 37u + 5u; t.scale = SQ_SC_MINOR; t.energy = 50u;
-            sq_th_prog(&u, &t); for (i = 0; i < sizeof u; i++) line = (line ^ ((const uint8_t *)&u)[i]) * 16777619u;
-            line = (line ^ sq_th_scale(&t)) * 16777619u; line = (line ^ sq_th_root(&t)) * 16777619u; }
-        acc = (acc ^ line) * 16777619u;
     }
-    return acc;
 }
+typedef char golden_parts[(SQ_FUNCS28 == 26u && SQ_FUNCS == 27u) ? 1 : -1];
 static void t_golden(void)
 {
-    uint32_t g0 = golden(0u), g1 = golden(1u), g2 = golden(2u);
-    checks += 3u;
-    if (g0 != 0x729bc746u) { failed++; printf("FAIL the engines of 0.25 are not what they were: %08x, not 729bc746\n", (unsigned)g0); }
-    /* ... and a part made IN a bar of 4/4 (with no notes to answer) is the same part: the bar said, or left to be 4/4 */
-    if (g1 != g0) { failed++; printf("FAIL a part made in the bar of 4/4 is not the part of 0.25: %08x\n", (unsigned)g1); }
-    if (g2 != g0) { failed++; printf("FAIL a part made in a bar that is not said (4/4) is not the part of 0.25: %08x\n", (unsigned)g2); }
+    /* 0.25's (0 where 0.29 changed the style: see above) and 0.29's, a number a style (TECHNO .. MERENGUE, FREE) */
+    static const uint32_t GOLD25[SQ_TH_STYLES] = {
+        0x69fedb6bu /* TECHNO */, 0xac1a49bau /* HARDTECHNO */, 0x350ded70u /* DUBTECHNO */, 0x873f1276u /* HOUSE */,
+        0u /* UKG: 0.29 */, 0xce6ae3efu /* UKFUNKY */, 0xf5f4c31au /* DUBSTEP */, 0x6dffd7a8u /* JUNGLE */,
+        0u /* REGGAETON: 0.29 */, 0u /* BATIDA: 0.29 */, 0u /* GQOM: 0.29 */, 0xee03795eu /* EXPERIMENTAL */,
+        0xa801c0d0u /* ELECTRO */, 0x176eba4fu /* DNB */, 0u /* BALANI: 0.29 */, 0xab225476u /* FOOTWORK */,
+        0x46dbaa8eu /* TRANCE */, 0x8f755a8eu /* UKDRILL */, 0xac4e9fecu /* HARDCORE */, 0x101c740eu /* PHONK */,
+        0x5902a6ddu /* BAILEFUNK */, 0x827c71f5u /* MERENGUE */, 0x937b6065u /* FREE */
+    };
+    static const uint32_t GOLD29[SQ_TH_STYLES] = {
+        0xda69cc0cu /* TECHNO */, 0xbc97ad7fu /* HARDTECHNO */, 0x4f38255cu /* DUBTECHNO */, 0xb009357cu /* HOUSE */,
+        0xbfa4859fu /* UKG */, 0x66ca1bc0u /* UKFUNKY */, 0xf2a2cb8fu /* DUBSTEP */, 0x9ce25562u /* JUNGLE */,
+        0x85bc1a18u /* REGGAETON */, 0x59193f94u /* BATIDA */, 0x1ef1869bu /* GQOM */, 0xb5545368u /* EXPERIMENTAL */,
+        0x9991e9d7u /* ELECTRO */, 0x12b0d092u /* DNB */, 0x0d2bee91u /* BALANI */, 0x58872efcu /* FOOTWORK */,
+        0x520609e8u /* TRANCE */, 0x2390746au /* UKDRILL */, 0xd6b779deu /* HARDCORE */, 0xe3ceb0cfu /* PHONK */,
+        0xbaa521d1u /* BAILEFUNK */, 0xf7113e96u /* MERENGUE */, 0x8746bea5u /* FREE */
+    };
+    static uint32_t a25[SQ_TH_STYLES], a29[SQ_TH_STYLES], b25[SQ_TH_STYLES], b29[SQ_TH_STYLES], c25[SQ_TH_STYLES], c29[SQ_TH_STYLES];
+    uint32_t st, kept = 0u;
+    golden(0u, a25, a29); golden(1u, b25, b29); golden(2u, c25, c29);
+    for (st = 0; st < SQ_TH_STYLES; st++) {
+        checks += 5u;
+        if (GOLD25[st]) { kept++; if (a25[st] != GOLD25[st]) { failed++; printf("FAIL the engines of 0.25 are not what they were in %s: %08x, not %08x\n", sq_th_name((uint8_t)st), (unsigned)a25[st], (unsigned)GOLD25[st]); } }
+        if (a29[st] != GOLD29[st]) { failed++; printf("FAIL the engines of 0.29 are not what they were in %s: %08x, not %08x\n", sq_th_name((uint8_t)st), (unsigned)a29[st], (unsigned)GOLD29[st]); }
+        /* ... and a part made IN a bar of 4/4 (with no notes to answer) is the same part: the bar said, or left to be 4/4 */
+        if (b25[st] != a25[st] || b29[st] != a29[st]) { failed++; printf("FAIL %s: a part made in the bar of 4/4 is not the part of 0.25: %08x\n", sq_th_name((uint8_t)st), (unsigned)b29[st]); }
+        if (c25[st] != a25[st] || c29[st] != a29[st]) { failed++; printf("FAIL %s: a part made in a bar that is not said (4/4) is not the part of 0.25: %08x\n", sq_th_name((uint8_t)st), (unsigned)c29[st]); }
+    }
+    if (kept != 18u) { failed++; printf("FAIL the styles that are 0.25's: %u, not 18\n", (unsigned)kept); }
+    if (getenv("SAGGA_GOLDEN")) for (st = 0; st < SQ_TH_STYLES; st++) printf("golden %u %08x %08x\n", (unsigned)st, (unsigned)a25[st], (unsigned)a29[st]);
 }
 
 /* THE BAR (th_ctx, the engines' view of sq_metre_native): in every bar there is, every way it divides - a step stands

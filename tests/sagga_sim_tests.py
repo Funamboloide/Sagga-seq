@@ -8853,7 +8853,7 @@ def t023_theory():
 
 
 def t023_theory_genres():
-    group("0.23 THEORY, every genre of the FM-1: BAND makes the band of each of the 22 (0.29) by its rules (four written by hand, 18 counted from the library); a counted genre fills and empties with the ENERGY, keeps what its library always plays, cooks, rolls its chords")
+    group("0.23 THEORY, every genre of the FM-1: BAND makes the band of each of the 22 (0.29) by its rules (six written by hand, 16 counted from the library); a genre fills and empties with the ENERGY, keeps what it always plays, cooks, rolls its chords")
     tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
     subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
                     ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
@@ -8925,7 +8925,7 @@ def t023_theory_genres():
         check(not bad, "BAND in each of the 22 genres: every part is the engines' part of that seed in the genre's style (%d parts; %s)" % (counted, bad[:4]))
         check(min(sizes) >= 8 and max(sizes) <= 11 and counted >= 200, "... the bands are the genres' own, 8 to 11 parts (%s)" % sizes)
 
-        # ---- a genre whose rules are counted: REGGAETON. The dembow at every energy; the band fills and empties
+        # ---- REGGAETON (its rules written by hand since 0.29; counted until then). The dembow at every energy; the band fills and empties
         G = names.index("REGGAETON")
         s = Script()
         t = lib64(s, 100)

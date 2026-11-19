@@ -3,8 +3,9 @@
  * part. No signed 64-bit numbers, no 64-bit division (the FM-1's library has neither).
  *
  * WHERE THE RULES COME FROM
- *   TECHNO, HOUSE, DRUM AND BASS, DUBSTEP and FREE: written by hand, below, from what is written about the genres.
- *   The other 21 genres: COUNTED from the library of the FM-1 itself (tools/theory/gen_rules.py -> sagga_theory_data.h),
+ *   TECHNO, HOUSE, DRUM AND BASS, DUBSTEP, REGGAETON, BALANI (0.29) and FREE: written by hand, below, from what is
+ *   written about the genres.
+ *   The other 16 genres: COUNTED from the library of the FM-1 itself (tools/theory/gen_rules.py -> sagga_theory_data.h),
  *   the way of GESMI: the variations of a part that are one pattern are a FAMILY; what nearly all of them play is
  *   always there, what some play has a weight; a variation of two bars gives a rule for the bar and one for its answer.
  *
@@ -132,6 +133,8 @@ typedef struct {
 #define H SQ_TH_HOUSE
 #define D SQ_TH_DNB
 #define S SQ_TH_DUBSTEP
+#define RG SQ_TH_REGGAETON
+#define BA SQ_TH_BALANI
 #define F SQ_TH_FREE
 static const th_rule_t TH_RULES[] = {
     /* ---- TECHNO: four on the floor; the clap on 2 and 4, the 4 nearly always; the hat on the '&', its 16ths by the
@@ -193,6 +196,49 @@ static const th_rule_t TH_RULES[] = {
     {S, SQ_FUNC_PAD, 0, 0, TB(0), 0, TW(0,0,0,0, 0,0,1,0, 3,1,0,0, 0,0,0,0), 40, 140, 0, TH_O, TH_NOCLS, 0, 50, TH_F_NONE, TH_K_APART, TH_HAND},
     {S, SQ_FUNC_LEAD, 55, 0, TB(0) | TB(4) | TB(6) | TB(8), 0, TW(0,0,0,0, 0,0,0,0, 0,0,0,0, 2,0,2,3), 20, 150, 15, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, 0, TH_HAND},
     {S, SQ_FUNC_LEAD, 45, 0, TB(0), 0, TW(0,0,7,9, 3,6,10,3, 10,3,7,0, 9,0,6,4), 150, 255, 3, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    /* ---- REGGAETON (0.29): the DEMBOW - the kick in four; the snare's "...x..x....x..x." at every energy, the accents
+     * on the 'a' of 1 and of 3 (or, a family in four, on the two after them); the hats in 8ths, the 16ths coming in with
+     * the energy; the shaker's 16ths (the amapiano's); the rim with the snare's first two, or on the 'e's; the congas'
+     * tresillo; a timbale now and then. The bass on the kick with the tresillo's pickups (on the 'a' of 1 and of 3), the
+     * log drum's slides; the chords on the tresillo; the lead in 3+3+2 */
+    {RG, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,2, 0,0,0,1, 0,0,1,3, 0,0,2,2), 20, 160, 3, TH_O, TH_NOCLS, 0, 30, TH_F_PICK, 0, TH_HAND},
+    {RG, SQ_FUNC_SNARE, 75, TB(3) | TB(11), TB(6) | TB(14), 0, TW(0,0,1,0, 0,0,0,2, 0,0,1,0, 0,0,0,3), 30, 150, 3, TH_G, TH_NOCLS, 0, 25, TH_F_ROLL, 0, TH_HAND},
+    {RG, SQ_FUNC_SNARE, 25, TB(6) | TB(14), TB(3) | TB(11), 0, TW(0,0,0,0, 0,0,0,0, 0,0,0,3, 0,0,0,2), 20, 140, 3, TH_G, TH_NOCLS, 0, 25, TH_F_ROLL, 0, TH_HAND},
+    {RG, SQ_FUNC_HAT, 60, 0, TH_EIGHT, 0, TW0, 0, 0, 0, TH_O, {0, 40, 0, 110}, 60, TCL(TH_X, TH_O, TH_X, TH_O), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {RG, SQ_FUNC_HAT, 40, 0, TH_OFFS, 0, TW(0,0,0,0, 0,0,0,3, 0,0,0,0, 0,0,0,4), 30, 150, 15, TH_O, TH_NOCLS, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {RG, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 200, 255, 220}, 140, TCL(TH_X, TH_O, TH_X, TH_O), 1, 40, 0, 15, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_RIM, 60, 0, TB(3) | TB(6), 0, TW(0,0,0,0, 0,0,0,0, 0,0,5,4, 0,0,6,0), 40, 170, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_RIM, 40, 0, TB(2) | TB(10), 0, TW(0,0,0,0, 0,3,0,0, 0,0,0,0, 0,3,4,0), 30, 150, 3, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_CONGA, 60, 0, TB(0) | TB(6), 0, TW(0,0,0,9, 0,0,0,0, 7,0,0,8, 0,0,9,0), 60, 220, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_CONGA, 40, TB(3), TB(6), 0, TW(0,0,4,0, 3,0,0,0, 0,0,0,7, 0,7,8,0), 40, 200, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_PERC, 0, 0, 0, 0, TW(0,0,0,2, 0,0,9,0, 0,0,3,0, 3,0,9,1), 60, 200, 3, TH_O, TH_NOCLS, 0, 30, TH_F_BUSY, 0, TH_HAND},
+    {RG, SQ_FUNC_BASS, 65, TB(0), TB(8), 0, TW(0,0,0,10, 0,0,3,0, 0,0,0,10, 0,0,3,2), 70, 210, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {RG, SQ_FUNC_BASS, 35, TB(0), TB(8), 0, TW(0,0,0,0, 0,0,9,0, 0,0,0,0, 0,0,9,0), 60, 200, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {RG, SQ_FUNC_LOGDRUM, 0, TB(0), 0, 0, TW(0,0,0,5, 0,0,5,0, 0,0,9,0, 0,9,0,2), 80, 230, 0, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, TH_K_APART, TH_HAND},
+    {RG, SQ_FUNC_CHORD, 60, 0, TB(0), 0, TW(0,0,0,9, 0,0,9,0, 6,0,0,8, 0,0,8,0), 50, 200, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_CHORD, 40, 0, TB(0), 0, TW(0,0,0,0, 0,0,9,0, 0,0,9,0, 0,0,0,0), 30, 150, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, TH_K_APART, TH_HAND},
+    {RG, SQ_FUNC_LEAD, 55, 0, TB(0) | TB(3) | TB(6), 0, TW(0,0,0,0, 0,0,0,0, 0,0,7,0, 0,7,0,3), 30, 170, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    {RG, SQ_FUNC_LEAD, 45, 0, TB(0), 0, TW(0,0,7,0, 0,0,8,0, 0,0,7,0, 0,0,8,0), 60, 200, 15, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    /* ---- BALANI (0.29): the balafon's music at the street parties of Bamako, fast - the kick in four, the clap on 2 and 4
+     * with its ghosts at the end of the bar; the hats on the off-beats or in 8ths, the shaker's 16ths with a hole on an
+     * 'e' now and then; the djembe's 3-3-2 on the perc and the low conga; the toms rolling into the next phrase. The bass
+     * on 1 and 3, or on the tresillo; the BALAFON's ostinato - 16ths, the hands in turn - or its figures on the beats; the
+     * MC's shouts; the chords (when asked: the band has none) on the off-beats */
+    {BA, SQ_FUNC_KICK, 0, TH_BEATS, 0, 0, TW(0,0,0,0, 0,0,3,0, 0,0,0,4, 0,0,2,3), 20, 170, 3, TH_O, TH_NOCLS, 0, 40, TH_F_PICK, 0, TH_HAND},
+    {BA, SQ_FUNC_CLAP, 0, TB(4) | TB(12), 0, 0, TW(0,0,0,0, 0,0,0,5, 0,0,0,0, 0,2,3,6), 40, 200, 6, TH_G, TH_NOCLS, 0, 30, TH_F_ROLL, 0, TH_HAND},
+    {BA, SQ_FUNC_HAT, 55, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, {90, 60, 0, 200}, 80, TCL(TH_X, TH_O, TH_X, TH_X), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {BA, SQ_FUNC_HAT, 45, 0, TH_EIGHT, 0, TW0, 0, 0, 0, TH_O, {0, 50, 0, 230}, 120, TCL(TH_X, TH_O, TH_X, TH_X), 0, 20, 0, 25, TH_F_HAT, 0, TH_HAND},
+    {BA, SQ_FUNC_SHAKER, 0, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 110, 255, 255}, 160, TCL(TH_X, TH_O, TH_X, TH_O), 1, 30, 0, 15, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_PERC, 0, 0, 0, 0, TW(0,0,8,0, 0,8,0,7, 0,0,8,0, 0,8,0,7), 70, 230, 3, TH_O, TH_NOCLS, 0, 40, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_CONGA, 60, TB(0), 0, 0, TW(0,0,8,9, 0,0,8,0, 8,0,8,9, 0,0,8,0), 60, 220, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_CONGA, 40, TB(0), 0, 0, TW(0,0,0,9, 0,0,9,0, 0,0,8,0, 0,9,0,0), 50, 200, 3, TH_O, TH_NOCLS, 0, 35, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_TOM, 0, 0, 0, 0, TW(0,0,0,0, 0,0,6,0, 0,0,0,0, 4,4,7,7), 30, 160, 3, TH_O, TH_NOCLS, 0, 50, TH_F_BUSY, 0, TH_HAND},
+    {BA, SQ_FUNC_BASS, 70, TB(0), TB(8), 0, TW(0,0,0,4, 0,0,6,0, 0,0,4,0, 0,0,6,0), 60, 210, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, TH_K_WITH, TH_HAND},
+    {BA, SQ_FUNC_BASS, 30, TB(0), 0, 0, TW(0,0,0,9, 0,0,9,0, 0,0,8,0, 0,9,0,0), 60, 210, 0, TH_O, TH_NOCLS, 0, 35, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_BALAFON, 60, 0, 0, 0, TW0, 0, 0, 0, TH_O, {255, 120, 255, 255}, 150, TCL(TH_X, TH_O, TH_X, TH_O), 0, 30, 0, 25, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_BALAFON, 40, 0, TB(0) | TB(2) | TB(4), 0, TW(0,0,0,0, 0,0,7,0, 9,0,8,0, 9,0,7,6), 60, 220, 15, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_VOX, 0, 0, TB(0), 0, TW(0,0,0,4, 0,0,0,0, 0,0,7,0, 0,0,0,0), 40, 170, 3, TH_O, TH_NOCLS, 0, 40, TH_F_NONE, 0, TH_HAND},
+    {BA, SQ_FUNC_CHORD, 0, 0, TH_OFFS, 0, TW0, 0, 0, 0, TH_O, TH_NOCLS, 0, 30, TH_F_NONE, 0, TH_HAND},
     /* ---- FREE: no genre. The metre (the one, the beats, the 8ths, the 16ths) and what a family of parts does: a kick
      * leans on the beats, a snare on 2 and 4, a hat on the 8ths, the percussion off them. One rule a family. */
     {F, SQ_FUNC_KICK, 0, TB(0), 0, 0, TW(0,1,3,2, 9,1,3,2, 10,1,3,3, 9,1,4,3), 40, 220, 3, TH_O, TH_NOCLS, 0, 40, TH_F_PICK, 0, TH_HAND},
@@ -229,6 +275,9 @@ static const th_line_t TH_LINES[] = {
     {D, SQ_FUNC_BASS, {66, 12, 3, 10, 6, 3, 0, 0}, 235, 170, 0, 0, 60, 60, 90, 3, 0, 0},
     {S, SQ_FUNC_SUB, {55, 12, 15, 6, 7, 0, 5, 0}, 250, 170, 40, 6, 30, 90, 255, 0, 2, 0},
     {S, SQ_FUNC_BASS, {68, 8, 12, 4, 2, 6, 0, 0}, 240, 190, 60, 6, 70, 40, 0, 0, 0, 120},
+    {RG, SQ_FUNC_BASS, {65, 14, 12, 6, 3, 0, 0, 0}, 240, 200, 60, 3, 70, 90, 60, 3, 0, 0},
+    {RG, SQ_FUNC_LOGDRUM, {45, 18, 14, 12, 6, 3, 2, 0}, 220, 150, 80, 3, 20, 110, 120, 4, 1, 0},
+    {BA, SQ_FUNC_BASS, {60, 20, 10, 5, 0, 5, 0, 0}, 240, 200, 50, 3, 60, 90, 40, 2, 0, 0},
     {F, SQ_FUNC_BASS, {40, 15, 12, 10, 8, 6, 5, 4}, 180, 140, 40, 2, 30, 70, 80, 2, 0, 0},
     TH_DATA_LINES
 };
@@ -252,6 +301,9 @@ static const th_lead_t TH_LEADS[] = {
     {H, SQ_FUNC_VOX, 230, {25, 10, 20, 45}, 1, 2, 110, 50, 10, 220, 170, 150, 60, 2, 0, {4, 6, 2}, 12},
     {D, SQ_FUNC_LEAD, 190, {40, 15, 30, 15}, 2, 4, 60, 60, 20, 200, 50, 190, 170, 0, 1, {6, 5, 4}, 12},
     {S, SQ_FUNC_LEAD, 180, {45, 10, 25, 20}, 2, 4, 90, 50, 15, 200, 70, 200, 200, 0, 0, {6, 6, 5}, 12},
+    {RG, SQ_FUNC_LEAD, 200, {35, 15, 30, 20}, 2, 4, 80, 50, 15, 210, 70, 190, 80, 2, 0, {6, 5, 4}, 12},
+    {BA, SQ_FUNC_BALAFON, 240, {15, 15, 20, 50}, 3, 5, 30, 60, 25, 200, 90, 150, 0, 0, 0, {6, 5, 4}, 15},   /* (struck: never held) */
+    {BA, SQ_FUNC_VOX, 220, {40, 10, 20, 30}, 1, 2, 120, 40, 5, 220, 150, 150, 120, 2, 0, {6, 6, 3}, 12},
     {F, SQ_FUNC_LEAD, 110, {25, 25, 30, 20}, 2, 5, 50, 70, 30, 160, 40, 130, 80, 2, 1, {3, 2, 1}, 15},
     TH_DATA_LEADS
 };
@@ -266,6 +318,8 @@ static const th_chord_t TH_CHORDS[] = {
     {H, SQ_FUNC_PAD, {25, 75, 0, 0}, 200, 255, 0, 2},
     {D, SQ_FUNC_PAD, {35, 65, 0, 0}, 190, 255, 0, 2},
     {S, SQ_FUNC_PAD, {60, 40, 0, 0}, 220, 255, 0, 1},
+    {RG, SQ_FUNC_CHORD, {70, 30, 0, 0}, 220, 60, 0, 0},
+    {BA, SQ_FUNC_CHORD, {90, 5, 0, 5}, 230, 0, 0, 0},
     {F, SQ_FUNC_CHORD, {50, 40, 0, 10}, 150, 120, 2, 1},
     TH_DATA_CHORDS
 };
@@ -291,6 +345,12 @@ static const th_prog_t TH_PROGS[SQ_TH_STYLES] = {
     [D] = {{10, 40, 5, 45}, {5, 55, 35, 5}, {5, 18, 16, 10, 30, 25}, 90, {0, 3, 12, 18, 15, 25, 27}, {15, 45, 25, 3, 10, 2}, 55, {70, 15, 10, 0, 0, 5}, {85, 0, 15}},
     /* DUBSTEP: one chord, or two; long; the flat sixth, the flat second; triads */
     [S] = {{45, 40, 5, 10}, {5, 35, 45, 15}, {22, 6, 10, 8, 30, 28}, 97, {0, 20, 8, 10, 12, 25, 25}, {65, 20, 3, 2, 10, 0}, 80, {55, 0, 35, 0, 0, 10}, {100, 0, 0}},
+    /* REGGAETON: four chords a bar each, most often (i VI III VII); a third down, a fifth or a fourth up; minor, triads
+     * and a few sevenths and ninths (the amapiano's); the chords on the bar */
+    [RG] = {{5, 20, 5, 70}, {75, 25, 0, 0}, {5, 5, 20, 30, 25, 15}, 85, {0, 5, 10, 15, 15, 25, 30}, {70, 18, 8, 0, 4, 0}, 75, {65, 15, 5, 5, 0, 10}, {85, 15, 0}},
+    /* BALANI: one chord, or two (I - V, I - IV), two or four bars each; a fourth or a fifth up; major or mixolydian;
+     * triads */
+    [BA] = {{40, 45, 5, 10}, {5, 35, 45, 15}, {5, 5, 40, 35, 10, 5}, 95, {0, 5, 5, 35, 40, 15, 0}, {85, 5, 0, 5, 5, 0}, 90, {0, 0, 0, 65, 35, 0}, {100, 0, 0}},
     /* FREE: anything of the key */
     [F] = {{10, 30, 20, 40}, {30, 40, 25, 5}, {17, 17, 17, 17, 16, 16}, 70, {14, 14, 14, 14, 14, 15, 15}, {30, 25, 15, 10, 10, 10}, 30, {25, 15, 15, 25, 10, 10}, {70, 15, 15}},
     /* the other genres: their six progressions, counted */
@@ -300,6 +360,8 @@ static const th_prog_t TH_PROGS[SQ_TH_STYLES] = {
 #undef H
 #undef D
 #undef S
+#undef RG
+#undef BA
 #undef F
 
 /* ------------------------------------------------------------------ styles and genres */
