@@ -65,7 +65,22 @@ lane).
 
 | la prova | quanto |
 | --- | --- |
-XXX_PROVE
+| le prove nuove, delle tre cose | 8 controlli nel simulatore (il pannello: le banche, le sei note, le lane 7 e 8, e tutto dopo uno spegnimento), più quelle del cuore, dell'editor del Pi, del convertitore MIDI e delle pagine SAGGA: 0 errori |
+| la 0.27 vera (presa da git) con i progetti della 0.28, e il contrario | 60 progetti 0.28 → 0.27 → 0.28 uguali; 20 progetti della 0.27 con tutte e sedici le tracce: le prime dodici come erano |
+| 10 errori messi apposta nelle parti nuove, uno alla volta | le prove li trovano tutti e 10 |
+| il cuore del sequencer | 30.968.676 controlli, 0 errori |
+| i motori THEORY | 215.628.289 controlli, 0 errori |
+| il simulatore (il firmware vero che gira sul computer) | XXX_SIM controlli, 0 errori |
+| l'esploratore: ogni gesto del pannello, in 30 situazioni (una nuova: la traccia 12, sei note, le lane 7 e 8) | 102.073 gesti da soli, 11.995 coppie di gesti, 200 sessioni a caso: 0 errori (al primo giro una coppia segnata: il genere delle MOSSE che arriva prima perché ALG porta le mosse alla battuta; è il firmware come deve essere) |
+| l'editor del Pi | 265 controlli, 0 errori |
+| il bridge del grid, la pagina del Pi, le pagine SAGGA | 325 + 176 + 83 controlli, 0 errori |
+| gli errori di memoria (gesti a caso, con i rilevatori accesi) | 26 giri: al primo, **un errore della 0.28 stessa** (sotto); corretto, 0 errori; anche tutte le prove del simulatore con i rilevatori: 0 errori |
+
+**L'errore trovato dai rilevatori**: in HOME e in PERF la striscia in fondo allo schermo ha sedici celle, e la 0.28
+disegnava le celle 13-16 come se fossero tracce, leggendo oltre le dodici. Sul simulatore senza rilevatori non si
+vedeva niente. Adesso le celle 13-16 sono spente. Anche i bottoni delle tracce 13-16 sul grid (banca 9-12) sono spenti.
+E un errore del Pi, trovato scrivendo le prove: un file MIDI con note sui canali 13-16 avrebbe scritto oltre le dodici
+tracce. Adesso quelle note restano fuori.
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
 

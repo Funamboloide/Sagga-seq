@@ -1057,7 +1057,7 @@ REGOLE = {
 ACCETTATI = [
     # (0.16: EUCLID's knobs and the progression's no longer switch EUCLID LIVE / the HARMONY on: they set them up, READY)
     ("RITORNO", r"^HOME 7 (SEL\+)?K2 ", "CHAIN acceso e spento: se la fine del loop cade in mezzo, la traccia e' gia' passata al pattern dopo"),
-    ("RITORNO", r"^HOME \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),
+    ("RITORNO", r"^(HOME|ENV) \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),   # (0.28: ENV 7 and 8, reached later, fall there too)
     ("RITORNO", r"^GLO 3 (SEL\+)?K3 ", "il genere di VIAGGIO porta con se' il genere dell'armonia: tornato indietro, l'armonia resta sul genere del set"),
     # 0.24, seen with the first situation that has a pattern's COPIES in its loop: a fourth field, the only fields that
     # may differ (anything else there and back with the loop's start is still to look at)
@@ -1067,6 +1067,12 @@ ACCETTATI = [
     # 0.25, seen with the first situation that leaves a melody's track selected: the pen is the last note set
     ("RITORNO", r"^EDIT SEL\+K[1-4] ", "0.25: la nota di uno step girata e rimessa lascia la PENNA su quella nota (la penna e' l'ultima nota "
      "scritta: SEL + K4); lo step e la musica sono quelli di prima (T.pen)", r"^T\d+\.pen "),
+    # 0.28, seen in a pair of the full round: the genre of the MOSSE (K3, a move, which HARM_OK knows) waits for the end
+    # of the phrase; ALG right after it brings the moves to the bar, so the genre - and the harmony that follows it -
+    # arrives inside the two bars the probe looks at. The change is K3's
+    ("ARMONIA", r"^GLO 3 (SEL\+)?K3 [^,]*, poi (GLO 3 )?(SEL\+)?ALG ", "0.28: il genere delle MOSSE (K3, una mossa) aspetta la fine della "
+     "frase; ALG subito dopo porta le mosse alla battuta, e il genere - con l'armonia che lo segue - arriva dentro le due battute "
+     "che la sonda guarda: il cambio e' di K3 (G.hgenre)", r"^G\.hgenre "),
 ]
 
 
@@ -1093,7 +1099,7 @@ def pair_returns(findings):
 
 
 def tracks_written(base):
-    return {t for t in range(1, 17) if base.get("T%d" % t, {}).get("steps#") != EMPTY_ROW}
+    return {t for t in range(1, 17) if "T%d" % t in base and base["T%d" % t].get("steps#") != EMPTY_ROW}   # (0.28: twelve in the probe)
 
 
 def check_branch(sit, g, base, br, null, findings, label=None, off=0):
@@ -1196,7 +1202,8 @@ def _check(sit, g, base, br, null, findings, off):
         findings.append(Finding("MIDI", "ERRORE", sit.name, name, "byte non validi: %s" % bad[:3]))
     # RITORNO: there and back (the named fields: a hash also sees the values a knob keeps where nothing uses them)
     if "andata" in g.tags:
-        back = [(f, a, b) for f, a, b in after if is_music(f) and "#" not in f and not f.endswith(("src",))]
+        back = [(f, a, b) for f, a, b in after if is_music(f) and "#" not in f and not f.endswith(("src", ".poly", ".lx"))]   # (0.28: poly
+        # and lx, as the hashes, see the step a knob wrote and wrote back - SET, a lock at the value it had - not the music)
         if back:
             findings.append(Finding("RITORNO", "DA GUARDARE", sit.name, name, _fmt(back)))
     return effects

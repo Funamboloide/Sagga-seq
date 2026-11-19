@@ -216,6 +216,20 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   trovate. Le stesse prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. Il piano del banco: 27
   sessioni.
 
+* **Sulla 0.28** (dodici tracce, accordi di sei note, otto lane): una situazione nuova (sopra), e ENV ha otto pagine.
+  La fuzz con i rilevatori (UndefinedBehaviorSanitizer) ha trovato subito **un errore della 0.28 stessa**: in HOME e in
+  PERF la striscia dello schermo disegnava le celle 13-16 come tracce, leggendo oltre le dodici (senza i rilevatori non
+  si vedeva). Corretto: le celle 13-16 sono spente, e lo guarda il test `t028_panel`. Il primo giro completo ha segnato
+  una coppia sulle MOSSE (ARMONIA: GLO 3 SEL + K3, poi ALG): il genere chiesto con K3 aspetta la fine della frase, ALG
+  porta le mosse alla battuta e il genere, con l'armonia che lo segue, arriva dentro le due battute della sonda. Il
+  cambio è di K3, una mossa: è fra i "Visti e voluti". E i due valori nuovi della sonda, `poly` e `lx`, vedono lo step
+  che una manopola ha scritto e riscritto (SET, un lock al valore di prima): come gli hash, RITORNO non li guarda. Il
+  giro completo: **102.073 gesti da soli in 30 situazioni, 11.995 coppie, 200 sessioni da 60 gesti, nessun errore,
+  niente da guardare**. Le prove fisse della 0.28 (`t028_panel` nel simulatore, `test_v028_image` nel cuore, la 0.27
+  vera presa da git in `tests/sagga_compat27.sh`, l'editor, il convertitore MIDI, le pagine SAGGA) sono state provate
+  rompendo il firmware e il Pi in dieci punti, uno alla volta: tutte e dieci le rotture trovate. Il piano del banco: 28
+  sessioni; l'FM-1 completo: 33.
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
