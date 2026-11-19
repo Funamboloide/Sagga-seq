@@ -270,13 +270,13 @@ view on its last line (`G:STEP`, `G:CC`, ...).
 |---|---|---|
 | 0 | PLAY / STOP | CONTINUE from where it stopped (the receiver gets the Song Position) |
 | 1 | REC arm | the **PROJ** view; in PROJ: the **LIB** view |
-| 2 | FILL (hold) | the other bank of tracks (1-8 / 9-16) |
+| 2 | FILL (hold) | the other bank of tracks (1-8 / 9-12: 0.28, twelve tracks) |
 | 3 | UNDO / REDO of the last tool (a dice waiting: BACK) | the **FX** view |
 | 4 | the **STEP** view; in STEP: the **DRUM** view | the **CC** view; in CC: **FOLLOW** (0.18; PICK until 0.17) |
 | 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **VIAGGIO**; in VIAGGIO: **REGIA** (once a regista has spoken), then PERF. (0.9-0.16: with VIAGGIO on, the button opened VIAGGIO first; 0.17: PERF first, always) | the **LFO** view |
 | 6 | the **TRACK** view; again: **TRACK 2**, again: **TRACK 3** | the **BEAT** view; again: the **EUCLID** view |
 | 7 | SHIFT (0.18: cyan while the grid FOLLOWs the FM-1) | |
-| 8-15 | select track 1-8 of the bank (blue: bank 2) | solo that track |
+| 8-15 | select track 1-8 of the bank (blue: bank 2; 0.28: it has four, 9-12 - buttons 12-15 dark) | solo that track |
 | 16-23 | pattern 1-8 of the selected track, queued to the end of its loop | copy the playing pattern there (UNDO takes it back) |
 | 24-31 | scene 1-8 of the bank the scene cursor is in (1-8 / 9-16), queued to the next bar | store the scene |
 
@@ -293,7 +293,7 @@ changes apply at once.
 | 7 | left: ratchet 1..8; right: gate 12 % .. 100 %. **SHIFT** (0.10): pad 15 **PLAIN** (no EXPO from this step), pad 16 **TIE** (the note holds into the next step, legato) |
 | 8 | notes. Chromatic from C3 (SEL + OCT on the FM-1 moves it), or, on a track that follows the key, **the notes of the scale from its root**: two octaves and more, nothing out of key; the roots are white. Tap: that note (you hear it). SHIFT + tap: add / remove a note, a chord of up to 4 |
 
-### DRUM (STEP again: the eight tracks of the bank, one per row)
+### DRUM (STEP again: the eight tracks of the bank, one per row; 0.28: bank 2, four rows)
 
 | pads | |
 |---|---|
@@ -305,7 +305,7 @@ changes apply at once.
 Lit: green a hit, bright an accent, red the playhead, amber the cursor of the selected track, dark beyond a track's
 length, dim red a muted track's hits.
 
-### PERF (the eight tracks of the bank, one per row)
+### PERF (the eight tracks of the bank, one per row; 0.28: bank 2 is tracks 9-12, rows 5-8 dark)
 
 | column | pad |
 |---|---|
@@ -334,7 +334,7 @@ length, dim red a muted track's hits.
 | row | pads |
 |---|---|
 | 1-4 | a bar per step of the page: the value the selected lane locks on that step (top row 127, then 80, 48, 16). Tap a level: lock it (the step is switched on). Tap the top of a bar again: no lock |
-| 5 | lane 1-6 (pads 1-6; 0.10: six lanes); page of steps 1-4 (pads 9-12); clear the lane in the whole pattern (16) |
+| 5 | lane 1-8 (pads 1-8; 0.28: eight lanes, six until 0.27); page of steps 1-4 (pads 9-12); clear the lane in the whole pattern (16) |
 | 6 | the lane's CC number: 1, 5, 7, 10, 11, 12, 13, 64, 71, 72, 73, 74, 75, 91, 93, 94. **SHIFT + any: LEARN** (move a knob of the synth; the row blinks while it waits) |
 | 7 | the lane's base value 0 .. 127 (where it goes back after a lock) |
 | 8 | lane off (1); no base value (2) |
@@ -366,7 +366,7 @@ ENV, LFO, ARP; PERF's page when PERF is on; HOME's when nothing is), a knob a ro
 | row | pads |
 |---|---|
 | 1-4 | K1 .. K4: the white keys of PICK. A list or a count: items 1-16; a length: 4, 8 .. 64; a root or a note: the keys from F3; semitones: F3 = -12 .. ; a percentage: 10 .. 100 % on pads 1-10. The pad of the value now is **white**; the valid pads green (K1), blue (K2), violet (K3), orange (K4); a knob the keys cannot set (a velocity, a CC value): a faint row |
-| 5-8 | **0.18, a knob of the track: the same knob across the sixteen tracks**, pad 1 = track 1: the FM-1's track **white**, the tracks with its value lit (green, blue, violet, orange), the others faint. **A tap: that track gets the value** (the knob turned for it, so lengths wait for the bar, patterns for the QUANTISE, and the screen says `T3 LENGTH AS T1`); **SHIFT + a tap: the FM-1 goes to that track**. A knob that is no track's (the key, the energy, the genre, the morph, the LFOs, a step's notes), and the track's MIDI channel and a scene's PROGRAM (a synth's: never copied by a tap): the black keys 1-10 of PICK there, as in 0.12-0.17 (pads 1-10; items 17-26, the odd lengths 3 5 6 7 9 10 11 13 14 15, the sharps) |
+| 5-8 | **0.18, a knob of the track: the same knob across the tracks** (0.28: twelve, pads 13-16 dark), pad 1 = track 1: the FM-1's track **white**, the tracks with its value lit (green, blue, violet, orange), the others faint. **A tap: that track gets the value** (the knob turned for it, so lengths wait for the bar, patterns for the QUANTISE, and the screen says `T3 LENGTH AS T1`); **SHIFT + a tap: the FM-1 goes to that track**. A knob that is no track's (the key, the energy, the genre, the morph, the LFOs, a step's notes), and the track's MIDI channel and a scene's PROGRAM (a synth's: never copied by a tap): the black keys 1-10 of PICK there, as in 0.12-0.17 (pads 1-10; items 17-26, the odd lengths 3 5 6 7 9 10 11 13 14 15, the sharps) |
 
 The knobs across the tracks: HOME 1 LENGTH, DIVISION, TRANSPOSE; HOME 2 all four; HOME 4 all four; HOME 5 the note,
 velocity and gate lengths; HOME 6 (MIDI FX), HOME 7; PERF 2 PATTERN and LENGTH; SEQ 1 PULSES, ROTATION, FAMILY; SEQ 4
@@ -387,7 +387,7 @@ more: CC again (and FOLLOW stops).
 | 4 | depth |
 | 5 | centre |
 | 6 | phase |
-| 7 | target: MIDI channel 1-14 (1-16 with two USB ports) for a CC LFO, else track 1-16 |
+| 7 | target: MIDI channel 1-14 (1-16 with two USB ports) for a CC LFO, else track 1-12 |
 | 8 | CC number (the same 16 as the CC view). **SHIFT + any: LEARN** |
 
 ### BEAT (SHIFT + TRACK): the library, the generators, the dice, EVOLVE (0.8)
@@ -398,12 +398,12 @@ more: CC again (and FOLLOW stops).
 | 2 | the genre's **parts** (0.11: its band, violet, then PROG and KIT; more than nine: pads 1-8 a page, pad 9 the next page); **scope**: this track, bank, all, drums, melodic, CUSTOM (10-15); **WRITE LIVE** (16, orange while the track has a live layer) |
 | 3 | the genre's **progressions** 1-6 (cyan: playing); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16). **0.23, SOURCE THEORY or FREE** (SEQ 8 K1): the **seeds** in their place - 11-16 six seeds (white: the next one), 10 the six after them; SHIFT shows on rows 5-6 what the engines would make of the seed |
 | 4 | **DICE** SEQ, CC, LFO, GROOVE, ALL (1-5); **KEEP** (6); **BACK** (7); targets RHYTHM, +NOTES, +CC, +NOTES+CC, +CC+LFO, ALL (9-14); **the roll before / after** (15 / 16, yellow when there is one) |
-| 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-16. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
+| 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-12. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
 | 6 | EUCLID rotation 0 .. 15 |
 | 7 | random density 10 .. 90 % (1-8); heat 5 .. 90 % (9-16) |
 | 8 | **EVOLVE** on / off (1); **FREEZE** (2); **REVERT** (3); DRIFT (4; 0.27: EVOLVE's RETURN at 0, and back); every 1, 2, 4, 8, 16 bars (5-9); amount 5 .. 80 % (10-16) |
 
-### EUCLID (BEAT again, 0.8): the eight tracks of the bank
+### EUCLID (BEAT again, 0.8): the eight tracks of the bank (0.28: bank 2, four rows)
 
 | pads | |
 |---|---|
@@ -434,7 +434,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | row | pads |
 |---|---|
 | 1 | the bars of the phrase (red: playing, lit: past, the last one in the FILL colour when a fill waits); any pad: **NOW** (stopped: the queue at once) |
-| 2 | the 16 tracks: faint EMPTY, dim PROPOSED, lit IN, muted OUT; the selected one amber; red: LOOP records on it. **Tap**: a proposal (on an IN track nothing changes); **hold**: the dice; **SHIFT + tap** (0.10): the track's next **role** (KICK SNARE HAT PERC BASS CHORD ARP, or none: by its note) — the proposals follow it |
+| 2 | the 12 tracks: faint EMPTY, dim PROPOSED, lit IN, muted OUT; the selected one amber; red: LOOP records on it. **Tap**: a proposal (on an IN track nothing changes); **hold**: the dice; **SHIFT + tap** (0.10): the track's next **role** (KICK SNARE HAT PERC BASS CHORD ARP, or none: by its note) — the proposals follow it |
 | 3 | the queue: a track with a move waiting is lit; **tap**: IN / OUT at the boundary (the remote's CC 32) |
 | 4 | the moves 1-11 (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW; SHIFT: BREAK all / LOOP 4 bars; **0.24: SHIFT + HALF = SHORTER, SHIFT + DOUBLE = LONGER: every track's length half / twice**, at the phrase's end, stopped at once); 15 **INDIETRO**; 16 **cancel** the last |
 | 5 | the energy 0-100 (the bar: what sounds; the target in the waiting colour while it glides) |
@@ -455,9 +455,9 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 1 | the 16 effects, **while held** (SHIFT + pad: latched, until SHIFT + pad again): FILL, stutter 2 / 4 / 8, half time, double time, reverse, freeze, random, octave up, octave down, fifth, max velocity, staccato (40 % of each note or ratchet), legato, kill all |
 | 2 | **LOOP / REPEAT**: 1/32, 1/16, 1/8, 1/4, 1/2, 1 bar, 2 bars, 4 bars (1-8), 1/32T, 1/16T, 1/8T, 1/4T (9-12); **ECHO on every track** (14, 0.8); **EXIT** (16). **A tap: a LOOP that stays** (the same pad again: off; another pad: that length). **Held: REPEAT**, and when you let go every track is where it would have been. The tracks of row 4 |
 | 3 | **TRANSPOSE** the key -7 .. +8 semitones (pad 8 = 0): the tracks that follow the key, at the QUANTISE moment |
-| 4 | which tracks LOOP and REPEAT take, 1-16 (none lit: all) |
+| 4 | which tracks LOOP and REPEAT take, 1-12 (none lit: all) |
 | 5 | **MORPH**: from the scene playing (1) to MORPH TO (16) |
-| 6 | **kill** track 1-16 while held (SHIFT: latched); its notes stop at once, long ones too |
+| 6 | **kill** track 1-12 while held (SHIFT: latched); its notes stop at once, long ones too |
 | 7 | **MORPH TO** scene 1-8 (1-8); **QUANTISE** AUTO, NOW, BEAT, BAR, 2, 4, 8 BARS (9-15); **MUTE QUEUE** (16) |
 | 8 | **TEMP** (1, held; SHIFT: latched); **RELOAD** (2); **RESTART** (3); **STOP at the end of the bar** (4); **SNAPSHOT 1-8** (5-12: tap recalls at the QUANTISE moment, SHIFT + tap stores; green the one playing, blinking the one waiting); **CC CAPTURE** (13); **SEND** the snapshot's sound (14); **PATCHES** (15, the Pi); PANIC (16) |
 
@@ -468,7 +468,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 1 | root C .. B (1-12) |
 | 2 | scale: chromatic (key off), major, minor, dorian, phrygian, lydian, mixolydian, locrian, harmonic minor, melodic minor, major pentatonic, minor pentatonic, blues, whole tone, phrygian dominant, hirajoshi |
 | 3 | shift -24, -12, -7, -5, -3, -2, -1, 0, +1, +2, +3, +5, +7, +12, +24 semitones |
-| 4 | the mode of track 1-16: FREE, IN KEY (cyan), DRUM (amber), a tap moves to the next |
+| 4 | the mode of track 1-12: FREE, IN KEY (cyan), DRUM (amber), a tap moves to the next |
 | 5 | **the MASTER knob: TEMPO, MORPH, FILTER (1-3)**; **the remote: OFF, CH 14, 13 + 14 (5; accent: 13 + 14)**; BAKE the key into the patterns, press twice (14); all tracks but the drum tracks follow the key (15); none (16) |
 | 6 | slot 1-8 (1-8); SAVE, press twice (9); LOAD, press twice (10); **EXPORT** the project to the Pi (12) |
 | 7 | tempo -10, -1, +1, +10 (1-4); **TAP** tempo (5); REC quantised / free (6); master / slave clock (7); unmute all (9) |

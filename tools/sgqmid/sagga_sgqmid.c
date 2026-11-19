@@ -9,6 +9,8 @@
  *   sagga_sgqmid mid2sgq IN.mid OUT.sgq [BASE.sgq]  the notes of each MIDI channel become a TAPE track (channel
  *                                                   n -> track n) in a new project, or in BASE's; the loop is the
  *                                                   file's length rounded up to bars (16 at most); the tempo too
+ *                                                   (0.28: twelve tracks - the notes of channels 13-16 are left
+ *                                                   out, and stderr says how many)
  * 0.25: the bars are the project's METRE: a file written says its time signature (7/8, 6/8, 15/16 ...), its BARS are
  * bars of it; a file read into a new project gives it the metre of its first time signature (a bar of 3 to 32 16ths;
  * with a BASE the metre is the base's), and the tapes' loops are bars of it.
@@ -207,7 +209,7 @@ static int mid2sgq(const char *in, const char *out, const char *base)
     uint8_t keep_bars[SQ_TRACKS] = {0};
     FILE *f = fopen(in, "rb");
     size_t n;
-    uint32_t fmt, ntrk, div, k, tempo_us = 500000u, dropped = 0u, cut = 0u, total = 0u, sig_seen = 0u;
+    uint32_t fmt, ntrk, div, k, tempo_us = 500000u, dropped = 0u, cut = 0u, total = 0u, sig_seen = 0u, notrack = 0u;
     uint64_t longest = 0u;
     uint16_t used[SQ_CHANNELS] = {0};
     if (!f) { fprintf(stderr, "cannot read %s\n", in); return 2; }
@@ -271,6 +273,11 @@ static int mid2sgq(const char *in, const char *out, const char *base)
                 if (i < nopen) {
                     uint64_t on = open_[i].tick * SQ_TAPE_PPQ / div, off = tick * SQ_TAPE_PPQ / div, dur = off > on ? off - on : 1u;
                     uint8_t t = open_[i].ch;                 /* channel n -> track n */
+                    if (t >= SQ_TRACKS) {                    /* (0.28: channels 13-16 have no track) */
+                        notrack++;
+                        open_[i] = open_[--nopen];
+                        continue;
+                    }
                     if (off > longest) longest = off;
                     if (on < SQ_TAPE_BARS_MAX * bar_len()) {
                         if (dur > 65535u) dur = 65535u;
@@ -300,9 +307,10 @@ static int mid2sgq(const char *in, const char *out, const char *base)
         f = fopen(out, "wb");
         if (!f || fwrite(img, 1, n, f) != n) { fprintf(stderr, "cannot write %s\n", out); if (f) fclose(f); return 3; }
         fclose(f);
-        fprintf(stderr, "%s: %u notes on %u tapes, %u bars, %u BPM%s%s\n", out, (unsigned)total,
-                (unsigned)(used[0] + used[1] + used[2] + used[3] + used[4] + used[5] + used[6] + used[7] + used[8] + used[9] + used[10] + used[11] + used[12] + used[13] + used[14] + used[15]),
+        for (k = 0, t = 0; t < SQ_TRACKS; t++) k += used[t];
+        fprintf(stderr, "%s: %u notes on %u tapes, %u bars, %u BPM%s%s\n", out, (unsigned)total, (unsigned)k,
                 (unsigned)bars, (unsigned)proj.bpm, dropped ? " (TAPE FULL: notes dropped)" : "", cut ? " (past 16 bars: notes cut)" : "");
+        if (notrack) fprintf(stderr, "%s: %u notes on MIDI channels 13-16 left out (the FM-1 has twelve tracks)\n", out, (unsigned)notrack);
     }
     return 0;
 }

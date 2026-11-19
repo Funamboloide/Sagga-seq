@@ -4,15 +4,18 @@
 
 #include <stdint.h>
 
-#define SQ_TRACKS   16u
+#define SQ_TRACKS   12u      /* 0.28: twelve (were sixteen): the memory went to the chords of six notes and the eight lanes. The
+                              * image still has the sixteen of 0.27 (sagga_img27.h), the last four empty */
+#define SQ_TRACK_BITS ((1u << SQ_TRACKS) - 1u)   /* 0.28: a bit for each track */
 #define SQ_PATTERNS 8u
 #define SQ_STEPS    64u
 #define SQ_SCENES   16u      /* 0.9: sixteen (SGQ8 images carry eight; SALVA VIAGGIO fills them from the trail) */
 #define SQ_SCENES8  8u       /* ... what a 0.8 image holds, and what the panel's black keys reach without the bank */
 #define SQ_SNAPS    8u       /* SNAPSHOTS: the whole live state, eight of them (0.8) */
 #define SQ_SNAP_CC  48u      /* the synth CC values a snapshot keeps (captured from the synths, sent when it comes back) */
-#define SQ_POLY     4u
-#define SQ_LANES    6u       /* CC lanes per track: a value per step that is sent when the step plays (0.10: six, were four) */
+#define SQ_POLY     6u       /* 0.28: the notes a step holds (were four) - as many as a chord shape plays (SQ_POLY_OUT) */
+#define SQ_LANES    8u       /* CC lanes per track: a value per step that is sent when the step plays (0.10: six, were four;
+                              * 0.28: eight) */
 #define SQ_LFOS     16u
 #define SQ_CHANNELS 16u      /* what is kept per MIDI channel (arrays) */
 #define SQ_MIDI_CH  14u      /* the channels tracks play on with one USB port: 15 and 16 carry the grid (0.8: two USB
@@ -134,7 +137,7 @@ typedef struct __attribute__((packed)) {
     uint8_t lane[SQ_LANES];      /* CC value locked to this step, 0..127; SQ_LANE_NONE = no lock */
     int8_t nudge;                /* -SQ_NUDGE_MAX..+SQ_NUDGE_MAX: percent of the step, - early, + late */
     int8_t ramp;                 /* -100..+100: velocity of the ratchets, - fades out, + builds up */
-} sq_step_t;                     /* 18 bytes */
+} sq_step_t;                     /* 22 bytes (0.27: 18 - four notes, six lanes) */
 
 /* 0.8: a track's live layer. EUCLID (SQ_TF_EUC on) plays euc_pulses hits spread over the loop instead of the written
  * on / off; the ALGORITHM changes what plays while it plays. Both leave the pattern as written: off, it is all back. */
@@ -326,7 +329,7 @@ typedef struct __attribute__((packed)) {
     /* 0.12 (the two bytes 0.11 kept in reserve; a 0.11 image has them 0): a BREAK track (SQ_TF_BREAK) */
     uint8_t brk_chop;            /* the chop the pattern was written from (SQ_BRK_CHOPS: the library of re-orders) */
     uint8_t brk_cfg;             /* SQ_BRK_PACK(slices 0..2 = 8 / 16 / 32, roll 0..7, swap 0..7) + 1: 0 = not set (a 0.11 image: the default) */
-} sq_track_cfg_t;                /* 96 bytes */
+} sq_track_cfg_t;                /* 104 bytes (0.27: 96 - six lanes) */
 #define SQ_BRK_PACK(sl, roll, swap) ((uint8_t)((((sl) & 3u) | (((roll) & 7u) << 2) | (((swap) & 7u) << 5)) + 1u))
 #define SQ_BRK_SL(cfg)   (((cfg) ? (cfg) - 1u : 0u) & 3u)
 #define SQ_BRK_ROLL(cfg) ((((cfg) ? (cfg) - 1u : 0u) >> 2) & 7u)
@@ -423,7 +426,7 @@ typedef struct __attribute__((packed)) {
     uint8_t center;              /* 0..127: CC value in the middle of the swing */
     uint8_t phase;               /* 0..127: where in the cycle it starts */
     uint8_t dest;                /* SQ_LD_* */
-    uint8_t target;              /* CC: the MIDI channel 0..15; the others: the track 0..15 */
+    uint8_t target;              /* CC: the MIDI channel 0..15; the others: the track 0..11 */
     uint8_t param;               /* CC: the controller number 0..127 */
     uint8_t flags;               /* SQ_LF_* */
 } sq_lfo_t;
@@ -437,7 +440,7 @@ typedef struct __attribute__((packed)) {
     uint8_t seq_n;               /* 0: the LFO's RATE; 2..8: RATE SEQ, the rates one after the other (the wobble that changes) */
     uint8_t seq_every;           /* SQ_RE_*: how long each rate lasts; the cycle starts again with each one */
     uint8_t seq_rate[SQ_RSEQ_MAX];   /* 0..SQ_LFO_RATES-1, or SQ_RSEQ_OWN */
-    uint8_t trig;                /* 0: the clock; 1..16: the hits of track trig-1 start the cycle, which holds at its end
+    uint8_t trig;                /* 0: the clock; 1..12: the hits of track trig-1 start the cycle, which holds at its end
                                   * (DECAY, inverted: the sidechain duck) */
     uint8_t reserved;
 } sq_lfox_t;                     /* 12 bytes */
@@ -536,13 +539,13 @@ enum { SQ_MD_OFF = 0, SQ_MD_DEPTH, SQ_MD_CENTER, SQ_MD_VEL, SQ_MD_GATE, SQ_MD_CH
        SQ_MD_FX, SQ_MDS };
 typedef struct __attribute__((packed)) {
     uint8_t src;                 /* SQ_MS_* */
-    uint8_t src_i;               /* LFO 0..15, MACRO 0..3, VEL: the track 0..15, CC IN: the controller 0..127 */
+    uint8_t src_i;               /* LFO 0..15, MACRO 0..3, VEL: the track 0..11, CC IN: the controller 0..127 */
     uint8_t dst;                 /* SQ_MD_* */
-    uint8_t dst_i;               /* DEPTH / CENTER: the LFO 0..15; the others: the track 0..15 */
+    uint8_t dst_i;               /* DEPTH / CENTER: the LFO 0..15; the others: the track 0..11 */
     int8_t amt;                  /* -100..+100 */
 } sq_mod_t;                      /* 5 bytes */
-uint8_t sq_mod_src_count(uint8_t src);   /* how many of that kind (LFO 16, MACRO 4, VEL 16, CC IN 128, else 1) */
-uint8_t sq_mod_dst_count(uint8_t dst);   /* DEPTH / CENTER 16, the track ones 16, OFF 1 */
+uint8_t sq_mod_src_count(uint8_t src);   /* how many of that kind (LFO 16, MACRO 4, VEL 12, CC IN 128, else 1) */
+uint8_t sq_mod_dst_count(uint8_t dst);   /* DEPTH / CENTER 16, the track ones 12, OFF 1 */
 void sq_mod_sanitize(sq_mod_t *m);
 typedef struct __attribute__((packed)) sq_ext_s {
     sq_lfox_t lfo[SQ_LFOS];
@@ -571,11 +574,7 @@ typedef struct __attribute__((packed)) sq_ext_s {
     uint8_t scene_metre[SQ_SCENES];   /* 0.26: the metre each scene brings: 0 = it leaves the metre alone, else sq_metre_id + 1
                                        * (a 0.25 image has none: every scene leaves it alone; a 0.25 firmware takes the 1508
                                        * bytes before it) */
-} sq_ext_t;                      /* 1524 bytes */
-#define SQ_EXT_014 780u          /* the bytes of sq_ext_t a 0.13 / 0.14 image holds */
-#define SQ_EXT_018 796u          /* ... a 0.15 - 0.18 image */
-#define SQ_EXT_019 1004u         /* ... a 0.19 image */
-#define SQ_EXT_025 1508u         /* ... a 0.20 - 0.25 image */
+} sq_ext_t;                      /* 1292 bytes (0.27: 1524 - sixteen tracks; the image keeps that layout: sagga_img27.h) */
 /* 0.26 THE CLICK (SAVE 5): a metronome on the beats of the metre, the bar line louder; a count before a recording */
 enum { SQ_CLICK_OFF = 0, SQ_CLICK_REC, SQ_CLICK_PLAY, SQ_CLICKS };
 #define SQ_COUNT_IN_MAX 2u
@@ -633,7 +632,7 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved;
     uint16_t seed;               /* 0..SQ_TH_SEEDS-1: the seed of the next band, the next part */
     sq_thpat_t pat[SQ_TRACKS][SQ_PATTERNS];
-} sq_theory_t;                   /* 1028 bytes */
+} sq_theory_t;                   /* 772 bytes (0.27: 1028) */
 #define SQ_CHUNK_TH 2u           /* the image's chunk of it: src, seed (2), n, then n x (track, pattern, sq_thpat_t): only the
                                   * patterns the engines made; no chunk when there is nothing to say (a 0.22 firmware skips it) */
 #define SQ_CHUNK_GHOST 3u        /* 0.24: the image's chunk of the copies (SQ_STEP_GHOST): n x (track, pattern, first, end) - the
@@ -995,7 +994,7 @@ typedef struct __attribute__((packed)) {
     sq_lfo_t lfo[SQ_LFOS];
     sq_ccv_t cc[SQ_SNAP_CC];
 } sq_snap_t;
-#define SQ_SNAP_HEAD 40u         /* the bytes of a snapshot before its tracks */
+#define SQ_SNAP_HEAD 36u         /* the bytes of a snapshot before its tracks (0.27: 40 - sixteen patterns) */
 
 /* 0.10: the keys of the project, sixteen slots. Slot key_cur is the key that plays (key_root / key_scale / key_shift
  * are its copy, kept in step); a scene can bring a slot, a track can be pinned to one. */
@@ -1431,6 +1430,8 @@ int sq_image_track_th(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, s
 uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap);
 /* 0 = ok; the project is rebuilt from the image and sanitised */
 int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len);
+/* 0.28: an image of 0.27 or before has sixteen tracks: the first twelve are read, its tracks 13-16 are left out (and
+ * what was aimed at them: an LFO stops, a MOD slot goes OFF, their mutes go) */
 /* 0 if sq_deserialize() would take the image whole (it reads nothing into a project): check first, then replace */
 int sq_image_ok(const uint8_t *in, uint32_t len);
 uint32_t sq_crc32(const uint8_t *p, uint32_t n);

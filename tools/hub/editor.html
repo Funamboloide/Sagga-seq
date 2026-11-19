@@ -118,6 +118,7 @@ let steps = new Map(), osteps = new Map();            // 't,p,s' -> step (only t
 let changes = new Map(), undo = [];
 let V = {tab: 'tracce', pat: 0, t: 0, s: 0, toggle: true, scene: 0, lane: 0, erase: false, follow: false, listen: true, tt: 0, zoom: 14, snap: true, tsel: -1};
 let TP = {}, OTP = {};                                // 0.15: the TAPE events, track -> [[on, dur, note, vel], ...] (OTP: as read)
+let NT = 12, NPOLY = 6, NLANES = 8;                   // 0.28: the tracks, a step's notes, the lanes - as the converter (the firmware's core) gives them
 try { const v = JSON.parse(localStorage.getItem('sagga-ed-view') || '{}'); Object.assign(V, v); } catch (e) {}
 const HASH_TAPE = location.hash === '#tape';          // 0.23.2: /edit/NAME#tape (where the old piano roll's links land) opens the Tape tab
 
@@ -175,7 +176,8 @@ function load(d) {
   steps = new Map(); osteps = new Map();
   for (const [t, p, s, st] of d.steps) { steps.set(t + ',' + p + ',' + s, clone(st)); osteps.set(t + ',' + p + ',' + s, clone(st)); }
   changes = new Map(); undo = []; batch = null; NAME = d.name;
-  TP = {}; for (let t = 0; t < 16; t++) TP[t] = [];
+  NT = d.track.length; NPOLY = d.step_default.note.length; NLANES = d.step_default.lane.length;
+  TP = {}; for (let t = 0; t < NT; t++) TP[t] = [];
   for (const [t, on, dur, n, v] of d.tape || []) TP[t].push([on, dur, n, v]);
   OTP = clone(TP); V.tsel = -1;
   $('pname').textContent = d.name + (projName() ? ' · ' + projName() : ''); document.title = 'SAGGA editor - ' + d.name;
@@ -289,7 +291,7 @@ function stepOn(t, p, s) { return getStep(t, p, s).flags & ON; }
 function toggleStep(t, p, s) {
   const k = t + ',' + p + ',' + s, st = getStep(t, p, s);
   if (st.flags & ON) { set('step', k, 'flags', '-', st.flags & ~ON); return; }
-  if (!(st.flags & SET)) { set('step', k, 'note', 0, P.track[t].pen); for (let j = 1; j < 4; j++) set('step', k, 'note', j, NONE); set('step', k, 'flags', '-', st.flags | ON | SET); }
+  if (!(st.flags & SET)) { set('step', k, 'note', 0, P.track[t].pen); for (let j = 1; j < NPOLY; j++) set('step', k, 'note', j, NONE); set('step', k, 'flags', '-', st.flags | ON | SET); }
   else set('step', k, 'flags', '-', st.flags | ON);
 }
 function lenText(v) { return v <= 100 ? v + ' %' : v === 101 ? '1,5 step' : (v - 100) + ' step'; }
@@ -329,7 +331,7 @@ function setBar(n) {
   if (n === old) return;
   set('metre', '-', 'bar_steps', '-', n === 16 ? 0 : n);
   for (let k = 0; k < 4; k++) set('metre', '-', 'bar_beats', k, 0);                       // (its usual way)
-  for (let t = 0; t < 16; t++) {                                                          // the tracks on the bar follow it
+  for (let t = 0; t < NT; t++) {                                                          // the tracks on the bar follow it
     const c = P.track[t], want = c.flags & 0x20 ? 0 : metreFollow(c.length, c.start, old, n);
     if (want) set('track', t, 'length', '-', want);
   }
@@ -341,21 +343,22 @@ function render() {
   pvCache = null;                                     // (0.25: the copies before Save are worked out again)
   $('tabs').innerHTML = TABS.map(([k, n]) => '<span class="tab' + (V.tab === k ? ' on' : '') + '" onclick="V.tab=\'' + k + '\';keepView();render()">' + n + '</span>').join('');
   if (!P) return;
-  V.t = Math.min(15, Math.max(0, V.t)); V.pat = Math.min(7, Math.max(0, V.pat)); V.s = Math.min(63, Math.max(0, V.s));
+  V.t = Math.min(NT - 1, Math.max(0, V.t)); V.pat = Math.min(7, Math.max(0, V.pat)); V.s = Math.min(63, Math.max(0, V.s));
+  V.tt = Math.min(NT - 1, Math.max(0, V.tt)); V.lane = Math.min(NLANES - 1, Math.max(0, V.lane));   // (0.28: a view kept from sixteen tracks)
   $('main').innerHTML = ({tracce: rTracce, traccia: rTraccia, lane: rLane, tape: rTape, scene: rScene, song: rSong, catene: rCatene, lfo: rLfo, progetto: rProgetto}[V.tab] || rTracce)();
   if (V.tab === 'lane') laneEvents();
   if (V.tab === 'tape') rollEvents();
   marked = []; paintPos();
 }
 function patSel() { return '<select onchange="V.pat=+this.value;keepView();render()">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '"' + (i === V.pat ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>'; }
-function trackSel() { return '<select onchange="V.t=+this.value;keepView();render()">' + range(0, 15).map(i => '<option value="' + i + '"' + (+i === V.t ? ' selected' : '') + '>' + h(trackLabel(+i)) + '</option>').join('') + '</select>'; }
+function trackSel() { return '<select onchange="V.t=+this.value;keepView();render()">' + range(0, NT - 1).map(i => '<option value="' + i + '"' + (+i === V.t ? ' selected' : '') + '>' + h(trackLabel(+i)) + '</option>').join('') + '</select>'; }
 
 function rTracce() {
   let on = 0, o = '<div class="row"><span>pattern</span>' + patSel() + '<label><input type="checkbox"' + (V.toggle ? ' checked' : '') + ' onchange="V.toggle=this.checked;keepView()"> un tocco accende / spegne</label>' +
     '<small>' + P.project.bpm + ' BPM · chiave ' + h((N.root || [])[P.project.key_root] || '') + ' ' + h((N.scale || [])[P.project.key_scale] || '') +
     (barSteps() !== 16 || barBeats() !== 0x1111 ? ' · metro ' + h(metreText()) : '') +
     (P.th && P.th.src ? ' · sorgente ' + (P.th.src === 2 ? 'FREE (i motori, nessun genere)' : 'THEORY') + ' (prossimo seme ' + (P.th.seed + 1) + ')' : '') + '</small></div><div class="ov">';
-  for (let t = 0; t < 16; t++) {
+  for (let t = 0; t < NT; t++) {
     const c = P.track[t], m = thOf(t, V.pat);            // 0.23: a pattern the THEORY engines made says so, with its seed
     o += '<div class="tr"><span class="lb' + (t === V.t ? ' cur' : '') + '" onclick="V.t=' + t + ';V.tab=\'traccia\';keepView();render()" title="' +
       (m ? 'fatto dai motori THEORY' + ((m.style & 31) === 26 ? ' (FREE: di nessun genere)' : '') + ': seme ' + (m.seed + 1) + (m.var ? ', variazione ' + m.var : '') + '. L\'ENERGIA dell\'FM-1 lo riempie e lo svuota; i passi che scrivi tu restano (non in un RUMBLE o in un SUB che segue la cassa: quelli vengono rifatti interi).' : 'impostazioni della traccia') +
@@ -394,12 +397,12 @@ function rStep() {
     '<button class="sec" onclick="V.s=Math.max(0,V.s-1);keepView();render()">◀</button><button class="sec" onclick="V.s=Math.min(63,V.s+1);keepView();render()">▶</button>' +
     '<button class="sec" onclick="clip=clone(getStep(' + t + ',' + p + ',' + s + '));status(\'step copiato\')">Copia</button><button class="sec" onclick="pasteStep()">Incolla</button>' +
     '<button class="warn" onclick="clearStep(' + t + ',' + p + ',' + s + ')">Svuota</button><button class="sec" onclick="hearStep(' + t + ',' + p + ',' + s + ')" title="l\'FM-1 lo suona (serve il bridge)">♪ ascolta</button></div>' + copyNote(t, p, s) + '<div class="grid">';
-  for (let j = 0; j < 4; j++) o += L('nota ' + (j + 1), notesel('step', k, 'note', j, j > 0));
+  for (let j = 0; j < NPOLY; j++) o += L('nota ' + (j + 1), notesel('step', k, 'note', j, j > 0));   // (0.28: six)
   o += L('velocity', num('step', k, 'velocity', '-', 1, 127)) + L('gate <small>' + lenText(st.length) + '</small>', num('step', k, 'length', '-', 1, 164)) +
     L('chance %', num('step', k, 'chance', '-', 0, 100)) + L('ratchet', num('step', k, 'ratchet', '-', 1, 8)) +
     L('condizione', sel('step', k, 'condition', '-', N.condition || [])) + L('nudge %', num('step', k, 'nudge', '-', -50, 50)) + L('ramp', num('step', k, 'ramp', '-', -100, 100)) +
     L('TIE', bit('step', k, 'flags', '-', TIE)) + L('SLIDE', bit('step', k, 'flags', '-', SLIDE)) + L('PLAIN (no EXPO)', bit('step', k, 'flags', '-', XOFF)) + L('LOCK (dadi, EVOLVE)', bit('step', k, 'flags', '-', LOCK));
-  for (let j = 0; j < 6; j++) {
+  for (let j = 0; j < NLANES; j++) {                    // (0.28: eight)
     const cc = c.lane_cc[j];
     o += L('lane ' + (j + 1) + ' <small>' + (cc === NONE ? 'spenta' : cc === 128 ? 'BEND' : cc === 129 ? 'AFTERT' : 'CC ' + cc) + '</small>', sel('step', k, 'lane', j, range(0, 127), 0, [[NONE, '—']]));
   }
@@ -508,7 +511,7 @@ function rTraccia() {
     L('loop note', num(g, t, 'plen', 0, 0, 64)) + L('loop velocity', num(g, t, 'plen', 1, 0, 64)) + L('loop gate', num(g, t, 'plen', 2, 0, 64)) +
     '</div><small>Loop 0: quello della traccia. Le lane (i CC degli step) nella scheda Lane; le catene in Catene.</small>';
   o += '<h3>PATTERN</h3><div class="row"><span>P' + (V.pat + 1) + '</span>' + patSel() +
-    '<button class="sec" onclick="copyPat()">Copia in...</button><select id="cpt">' + range(0, 15).map(i => '<option value="' + i + '">T' + (+i + 1) + '</option>').join('') + '</select><select id="cpp">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '">' + n + '</option>').join('') + '</select>' +
+    '<button class="sec" onclick="copyPat()">Copia in...</button><select id="cpt">' + range(0, NT - 1).map(i => '<option value="' + i + '">T' + (+i + 1) + '</option>').join('') + '</select><select id="cpp">' + range(1, 8, n => 'P' + n).map((n, i) => '<option value="' + i + '">' + n + '</option>').join('') + '</select>' +
     '<button class="warn" onclick="clearPat()">Svuota il pattern</button><button class="sec" onclick="shiftPat(-1)">◀ sposta</button><button class="sec" onclick="shiftPat(1)">sposta ▶</button></div>';
   return o;
 }
@@ -537,7 +540,7 @@ function shiftPat(d) {
 
 function rLane() {
   const t = V.t, c = P.track[t], j = V.lane;
-  let o = '<div class="row">' + trackSel() + patSel() + '<select onchange="V.lane=+this.value;keepView();render()">' + range(0, 5).map(i => '<option value="' + i + '"' + (+i === j ? ' selected' : '') + '>lane ' + (+i + 1) + '</option>').join('') + '</select>' +
+  let o = '<div class="row">' + trackSel() + patSel() + '<select onchange="V.lane=+this.value;keepView();render()">' + range(0, NLANES - 1).map(i => '<option value="' + i + '"' + (+i === j ? ' selected' : '') + '>lane ' + (+i + 1) + '</option>').join('') + '</select>' +
     '<label><input type="checkbox"' + (V.erase ? ' checked' : '') + ' onchange="V.erase=this.checked;keepView()"> cancella (toglie i lock)</label></div>' +
     '<div class="grid">' + L('CC della lane', sel('track', t, 'lane_cc', j, range(0, 127, n => 'CC ' + n), 0, [[NONE, 'spenta'], [128, 'BEND'], [129, 'AFTERT']])) +
     L('valore base', sel('track', t, 'lane_base', j, range(0, 127), 0, [[NONE, 'resta com\'è']])) + L('scivola fra i lock', bit('track', t, 'lane_flags', j, 1)) +
@@ -567,7 +570,7 @@ function rScene() {
   let o = '<div class="row"><span>scena</span><select onchange="V.scene=+this.value;keepView();render()">' + range(1, 16).map((n, i) => '<option value="' + i + '"' + (i === sc ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
     '<span>chiave</span>' + sel('scene', sc, 'key_slot', '-', range(1, 16, n => 'slot ' + n), 0, [[NONE, 'non la cambia']]) + '</div>' +
     '<table><tr><th>traccia</th><th>pattern</th><th>muta</th></tr>';
-  for (let t = 0; t < 16; t++) o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + sel('scene', sc, 'pattern', t, range(1, 8, n => 'P' + n)) + '</td><td><input type="checkbox"' + (s.mute_mask & (1 << t) ? ' checked' : '') + ' ' + at('scene', sc, 'mute', t) + ' data-k="bit" data-bit="1"></td></tr>';
+  for (let t = 0; t < NT; t++) o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + sel('scene', sc, 'pattern', t, range(1, 8, n => 'P' + n)) + '</td><td><input type="checkbox"' + (s.mute_mask & (1 << t) ? ' checked' : '') + ' ' + at('scene', sc, 'mute', t) + ' data-k="bit" data-bit="1"></td></tr>';
   o += '</table><h3>PROGRAM CHANGE PER CANALE</h3><div class="grid">';
   for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel('scene', sc, 'pc', ch, range(0, 127), 0, [[NONE, '—']]));
   return o + '</div>';
@@ -589,7 +592,7 @@ function songSwap(i, d) { const j = i + d; if (j < 0 || j >= P.song.len) return;
 
 function rCatene() {
   let o = '<small>OFF; P1+2: il pattern e il suo vicino come uno da 128 step; LISTA: fino a 8 pattern in fila, ognuno 1-8 volte (HOME 7 K2, HOME 8).</small><table><tr><th>traccia</th><th>catena</th><th>voci</th><th>la lista</th></tr>';
-  for (let t = 0; t < 16; t++) {
+  for (let t = 0; t < NT; t++) {
     const x = P.chain[t], m = x.chain_on ? 2 : P.track[t].flags & F_CHAIN ? 1 : 0;
     o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + vsel('chain', t, 'mode', '-', ['OFF', 'P1+2', 'LISTA'], m) + '</td><td>' + (m === 2 ? num('chain', t, 'chain_n', '-', 1, 8, 'w2') : '') + '</td><td>';
     if (m === 2) for (let k = 0; k < x.chain_n; k++) o += '<span class="row" style="display:inline-flex;margin-right:8px">' + sel('chain', t, 'chain_pat', k, range(1, 8, n => 'P' + n)) + '×' + sel('chain', t, 'chain_rep', k, range(1, 8)) + '</span>';
@@ -605,9 +608,9 @@ function rLfo() {
     o += '<div class="card' + (l.enabled ? '' : ' off') + '"><div class="row"><b>LFO ' + (i + 1) + '</b>' + L('acceso', bit(g, i, 'enabled', '-', 1)) + '</div><div class="grid">' +
       L('forma', sel(g, i, 'shape', '-', SHAPES)) + L('rate', sel(g, i, 'rate', '-', RATES)) + L('profondità', num(g, i, 'depth', '-', 0, 127)) + L('centro', num(g, i, 'center', '-', 0, 127)) +
       L('fase', num(g, i, 'phase', '-', 0, 127)) + L('destinazione', sel(g, i, 'dest', '-', DESTS)) +
-      L(l.dest === 0 ? 'canale' : 'traccia', sel(g, i, 'target', '-', range(1, 16))) + (l.dest === 0 ? L('CC', num(g, i, 'param', '-', 0, 127)) : '') +
+      L(l.dest === 0 ? 'canale' : 'traccia', sel(g, i, 'target', '-', range(1, l.dest === 0 ? 16 : NT))) + (l.dest === 0 ? L('CC', num(g, i, 'param', '-', 0, 127)) : '') +
       L('retrigger', bit(g, i, 'flags', '-', 1)) + L('inverti', bit(g, i, 'flags', '-', 2)) +
-      L('TRIG', sel('lfox', i, 'trig', '-', range(1, 16, n => 'T' + n), 1, [[0, 'CLOCK']])) +
+      L('TRIG', sel('lfox', i, 'trig', '-', range(1, NT, n => 'T' + n), 1, [[0, 'CLOCK']])) +
       L('RATE SEQ', sel('lfox', i, 'seq_n', '-', range(2, 8), 2, [[0, 'OFF']])) + (x.seq_n >= 2 ? L('ogni', sel('lfox', i, 'seq_every', '-', EVERY)) : '') + '</div>';
     if (x.seq_n >= 2) { o += '<div class="row"><small>le rate:</small>'; for (let k = 0; k < x.seq_n; k++) o += sel('lfox', i, 'seq_rate', k, RATES, 0, [[NONE, '(la sua)']]); o += '</div>'; }
     if (l.shape === 8) o += '<div class="grid">' + L('attacco', sel('lfoe', i, 'a', '-', ENV_T)) + L('decay', sel('lfoe', i, 'd', '-', ENV_T)) +   // 0.20 ENV
@@ -616,8 +619,8 @@ function rLfo() {
   }
   o += '<h3>MOD MATRIX (0.20)</h3><div class="card">';            // 0.20: eight slots, a source moves a destination
   for (let i = 0; i < 8; i++) {
-    const m = P.mod[i], sn = m.src === 2 ? MACROS : m.src === 1 ? range(1, 16, n => 'LFO ' + n) : m.src === 5 ? range(1, 16, n => 'T' + n) : m.src === 6 ? range(0, 127, n => 'CC ' + n) : null;
-    const dn = m.dst === 1 || m.dst === 2 ? range(1, 16, n => 'LFO ' + n) : m.dst ? range(1, 16, n => 'T' + n) : null;
+    const m = P.mod[i], sn = m.src === 2 ? MACROS : m.src === 1 ? range(1, 16, n => 'LFO ' + n) : m.src === 5 ? range(1, NT, n => 'T' + n) : m.src === 6 ? range(0, 127, n => 'CC ' + n) : null;
+    const dn = m.dst === 1 || m.dst === 2 ? range(1, 16, n => 'LFO ' + n) : m.dst ? range(1, NT, n => 'T' + n) : null;
     o += '<div class="row"><b>MOD ' + (i + 1) + '</b>' + L('sorgente', sel('mod', i, 'src', '-', MOD_S) + (sn ? ' ' + sel('mod', i, 'src_i', '-', sn) : '')) +
       L('destinazione', sel('mod', i, 'dst', '-', MOD_D) + (dn ? ' ' + sel('mod', i, 'dst_i', '-', dn) : '')) + L('quanto %', num('mod', i, 'amt', '-', -100, 100)) + '</div>';
   }
@@ -701,7 +704,7 @@ function paintPos() {
   for (const el of marked) el.classList.remove('ph');
   marked = [];
   const live = POS && POS.playing;
-  for (let t = 0; t < 16; t++) {
+  for (let t = 0; t < NT; t++) {                       // (0.28: the link still says sixteen; the first twelve are tracks)
     const b = $('pp' + t);
     if (b) b.textContent = live && POS.pats[t] !== V.pat && !(P.track[t].flags & 0x20) ? '▶P' + (POS.pats[t] + 1) : '';
     if (!live || POS.pats[t] !== V.pat) continue;
@@ -734,7 +737,7 @@ function rTape() {
   lo = Math.max(0, lo - 6); hi = Math.min(127, hi + 6); if (hi - lo < 24) hi = Math.min(127, lo + 24);
   V.rlo = lo; V.rhi = hi;
   const W = Math.max(len, ...list.map(e => e[0] + e[1])) / TICKS16 * Z, H = (hi - lo + 1) * RH;
-  let o = '<div class="row"><select onchange="V.tt=+this.value;V.tsel=-1;keepView();render()">' + range(0, 15).map(i => '<option value="' + i + '"' + (+i === t ? ' selected' : '') + '>' + h(trackLabel(+i)) + (P.track[+i].flags & 0x20 ? ' · TAPE ' + evs(+i).length : '') + '</option>').join('') + '</select>' +
+  let o = '<div class="row"><select onchange="V.tt=+this.value;V.tsel=-1;keepView();render()">' + range(0, NT - 1).map(i => '<option value="' + i + '"' + (+i === t ? ' selected' : '') + '>' + h(trackLabel(+i)) + (P.track[+i].flags & 0x20 ? ' · TAPE ' + evs(+i).length : '') + '</option>').join('') + '</select>' +
     L('battute', sel('track', t, 'tape_bars', '-', range(1, 16), 1)) + L('quantize %', num('track', t, 'tape_quant', '-', 0, 100)) +
     '<label class="tg"><input type="checkbox"' + (V.snap ? ' checked' : '') + ' onchange="V.snap=this.checked;keepView()"> griglia 1/16</label>' +
     '<button class="sec" onclick="V.zoom=Math.max(4,V.zoom-3);keepView();render()">−</button><button class="sec" onclick="V.zoom=Math.min(40,V.zoom+3);keepView();render()">+</button>' +

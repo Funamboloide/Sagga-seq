@@ -375,6 +375,17 @@ def compare(session):
         lost, other = roads(session)
         pg = [x for x in lost if x[0] in ("pagina", "diretto")]
         gr = [x for x in lost if x[0] == "grid"]
+        # 0.27's banco: a tap's release lost on the road, its press heard: the FM-1 acts on the press (the pages' taps send 127,
+        # then 0 at the same ms) - the road lost a message, the FM-1 did nothing less (the banco's b022: PROPOSAL's 0)
+        sent = hw.get("reali_fatti") or []
+        rel = [x for x in pg if x[0] == "pagina" and (x[2][0] & 0xF0) == 0xB0 and x[2][2] == 0 and
+               any(r[0] == x[1] and list(r[2]) == [x[2][0], x[2][1], 127] for r in sent) and
+               not any(y[1] == x[1] and list(y[2]) == [x[2][0], x[2][1], 127] for y in lost)]
+        pg = [x for x in pg if x not in rel]
+        if rel:
+            found.append(("PAGINE", "DA GUARDARE", "%d rilasci di un tasto delle pagine persi per strada, la pressione arrivata "
+                          "(l'FM-1 agisce alla pressione): %s" % (len(rel), "; ".join("%s %s a %d ms" % (x[3] or x[0], msg_txt(x[2]), x[1])
+                                                                                       for x in rel[:4]))))
         if pg:
             found.append(("PAGINE", lv, "%d comandi delle pagine mai arrivati all'FM-1: %s (la cella pagina -> FM-1 "
                           "nella matrice?)%s" % (len(pg), "; ".join("%s %s a %d ms" % (x[3] or x[0], msg_txt(x[2]), x[1]) for x in pg[:4]), why)))
@@ -559,6 +570,15 @@ def prova_tempo(seed):
     f1, _ = compare(r1)
     out.append(("a dice from the grid heard a ms off (%d messages): TEMPO, by what was heard from the ports" % len(mine),
                 bool(mine) and not errs(f1) and any(x[0] == "TEMPO" and "i messaggi sentiti dalle porte" in x[2] for x in f1)))
+    # (1b) 0.27's banco: ... said 5 ms before the FM-1 really worked it (its pass of the loop: the 0.27 banco's b027, a dice of
+    #      the engines' page)
+    r1b = copy.deepcopy(rec)
+    mine = [h for h in r1b["fm1"]["sentiti"] if t1 < h[0] <= t2 and h[2] == 0x9F]
+    for h in mine:
+        h[0] -= 5
+    f1b, _ = compare(r1b)
+    out.append(("0.27's banco: the same dice said 5 ms early (%d messages): TEMPO, by what was heard from the ports" % len(mine),
+                bool(mine) and not errs(f1b) and any(x[0] == "TEMPO" and "i messaggi sentiti dalle porte" in x[2] for x in f1b)))
     # (2) two ticks and a note-off never heard; a tick 30 ms late
     r2 = copy.deepcopy(rec)
     midi = r2["fm1"]["midi"]
@@ -592,6 +612,31 @@ def prova_tempo(seed):
     f5, _ = compare(r5)
     out.append(("the keep-alive after the FM-1's last event: not lost; a pad sent before it and never heard: GRID",
                 not [x for x in f4 if x[0] == "GRID"] and len([x for x in f5 if x[0] == "GRID"]) == 1))
+    # (4) 0.27's banco: a page's tap (127, then 0 at the same ms): its release lost on the road is to look at, the FM-1 acts on
+    #     the press (the 0.27 banco's b022, PROPOSAL); the press lost is an error
+    pg = {g.name: g for g in page_gestures()}
+    gs = [by["grid BEAT pad 1,2"], pg["pagina live proposal"], by["grid BEAT pad 2,2"]]
+    rp = run_like_banco(session_plan(sit, gs, "t002"), random.Random(seed))
+    fp, _ = compare(rp)
+    taps = [r for r in rp["fm1"].get("reali_fatti") or [] if r[1] == "pagina" and (r[2][0] & 0xF0) == 0xB0]
+    press = [r for r in taps if r[2][2] == 127]
+    rel = [r for r in taps if r[2][2] == 0 and any(q[0] == r[0] and q[2][:2] == r[2][:2] for q in press)]
+
+    def without(rec_, m):                              # (lost on the road: the FM-1 never heard it, and says one less)
+        r_ = copy.deepcopy(rec_)
+        hd = r_["fm1"]["sentiti"]
+        k = next((k for k, h in enumerate(hd) if h[2:5] == list(m)), None)
+        if k is not None:
+            del hd[k]
+            r_["fm1"]["done"]["heard"] -= 1
+        return r_, k is not None
+    r6, ok6 = without(rp, rel[0][2]) if rel else (rp, False)
+    f6, _ = compare(r6)
+    r7, ok7 = without(rp, press[0][2]) if press else (rp, False)
+    f7, _ = compare(r7)
+    out.append(("0.27's banco: PROPOSAL's release lost on the road: PAGINE to look at, not an error; its press lost: an error",
+                not errs(fp) and ok6 and ok7 and not errs(f6) and any(x[0] == "PAGINE" and x[1] == "DA GUARDARE" for x in f6) and
+                any(x[0] == "PAGINE" and x[1] == "ERRORE" for x in f7)))
     return out
 
 

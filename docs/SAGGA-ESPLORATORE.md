@@ -44,6 +44,11 @@ cosa cambia) e `build/explore/rapporto.json`.
    quinta sopra), EVOLVE acceso sul banco ogni 16 battute con **RETURN 50**, il profilo **SEMPLICE** (le pagine SEQ 2 e
    SEQ 3 si vedono solo mentre suonano: qui SEQ 3 c'è, EVOLVE è acceso), in play. Il nome promette il profilo, EVOLVE
    e il RETURN, e viene controllato prima di cominciare.
+   0.28: **una con le cose nuove**. Le tracce sono dodici: una band TECHNO, la **traccia 12** scelta (la banca 9-12, che
+   ne ha quattro), un **accordo di sei note** sul suo primo passo (SEL + sei tasti), i **lock delle lane 7 e 8** (ENV 7
+   e 8), in play. Il nome promette la traccia scelta, le sei note e i lock: la sonda ha due valori nuovi per traccia,
+   `poly` (quante note ha il passo scritto più pieno del pattern) e `lx` (i passi con un lock sulle lane 7 o 8), e
+   viene controllata prima di cominciare. ENV ha otto pagine: l'esploratore gira le manopole anche sulle lane 7 e 8.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -211,6 +216,41 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   trovate. Le stesse prove con AddressSanitizer e UndefinedBehaviorSanitizer: nessun errore. Il piano del banco: 27
   sessioni.
 
+* **Sulla 0.28** (dodici tracce, accordi di sei note, otto lane): una situazione nuova (sopra), e ENV ha otto pagine.
+  La fuzz con i rilevatori (UndefinedBehaviorSanitizer) ha trovato subito **un errore della 0.28 stessa**: in HOME e in
+  PERF la striscia dello schermo disegnava le celle 13-16 come tracce, leggendo oltre le dodici (senza i rilevatori non
+  si vedeva). Corretto: le celle 13-16 sono spente, e lo guarda il test `t028_panel`. Il primo giro completo ha segnato
+  una coppia sulle MOSSE (ARMONIA: GLO 3 SEL + K3, poi ALG): il genere chiesto con K3 aspetta la fine della frase, ALG
+  porta le mosse alla battuta e il genere, con l'armonia che lo segue, arriva dentro le due battute della sonda. Il
+  cambio è di K3, una mossa: è fra i "Visti e voluti". E i due valori nuovi della sonda, `poly` e `lx`, vedono lo step
+  che una manopola ha scritto e riscritto (SET, un lock al valore di prima): come gli hash, RITORNO non li guarda. Il
+  giro completo: **102.073 gesti da soli in 30 situazioni, 11.995 coppie, 200 sessioni da 60 gesti, nessun errore,
+  niente da guardare**. Le prove fisse della 0.28 (`t028_panel` nel simulatore, `test_v028_image` nel cuore, la 0.27
+  vera presa da git in `tests/sagga_compat27.sh`, l'editor, il convertitore MIDI, le pagine SAGGA) sono state provate
+  rompendo il firmware e il Pi in dieci punti, uno alla volta: tutte e dieci le rotture trovate. Il piano del banco: 28
+  sessioni; l'FM-1 completo: 33.
+
+* **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
+  del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
+  dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
+  guardate una per una, **nessuna era un errore del firmware**:
+  * s021 e b020: la sonda letta un tick di clock prima dal FM-1, proprio sul tick che cambia qualcosa (il pattern che
+    una coda cambia sulla battuta; il THROW FILTER che scivola: -10 e -9). Alla sonda dopo, uguali.
+  * b027: il dado della pagina Motori. L'FM-1 prende un messaggio dall'USB e lo lavora nel suo giro del ciclo, fino a
+    8-9 ms dopo (il simulatore: 1 ms); con il messaggio spostato così, il simulatore tira lo stesso dado.
+  * b024: la traccia 5 in 7:4 dentro un loop DJ di un 16esimo, uno step indietro per cinque sonde di fila: il passo di
+    un poliritmo comincia fra due tick, e l'FM-1 lo fa al suo giro, pochi ms dopo. Poi di nuovo uguali.
+  * b007: due note del simulatore 23 e 30 ms dopo l'ultimo messaggio che il Pi ha sentito (aveva chiuso le porte): il
+    bordo della finestra.
+  * b022: il tasto PROPOSAL della pagina Live manda 127 e 0 nello stesso istante; l'FM-1 ha sentito il 127, lo 0 si è
+    perso per strada (8 coppie su 9 della sessione sono arrivate intere). L'FM-1 agisce alla pressione: non ha fatto
+    niente di meno.
+  Il confronto ora riconosce questi casi, e le prove del confronto controllano che resti un errore quello che
+  non torna uguale. Sulle stesse due raccolte: **il banco 0 errori, 1 da guardare (il rilascio di PROPOSAL); l'FM-1
+  completo 0 errori**. Restano da capire i riavvii lenti: 6 volte su 59 l'FM-1 non ha risposto entro 12 secondi dopo il
+  riavvio fra due sessioni, e il Pi l'ha fatto ritrovare all'USB; alla fine il kernel del Pi ha scritto degli errori
+  USB (`urb status -32`). È sempre tornato, e il firmware non si è mai piantato.
+
 Il modo di lavorare è quello: l'esploratore trova una sequenza corta, la sequenza diventa un test, il test fallisce
 sul firmware vecchio e passa su quello corretto.
 
@@ -246,9 +286,10 @@ due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono 
 | CONTI | 0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1: quello che l'FM-1 **dice di aver mandato** (lo conta lui, per porta e per tipo, e tiene i conti della sua coda USB) contro quello che il computer ha sentito e quello che ha ricevuto il suo driver USB. Dice dove un messaggio si è perso: dentro l'FM-1, per strada, o nel computer |
 | NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada (0.18: non le luci del grid sul canale 16, ne' gli interruttori degli LFO che tornano al tablet, note 100-115 sul canale 13) |
 | CICLO | il ciclo principale fermo più di 60 ms |
-| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo). 0.23.1, due prove in più quando quelle non bastano: i messaggi che l'FM-1 ha **sentito dalle porte** prima di quella sonda (un pad del grid, un comando di una pagina) presi 1-3 ms prima o dopo; e **un solo evento di uno dei cinque gesti prima**, fino a 20 ms dopo, perché quello che un gesto mette in moto a volte si vede solo più tardi (il tasto di un loop tenuto a cavallo di un tick a 300 BPM, un THROW che finisce di scivolare una battuta dopo). Se una prova toglie una parte delle differenze senza farne di nuove, la tiene e cerca il resto da capo |
+| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo). 0.23.1, due prove in più quando quelle non bastano: i messaggi che l'FM-1 ha **sentito dalle porte** prima di quella sonda (un pad del grid, un comando di una pagina) presi 1-3 ms prima o dopo; e **un solo evento di uno dei cinque gesti prima**, fino a 20 ms dopo, perché quello che un gesto mette in moto a volte si vede solo più tardi (il tasto di un loop tenuto a cavallo di un tick a 300 BPM, un THROW che finisce di scivolare una battuta dopo). Se una prova toglie una parte delle differenze senza farne di nuove, la tiene e cerca il resto da capo. Dal banco della 0.27: una sonda letta un tick di clock prima o dopo, **qualunque cosa mostri**, se alla sonda dopo è di nuovo uguale (il tick che cambia il pattern sulla battuta, un THROW che scivola); il passo di un **poliritmo** uno step avanti o indietro anche per più sonde di fila, se torna uguale mentre suona (l'FM-1 lo fa al suo giro del ciclo); i messaggi sentiti dalle porte spostati **fino a 9 ms** (l'FM-1 li lavora nel suo giro, fino a 8-9 ms dopo averli presi) |
 
-Le note e il clock si contano solo fin dove il PC ha ascoltato (chiude le porte quando riavvia l'FM-1 per la sessione dopo).
+Le note e il clock si contano solo fin dove il PC ha ascoltato (chiude le porte quando riavvia l'FM-1 per la sessione dopo);
+dal banco della 0.27: se le note non tornano, si contano di nuovo senza gli ultimi 40 ms, il bordo di quella finestra.
 La prima volta sull'FM-1 vero (9 novembre 2026, 0.12): 20 sessioni, 0 errori; 19 di TEMPO, uno solo di un tasto letto 2 ms dopo.
 
 `--hw-prova` fa tutto con il simulatore al posto dell'FM-1, con il costo dello schermo acceso (gli eventi arrivano in
@@ -268,7 +309,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 27 dalla 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 28 dalla 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
@@ -276,7 +317,7 @@ con quei messaggi negli stessi punti, come gli eventi del test. In più del rapp
 | regola | cosa |
 | --- | --- |
 | MATRICE | le celle che servono (ogni pagina verso la porta 2, la porta 2 verso le pagine) e quelle che non devono esserci |
-| PAGINE | un comando che il Pi ha dato a una pagina e che l'FM-1 non ha mai sentito (la cella nella matrice?); una pagina che non risponde all'API; una cella con il CC cambiato da te (visto) |
+| PAGINE | un comando che il Pi ha dato a una pagina e che l'FM-1 non ha mai sentito (la cella nella matrice?); una pagina che non risponde all'API; una cella con il CC cambiato da te (visto). Dal banco della 0.27: il rilascio di un tasto (lo 0 dopo il 127) perso per strada, con la pressione arrivata, è da guardare e non un errore: l'FM-1 agisce alla pressione |
 | GRID | un messaggio del bridge che l'FM-1 non ha mai sentito |
 | PONTE | un pad o un bottone che il bridge ha tradotto male |
 | LUCI | le luci del bridge diverse da quelle che l'FM-1 aveva mandato; da guardare: le luci ferme dell'FM-1 diverse da quelle del simulatore |

@@ -9,7 +9,7 @@ amount, GO: 0.19, it joins the track's chain or leaves it); an ALGORITHM
 (READY, A B C, GO); EUCLID (pulses, rotation, on / off); COOK, BEAT, a PROPOSAL and QUEUE (it enters at the
 QUANTISE), DICE, KEEP / BACK, UNDO; 0.23, the THEORY engines: SOURCE (LIBRARY: BEAT and the dice load a pattern of the
 library; THEORY: they MAKE it from a seed and the genre's rules; FREE: from the rules of no genre), NEXT SEED, the SEED
-and the VARIATION of the pattern the track plays; 0.25: SHORTER / LONGER (every track's length); the sixteen MUTES.
+and the VARIATION of the pattern the track plays; 0.25: SHORTER / LONGER (every track's length); the MUTES (0.28: twelve).
 
 The FM-1 sends its values back (USB PORTS 2: on its port 2): turn a knob on the FM-1 and the knob here moves too.
 Wire this plugin's OUT to the FM-1's port 2 and the FM-1's port 2 to this plugin's IN; SAVE K2 on the FM-1 = REMOTE 13 + 14.
@@ -22,7 +22,8 @@ CH12 = 11                                 # MIDI channel 12 (0-based): the LIVE 
 CH13 = 12                                 # channel 13: the tablet's track (CC 112) and its mode (113)
 CH14 = 13                                 # channel 14: SAGGA REMOTE (KEEP / BACK of a dice)
 
-TRACK_LABELS = ["T%d" % (i + 1) for i in range(16)]
+TRACKS = 12                               # 0.28: the FM-1's tracks (until 0.27: sixteen; CC 52-55 stay unsent)
+TRACK_LABELS = ["T%d" % (i + 1) for i in range(TRACKS)]
 MODE_LABELS = ["FREE", "IN KEY", "DRUM", "TAPE", "BREAK"]
 PATTERN_LABELS = ["P%d" % (i + 1) for i in range(8)]
 OCT_LABELS = ["-3", "-2", "-1", "0", "+1", "+2", "+3"]
@@ -54,7 +55,7 @@ def knob(name, label, cc, col, row, lo, hi, default, labels=None, ch=CH12):
 
 
 CELLS = [
-    knob("track", "TRACK", 112, 1, 1, 0, 15, 0, TRACK_LABELS, ch=CH13),
+    knob("track", "TRACK", 112, 1, 1, 0, TRACKS - 1, 0, TRACK_LABELS, ch=CH13),
     knob("mode", "MODE", 113, 2, 1, 0, 4, 0, MODE_LABELS, ch=CH13),
     switch("mute", "MUTE", 1, 3, 1),
     switch("solo", "SOLO", 2, 4, 1, "yellow"),
@@ -107,7 +108,7 @@ CELLS = [
     tap("shorter", "SHORTER", 60, 1, 11, "blue"),                   # 0.25: every track half / twice as long (the MOSSE's
     tap("longer", "LONGER", 61, 2, 11, "blue"),                     # SHORTER / LONGER): at the bar while it plays
 
-    *[switch("m%d" % t, "MUTE %d" % (t + 1), 40 + t, 1 + t % 4, 12 + t // 4) for t in range(16)],
+    *[switch("m%d" % t, "MUTE %d" % (t + 1), 40 + t, 1 + t % 4, 12 + t // 4) for t in range(TRACKS)],
 ]
 
 
@@ -115,9 +116,9 @@ class SaggaLive(ControllerBase):
     """SAGGA SEQ's tablet track: everything of one track at hand while the FM-1 works on another."""
 
     NAME = "SAGGA Live"
-    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat, the THEORY engines - and the 16 mutes"
+    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat, the THEORY engines - and the 12 mutes"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.25"
+    VERSION = "0.28"
     HELP = """\
 TRACK picks the tablet's own track on the FM-1 (the FM-1 keeps its own: one hand there, one here); MODE is its mode.
 MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW (the
@@ -134,13 +135,13 @@ on FREE they make it from the rules of NO genre, whatever the genre is; SEED is 
 this track plays - turn it and it is another part at once - and VARIATION how far it has walked from it (COOK goes to
 the next). The FM-1's ENERGY fills and empties what the engines made. With FM-1 0.25, SHORTER and LONGER: EVERY track
 half / twice as long (the MOSSE's moves; at the next bar while it plays - the other one pressed before that takes it
-back; a track that cannot - past 64 steps, an odd number - stays). MUTE 1-16: every track.
+back; a track that cannot - past 64 steps, an odd number - stays). MUTE 1-12: every track (0.28: twelve).
 The FM-1 sends its values back: wire OUT to the FM-1's port 2 and the FM-1's port 2 to IN (USB PORTS 2); SAVE K2 on
-the FM-1 = REMOTE 13 + 14. Channel 12: CC 1-32, 40-61; channel 13: 112, 113; channel 14: 85, 86."""
+the FM-1 = REMOTE 13 + 14. Channel 12: CC 1-32, 40-51, 56-61; channel 13: 112, 113; channel 14: 85, 86."""
 
     params = [
         Radio("bg", "Background", ControllerBase.BG_OPTIONS, default="Wine", config_only=True),
-        LayoutGrid("controller", "", cols=4, rows=15, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
+        LayoutGrid("controller", "", cols=4, rows=14, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
     ]
 
     cc_outputs = sorted({c.cc for c in CELLS})

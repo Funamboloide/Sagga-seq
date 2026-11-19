@@ -4,8 +4,9 @@ knobs and pads for the FM-1, through the Pi.
 
 The 16 encoders are the knobs of SAGGA Live (channel 12, firmware/src/sagga_tablet.c) on the tablet's track: TRACK,
 PATTERN, LENGTH, OCTAVE, SWING, GROOVE, ARP, CHORD (the first row), MIDI FX, FX AMOUNT, ALGO, A, B, C, PULSES,
-ROTATION (the second). The 16 pads are the sixteen MUTES (SAGGA REMOTE, channel 14 CC 48-63), or (PADS = ACTIONS) PLAY,
-FILL, FX GO, ALGO GO, COOK, BEAT, DICE, UNDO, PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE, EUCLID, ECHO ALL.
+ROTATION (the second). The pads 1-12 are the twelve MUTES (SAGGA REMOTE, channel 14 CC 48-59; 0.28: the FM-1 has
+twelve tracks, pads 13-16 send nothing), or (PADS = ACTIONS) PLAY, FILL, FX GO, ALGO GO, COOK, BEAT, DICE, UNDO,
+PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE, EUCLID, ECHO ALL.
 
 Whatever the BeatStep Pro sends (its MIDI Control Center sets it), LEARN finds it: press LEARN, turn the 16 encoders
 one after the other (top row left to right, then the bottom row), then tap the 16 pads in the same order. The hub
@@ -24,7 +25,7 @@ CH12, CH13, CH14 = 11, 12, 13          # MIDI channels 12, 13, 14 (0-based)
 # the encoders: (label, channel, CC, lowest, highest) - SAGGA Live's knobs (tools/raspimidihub/sagga_live: the test
 # checks they are the same)
 ENCODERS = [
-    ("TRACK", CH13, 112, 0, 15), ("PATTERN", CH12, 3, 0, 7), ("LENGTH", CH12, 4, 1, 64), ("OCTAVE", CH12, 5, 0, 6),
+    ("TRACK", CH13, 112, 0, 11), ("PATTERN", CH12, 3, 0, 7), ("LENGTH", CH12, 4, 1, 64), ("OCTAVE", CH12, 5, 0, 6),
     ("SWING", CH12, 6, 50, 75), ("GROOVE", CH12, 7, 0, 9), ("ARP", CH12, 20, 0, 12), ("CHORD", CH12, 24, 0, 31),
     ("MIDI FX", CH12, 9, 0, 9), ("FX AMOUNT", CH12, 10, 0, 24), ("ALGO", CH12, 12, 0, 4), ("A", CH12, 13, 0, 127),
     ("B", CH12, 14, 0, 127), ("C", CH12, 15, 0, 127), ("PULSES", CH12, 17, 1, 64), ("ROTATION", CH12, 18, 0, 63),
@@ -37,8 +38,9 @@ ACTIONS = [
     ("PROPOSAL", CH12, 28, "tap"), ("QUEUE", CH12, 29, "tap"), ("KEEP", CH14, 85, "tap"), ("BACK", CH14, 86, "tap"),
     ("RETRIG", CH12, 30, "tap"), ("MUTE", CH12, 1, "switch"), ("EUCLID", CH12, 19, "switch"), ("ECHO ALL", CH14, 118, "tap"),
 ]
-MUTE_CC = 48                            # SAGGA REMOTE: mute track 1-16 = CC 48-63 on channel 14 (a press turns it over)
-PAD_MODES = ["MUTE 1-16", "ACTIONS"]
+MUTE_CC = 48                            # SAGGA REMOTE: mute track 1-12 = CC 48-59 on channel 14 (a press turns it over)
+TRACKS = 12                             # 0.28: the FM-1's tracks (until 0.27: sixteen)
+PAD_MODES = ["MUTE 1-12", "ACTIONS"]
 ENC_MODES = ["ABSOLUTE", "RELATIVE"]
 N = 16
 
@@ -60,7 +62,7 @@ class SaggaBeatstep(PluginBase):
     NAME = "SAGGA BeatStep"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a BeatStep Pro's 16 encoders and 16 pads as SAGGA Live's knobs, the mutes or the actions"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.20"
+    VERSION = "0.28"
     HELP = """\
 An Arturia BeatStep Pro in CONTROL mode as SAGGA SEQ's knobs: wire the BeatStep Pro to IN, OUT to the FM-1 (its port 2
 with USB PORTS 2); SAVE K2 on the FM-1 = REMOTE 13 + 14.
@@ -69,11 +71,11 @@ LEARN: press it, turn the 16 encoders one after the other (top row left to right
 ENCODERS (on the tablet's track, as SAGGA Live): TRACK, PATTERN, LENGTH, OCTAVE, SWING, GROOVE, ARP, CHORD / MIDI FX,
 FX AMOUNT, ALGO, A, B, C, PULSES, ROTATION. ABSOLUTE: the encoder's value is the knob's place; RELATIVE: for encoders
 set to send steps (65 and up: right, 63 and down: left).
-PADS: MUTE 1-16 (each pad a track), or ACTIONS: PLAY, FILL (held), FX GO, ALGO GO, COOK, BEAT, DICE, UNDO, PROPOSAL,
-QUEUE, KEEP, BACK, RETRIG, MUTE (the tablet's track), EUCLID, ECHO ALL."""
+PADS: MUTE 1-12 (pads 1-12 a track each; 13-16 nothing), or ACTIONS: PLAY, FILL (held), FX GO, ALGO GO, COOK, BEAT,
+DICE, UNDO, PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE (the tablet's track), EUCLID, ECHO ALL."""
 
     params = [
-        Radio("pads", "Pads", PAD_MODES, default="MUTE 1-16"),
+        Radio("pads", "Pads", PAD_MODES, default="MUTE 1-12"),
         Radio("encoders", "Encoders", ENC_MODES, default="ABSOLUTE"),
         Button("learn", "LEARN", color="yellow", trigger=True),
         LearnMeter("learned", "Learned", display_name="learned"),
@@ -190,7 +192,7 @@ QUEUE, KEEP, BACK, RETRIG, MUTE (the tablet's track), EUCLID, ECHO ALL."""
 
     def _pad(self, i, down):
         if self.get_param("pads") != "ACTIONS":
-            if down:                              # a mute: the press turns it over
+            if down and i < TRACKS:               # a mute: the press turns it over
                 self.send_cc(CH14, MUTE_CC + i, 127)
                 self.send_cc(CH14, MUTE_CC + i, 0)
             return

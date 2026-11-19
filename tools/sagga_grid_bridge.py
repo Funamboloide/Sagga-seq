@@ -1007,11 +1007,11 @@ def preview_frame(req):
     """{"t", "notes", "vel", "gate" (10 ms), "tape"} as the FM-1's PREVIEW: 32 T VEL GATE FLAGS N NOTE*N; None if it
     is not one"""
     try:
-        t, notes = int(req.get("t")), [int(n) for n in req.get("notes", [])][:4]
+        t, notes = int(req.get("t")), [int(n) for n in req.get("notes", [])][:6]    # (0.28: six notes a step)
         vel, gate, tape = int(req.get("vel", 100)), int(req.get("gate", 25)), 1 if req.get("tape") else 0
     except (TypeError, ValueError, AttributeError):
         return None
-    if not 0 <= t < 16 or not notes or any(not 0 <= n < 128 for n in notes):
+    if not 0 <= t < 12 or not notes or any(not 0 <= n < 128 for n in notes):   # (0.28: twelve tracks)
         return None
     return SX_HEAD + [SX_PREVIEW, t, max(1, min(127, vel)), max(1, min(100, gate)), tape, len(notes)] + notes + [0xF7]
 
@@ -1552,9 +1552,9 @@ STATO_FIELDS = ("bar", "scene", "snap", "root", "scale", "deg", "col", "harm", "
 
 
 def frase_frame(track, bars, steps):
-    """SysEx 51: a phrase onto track (0-15), bars 1-4 of 16 steps; steps = [(step, note, vel, len%), ...] with
-    len 1..100 the gate, 0 = two steps long. None if it cannot be said in a frame."""
-    if not 0 <= track < 16 or not 1 <= bars <= 4 or len(steps) > 64:
+    """SysEx 51: a phrase onto track (0-11: 0.28 has twelve), bars 1-4 of 16 steps; steps = [(step, note, vel, len%),
+    ...] with len 1..100 the gate, 0 = two steps long. None if it cannot be said in a frame."""
+    if not 0 <= track < 12 or not 1 <= bars <= 4 or len(steps) > 64:
         return None
     body = [track, bars, len(steps)]
     for st, note, vel, ln in steps:

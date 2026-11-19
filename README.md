@@ -1,13 +1,13 @@
-# SAGGA SEQ 0.27
+# SAGGA SEQ 0.28
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
-SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 16 tracks, 8 patterns of up to 64 steps per
-track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks; 0.26: the engines make a part IN that bar, a click on its beats, the scenes bring their metre; 0.27: the profile SEMPLICE hides the lab's pages), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
+SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 12 tracks on 16 MIDI channels (0.28: chords of
+six notes a step, eight CC lanes a track), 8 patterns of up to 64 steps per track (0.24: the length is the track's - a pattern goes round again in a longer track, a length changed while it plays lands on the bar line), a bar in any metre and tracks in five or seven against four (0.25: 7/8, 5/4, 15/16 ...; the polyrhythms' steps played between the clock's ticks; 0.26: the engines make a part IN that bar, a click on its beats, the scenes bring their metre; 0.27: the profile SEMPLICE hides the lab's pages), scenes, snapshots, a song, 16 LFOs, 16 keys, a library of 25 genres (a band of 8 to 11 parts each, 12
 variations a part in order of likeness, notes of their own length), the THEORY engines (0.23: a band MADE from the rules
 of a genre and a seed, in all 25 genres and in none, that the ENERGY fills and empties), live Euclidean rhythms and four algorithm slots per
 track, a harmony that the tracks follow (the genre's progressions or yours, on any root, with lengths in 16ths, pushes,
-the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, nine MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch), envelopes and a MOD MATRIX, six CC lanes with slides and NRPN, tools that wait for the bar or repeat
+the genres' harmonic rhythms and ten moods; more of them, and more variations, kept by the Pi), chords and arpeggios from one note, nine MIDI effects in a chain on every track, in the order you choose (velocity curve, octave, harmony, echo, chance, random, note filter, gate, glitch), envelopes and a MOD MATRIX, eight CC lanes with slides and NRPN, tools that wait for the bar or repeat
 every so many, TAPE tracks and EXPO curves, the journey (every set cut into phrases; the MOSSE, PERF's third page,
 queue moves for the phrase, the bar or the beat, and what you played becomes a song), BREAK tracks (a drum break in slices, sixteen chops on the white keys, re-ordered live),
 TAKE and THROWS, every knob also set from the keys (PICK, from the grid too), the buttons' pages as windows a tap
@@ -29,14 +29,14 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`, 0.26 is `FM-1_976`, 0.27 is `FM-1_977`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`, 0.26 is `FM-1_976`, 0.27 is `FM-1_977`, 0.28 is `FM-1_978`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.27.md](RELEASE-NOTES-0.27.md): what changed in this version (Italian): the arpeggio of a band with no key on the root with the rest, RANDOM a roll of the dice, DRIFT inside EVOLVE (its RETURN), the screen says who is acting, the profile SEMPLICE. 0.26's (the click, the keyboard's chords, the scenes' metres, SMOOTH, the pedal and wheels, the engines in the bar): [docs/storia/RELEASE-NOTES-0.26.md](docs/storia/RELEASE-NOTES-0.26.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
+* [RELEASE-NOTES-0.28.md](RELEASE-NOTES-0.28.md): what changed in this version (Italian): twelve tracks, and with the memory they leave chords of six notes and eight CC lanes a track. 0.27's (the arpeggio of a band with no key on the root, RANDOM a roll of the dice, EVOLVE's RETURN, the screen says who is acting, the profile SEMPLICE): [docs/storia/RELEASE-NOTES-0.27.md](docs/storia/RELEASE-NOTES-0.27.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
 * [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what was joined and hidden in 0.27 (RANDOM a roll of the dice, DRIFT inside EVOLVE, who is acting, the profile SEMPLICE).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 21 genres, counted from the library (Italian).
@@ -66,7 +66,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.27         # identity FM-1_977
+./build.sh --release 0.28         # identity FM-1_978
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with
@@ -89,7 +89,8 @@ what each gesture changes and how to repeat a broken rule.
 
 0.11 and later write `SGQB` (0.12 uses two of a track's reserved bytes for its BREAK settings; what 0.13 - 0.20 added lives in a tagged chunk an older firmware skips) and read 0.10's `SGQA` too (a 0.10 project opens with the new things off); SGQ3 .. SGQ9 slots and
 files are refused (keep a 0.9 firmware for 0.9 projects). The format carries the track settings (96 bytes a track: the
-four algorithm slots, FOLLOW's way), five user progressions (roots, shapes, lengths, pushes, moods), 16 scenes, a song of 64 entries with a tempo
+four algorithm slots, FOLLOW's way; 0.28 still writes sixteen of them, the last four empty, and puts the notes 5-6 and
+the lanes 7-8 in a chunk of their own, so a 0.27 opens its projects), five user progressions (roots, shapes, lengths, pushes, moods), 16 scenes, a song of 64 entries with a tempo
 each, the snapshots (sparse), the project's id (the Pi keeps the snapshot patches by it) and a tail of tagged chunks,
 so a later version can add data without a new format.
 

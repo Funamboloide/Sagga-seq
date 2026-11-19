@@ -249,7 +249,7 @@ static void chord_notes(sq_step_t *s, char kind, uint8_t root)
     static const char KINDS[7] = {'m', 'M', 'n', 'N', '7', 's', '5'};
     uint32_t k, q = 0u, j = 0u;
     for (k = 0; k < 7u; k++) if (KINDS[k] == kind) q = k;
-    for (k = 0; k < SQ_POLY; k++) {
+    for (k = 0; k < 4u; k++) {                         /* (the library's chords: four notes at most; 0.28: a step holds six) */
         int32_t v = K[q][k] < 0 ? -1 : (int32_t)root + K[q][k];
         if (v >= 0 && v <= 127) s->note[j++] = (uint8_t)v;
     }

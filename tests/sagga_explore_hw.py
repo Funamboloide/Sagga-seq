@@ -286,6 +286,27 @@ def edge_fields(d):
     return any(f.endswith(".step") for f, a, b in d) and all(f.split(".")[-1] in ("step", "pat", "steps#") for f, a, b in d)
 
 
+def tuplet_steps(d, sp):
+    """0.27's banco: every difference is the step of a polyrhythm's track (5 or 7 in the time of four: its step begins between
+    two clock ticks), one step apart: the FM-1 plays that step on its own pass of the loop, a few ms after its time (the
+    simulator's pass is a ms) - a probe in those ms reads it one step behind (the banco's b024: a 7:4 track inside a DJ
+    loop of a 16th, for five probes in a row)"""
+    if not d or not sp or not all(f.endswith(".step") for f, a, b in d):
+        return False
+    for f, a, b in d:
+        t = sp.get(f.split(".")[0], {})
+        try:
+            div, ln, sa, sb = int(t.get("div", -1)), int(t.get("len", 64)) or 64, int(a), int(b)
+        except (TypeError, ValueError):
+            return False
+        if not POLY_DIV[0] <= div < POLY_DIV[1] or (sb - sa) % ln not in (1, ln - 1):
+            return False
+    return True
+
+
+POLY_DIV = (13, 19)                                    # (sagga_seq_core.h: SQ_DIV_PLAIN .. SQ_DIV_COUNT, the polyrhythms)
+
+
 def at_step_edge(d, sp):
     """every difference is a track's step, the FM-1 one step behind or ahead of the simulator on all of them, the
     same way: the probe was read on the tick a step starts (the order of the two inside that tick)"""
@@ -485,11 +506,21 @@ def compare(session, heard=None):
         # 0.20.9: or the probe itself read on another clock tick by the two (its gc): the probes come every 700 ms, six
         # steps at 120, and once one falls on a step's edge the next ones do too - a later difference of something
         # else would make them look like the first one
+        # (0.27's banco: a polyrhythm's step one apart may stay so for probes in a row - equal again later while it
+        #  plays, not only at the STOP: tuplet_steps)
         if d and (steps_only(d) or edge_fields(d)) and \
                 (role == "fermo" or (steps_only(d) and tick_off(i, n_)) or
-                 any(not e for _, _, e in diffs[n_ + 1:n_ + 4])):   # (equal again within three probes)
+                 any(not e for _, _, e in diffs[n_ + 1:n_ + 4]) or   # (equal again within three probes)
+                 (tuplet_steps(d, sim_p.get(i)) and any(not e for _, r, e in diffs[n_ + 1:] if r != "fermo"))):
             timing += 1                                # (the steps only, and equal again later: the probe fell on a step's
             n_ += 1                                    #  edge, or a loop / the STOP took the step on the other side of it)
+            continue
+        if d and tick_off(i, n_) and n_ + 1 < len(diffs) and not diffs[n_ + 1][2]:
+            # 0.27's banco: the probe read a clock tick apart by the two (its gc), whatever it shows, and equal again at
+            # the very next probe: that tick's own work seen from its two sides - a pattern switched on the bar line
+            # (the FM-1 completo's s021), a THROW's glide a step on (the banco's b020: FILTER -10 and -9)
+            timing += 1
+            n_ += 1
             continue
         if not d:
             n_ += 1
@@ -540,14 +571,18 @@ def compare(session, heard=None):
             return None
 
         def clean_upto(sp2):
-            return left_at(sp2) == []
+            r = left_at(sp2)                           # (0.27's banco: at the probe itself a step's edge may stay - the probe
+            return r is not None and (not r or steps_only(r) or edge_fields(r))   # read a tick apart: the timing's)
         if not hit and heard and len(shifted) < 8:
             # 0.23.1: what the FM-1 heard from its ports before this probe (a pad of the grid, a page's command) taken a
             # ms or two later or earlier: the FM-1 says the ms it took each, and the same ms can be before or after the
             # sequencer's own work in that pass (the banco's b004: DICE ALL from the grid, a ms later = the same dice)
             t_prev, t_this = (replay[prev][0] if prev in replay else hw["go_ms"]), replay[i][0]
             mine = [k for k, h in enumerate(heard) if t_prev < h[0] <= t_this]
-            for ms in ((1, -1, 2, -2, 3, -3) if mine else ()):
+            # 0.27's banco: and up to 9 ms later - the FM-1 stamps a message when it takes it from the USB, and works it in its
+            # pass of the loop, up to its lag (8-9 ms with the screen) later: the banco's b027, a dice of the engines'
+            # page 5 ms after the ms it said, is the FM-1's dice
+            for ms in ((1, -1, 2, -2, 3, -3, 4, 5, 6, 7, 8, 9, -4, -5) if mine else ()):
                 hd = [list(h) for h in heard]
                 for k in mine:
                     hd[k][0] += ms
@@ -649,7 +684,13 @@ def compare(session, heard=None):
         gone = lambda word: sum(n_ for what, n_, _ in lost if what.startswith(word)) if lost and not extra else 0
         nh, ns = notes(hw["midi"]), notes(smidi)
         if abs(nh - ns) > 1 and not gone("note canale"):   # (one note on the edge of the window)
-            found.append(("NOTE", "ERRORE", "%d note dall'FM-1, %d dal simulatore" % (nh, ns)))
+            # 0.27's banco: the notes of the window's last 40 ms are its edge - the banco's b007, a step of two notes 23 and 30
+            # ms after the last message the Pi heard (it had closed the ports): counted without them
+            edge = upto - 40
+            nh2 = notes([m for m in hw["midi"] if m[0] + hw["go_ms"] <= edge])
+            ns2 = notes([m for m in smidi if m[0] <= edge])
+            if abs(nh2 - ns2) > 1:
+                found.append(("NOTE", "ERRORE", "%d note dall'FM-1, %d dal simulatore" % (nh, ns)))
         ch, cs = clocks(hw["midi"]), clocks(smidi)
         if abs(ch - cs) > 2 and not gone("tick"):
             found.append(("CLOCK", "ERRORE", "%d tick di clock dall'FM-1, %d dal simulatore" % (ch, cs)))

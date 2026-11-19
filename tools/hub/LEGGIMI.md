@@ -76,7 +76,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
   Non cambia niente.
-* **Avvia la prova** (tutte le sessioni - 27 dalla 0.27, circa venticinque minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+* **Avvia la prova** (tutte le sessioni - 28 dalla 0.28, circa venticinque minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
@@ -88,7 +88,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
   la prova si interrompe la pagina offre **Rimetti le celle** (la prova dopo le rimette anche da sola). Alla fine il
   progetto che l'FM-1 aveva in memoria torna dov'era (`IMPORTED`: SAVE per tenerlo).
-* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 28 sessioni, mezz'ora circa): le sessioni
+* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 33 sessioni dalla 0.28, mezz'ora circa): le sessioni
   dell'esploratore dal PC (ogni situazione dell'FM-1, 60 gesti, il tablet e il grid come eventi del test), dal Pi,
   senza PC. Il resto uguale: SEL, le celle dei synth staccate, il progetto che torna in memoria.
 * **I conti** (0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1): l'FM-1 conta quello che manda sull'USB, porta per porta e
@@ -178,7 +178,7 @@ dell'orologio del Pi: sbagliate, ma in ordine.
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
-le 16 tracce con i loro step, lo step con note, velocity, gate, condizioni, ratchet, TIE, SLIDE e lock, le impostazioni
+le tracce con i loro step (0.28: dodici), lo step con note (fino a sei), velocity, gate, condizioni, ratchet, TIE, SLIDE e lock, le impostazioni
 di ogni traccia, le lane disegnate col dito, le scene, la song, le catene, gli LFO, la chiave e il resto del progetto.
 **Salva** lo riscrive nella libreria (la versione prima resta in `versioni/`, si ripristina dalla pagina); **Manda
 all'FM-1** lo carica sull'FM-1 fermo (SAVE sull'FM-1 lo tiene). Sotto la lista dei progetti: **Nuovo** (un progetto
@@ -230,6 +230,11 @@ stato fatto.
 **0.27.** Il convertitore conosce il **RETURN** di EVOLVE (SEQ 3, SEL + K2 sull'FM-1): un progetto aperto e salvato
 nell'editor lo tiene. L'editor non mostra EVOLVE, come prima. Il profilo SEMPLICE sta nelle impostazioni dell'FM-1,
 non nel progetto: l'editor non lo vede.
+
+**0.28.** Le tracce sono **dodici**, uno step ha fino a **sei note**, una traccia **otto lane**: l'editor li prende dal
+progetto e li mostra tutti (nello step: nota 1-6, lane 1-8; nella scheda Lane: lane 1-8). Un progetto della 0.27 o di
+prima si apre con le sue prime dodici tracce. Un file MIDI caricato nella pagina: i canali 1-12 diventano le tracce
+1-12, le note dei canali 13-16 restano fuori. **ascolta** suona fino a sei note.
 
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:

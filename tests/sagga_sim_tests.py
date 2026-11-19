@@ -28,6 +28,7 @@ BLACK = [k for k in range(27) if _is_black(KEY0 + k)][:11]
 def wk(i): return 1 << WHITE[i]
 def bk(i): return 1 << BLACK[i]
 KEY_C4, KEY_E4, KEY_G4 = 1 << 7, 1 << 11, 1 << 14       # notes 60, 64, 67
+FW_VERSION = re.search(r'#define SQ_VERSION "([0-9.]+)"', open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()).group(1)
 
 # grid LED roles (sagga_grid.c)
 (GL_OFF, GL_FAINT, GL_DIM, GL_ON, GL_ACCENT, GL_PLAY, GL_CURSOR, GL_BLUE, GL_MUTED, GL_PEND, GL_FILL, GL_WHITE,
@@ -184,7 +185,7 @@ class Log:
                              target=int(m.group(6)), genre=int(m.group(7)), mute=int(m.group(8), 16), speed=int(m.group(9)), rec=int(m.group(10)),
                              states=m.group(11), queue=m.group(12).split(), trail=int(m.group(13)), patterns=m.group(14), song=int(m.group(15)))
                         for m in re.finditer(r"^\s*(\d+) ms  viaggio (\d) bar (\d+)/(\d+) energy (\d+)/(\d+) genre (\d+) mute ([0-9A-F]{4}) speed (-?\d) "
-                                             r"rec (-?\d+) STATES:([EPIO]{16}) QUEUE:((?: \S+)*) TRAIL (\d+) PATTERNS:(\d{16}) SCENES \d+ SONG (\d+)(?: JRN (\d))?$", text, re.M)]
+                                             r"rec (-?\d+) STATES:([EPIO]{12}) QUEUE:((?: \S+)*) TRAIL (\d+) PATTERNS:(\d{12}) SCENES \d+ SONG (\d+)(?: JRN (\d))?$", text, re.M)]
         for v, m in zip(self.viaggio, re.finditer(r"^\s*\d+ ms  viaggio .* JRN (\d)$", text, re.M)):
             v["journey"] = int(m.group(1))                              # 0.12: the journey runs (the panel may be the studio's)
 
@@ -285,7 +286,7 @@ def group(name):
 
 
 # ------------------------------------------------------------------------------------------------ helpers of the new tests
-PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 5, GLO: 3, LFO: 6, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
+PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 5, GLO: 3, LFO: 6, ENV: 8}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4; 0.28: ENV 8)
 
 
 def pg(s, t, btn, page, encs=(), keys=(), sel=False):
@@ -745,21 +746,22 @@ def t_slave_spp():
 
 
 def t_tracks16():
-    group("sixteen tracks")
+    group("twelve tracks (0.28; sixteen until 0.27)")
     s = Script()
     s.tap_key(100, wk(0))                                  # track 1: step 1
-    s.tap_key(200, bk(8)); s.tap_key(300, bk(7))           # bank 2, track 16 (index 15)
-    s.tap_key(400, wk(1))                                  # track 16: step 2
+    s.tap_key(200, bk(8)); s.tap_key(300, bk(3))           # bank 2 (9-12), track 12 (index 11)
+    s.tap_key(400, wk(1))                                  # track 12: step 2
+    s.tap_key(500, bk(7))                                  # black 8 in the bank of 9-12: no track 16, nothing changes
     s.tap_btn(600, PLAY)
     log = run(s, 3400)
     n0 = log.notes(ch=0, after=600)
-    n1 = log.notes(ch=1, after=600)                        # track 16 is on channel 2 (16 tracks, 14 channels: they share)
-    check(len(n0) >= 2 and len(n1) >= 2, "track 1 (channel 1) and track 16 (channel 2) both play (%d, %d)" % (len(n0), len(n1)))
-    check(n1 and n0 and near(n1[0][0] - n0[0][0], STEP_MS, 3), "track 16's step 2 is one step after track 1's step 1")
-    # each of the 16 tracks plays its own step: track i has step i on
+    n1 = log.notes(ch=11, after=600)                       # track 12 is on channel 12 (twelve tracks on 14 channels: a channel each)
+    check(len(n0) >= 2 and len(n1) >= 2, "track 1 (channel 1) and track 12 (channel 12) both play (%d, %d)" % (len(n0), len(n1)))
+    check(n1 and n0 and near(n1[0][0] - n0[0][0], STEP_MS, 3), "track 12's step 2 is one step after track 1's step 1")
+    # each of the 12 tracks plays its own step: track i has step i on
     s = Script()
     t = 100
-    for tr in range(16):
+    for tr in range(12):
         if tr == 8:
             s.tap_key(t, bk(8)); t += 80                   # the bank
         s.tap_key(t, bk(tr % 8)); t += 80
@@ -770,9 +772,9 @@ def t_tracks16():
     for tt, st, d1, d2 in log.msgs:
         if (st & 0xF0) == 0x90 and d2 and tt > t + 100:
             got.setdefault(st & 15, []).append(tt)
-    check(len(got) == 14, "all 14 channels are in use (%d)" % len(got))
+    check(len(got) == 12, "12 channels are in use, one a track (%d)" % len(got))
     first = sorted(x[0] for x in got.values())
-    check(len(first) == 14 and first[-1] - first[0] > 10 * STEP_MS, "every track plays its own step (first notes spread over %.0f steps)" % ((first[-1] - first[0]) / STEP_MS))
+    check(len(first) == 12 and first[-1] - first[0] > 10 * STEP_MS, "every track plays its own step (first notes spread over %.0f steps)" % ((first[-1] - first[0]) / STEP_MS))
 
 
 def t_loop_between_steps():
@@ -1766,7 +1768,7 @@ def t_scope_dice():
     s.tap_btn(t + 100, PLAY)
     log = run(s, t + 100 + 1875)
     chs = sorted({st & 15 for _, st, _, d2 in log.msgs if (st & 0xF0) == 0x90 and d2})
-    check(chs == list(range(14)), "ALL ON with the scope ALL: every channel plays (%s)" % chs)
+    check(chs == list(range(12)), "ALL ON with the scope ALL: every track's channel plays (%s)" % chs)
     # DICE SEQ, then OCT- puts it back; OCT+ keeps it, UNDO takes it back
     for answer, want in ((OCT_DOWN, False), (OCT_UP, True)):
         s = Script()
@@ -3398,7 +3400,7 @@ def t08_bugs():
     check(full == [15] * 8, "8 tracks x 3 notes x 4 echoes: every chord note and every echo (%s)" % full)
     s = Script()
     t = 100
-    for k in range(14):
+    for k in range(12):
         if k:
             s.enc(t, E_SEL, 1); t += 50
         s.press(t, SEL); s.tap_key(t + 30, CHORD_CEG, hold=60); s.release(t + 120, SEL); t += 200
@@ -3408,10 +3410,10 @@ def t08_bugs():
     p = t + 100
     s.tap_btn(p, PLAY)
     log = run(s, p + 1500)
-    first = [sorted({d1 for tm, d1, v in log.notes(ch=c, after=p, before=p + 200)}) for c in range(14)]
+    first = [sorted({d1 for tm, d1, v in log.notes(ch=c, after=p, before=p + 200)}) for c in range(12)]
     echoes = len(log.notes(after=p + 200))
-    check(all(f == [60, 64, 67] for f in first), "14 tracks: every strummed chord whole (%s)" % first)
-    check(echoes == 128, "... and the echo queue used to the last place (%d echoes of 168 asked)" % echoes)
+    check(all(f == [60, 64, 67] for f in first), "12 tracks: every strummed chord whole (%s)" % first)
+    check(echoes == 128, "... and the echo queue used to the last place (%d echoes of 144 asked)" % echoes)
 
     # 5. EVOLVE of the notes on a FOLLOW track: chord tones of the tonic on the beats, in the key
     s = Script()
@@ -3847,7 +3849,7 @@ def t09_viaggio_phrase():
     s.at(t0 + 4 * BAR_MS + 200, "dump", 0)
     log = run(s, t0 + 5 * BAR_MS)
     v = log.viaggio
-    check(v[0]["on"] == 1 and v[0]["states"] == "E" * 16 and v[0]["bars"] == 16 and v[0]["energy"] == 50 and v[0]["genre"] == 0,
+    check(v[0]["on"] == 1 and v[0]["states"] == "E" * 12 and v[0]["bars"] == 16 and v[0]["energy"] == 50 and v[0]["genre"] == 0,
           "SEL + GLO: the MOSSE, every track empty, 16-bar phrase, energy 50, TECHNO (the project's genre) (%s)" % v[0])
     check(log.states[0]["msg"].startswith("MOSSE: BLACK = MOVES"), "the screen says how (%s)" % log.states[0]["msg"])
     check(v[1]["states"].startswith("P") and log.states[1]["msg"].startswith("T1 KICK P2") and log.dumps[1]["on"].count("x") == 0,
@@ -3982,7 +3984,7 @@ def t09_viaggio_moves():
     log = run(s, t0 + 8 * BAR_MS)
     v = log.viaggio
     check(v[0]["queue"] == ["BREAK/255/2"] and log.states[0]["msg"] == "QUEUED: BREAK ALL, 2 BARS", "SEL + black 2: BREAK all, 2 bars (%s)" % v[0]["queue"])
-    check(v[1]["mute"] == 0xFFFF and v[2]["mute"] == 0, "bars 5-6 silent, bar 7 everything back (%04X %04X)" % (v[1]["mute"], v[2]["mute"]))
+    check(v[1]["mute"] == 0x0FFF and v[2]["mute"] == 0, "bars 5-6 silent, bar 7 everything back (%04X %04X)" % (v[1]["mute"], v[2]["mute"]))
     check(not log.notes(after=t0 + 4 * BAR_MS + 10, before=t0 + 6 * BAR_MS - 10) and log.notes(ch=0, after=t0 + 6 * BAR_MS) and log.notes(ch=1, after=t0 + 6 * BAR_MS),
           "no note in the break, both tracks after it")
     s = Script()
@@ -3995,7 +3997,7 @@ def t09_viaggio_moves():
     s.tap_key(t0 + 200, bk(1))
     s.at(t0 + 4 * BAR_MS + 100, "dump", 0)
     log = run(s, t0 + 6 * BAR_MS)
-    check(log.viaggio[0]["mute"] == 0xFFFE and log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
+    check(log.viaggio[0]["mute"] == 0x0FFE and log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and not log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10) and log.notes(ch=1, after=t0 + 5 * BAR_MS + 10),
           "black 2 alone: one bar with track 1 alone, then track 2 is back (%04X)" % log.viaggio[0]["mute"])
     # OUT: the track fades through its last bar, is muted at the boundary; queued again: IN cancels the OUT
@@ -4155,7 +4157,7 @@ def t09_viaggio_loop_genre_remote():
     s.at(t + 600, "dump", 0)
     log = run(s, t + 700)
     v = log.viaggio
-    check(v[0]["states"] == "E" * 16 and v[1]["states"].startswith("P") and log.states[1]["msg"].startswith("T1 KICK P2"),
+    check(v[0]["states"] == "E" * 12 and v[1]["states"].startswith("P") and log.states[1]["msg"].startswith("T1 KICK P2"),
           "channel 13 does nothing until SAVE + K2 says 13 + 14; then CC 1 taps track 1 (%s)" % log.states[1]["msg"])
     check(v[2]["queue"] == ["IN/1/255", "FILL/0/0"] and v[3]["queue"] == ["IN/1/255"], "CC 32 = 8 queues track 2, CC 17 a FILL, CC 29 cancels it (%s)" % v[2]["queue"])
     # the SEED: SEL + PLAY on the MOSSE while stopped throws the dice on genre, key and tempo
@@ -4184,7 +4186,7 @@ def t09_profiles_persist():
     log = run(s, t + 1500, flash)
     v = log.viaggio
     check(v[0]["on"] == 1 and log.states[0]["msg"] == "PROFILE PALCO", "SAVE + K4: PALCO, the MOSSE at once (%s)" % log.states[0]["msg"])
-    check(log.states[1]["msg"].startswith("NOT IN THIS PROFILE") and v[1]["states"] == "E" * 16, "SEQ + a key: refused (%s)" % log.states[1]["msg"])
+    check(log.states[1]["msg"].startswith("NOT IN THIS PROFILE") and v[1]["states"] == "E" * 12, "SEQ + a key: refused (%s)" % log.states[1]["msg"])
     check(v[2]["states"].startswith("I") and v[2]["target"] == 80, "track 1 in, energy 80 (%s)" % v[2]["target"])
     check(len(log.saves) == 1 and "settings saved" in log.text, "the project and the settings are saved")
     s = Script()
@@ -5720,7 +5722,7 @@ def t011_in_time_after():
     cases.append(("loop start, UNDO", s, t + int(2 * 16 * STEP_MS) + 50))
     for what, s, end in cases:
         ok = probe_ok(run(s, end))
-        check(len(ok) == 16 and "0" not in ok, "%s: every track where the bar says (%s)" % (what, "".join(ok)))
+        check(len(ok) == 12 and "0" not in ok, "%s: every track where the bar says (%s)" % (what, "".join(ok)))
 
 
 # the sessions of tests/sagga_explore.py that found a track out of time (the explorer's own words for the gestures)
@@ -6291,7 +6293,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.27", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == FW_VERSION, "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -6343,7 +6345,7 @@ def t011_pc_test():
             if a[0] == "probe":
                 pr.add(*a[1])
         p0, p3, p15 = (TP.probe_dict(pr.done.get(i, "")) for i in (0, 3, 15))
-        check(p0 and p0["T1"]["steps#"] == "8A0C21C5", "the project in the slot is not loaded: the empty pattern (%s)" % p0.get("T1", {}).get("steps#"))
+        check(p0 and p0["T1"]["steps#"] == "A193A0C5", "the project in the slot is not loaded: the empty pattern (%s)" % p0.get("T1", {}).get("steps#"))   # (0.28: steps of 22 bytes)
         check(p3.get("G", {}).get("msg") == "PC TEST: SLOTS OFF", "SAVE in the test: SLOTS OFF (%s)" % p3.get("G", {}).get("msg"))
         check(p15 and p15["G"]["play"] == "1" and p15["H"]["test"] == "1", "the PC's PLAY plays (%s)" % p15.get("G", {}).get("play"))
         host = [m.group(1) for m in re.finditer(r"^\s*4500 ms  (PROBE .*)$", log.text, re.M)]
@@ -6482,7 +6484,8 @@ def t012_grid_pick():
           "row 1 CHANNEL: 1 is white, 14 lit, 15 off (the grid takes 15 and 16) (%s)" % [pads.get(i) for i in (0, 13, 14)])
     check(pads[1 * 16 + 3] == GL_WHITE and pads[1 * 16 + 15] == GL_BLUE, "row 2 LENGTH: 16 white (pad 4), 64 blue (%s)" % [pads.get(i) for i in (19, 31)])
     check(pads[4 * 16 + 0] == GL_OFF and pads[4 * 16 + 9] == GL_OFF, "row 5: CHANNEL is not copied across (a synth's): the black keys, items 17+ off (%s)" % [pads.get(i) for i in (64, 73)])
-    check(pads[5 * 16 + 0] == GL_WHITE and all(pads[5 * 16 + x] == GL_BLUE for x in range(1, 16)), "row 6: every track 16 steps long, as track 1: lit (%s)" % [pads.get(80 + x) for x in range(4)])
+    check(pads[5 * 16 + 0] == GL_WHITE and all(pads[5 * 16 + x] == GL_BLUE for x in range(1, 12)) and all(pads.get(5 * 16 + x, GL_OFF) == GL_OFF for x in range(12, 16)),
+          "row 6: every track 16 steps long, as track 1: lit; 13-16 dark (0.28: twelve tracks) (%s)" % [pads.get(80 + x) for x in (0, 1, 11, 12)])
     check(ctls.get(GC_SHIFT) == GL_CYAN and ctls.get(GC_VSTEP) == GL_YELLOW, "FOLLOW: SHIFT cyan, STEP yellow (%s %s)" % (ctls.get(GC_SHIFT), ctls.get(GC_VSTEP)))
     d = log.dumps
     check(len(d) == 4 and d[0]["length"] == 32 and d[1]["track"] == 3 and d[1]["length"] == 32, "row 2 pad 8: LENGTH 32; row 6 pad 3: track 3 too (%s)" % [(x["track"], x["length"]) for x in d])
@@ -7647,7 +7650,7 @@ def t017_mosse():
     check(len(n1) == 4 and len(n2) == 4 and vel == [100], "energy 50 plays the steps as written: 4 + 4 a bar, velocity 100 (%d %d %s)" % (len(n1), len(n2), vel))
     check(v[1]["queue"] == ["BREAK/1/1"] and log.states[1]["msg"] == "QUEUED: BREAK 1 BAR, THIS TRACK STAYS" and v[1]["mute"] == 0,
           "GLO held on page 3 + black 2: a BREAK queued, no scene recalled (%s %s)" % (v[1]["queue"], log.states[1]["msg"]))
-    check(v[2]["mute"] == 0xFFFD and not log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
+    check(v[2]["mute"] == 0x0FFD and not log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10), "bar 5: track 2 alone (%04X)" % v[2]["mute"])
     check(v[3]["mute"] == 0 and log.notes(ch=0, after=t0 + 5 * BAR_MS + 10), "bar 6: both again (%04X)" % v[3]["mute"])
     check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("JOURNEY SAVED"),
@@ -7895,7 +7898,7 @@ def t018_live_sweep():
     s.tap_btn(t + int(2 * 16 * STEP_MS) + 100, PLAY)
     log = run(s, t + int(2 * 16 * STEP_MS) + 900)
     ok = [m.group(2) for m in re.finditer(r"PROBE T(\d+) .* ok=(\S+) ", log.text)]
-    check(len(ok) == 16 and "0" not in ok, "every track where the bar says (%s)" % "".join(ok))
+    check(len(ok) == 12 and "0" not in ok, "every track where the bar says (%s)" % "".join(ok))
     on = {}
     for tm, st, d1, d2 in log.msgs:
         if st & 0xF0 == 0x90 and d2 and st & 15 < 12:
@@ -8229,11 +8232,12 @@ def t021_clean():
 
 def t022_deep():
     group("0.22: the output ring as the FM-1 has it (a pass of 90 messages: none dropped; in 0.21's ring of 64: dropped); knobs turned in play do not make the notes late; 76 minutes in play, across the counters' wraps")
-    # sixteen tracks, four notes on step 1 of each: PLAY sends them all in one pass, with the start's own messages
+    # twelve tracks, six notes on step 1 of each (0.28; 0.27: sixteen of four): PLAY sends them all in one pass, with
+    # the start's own messages
     lines = []
-    for t in range(16):
+    for t in range(12):
         lines.append("step %d,0,0 flags - 3" % t)             # (ON and SET: the step's own notes, not the PEN's)
-        for k in range(4):
+        for k in range(6):
             lines.append("step %d,0,0 note %d %d" % (t, k, 36 + 3 * t + 4 * k))
     img = sgq_image(lines)
     res = {}
@@ -8248,8 +8252,8 @@ def t022_deep():
         ons = len([x for x in log.msgs if x[1] & 0xF0 == 0x90 and x[3] and x[0] < t + 300])
         res[ring] = (int(m.group(1)), int(m.group(2)), int(m.group(3)), ons) if m else None
     a, b = res["ring"], res["ring 64"]
-    check(a and a[0] == 256 and a[2] == 0 and a[3] == 64 and a[1] > 64, "the FM-1's ring (256): 64 notes and the start in one pass, nothing dropped (%s)" % (a,))
-    check(b and b[2] > 0 and b[3] < 64, "the same in a ring of 64, 0.21's: dropped (%s) - the simulator had no ring, no test could see it" % (b,))
+    check(a and a[0] == 256 and a[2] == 0 and a[3] == 72 and a[1] > 72, "the FM-1's ring (256): 72 notes and the start in one pass, nothing dropped (%s)" % (a,))
+    check(b and b[2] > 0 and b[3] < 72, "the same in a ring of 64, 0.21's: dropped (%s) - the simulator had no ring, no test could see it" % (b,))
     # the screen: a band in play, the knobs of HOME turned (a big cell is 8 ms of pixels, a line 5): the notes on time
     def knobs(cost):
         s = Script()
@@ -8893,7 +8897,7 @@ def t023_theory_genres():
             if g:
                 s.press(t, SEQ); s.enc(t + 30, E_PRE, g); s.release(t + 100, SEQ); t += 200      # the genre
             t = band(s, t)
-            t = look(s, t, range(16))
+            t = look(s, t, range(12))
             log = run(s, t + 300)
             msgs = [x["msg"] for x in log.states]
             e = at(log, 0, 0)[1]["now"]
@@ -8903,7 +8907,7 @@ def t023_theory_genres():
                 bad.append("%s: no band (%s)" % (names[g], msgs[-1:]))
                 continue
             made = {}
-            for k in range(16):
+            for k in range(12):
                 d, h = at(log, k, 0)
                 if h["style"] == g + 1 and h["seed"] == g and h["len"] == 64:
                     made[h["func"]] = d
@@ -9243,7 +9247,7 @@ def t023_snapshot_direction():
         log = run(s, t + 600)
         ok = [m.group(2) for m in re.finditer(r"PROBE T(\d+) .* ok=(\S+) ", log.text)]
         dirs = re.findall(r"PROBE T1 .* dir=(\d+) ", log.text)
-        check(len(ok) == 16 and "0" not in ok and dirs and dirs[-1] == "0", "the snapshot is back with FORWARD, two bars on every track is where the bar says (%s, track 1's direction %s; from %s)" % (
+        check(len(ok) == 12 and "0" not in ok and dirs and dirs[-1] == "0", "the snapshot is back with FORWARD, two bars on every track is where the bar says (%s, track 1's direction %s; from %s)" % (
             "".join(ok), dirs[-1:], "PING-PONG" if back else "BACKWARD"))
 
 
@@ -9842,12 +9846,12 @@ def t024_longer_shorter():
     for k in range(3): s.at(t + 10 * k, "dump", k)
     log = run(s, t + 100)
     d, c, m = log.dumps, log.copies, [x["msg"] for x in log.states]
-    check([x["length"] for x in d[3:6]] == [32, 24, 32] and m[3] == "LONGER: 16 TRACKS TWICE AS LONG" and d[3]["on"] == "x...x..........." * 2 and c[3]["own"] == 16,
+    check([x["length"] for x in d[3:6]] == [32, 24, 32] and m[3] == "LONGER: 12 TRACKS TWICE AS LONG" and d[3]["on"] == "x...x..........." * 2 and c[3]["own"] == 16,
           "LONGER, stopped: at once, every track - 32, 24, 32; track 1 its bar twice (%s, %s)" % ([x["length"] for x in d[3:6]], m[3]))
     check(d[4]["on"] == "..x...............x....." and c[4]["own"] == 16, "track 2 was 12 of a pattern of 16: 24 is the pattern, and its first half again (%s)" % d[4]["on"])
     check([x["length"] for x in d[6:9]] == [64, 48, 64] and c[6]["own"] == 16 and d[6]["on"] == "x...x..........." * 4, "LONGER again: 64, 48, 64 (%s)" % [x["length"] for x in d[6:9]])
-    check(m[9] == "LONGER: 0 TRACKS TWICE AS LONG, 16 STAY" and d[9]["length"] == 64, "a third time: twice would pass 64 steps - they stay, and the screen says so (%s)" % m[9])
-    check([x["length"] for x in d[10:13]] == [16, 12, 16] and [x["hash"] for x in d[10:13]] == [x["hash"] for x in d[0:3]] and m[10] == "SHORTER: 16 TRACKS HALF AS LONG",
+    check(m[9] == "LONGER: 0 TRACKS TWICE AS LONG, 12 STAY" and d[9]["length"] == 64, "a third time: twice would pass 64 steps - they stay, and the screen says so (%s)" % m[9])
+    check([x["length"] for x in d[10:13]] == [16, 12, 16] and [x["hash"] for x in d[10:13]] == [x["hash"] for x in d[0:3]] and m[10] == "SHORTER: 12 TRACKS HALF AS LONG",
           "SHORTER twice: 16, 12, 16, every step as it was before (%s, %s)" % ([x["length"] for x in d[10:13]], m[10]))
 
     # playing: LONGER is a move - queued, at the phrase's end (four bars here); every bar of the melody in time
@@ -9893,7 +9897,7 @@ def t024_longer_shorter():
     s.at(p0 + int(18 * STEP_MS), "dump", 0)
     log = run(s, p0 + int(3 * BAR) - 20)
     d, m = log.dumps, [x["msg"] for x in log.states]
-    check(d[1]["length"] == 32 and m[1] == "LONGER: 16 TRACKS TWICE AS LONG", "the grid, SHIFT + DOUBLE: LONGER (%s, %s)" % (d[1]["length"], m[1]))
+    check(d[1]["length"] == 32 and m[1] == "LONGER: 12 TRACKS TWICE AS LONG", "the grid, SHIFT + DOUBLE: LONGER (%s, %s)" % (d[1]["length"], m[1]))
     check(d[2]["length"] == 32 and d[3]["length"] == 16 and d[3]["hash"] == d[0]["hash"] and all(b == M16 for b in _played(log, p0, 3)),
           "SHIFT + HALF and NOW while it plays: 16 again at the bar, the pattern as it was, in time (%s)" % d[3]["length"])
 
@@ -9988,7 +9992,7 @@ def t025_tablet_lengths():
     s.at(t, "dump", 0); t += 50
     log = run(s, t + 100)
     d, c, m = log.dumps, log.copies, [x["msg"] for x in log.states]
-    check([x["length"] for x in d] == [32, 32, 16] and c[0]["own"] == 16 and m[0] == "LONGER: 16 TRACKS TWICE AS LONG" and m[2] == "SHORTER: 16 TRACKS HALF AS LONG",
+    check([x["length"] for x in d] == [32, 32, 16] and c[0]["own"] == 16 and m[0] == "LONGER: 12 TRACKS TWICE AS LONG" and m[2] == "SHORTER: 12 TRACKS HALF AS LONG",
           "stopped: LONGER at once (32, the melody's 16 steps twice), every track; SHORTER: back (%s, %s | %s)" % ([x["length"] for x in d], m[0], m[2]))
     # playing: at the next bar line, in time; the release of the button does nothing
     s = Script()
@@ -10477,14 +10481,14 @@ def t025_metre():
     sc, d, c, m, me = log.screens(), log.dumps, log.copies, [x["msg"] for x in log.states], log.metre
     check(len(sc) == 4 and sc[0]["cells"] == [("> BAR", "16"), ("BEATS", "4x2"), ("SCENE METRE", "OFF"), ("BAR.STEP", "--")] and sc[0]["lines"][2].startswith("GLO 4/4 METRE 4/4 = 4x2"),
           "GLO page 4, THE METRE: a bar of 16 steps in four quarters (the mark: the knob the keys would set) (%s | %s)" % (sc[0]["cells"] if sc else sc, sc[0]["lines"][2] if sc else None))
-    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("SCENE METRE", "OFF")] and sc[1]["lines"][2].startswith("GLO 4/4 METRE 7/8 = 2+2+3") and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
+    check(sc[1]["cells"][:3] == [("> BAR", "14"), ("BEATS", "2+2+3"), ("SCENE METRE", "OFF")] and sc[1]["lines"][2].startswith("GLO 4/4 METRE 7/8 = 2+2+3") and m[1] == "BAR 14: 7/8 2+2+3, 12 TRACKS FOLLOW",
           "K1 two down, stopped: a bar of 14 at once, 7/8 as 2+2+3, the sixteen tracks follow (%s | %s)" % (sc[1]["cells"][:3], m[1]))
     check(me[1]["bar"] == 14 and me[1]["beats"] == 0x111 and me[1]["sig"] == "7/8" and d[1]["length"] == 14 and c[1]["own"] == 14 and c[1]["row"][:17] == "x" * 16 + "r",
           "... the track is 14 long, its pattern keeps the two steps it does not play (and the mark of its end) (%s %X, %s, %s)" % (me[1]["bar"], me[1]["beats"], d[1]["length"], c[1]["row"][:18]))
     check(sc[2]["cells"][:3] == [("BAR", "14"), ("> BEATS", "2+3+2"), ("SCENE METRE", "OFF")] and me[2]["beats"] == 0x411 and m[2] == "BAR 14: 7/8 2+3+2" and d[2]["length"] == 14,
           "K2: the next way, 2+3+2 (the beats on steps 1, 5, 11); no track moves (%s | %X | %s)" % (sc[2]["cells"][:3], me[2]["beats"], m[2]))
     check(me[3]["beats"] == 0x441 and me[3]["split"] == "3+2+2", "K2 turned far: the last way, 3+2+2: the beats on steps 1, 7, 11 (%X %s)" % (me[3]["beats"], me[3]["split"]))
-    check(me[4]["bar"] == 16 and me[4]["raw"] == 0 and me[4]["beats"] == 0x1111 and m[4] == "BAR 16: 4/4 4x2, 16 TRACKS FOLLOW" and d[4]["length"] == 16 and d[4]["on"] == "x" * 16
+    check(me[4]["bar"] == 16 and me[4]["raw"] == 0 and me[4]["beats"] == 0x1111 and m[4] == "BAR 16: 4/4 4x2, 12 TRACKS FOLLOW" and d[4]["length"] == 16 and d[4]["on"] == "x" * 16
           and d[4]["hash"] == d[0]["hash"],
           "K1 back to 16: 4/4 (stored as nothing at all), the track is 16 and its pattern as it was (%s raw %s, %s, %s, same %s)" % (me[4]["bar"], me[4]["raw"], m[4], d[4]["on"], d[4]["hash"] == d[0]["hash"]))
 
@@ -10507,12 +10511,12 @@ def t025_metre():
           "playing: the bar of 14 waits for the bar line (%s, waiting %s: %s)" % (me[0]["bar"], me[0]["pend"], m[0]))
     check(f[:16] == M16 and f[16:30] == M14 and f[30:44] == M14,
           "... the first bar is whole (16), then the bars are 14: the melody's first 14 steps, from the line (%s | %s)" % (f[14:19], f[28:33]))
-    check(me[1]["bar"] == 14 and me[1]["pend"] == 0 and me[1]["no"] == 1 and me[1]["into"] // 6 == 1 and d[1]["length"] == 14 and m[1] == "BAR 14: 7/8 2+2+3, 16 TRACKS FOLLOW",
+    check(me[1]["bar"] == 14 and me[1]["pend"] == 0 and me[1]["no"] == 1 and me[1]["into"] // 6 == 1 and d[1]["length"] == 14 and m[1] == "BAR 14: 7/8 2+2+3, 12 TRACKS FOLLOW",
           "... it is bar 2, step 2 of 14; the tracks followed (%s, bar %s step %s, %s)" % (me[1]["bar"], me[1]["no"] + 1, me[1]["into"] // 6 + 1, m[1]))
     check(d[2]["length"] == 14 and m[2] == "LENGTH 28 AT THE BAR" and d[3]["length"] == 28 and c[3]["own"] == 16 and f[44:72] == M16 + list(range(12)),
           "LENGTH 28 asked in a bar of 14: it waits for THAT bar's line (step 45, not 49): the 16 steps and twelve copies (%s then %s, own %s | %s)"
           % (d[2]["length"], d[3]["length"], c[3]["own"], f[42:48]))
-    check(me[4]["bar"] == 14 and me[4]["pend"] == 16 and me[5]["bar"] == 16 and me[5]["no"] == 5 and d[5]["length"] == 32 and m[5] == "BAR 16: 4/4 4x2, 16 TRACKS FOLLOW",
+    check(me[4]["bar"] == 14 and me[4]["pend"] == 16 and me[5]["bar"] == 16 and me[5]["no"] == 5 and d[5]["length"] == 32 and m[5] == "BAR 16: 4/4 4x2, 12 TRACKS FOLLOW",
           "the bar of 16 asked: at the line of the 14 (step 73); the track of two bars is two bars still: 32 (%s -> %s, bar %s, length %s, %s)"
           % (me[4]["bar"], me[5]["bar"], me[5]["no"] + 1, d[5]["length"], m[5]))
     check(f[72:88] == M16 and f[88:104] == M16, "... and the melody is whole again, twice, from the line (%s | %s)" % (f[70:76], f[86:92]))
@@ -11051,7 +11055,7 @@ def t026_smooth():
     s.press(100, SEQ); s.enc(130, E_PRE, 3); s.release(180, SEQ)       # the genre: HOUSE
     t = pg(s, 300, SEQ, 7, [(K1, 1)])                                  # the SOURCE on THEORY
     t = band(s, t)
-    for k in range(16):
+    for k in range(12):
         s.at(t, "dump", k); t += 20
     log = run(s, t + 200)
     fm = {x["track"]: x["fm"] for x in harm11(log)}
@@ -11476,17 +11480,17 @@ def t026_expression():
     s.tap_btn(200, PLAY); p0 = 200
     s.raw(p0 + 100, "midi 0xE0 0 80"); s.raw(p0 + 110, "probe")
     s.raw(p0 + 120, "midi 0xD0 50 0"); s.raw(p0 + 130, "probe")
-    for k, c in enumerate((20, 21, 22)):
-        s.raw(p0 + 140 + 10 * k, "midi 0xB0 %d 99" % c)
-    s.raw(p0 + 180, "probe")
-    s.raw(p0 + 190, "midi 0xB0 23 77"); s.raw(p0 + 200, "probe")
+    for k, c in enumerate((20, 21, 22, 23)):
+        s.raw(p0 + 140 + 8 * k, "midi 0xB0 %d 99" % c)
+    s.raw(p0 + 172, "midi 0xB0 24 99"); s.raw(p0 + 180, "probe")
+    s.raw(p0 + 190, "midi 0xB0 25 77"); s.raw(p0 + 200, "probe")
     s.raw(p0 + 210, "midi 0xB0 64 127"); s.raw(p0 + 220, "midi 0xB0 64 0"); s.raw(p0 + 230, "midi 0xB0 0 3"); s.raw(p0 + 240, "probe")
     s.raw(p0 + 250, "midi 0xB0 74 5"); s.raw(p0 + 260, "probe")
     log = run(s, p0 + 600)
     m = [x["G"].get("msg") for x in probes(log)]
-    check(m[:4] == ["LANE 6 RECORDS THE PITCH WHEEL", "LANE 5 RECORDS THE AFTERTOUCH", "LANE 2 RECORDS CC 22", "NO FREE LANE FOR CC 23"] and (0xB0, 23, 77) in outs(log),
-          "the wheel, the aftertouch, three more controllers: five lanes taken; the next control has none, and passes all the same (%s)" % m[:4])
-    check(m[4] == "NO FREE LANE FOR CC 23" and m[5] == "LANE 1 RECORDS CC 74", "the pedal and the bank select never ask for a lane; lane 1 still records its own controller (%s)" % m[4:6])
+    check(m[:5] == ["LANE 8 RECORDS THE PITCH WHEEL", "LANE 7 RECORDS THE AFTERTOUCH", "LANE 2 RECORDS CC 24", "NO FREE LANE FOR CC 25"] + ["NO FREE LANE FOR CC 25"] and (0xB0, 25, 77) in outs(log),
+          "the wheel, the aftertouch, five more controllers: seven lanes taken (0.28: eight lanes); the next control has none, and passes all the same (%s)" % m[:4])
+    check(m[4] == "NO FREE LANE FOR CC 25" and m[5] == "LANE 1 RECORDS CC 74", "the pedal and the bank select never ask for a lane; lane 1 still records its own controller (%s)" % m[4:6])
 
     # THE PEDAL IS THE LENGTH OF THE NOTES. A key tapped (0.4 steps) with the pedal down, the pedal let go 6 steps after
     # the note began: recorded 6 steps long, and played back so with no pedal; without the pedal: a short gate
@@ -11564,7 +11568,7 @@ def t027_keyless_band():
         s = Script()
         t = setup(s, 100)
         t = band_hold(s, t)
-        for k in range(16):
+        for k in range(12):
             s.at(t + 10 * k, "dump", k)
         p = t + 300
         s.tap_btn(p, PLAY)
@@ -11806,6 +11810,67 @@ def t027_semplice():
     check(pr[:4] == [1, 3, 4, 0] and states(log)[-1]["algo"] == 1, "an algorithm playing: SEQ 2 is there, EVOLVE's page not; the algorithm still plays (%s, %s)" % (pr[:4], states(log)[-1]["algo"]))
 
 
+# ------------------------------------------------------------------------------------------------ 0.28
+def t028_panel():
+    group("0.28 on the panel: twelve tracks (HOME + white 13-16 nothing, the banks 1-8 and 9-12, the strip), a chord of six notes "
+          "(SEL + keys; the seventh: CHORD FULL), notes 5 and 6 on the EDIT line, lanes 7 and 8 (ENV 7/8 and 8/8: CC 73 and 72); "
+          "all of it saved, and there after a power cycle")
+    # the tracks: HOME + white 12, white 13 (nothing), black 9 (the other bank), black 5 in 9-12 (nothing), black 2
+    s = Script()
+    s.press(100, HOME); s.tap_key(130, wk(11)); s.release(200, HOME); s.at(260, "probe")
+    s.press(300, HOME); s.tap_key(330, wk(12)); s.at(380, "ui"); s.release(400, HOME); s.at(460, "probe")
+    s.tap_key(500, bk(8)); s.at(560, "probe")
+    s.tap_key(600, bk(8)); s.at(660, "probe")
+    s.tap_key(700, bk(4)); s.at(760, "probe")
+    s.tap_key(800, bk(1)); s.at(860, "probe")
+    log = run(s, 1000)
+    sel = [int(x["G"]["sel"]) for x in probes(log)]
+    check(sel == [12, 12, 4, 12, 12, 10], "HOME + white 12: T12; white 13: nothing; black 9: T4 and back to T12; black 5 in 9-12: nothing; black 2: T10 (%s)" % sel)
+    sc = log.screens()
+    strip = sc[0]["strip"] if sc else ""
+    check(len(strip) == 32 and strip[22] == "c" and all(strip[2 * i] == "o" for i in range(12, 16)) and all(strip[2 * i] != "o" for i in range(11)),
+          "HOME's strip: T12 the cursor, cells 13-16 dark (%r)" % strip)
+    # a chord of six notes on step 1 of track 1 (keys 60 ms apart: one chord); the seventh: CHORD FULL
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    s = Script()
+    s.press(100, SEL)
+    cur = 0
+    for i, b in enumerate((7, 9, 11, 12, 14, 16, 18)):            # C4 D4 E4 F4 G4 A4, then B4
+        cur |= 1 << b
+        s.keys(150 + 60 * i, cur)
+    s.keys(600, 0); s.release(650, SEL)
+    s.at(700, "dump", 0)
+    s.press(800, EDIT); s.press(830, SEL); s.at(890, "ui"); s.release(920, SEL); s.release(950, EDIT)
+    t = pg(s, 1100, ENV, 6, [(K1, 20)])                              # lane 7: a lock on the cursor step (step 1)
+    s.press(t, ENV); s.at(t + 60, "ui"); s.release(t + 100, ENV); t += 160
+    t = pg(s, t, ENV, 7, [(K1, 30)])                                 # lane 8: a lock
+    s.press(t, ENV); s.at(t + 60, "ui"); s.release(t + 100, ENV); t += 160
+    s.tap_btn(t + 100, SAVE); s.tap_btn(t + 400, SAVE); t += 1200   # SAVE: slot 1
+    s.tap_btn(t, PLAY); p0 = t
+    s.tap_btn(t + 600, PLAY)
+    log = run(s, t + 900, flash=flash)
+    msg = states(log)[0]["msg"] if states(log) else ""
+    sc = log.screens()
+    lines = [x["lines"][2] or "" for x in sc]
+    notes = sorted(d1 for tt, d1, _ in log.notes(ch=0, after=p0) if tt < p0 + 100)
+    ccs = {(m[2]): m[3] for m in log.msgs if m[1] == 0xB0 and p0 <= m[0] < p0 + 100}
+    check(msg == "CHORD FULL (6 NOTES)", "SEL + seven keys: the seventh does not fit - CHORD FULL (6 NOTES) (%r)" % msg)
+    check(lines and "5 G4 6 A4" in lines[0], "EDIT + SEL: the line shows notes 5 and 6 (%r)" % (lines[:1],))
+    check(len(lines) >= 3 and "ENV LANE 7/8" in lines[1] and "ENV LANE 8/8" in lines[2] and sc[1]["cells"][1] == ("CC ATTACK", "73") and sc[2]["cells"][1][1] == "72",
+          "ENV: LANE 7/8 on CC 73 (ATTACK), LANE 8/8 on CC 72 (%s %s)" % (lines[1:3], [x["cells"][1] for x in sc[1:3]]))
+    check(notes == [60, 62, 64, 65, 67, 69], "PLAY: the step's six notes (%s)" % notes)
+    check(73 in ccs and 72 in ccs, "... and its locks on lanes 7 and 8: CC 73, CC 72 (%s)" % sorted(ccs))
+    # a power cycle: the slot comes back with its six notes and its eight lanes
+    s = Script()
+    s.tap_btn(600, PLAY); s.tap_btn(1200, PLAY)
+    log2 = run(s, 1500, flash=flash)
+    notes2 = sorted(d1 for tt, d1, _ in log2.notes(ch=0, after=600) if tt < 700)
+    ccs2 = {(m[2]): m[3] for m in log2.msgs if m[1] == 0xB0 and 600 <= m[0] < 700}
+    check(notes2 == notes and ccs2.get(73) == ccs.get(73) and ccs2.get(72) == ccs.get(72),
+          "after a power cycle: the same six notes, the same CC 73 and 72 (%s %s)" % (notes2, [(k, ccs2.get(k)) for k in (72, 73)]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -11825,7 +11890,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
-         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark,
+         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

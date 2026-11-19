@@ -61,8 +61,10 @@ static void brk_cook_say(uint32_t t);
 static void brk_dice_track(uint32_t t);
 static void set_track_mode(uint32_t t, uint8_t m)
 {
-    uint8_t was_tape = (uint8_t)((project.track[t].flags & SQ_TF_TAPE) != 0u);
-    uint8_t f = (uint8_t)(project.track[t].flags & ~(SQ_TF_SCALE | SQ_TF_DRUM | SQ_TF_TAPE | SQ_TF_BREAK));
+    uint8_t was_tape, f;
+    if (t >= SQ_TRACKS) return;
+    was_tape = (uint8_t)((project.track[t].flags & SQ_TF_TAPE) != 0u);
+    f = (uint8_t)(project.track[t].flags & ~(SQ_TF_SCALE | SQ_TF_DRUM | SQ_TF_TAPE | SQ_TF_BREAK));
     if (m == 1u) f |= SQ_TF_SCALE;
     else if (m == 2u) f = (uint8_t)((f | SQ_TF_DRUM) & ~SQ_TF_FOLLOW);   /* (a drum never follows the harmony) */
     else if (m == 3u) { f = (uint8_t)((f | SQ_TF_TAPE) & ~SQ_TF_FOLLOW); track_all_off(t); }   /* 0.11 TAPE: the steps rest */
@@ -73,7 +75,7 @@ static void set_track_mode(uint32_t t, uint8_t m)
 }
 static const char *track_mode_name(uint32_t t) { static const char *const N[TRACK_MODES] = {"FREE", "IN KEY", "DRUM", "TAPE", "BREAK"}; return N[track_mode(t)]; }
 
-static uint16_t bank_mask(void) { return (uint16_t)(0xFFu << (selected_track & 8u)); }
+static uint16_t bank_mask(void) { return (uint16_t)((0xFFu << (selected_track & 8u)) & SQ_TRACK_BITS); }   /* (0.28: 1-8 or 9-12) */
 static uint16_t gen_custom_mask(void) { return project.gen.custom ? project.gen.custom : (uint16_t)(1u << selected_track); }
 static uint16_t scope_mask_of(uint8_t scope)
 {
@@ -81,7 +83,7 @@ static uint16_t scope_mask_of(uint8_t scope)
     uint16_t m = 0u;
     switch (scope) {
     case SQ_SCOPE_BANK: return bank_mask();
-    case SQ_SCOPE_ALL:  return 0xFFFFu;
+    case SQ_SCOPE_ALL:  return (uint16_t)SQ_TRACK_BITS;
     case SQ_SCOPE_DRUM: for (t = 0; t < SQ_TRACKS; t++) if (track_drum(t)) m |= (uint16_t)(1u << t); break;
     case SQ_SCOPE_MELO: for (t = 0; t < SQ_TRACKS; t++) if (!track_drum(t)) m |= (uint16_t)(1u << t); break;
     case SQ_SCOPE_CUSTOM: return gen_custom_mask();
@@ -2681,10 +2683,13 @@ static void dice_groove(uint16_t mask)
 /* DICE ALL: the bank of the selected track becomes a piece of the genre: tracks 1-4 kick, snare, hat, perc, 5 bass,
  * 6 chords, 7 arp, 8 a second percussion; a key the genre likes; a progression of the genre; the parts, the groove (and
  * the CC and LFO dice if the targets have them). The MIDI channels are not touched. */
+/* 0.28: DICE ALL makes a piece on eight tracks - 1-8, or 5-12 from the bank of 9-12 (four tracks) */
+static uint32_t dice_all_base(void) { return (selected_track & 8u) ? SQ_TRACKS - 8u : 0u; }
+static uint16_t dice_all_mask(void) { return (uint16_t)(0xFFu << dice_all_base()); }
 static void dice_all(void)
 {
-    uint32_t b = selected_track & 8u, k;
-    uint16_t mask = bank_mask();
+    uint32_t b = dice_all_base(), k;
+    uint16_t mask = dice_all_mask();
     for (k = 0; k < 4u; k++) {
         uint8_t fn, note;
         sq_beat_kit_part(beat_genre, (uint8_t)k, &fn, &note);
@@ -2750,7 +2755,7 @@ static void dice_status(void)
 
 static void dice_roll(uint8_t kind)
 {
-    uint16_t mask = kind == DICE_ALL ? bank_mask() : gen_mask();
+    uint16_t mask = kind == DICE_ALL ? dice_all_mask() : gen_mask();
     if (kind < DICE_SEQ || kind > DICE_RANDOM) return;
     if (!dice_pending) dhist_n = dhist_pos = 0u;
     dice_save(mask);                                  /* (the tracks not kept yet) */
