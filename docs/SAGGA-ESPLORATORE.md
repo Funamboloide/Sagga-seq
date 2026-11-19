@@ -44,6 +44,11 @@ cosa cambia) e `build/explore/rapporto.json`.
    quinta sopra), EVOLVE acceso sul banco ogni 16 battute con **RETURN 50**, il profilo **SEMPLICE** (le pagine SEQ 2 e
    SEQ 3 si vedono solo mentre suonano: qui SEQ 3 c'è, EVOLVE è acceso), in play. Il nome promette il profilo, EVOLVE
    e il RETURN, e viene controllato prima di cominciare.
+   0.28: **una con le cose nuove**. Le tracce sono dodici: una band TECHNO, la **traccia 12** scelta (la banca 9-12, che
+   ne ha quattro), un **accordo di sei note** sul suo primo passo (SEL + sei tasti), i **lock delle lane 7 e 8** (ENV 7
+   e 8), in play. Il nome promette la traccia scelta, le sei note e i lock: la sonda ha due valori nuovi per traccia,
+   `poly` (quante note ha il passo scritto più pieno del pattern) e `lx` (i passi con un lock sulle lane 7 o 8), e
+   viene controllata prima di cominciare. ENV ha otto pagine: l'esploratore gira le manopole anche sulle lane 7 e 8.
 2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
@@ -290,7 +295,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 27 dalla 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 28 dalla 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

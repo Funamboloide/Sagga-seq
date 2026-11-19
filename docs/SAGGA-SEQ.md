@@ -303,7 +303,7 @@ from the moment the knob stops they glide back to 0 over a bar. FX + K alone: th
 * **Program Change per scene** (HOME page 5 K4), **RELOAD** (SEL + SAVE), **TEMP** (grid FX view), **song mode**,
   **tap tempo**, **step recording**, **finger drumming** on drum tracks, **MIDI LEARN** of CC numbers: as in 0.5.
 * **The dice**: DICE SEQ (patterns of the genre with the progression of the roll), CC (the lanes' bases), LFO, GROOVE,
-  ALL (the bank becomes a piece of the genre); 0.27: RANDOM too. Up to 16 rolls are remembered: ALG goes through them.
+  ALL (the bank becomes a piece of the genre - 0.28: the eight tracks on the selected one's side, 1-8 or 5-12); 0.27: RANDOM too. Up to 16 rolls are remembered: ALG goes through them.
   OCT+ keeps, OCT- (or UNDO) puts back what was there before the first roll.
 * **EVOLVE** every 1-16 bars, by the amount, around the seed; how near, its RETURN says (SEQ 3, SEL + K2: 100 from the
   seed every time, 0 away from it - DRIFT -, between part of the way back); FREEZE, REVERT. Rhythm-heavy genres
