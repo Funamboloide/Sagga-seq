@@ -145,3 +145,8 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.29` per tre secondi.
 ## La prossima
 
 Come avevi scelto per la RAM: **32 scene e song da 128**, **16 snapshot**, **TAPE doppia e UNDO a 32**.
+
+## La dimensione
+
+Il firmware cala di 8.532 byte: 474.512 su 581.564 (la 0.28.1: 483.044). I quattro generi tolti lasciano più posto di
+quello che prendono le cose nuove. La RAM cala di 112 byte: 67.584 su 98.304.
