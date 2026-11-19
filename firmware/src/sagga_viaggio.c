@@ -1241,9 +1241,14 @@ static void vg_pattern_in(uint32_t t)
     if (t >= SQ_TRACKS) return;
     pat = tr[t].pattern;
     if (pat < SQ_PATTERNS && (vg_pcfg_has[t] & (1u << pat))) {
+        uint8_t st = project.track[t].start, len = project.track[t].length;
         beat_cfg_apply((uint8_t)t, pat, &vg_pcfg[t][pat]);
         vg_pcfg_has[t] &= (uint8_t)~(1u << pat);
-        if (tr[t].step >= project.track[t].length) tr[t].step = project.track[t].start;
+        if (project.track[t].start != st || project.track[t].length != len)
+            track_changed((uint8_t)t);                  /* 0.28.1: another loop (a proposal starts on step 1): where the bar
+                                                         * says, from the next tick - the explorer found a track with START 2
+                                                         * a step off (put in line here, inside the tick that wrapped: a tick off) */
+        else if (tr[t].step >= project.track[t].length) tr[t].step = project.track[t].start;
     }
     if (vg_prop[t] == pat) vg_prop[t] = 255u;
     vg_state_sync(t);

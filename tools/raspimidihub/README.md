@@ -24,8 +24,9 @@ changes them.
   DICE, RESET, TAKE; the knobs CHOP (the library of sixteen re-orders, the FM-1's white keys), ROLLS, SWAP, SLICES (8 / 16
   / 32). The tablet's track must be a BREAK (HOME 4 K1 on the FM-1, or Motori's MODE): its PEN note is slice 1 on the sampler.
   0.21: ROLLS, SWAP and SLICES show the tablet's track's (they follow TRACK and the FM-1, as the other pages' knobs).
-* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), lanes 1-6 of the tablet's
-  track (their base, sent as you move it; 0.28: lanes 7 and 8 from the FM-1, the grid, the editor), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
+* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the eight lanes of the tablet's
+  track (their base, sent as you move it; 0.28.1: lanes 7 and 8, on channel 12 CC 62 / 63 - with an FM-1 0.28.1 or
+  later; SHAPE goes on to ENV and DEST to MOD ONLY, as on the FM-1), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
   0.13: RATE goes on to the triplets (1/4T, 1/8T, 1/16T, 1/32T), as the FM-1's LFO RATE does. 0.18: GENRE reaches

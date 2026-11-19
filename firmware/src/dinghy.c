@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.28"
+#define SQ_VERSION "0.28.1"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -642,6 +642,13 @@ static const char *lfo_dest_name(uint8_t d)
 }
 
 static uint8_t ch_limit(void) { return usb_ports > 1u ? (uint8_t)SQ_CHANNELS : (uint8_t)SQ_MIDI_CH; }
+/* 0.28.1: an LFO whose DEST changed keeps a target that kind has: CC the channels, the others the twelve tracks (a
+ * channel 13-16 kept as the target: the screen said TRACK 14 and the LFO moved track 1) */
+static void lfo_target_fit(sq_lfo_t *l)
+{
+    uint8_t n = l->dest == SQ_LD_CC ? ch_limit() : (uint8_t)SQ_TRACKS;
+    if (l->target >= n) l->target = (uint8_t)(n - 1u);
+}
 static uint8_t track_ch(uint32_t t)
 {
     uint8_t c = project.track[t].channel, lim = ch_limit();
@@ -4499,7 +4506,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d3) l->depth = (uint8_t)kstep(l->depth, d3, f3, 0, 127);
             if (d4) l->center = (uint8_t)kstep(l->center, d4, f4, 0, 127);
         } else if (lfo_page == 1u) {
-            if (d1) { l->dest = change_u8(l->dest, d1, 0u, SQ_LD_ALL - 1u); if (l->dest == SQ_LD_CC && l->target >= ch_limit()) l->target = (uint8_t)(ch_limit() - 1u); }   /* 0.20: + MOD ONLY */
+            if (d1) { l->dest = change_u8(l->dest, d1, 0u, SQ_LD_ALL - 1u); lfo_target_fit(l); }   /* 0.20: + MOD ONLY */
             if (d2) l->target = change_u8(l->target, d2, 0u, l->dest == SQ_LD_CC ? (uint8_t)(ch_limit() - 1u) : SQ_TRACKS - 1u);
             if (d3) l->param = (uint8_t)kstep(l->param, d3, f3, 0, (int32_t)SQ_CC_MAX);
             if (d4) l->phase = (uint8_t)kstep(l->phase, d4, f4, 0, 127);

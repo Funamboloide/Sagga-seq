@@ -547,7 +547,7 @@ static void gr_pad_lfo(uint8_t x, uint8_t y)
         if (x < 8u) l->shape = x;
         else if (x < 8u + SQ_LD_KINDS) {
             l->dest = (uint8_t)(x - 8u);
-            if (l->dest == SQ_LD_CC && l->target >= ch_limit()) l->target = (uint8_t)(ch_limit() - 1u);
+            lfo_target_fit(l);                          /* (0.28.1: a track is one of twelve) */
             status_msg(lfo_dest_name(l->dest));
         } else if (x == 14u) { l->flags ^= SQ_LF_RETRIG; status_msg((l->flags & SQ_LF_RETRIG) ? "RETRIG ON" : "RETRIG OFF"); }
         else if (x == 15u) { l->flags ^= SQ_LF_INVERT; status_msg((l->flags & SQ_LF_INVERT) ? "INVERTED" : "NOT INVERTED"); }
@@ -558,7 +558,7 @@ static void gr_pad_lfo(uint8_t x, uint8_t y)
     case 5: l->phase = gr_val16(x); status_num("PHASE ", l->phase); break;
     case 6:
         if (l->dest == SQ_LD_CC) { if (x < ch_limit()) { l->target = x; status_num("CHANNEL ", (uint32_t)x + 1u); } }
-        else { l->target = x; status_num("TRACK ", (uint32_t)x + 1u); }
+        else if (x < SQ_TRACKS) { l->target = x; status_num("TRACK ", (uint32_t)x + 1u); }   /* (0.28.1: pads 13-16 no track) */
         break;
     default:
         if (gr_shift()) learn_arm(2u, 0u, lfo_sel);     /* SHIFT + a CC number: LEARN */
@@ -1555,7 +1555,7 @@ static void gr_render_lfo(void)
     gr_bar(3, 0, 16, ((int32_t)l->depth * 15 + 63) / 127, GL_ORANGE, GL_YELLOW);
     gr_bar(4, 0, 16, ((int32_t)l->center * 15 + 63) / 127, GL_CYAN, GL_WHITE);
     gr_bar(5, 0, 16, ((int32_t)l->phase * 15 + 63) / 127, GL_BLUE, GL_WHITE);
-    for (x = 0; x < 16u; x++) gr_put(x, 6, (l->dest == SQ_LD_CC && x >= ch_limit()) ? GL_OFF : l->target == x ? GL_WHITE : GL_DIM);
+    for (x = 0; x < 16u; x++) gr_put(x, 6, x >= (l->dest == SQ_LD_CC ? (uint32_t)ch_limit() : SQ_TRACKS) ? GL_OFF : l->target == x ? GL_WHITE : GL_DIM);
     for (x = 0; x < 16u; x++) gr_put(x, 7, l->param == GR_CCP[x] ? GL_WHITE : GL_VIOLET);
     if (gr_shift()) for (x = 0; x < 16u; x++) gr_put(x, 7, learn_kind == 2u && learn_l == lfo_sel ? GL_PEND : GL_CYAN);
 }

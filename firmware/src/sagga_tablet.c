@@ -19,6 +19,8 @@
  *   CC 56 SOURCE 0-2 (0.23: LIBRARY, THEORY - BEAT / KIT / BAND / the dice MAKE their patterns by the genre's rules -,
  *   FREE - by the rules of no genre; a higher value, a switch's "on": THEORY from LIBRARY)   57 NEXT SEED 0-127
  *   (seeds 1-128)   58 the SEED of the pattern its track plays 0-127 (made again at once)   59 its VARIATION 0-99
+ *   CC 60 SHORTER   61 LONGER (0.25: every track, at the bar)   62 / 63 LANE 7 / 8 the base value, sent at once (0.28.1:
+ *   SAGGA Mod's; lanes 1-6 are channel 13 CC 101-106)
  *
  *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
  *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it
@@ -210,6 +212,7 @@ static void live12_cc(uint8_t cc, uint8_t v)
     case 57u: th_knobs(t, 0, (int32_t)v - (int32_t)project.th.seed, 0, 0, 1, 1); ui_dirty = grid_dirty = 1u; return;
     case 58u: th_knobs(t, 0, 0, (int32_t)v - (int32_t)project.th.pat[t][tr[t].pattern].seed, 0, 1, 1); ui_dirty = grid_dirty = 1u; return;
     case 59u: th_knobs(t, 0, 0, 0, (int32_t)(v > 99u ? 99u : v) - (int32_t)project.th.pat[t][tr[t].pattern].var, 1, 1); ui_dirty = grid_dirty = 1u; return;
+    case 62u: case 63u: tab_lane_base(t, cc - 56u, v); return;   /* 0.28.1: lanes 7 and 8 (SAGGA Mod; 1-6: channel 13 CC 101-106) */
     default: break;
     }
     if (!on) return;                                    /* the taps: at the press */
@@ -244,6 +247,7 @@ static const fb_one_t FB_ONES[] = {
     {TB_CH, 17, 0}, {TB_CH, 18, 0}, {TB_CH, 19, 0}, {TB_CH, 20, 0}, {TB_CH, 21, 0}, {TB_CH, 22, 0}, {TB_CH, 23, 0},
     {TB_CH, 24, 0}, {TB_CH, 25, 0},
     {TB_CH, 56, 0}, {TB_CH, 57, 0}, {TB_CH, 58, 0}, {TB_CH, 59, 0},      /* 0.23 THEORY: the SOURCE, the next seed, the track's seed and variation */
+    {TB_CH, 62, 0}, {TB_CH, 63, 0},                                      /* 0.28.1: lanes 7 and 8 of the tablet's track */
     {12, 92, 0}, {12, 93, 0}, {12, 94, 0}, {12, 95, 0}, {12, 96, 0}, {12, 97, 0},
     {TB_CH, FB_E_LANE1, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
     {12, 112, 0}, {12, 113, 0}, {12, 114, FBF_SCALED}, {12, 115, 0}, {12, 116, 0}, {12, 117, 0}, {12, 118, 0},
@@ -313,6 +317,7 @@ static uint8_t fb_value(uint32_t k)
         case 57: return u7(project.th.seed);            /* (the page's knobs hold seeds 1-128: a higher one shows as 128) */
         case 58: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].seed) : 255u;
         case 59: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].var) : 255u;
+        case 62: case 63: return c->lane_base[num - 56u] <= 127u ? c->lane_base[num - 56u] : 255u;
         case FB_E_SWING: return c->swing;
         case FB_E_QUANT: return project.live.remote_ch == SQ_REMOTE_OFF ? 255u : project.live.quant;
         case FB_E_LANE1: return c->lane_base[0] <= 127u ? c->lane_base[0] : 255u;
