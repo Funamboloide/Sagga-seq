@@ -957,68 +957,66 @@ KICK
 SNARE
   una famiglia (75 % dei semi)
     sempre   ...X..x....X..x.
-    pesi     ..1....2..1....3   densità 12-59 %   tutti 'g'
+    pesi     ..3....5.23....6   densità 16-75 %   fino a peso 3: 'g'
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
   una famiglia (25 % dei semi)
     sempre   ...x..X....x..X.
-    pesi     ...........3...2   densità 8-55 %   tutti 'g'
+    pesi     ..3..2....35...4   densità 12-71 %   fino a peso 3: 'g'
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura un ghost, un colpo e un accento che rulla sugli ultimi tre sedicesimi
 
 HAT
   una famiglia (60 % dei semi)
-    sempre   x.x.x.x.x.x.x.x.
-    classi   e 16 % 'o'   a 43 % 'o'   a energia 0 il 24 % di queste
+    sempre   ..x...x...x...x.
+    classi   tempi 78 % 'x'   e 20 % 'o'   a 55 % 'o'   a energia 0 il 16 % di queste
              un colpo della classe manca: 8 %
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
   una famiglia (40 % dei semi)
     sempre   ..x...x...x...x.
-    pesi     .......3.......4   densità 12-59 %   tutti 'o'
+    pesi     .......4.......5   densità 12-67 %   tutti 'o'
     battute 2 e 4: 25 % delle scelte rifatte
     chiusura gli ultimi due sedicesimi pieni (da energia 30; da 60 l'ultimo rulla)
 
 SHAKER
-    classi   tempi sempre 'x'   e 78 % 'o'   & sempre 'x'   a 86 % 'o'   (insieme)   a energia 0 il 55 % di queste
+    classi   tempi 86 % 'x'   e 62 % 'o'   & sempre 'x'   a 78 % 'o'   (insieme)   a energia 0 il 12 % di queste
              un colpo della classe manca: 16 %
     battute 2 e 4: 15 % delle scelte rifatte
 
 RIM
   una famiglia (60 % dei semi)
-    sempre   ...x..x.........
-    pesi     ..........54..6.   densità 16-67 %
+    pesi     ...c..c...54..6.   densità 20-86 %
     battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (40 % dei semi)
-    sempre   ..x.......x.....
-    pesi     .....3.......34.   densità 12-59 %   fino a peso 3: 'o'
+    pesi     ..c..3....c..34.   densità 16-82 %   fino a peso 3: 'o'
     battute 2 e 4: 30 % delle scelte rifatte
 
 CONGA
   una famiglia (60 % dei semi)
-    sempre   x.....x.........
-    pesi     ...9....7..8..9.   densità 24-86 %
+    sempre   x...............
+    pesi     ...9..c.7..8..9.   densità 16-90 %
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
   una famiglia (40 % dei semi)
-    sempre   ...X..x.........
-    pesi     ..4.3......7.78.   densità 16-78 %   fino a peso 3: 'o'
+    sempre   ...X............
+    pesi     ..4.3.a....7.78.   densità 16-86 %   fino a peso 3: 'o'
     battute 2 e 4: 35 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 PERC
-    pesi     ...2..9...3.3.91   densità 24-78 %   fino a peso 3: 'o'
+    pesi     ...2..9...3.3.91   densità 16-86 %   fino a peso 3: 'o'
     battute 2 e 4: 30 % delle scelte rifatte
     chiusura la seconda metà si riempie
 
 BASS
   una famiglia (65 % dei semi)
-    sempre   X.......x.......
-    pesi     ...a..3....a..32   densità 27-82 %
+    sempre   X...............
+    pesi     ...a..3.f..a..32   densità 16-86 %
     più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (35 % dei semi)
-    sempre   X.......x.......
-    pesi     ......9.......9.   densità 24-78 %
+    sempre   X...............
+    pesi     ......9.f.....9.   densità 16-82 %
     più probabile dove suona il kick (+5)   battute 2 e 4: 30 % delle scelte rifatte
     note     fondamentale 65 %, quinta 14 %, ottava 12 %, terza 6 %, settima 3 %
              sull'uno la fondamentale 94 %   sui tempi fondamentale, quinta o ottava 78 %
@@ -1027,7 +1025,7 @@ BASS
 
 LOG DRUM
     sempre   X...............
-    pesi     ...5..5...9..9.2   densità 31-90 %
+    pesi     ...5..5...9..9.2   densità 20-90 %
     mai due colpi su sedicesimi vicini   battute 2 e 4: 40 % delle scelte rifatte
     note     fondamentale 45 %, quinta 18 %, ottava 14 %, terza 12 %, settima 6 %, quarta 3 %, seconda 2 %
              sull'uno la fondamentale 86 %   sui tempi fondamentale, quinta o ottava 59 %
@@ -1037,22 +1035,22 @@ LOG DRUM
 CHORD
   una famiglia (60 % dei semi)
     sempre   x...............
-    pesi     ...9..9.6..8..8.   densità 20-78 %
+    pesi     ...9..9.6..8..8.   densità 16-82 %
     battute 2 e 4: 30 % delle scelte rifatte
   una famiglia (40 % dei semi)
     sempre   x...............
-    pesi     ......9...9.....   densità 12-59 %
+    pesi     ......9...9.....   densità 12-67 %
     mai due colpi su sedicesimi vicini   battute 2 e 4: 30 % delle scelte rifatte
     accordi  triade 70 %, settima 30 %   lo stesso tipo per tutto il pattern 86 %   tenuti 23 %
 
 LEAD
   una famiglia (55 % dei semi)
-    sempre   x..x..x.........
-    pesi     ..........7..7.3   densità 12-67 %   tutti 'o'
+    sempre   x...............
+    pesi     ...c..c...7..7.3   densità 12-75 %   tutti 'o'
     battute 2 e 4: 35 % delle scelte rifatte
   una famiglia (45 % dei semi)
     sempre   x...............
-    pesi     ..7...8...7...8.   densità 24-78 %   tutti 'o'
+    pesi     ..7...8...7...8.   densità 16-82 %   tutti 'o'
     battute 2 e 4: 35 % delle scelte rifatte
     motivo   scala: pentatonica 78 %, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale
              poggia su: la fondamentale 40 %, la quinta 33 %, la terza 27 %
@@ -1155,11 +1153,11 @@ BASS
              nell'ultimo ottavo una nota che riporta a casa 35 %   tenute 16 % (al massimo 2 sedicesimi)
 
 BALAFON
-  una famiglia (60 % dei semi)
-    classi   tempi sempre 'x'   e 47 % 'o'   & sempre 'x'   a sempre 'o'   a energia 0 il 59 % di queste
+  una famiglia (70 % dei semi)
+    classi   tempi sempre 'x'   e 78 % 'o'   & sempre 'x'   a sempre 'o'   a energia 0 il 71 % di queste
              un colpo della classe manca: 12 %
     battute 2 e 4: 25 % delle scelte rifatte
-  una famiglia (40 % dei semi)
+  una famiglia (30 % dei semi)
     sempre   x.x.x...........
     pesi     ......7.9.8.9.76   densità 24-86 %   tutti 'o'
     battute 2 e 4: 30 % delle scelte rifatte

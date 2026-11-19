@@ -340,6 +340,67 @@ static void t_band(void)
  * part of its own; a rule of two bars has its second right after it and no other rule is one; what is always there has
  * no weight; a part whose notes stand apart has no weight beside a hit that is always there (the hit would go again when
  * the other comes in at energy TH_DATA_MID_E) */
+/* 0.29: the two styles written by hand since 0.29, what they promise over many seeds. REGGAETON: the dembow - the
+ * kick on the four beats and the snare on the 'a' of 1, the '&' of 2, the 'a' of 3, the '&' of 4 - at every energy, in
+ * every variation; little else at a low energy. BALANI: the kick in four and the clap on 2 and 4 at every energy; the
+ * band has its BALAFON, struck (never held), mostly on the key's pentatonic, and its notes run (the ostinato: some bar
+ * has five 16ths in a row) */
+static void t_hand29(uint32_t seeds)
+{
+    uint32_t seed, ei, k, b, fullest = 0u, lean = 0u, run_bars = 0u, bars = 0u, pent = 0u, notes = 0u;
+    static const uint8_t EN[3] = {0u, 50u, 100u};
+    uint8_t funcs[SQ_BAND_MAX];
+    uint8_t n = sq_th_band(SQ_TH_BALANI, funcs), has = 0u;
+    for (k = 0; k < n; k++) has |= (uint8_t)(funcs[k] == SQ_FUNC_BALAFON);
+    checks++;
+    if (!has) { failed++; printf("FAIL BALANI's band has no BALAFON\n"); }
+    for (seed = 0; seed < seeds; seed++) for (ei = 0; ei < 3u; ei++) for (k = 0; k < 3u; k++) {
+        sq_th_t t;
+        char r[SQ_STEPS + 1u], nt[SQ_STEPS + 1u];
+        uint32_t i, len;
+        memset(&t, 0, sizeof t);
+        t.seed = seed * 7919u + 3u; t.energy = EN[ei]; t.var = k; t.vary = (uint8_t)(k ? 40u * k : 0u); t.scale = SQ_SC_MINOR;
+        t.style = SQ_TH_REGGAETON;
+        len = sq_th_part(&t, SQ_FUNC_KICK, 64u, r, nt);
+        checks++;
+        for (i = 0; i < len; i++) if ((i & 3u) == 0u && (r[i] == '.' || r[i] == '-')) break;
+        if (i < len) { failed++; printf("FAIL REGGAETON seed %u energy %u: a beat without the kick (%s)\n", (unsigned)seed, (unsigned)t.energy, r); }
+        len = sq_th_part(&t, SQ_FUNC_SNARE, 64u, r, nt);
+        checks++;
+        for (b = 0; b < len / 16u; b++) if (r[b * 16u + 3u] == '.' || r[b * 16u + 6u] == '.' || r[b * 16u + 11u] == '.' || r[b * 16u + 14u] == '.') break;
+        if (b < len / 16u) { failed++; printf("FAIL REGGAETON seed %u energy %u var %u: the snare is not the dembow (%s)\n", (unsigned)seed, (unsigned)t.energy, (unsigned)k, r); }
+        if (!k && (ei == 0u || ei == 2u)) {               /* (how full the band's drums are, at 0 and at 100) */
+            static const uint8_t DR[5] = {SQ_FUNC_HAT, SQ_FUNC_SHAKER, SQ_FUNC_RIM, SQ_FUNC_CONGA, SQ_FUNC_PERC};
+            uint32_t d, hits = 0u;
+            for (d = 0; d < 5u; d++) { len = sq_th_part(&t, DR[d], 64u, r, nt); for (i = 0; i < len; i++) hits += r[i] != '.' && r[i] != '-'; }
+            if (ei == 0u) lean += hits; else fullest += hits;
+        }
+        t.style = SQ_TH_BALANI; t.scale = SQ_SC_MAJOR;
+        len = sq_th_part(&t, SQ_FUNC_CLAP, 64u, r, nt);
+        checks++;
+        for (b = 0; b < len / 16u; b++) if (r[b * 16u + 4u] == '.' || r[b * 16u + 12u] == '.') break;
+        if (b < len / 16u) { failed++; printf("FAIL BALANI seed %u energy %u: the clap is not on 2 and 4 (%s)\n", (unsigned)seed, (unsigned)t.energy, r); }
+        len = sq_th_part(&t, SQ_FUNC_BALAFON, 64u, r, nt);
+        checks++;
+        if (!len || strchr(r, '-')) { failed++; printf("FAIL BALANI seed %u energy %u: the balafon held, or silent (%s)\n", (unsigned)seed, (unsigned)t.energy, r); }
+        for (b = 0; b < len / 16u; b++) {
+            uint32_t row = 0u, best = 0u;
+            for (i = 0; i < 16u; i++) { row = r[b * 16u + i] != '.' ? row + 1u : 0u; if (row > best) best = row; }
+            bars++; run_bars += best >= 5u;
+        }
+        for (i = 0; i < len; i++) if (r[i] != '.' && r[i] != '-') {
+            uint32_t semi = (uint32_t)(nt[i] >= 'a' ? 10 + nt[i] - 'a' : nt[i] - '0') % 12u;
+            notes++; pent += semi == 0u || semi == 2u || semi == 4u || semi == 7u || semi == 9u;
+        }
+    }
+    checks += 3u;
+    printf("theory: REGGAETON's drums at energy 0 and 100: %u and %u hits; BALANI's balafon: %u of %u bars run five 16ths, %u of %u notes on the pentatonic\n",
+           (unsigned)lean, (unsigned)fullest, (unsigned)run_bars, (unsigned)bars, (unsigned)pent, (unsigned)notes);
+    if (!(fullest > lean * 2u)) { failed++; printf("FAIL REGGAETON: the band does not fill with the energy\n"); }
+    if (!(run_bars * 3u > bars)) { failed++; printf("FAIL BALANI: the balafon's ostinato does not run\n"); }
+    if (!(pent * 10u > notes * 8u)) { failed++; printf("FAIL BALANI: the balafon is not on the pentatonic\n"); }
+}
+
 static void t_counted(void)
 {
     uint32_t i, s;
@@ -564,8 +625,8 @@ static void t_golden(void)
     static const uint32_t GOLD29[SQ_TH_STYLES] = {
         0xda69cc0cu /* TECHNO */, 0xbc97ad7fu /* HARDTECHNO */, 0x4f38255cu /* DUBTECHNO */, 0xb009357cu /* HOUSE */,
         0xbfa4859fu /* UKG */, 0x66ca1bc0u /* UKFUNKY */, 0xf2a2cb8fu /* DUBSTEP */, 0x9ce25562u /* JUNGLE */,
-        0x85bc1a18u /* REGGAETON */, 0x59193f94u /* BATIDA */, 0x1ef1869bu /* GQOM */, 0xb5545368u /* EXPERIMENTAL */,
-        0x9991e9d7u /* ELECTRO */, 0x12b0d092u /* DNB */, 0x0d2bee91u /* BALANI */, 0x58872efcu /* FOOTWORK */,
+        0xa094e697u /* REGGAETON */, 0x59193f94u /* BATIDA */, 0x1ef1869bu /* GQOM */, 0xb5545368u /* EXPERIMENTAL */,
+        0x9991e9d7u /* ELECTRO */, 0x12b0d092u /* DNB */, 0x37476dc1u /* BALANI */, 0x58872efcu /* FOOTWORK */,
         0x520609e8u /* TRANCE */, 0x2390746au /* UKDRILL */, 0xd6b779deu /* HARDCORE */, 0xe3ceb0cfu /* PHONK */,
         0xbaa521d1u /* BAILEFUNK */, 0xf7113e96u /* MERENGUE */, 0x8746bea5u /* FREE */
     };
@@ -780,6 +841,7 @@ int main(int argc, char **argv)
     uint32_t k;
     if (!only) {
         t_counted();
+        t_hand29(seeds);
         t_prog(seeds);
         t_golden();
         t_bars();
