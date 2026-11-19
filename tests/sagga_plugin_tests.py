@@ -30,6 +30,7 @@ CH14_CCS = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11} | set(range(12, 20)) | set(range(
 CH13_CCS = set(range(1, 33)) | set(range(33, 49)) | set(range(49, 65)) | set(range(65, 76)) | set(range(76, 92)) | set(range(92, 98)) | \
            set(range(101, 107)) | set(range(107, 119))
 CH12_CCS = set(range(1, 33)) | set(range(40, 62))                      # 0.18: the LIVE page (sagga_tablet.c); 0.23: 56-59, the THEORY engines; 0.25: 60, 61 SHORTER / LONGER
+MOD_CH12 = {62, 63}                                                     # 0.28.1: SAGGA Mod's lanes 7 and 8 (sagga_tablet.c), on the tablet's channel
 PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
 
 
@@ -180,9 +181,10 @@ def structural():
         check(len(pos) == len(set(pos)) and all(1 <= x <= grid.cols and 1 <= y <= grid.rows for x, y in pos), "%s: the cells fit the grid, none on another" % name)
         bad = [(c.param.name, c.channel, c.cc) for c in cells if not ((c.channel == 13 and c.cc in CH14_CCS) or (c.channel == 12 and c.cc in CH13_CCS)
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
+                                                                        or (c.channel == 11 and c.cc in MOD_CH12 and name == "sagga_mod")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -220,13 +222,39 @@ def structural():
     p.on_param_change("lfo_sw0", True); p.on_param_change("lfo_sw15", True); p.on_param_change("lfo_sw0", False)
     check(p.ccs == [("on", 12, 100, 127), ("on", 12, 115, 127), ("off", 12, 100)], "SAGGA Mod: L1 and L16 on, L1 off = notes 100 / 115 on channel 13 (%s)" % p.ccs)
     sw = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name.startswith("lfo_sw")]
-    check(len(sw) == 16 and all(c.row >= 9 for c in sw), "SAGGA Mod: sixteen switches on rows 9-12")
+    check(len(sw) == 16 and all(c.row >= 10 for c in sw), "SAGGA Mod: sixteen switches on rows 10-13 (0.28.1: under the eight lanes)")
     src = open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()
     i = src.index("static const char *lfo_rate_name")
     fw = re.findall(r'"([^"]+)"', src[i:src.index("};", i)])
     check(m.RATE_LABELS == fw and len(fw) == 20, "SAGGA Mod: RATE has the FM-1's twenty rates, the triplets last (%s)" % m.RATE_LABELS[-4:])
     rk = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "rate"]
     check(rk and rk[0].param.max == 19, "SAGGA Mod: the RATE knob goes to 19 (%s)" % (rk[0].param.max if rk else rk))
+    # 0.28.1: SHAPE and DEST as the FM-1's (ENV and MOD ONLY since 0.20), the eight lanes, every cell's value back
+    mc = {c.param.name: c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells}
+    for fn, labels, cell in (("lfo_shape_name", m.SHAPE_LABELS, "shape"), ("lfo_dest_name", m.DEST_LABELS, "dest")):
+        i = src.index("static const char *%s" % fn)
+        fwl = re.findall(r'"([^"]+)"', src[i:src.index("};", i)])
+        check(labels == fwl and mc[cell].param.max == len(fwl) - 1, "SAGGA Mod: %s has the FM-1's %d names, the knob up to the last (%s, %s)" % (cell.upper(), len(fwl), labels[-2:], mc[cell].param.max))
+    r2 = open(os.path.join(ROOT, "firmware", "src", "sagga_remote2.c")).read()
+    check(re.search(r"case 96u:.*?l->dest = \(uint8_t\)\(v < SQ_LD_ALL \? v : \(uint32_t\)v \* SQ_LD_ALL / 128u\)", r2, re.S) is not None
+          and re.search(r"case 93u: project\.lfo\[lfo_sel\]\.shape = \(uint8_t\)\(v < SQ_LFO_SHAPES", r2) is not None,
+          "SAGGA Mod: the FM-1 takes every SHAPE (ENV) and every DEST (MOD ONLY) on CC 93 / 96")
+    lanes = [(mc["lane%d" % i].channel, mc["lane%d" % i].cc) for i in range(8)]
+    check(lanes == [(12, 101 + i) for i in range(6)] + [(11, 62), (11, 63)] and all(mc["lane%d" % i].row == 3 + i // 2 for i in range(8)),
+          "SAGGA Mod: LANE 1-6 on channel 13 CC 101-106, LANE 7 and 8 on channel 12 CC 62 / 63, rows 3-6 (%s)" % lanes)
+    tb = open(os.path.join(ROOT, "firmware", "src", "sagga_tablet.c")).read()
+    check(re.search(r"case 62u: case 63u: tab_lane_base\(t, cc - 56u, v\);", tb) is not None and re.search(r"if \(cc >= 101u && cc < 107u\) \{ tab_lane_base\(t, cc - 101u, v\);", r2) is not None,
+          "SAGGA Mod: the FM-1 takes channel 12 CC 62 / 63 as lanes 7 / 8, channel 13 CC 101-106 as lanes 1-6")
+    p = cls()
+    p.on_param_change("lane6", 30); p.on_param_change("lane7", 100)
+    p.on_cc(11, 62, 11); p.on_cc(11, 63, 12)
+    check(p.ccs == [(11, 62, 30), (11, 63, 100)] and p.get_param("lane6") == 11 and p.get_param("lane7") == 12,
+          "SAGGA Mod: LANE 7 / 8 send channel 12 CC 62 / 63 and take the FM-1's values there (%s %s)" % (p.ccs, [p.get_param("lane6"), p.get_param("lane7")]))
+    echo_own = {"FB_E_SWING": (11, 6), "FB_E_QUANT": (13, 6), "FB_E_PAT6": (12, 38), "FB_E_LANE1": (12, 101)}
+    fbm = set(echo_own[b] if b in echo_own else (int(a.replace("TB_CH", "11")), int(b))
+              for a, b in re.findall(r"\{(TB_CH|\d+), (\d+|FB_E_\w+), (?:0|FBF_SCALED)\}", tb))
+    held = {(c.channel, c.cc) for c in mc.values() if c.param.__class__.__name__ in ("Knob", "Fader") or (c.param.__class__.__name__ == "Button" and c.cc)}
+    check(held - fbm == {(12, cc) for cc in range(108, 112)}, "SAGGA Mod: every knob, lane and switch gets the FM-1's value back, the THROWS spring back on their own (%s)" % sorted(held - fbm))
     m, cls = load_plugin("sagga_motori")
     p = cls()
     p.on_param_change("p3", 5)

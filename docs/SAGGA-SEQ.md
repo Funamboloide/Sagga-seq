@@ -34,7 +34,8 @@ has no room for.
   all six; at most six sound from a step, with a CHORD shape too.
 * **Eight CC lanes** a track (six until 0.27): the ENV pages go `LANE 1/8` .. `LANE 8/8`; in a new project lane 7 is
   CC 73 (attack) and lane 8 CC 72 (release). The grid's CC view (pads 1-8), the CC learn (a ninth CC: `NO FREE LANE`),
-  the scenes and the snapshots keep all eight. The remote's lane knobs (channel 13 CC 101-106) stay on lanes 1-6.
+  the scenes and the snapshots keep all eight. The remote's lane knobs: lanes 1-6 channel 13 CC 101-106, lanes 7 and 8
+  (0.28.1) channel 12 CC 62 / 63 - SAGGA Mod has all eight.
 * **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO or a
   MOD aimed at one of them stops, an LFO's TRIG from one of them goes back to CLOCK; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
   for the notes 5-6 and the lanes 7-8: a 0.27 opens it, without them. A MIDI file read into a project on the Pi:
@@ -711,15 +712,16 @@ takes the value as the index when it is under its size, else value / its share).
 | 71 | ROLL 1/32 (held) | 72 | CHOP 0-15 (or value / 8; a BREAK) |
 | 73 / 74 | the dice's SWAP 0-7, ROLLS 0-7 | 75 | SLICES 8 / 16 / 32 (0-42 / 43-85 / 86-127) |
 | 76-91 | the slices 1-16 as pads (the value is the velocity, 0 = off) | 92 | which LFO (0-15, or value / 8) |
-| 93 / 94 / 95 / 96 | that LFO's SHAPE, RATE, DEPTH, DEST | 97 | that LFO on / off |
-| 101-106 | lane 1-6 of the selected track: the base, sent at once (lanes 7-8: the panel, the grid, the editor) | 107 | TAKE |
+| 93 / 94 / 95 / 96 | that LFO's SHAPE (0-8, ENV the last), RATE, DEPTH, DEST (0-6; 0.28.1: MOD ONLY the last, as on the panel) | 97 | that LFO on / off |
+| 101-106 | lane 1-6 of the selected track: the base, sent at once (0.28.1: lanes 7-8 on channel 12 CC 62 / 63) | 107 | TAKE |
 | 108-111 | THROWS: INTENSITY, GATE, SWING, FILTER (64 = 0), gliding back | 112 | the selected track (0-11; 12-15 nothing; 16-127: the twelve over the range) |
 | 113 | its MODE (FREE IN KEY DRUM TAPE BREAK) | 114 | the journey's energy 0-100 |
 | 115 | the set's genre 0-24 | 116 | the set's key, the root 0-11 |
 | 117 | the harmony's progression | 118 | HARMONY OFF / ON / LOCK |
 
 The pages: **SAGGA Motori** (the tracks: 33-64, 112, 113, 69 and channel 14's mutes, kills, RETRIG), **SAGGA Break**
-(65-91, 107; 0.21: its SWAP, ROLLS and SLICES knobs show the tablet's track's), **SAGGA Mod** (92-97, 101-106, 108-111, 114-118, and the notes 100-115: the sixteen LFO switches).
+(65-91, 107; 0.21: its SWAP, ROLLS and SLICES knobs show the tablet's track's), **SAGGA Mod** (92-97, 101-106, 108-111, 114-118, and the notes 100-115: the sixteen LFO switches; 0.28.1: lanes 7 and 8
+on channel 12 CC 62 / 63).
 
 0.18: what channels 13 and 14 do on "the selected track" (the pads, the lanes, TAKE, MODE, the LFO chosen, BREAK) they
 do on **the tablet's track**: CC 112 chooses it, and the FM-1's own track stays as it is (the screen: `TAB T5: ...`).
@@ -749,6 +751,7 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 40-51 | MUTE of track 1-12 (switches; 0.28: 52-55 nothing) | 56 | **SOURCE** (0.23): 0 LIBRARY, 1 THEORY, 2 FREE (a higher value, a switch's "on": THEORY from LIBRARY, a SOURCE on FREE stays) |
 | 57 | NEXT SEED 0-127 (seeds 1-128) | 58 / 59 | the SEED 0-127 of the pattern the tablet's track plays (made again at once) / its VARIATION 0-99 |
 | 60 | **SHORTER** (0.25; a tap): every track half as long, at the next bar (stopped: at once) | 61 | **LONGER** (0.25; a tap): every track twice as long. Each takes the other back |
+| 62 / 63 | **LANE 7 / 8** (0.28.1, SAGGA Mod): the lane's base value, sent at once (lanes 1-6: channel 13 CC 101-106) | | |
 
 ### What goes back to the hub (0.18)
 
@@ -763,7 +766,8 @@ LENGTH past the pattern, an OCTAVE on a drum track) comes back corrected after t
 
 * channel 12: CC 1-10, 12-15, 17-25 (the tablet's track as above), 40-55 (the mutes as meant: MUTE QUEUE's waiting ones
   included, a BREAK's silence not), 56-59 (0.23: THEORY, the next seed, the track's seed and variation - a seed past
-  128 shows as 128; nothing for a pattern that is not the engines');
+  128 shows as 128; nothing for a pattern that is not the engines'), 62 / 63 (0.28.1: lanes 7 and 8; nothing for a lane
+  with no base);
 * channel 13: CC 33-48 (the patterns: the one queued, else the one playing), 49-64 (the lengths: the one waiting for
   the bar, else the length), 73-75 (0.21: the BREAK's SWAP, ROLLS and SLICES 0-2 of the tablet's track), 92-97 (the tablet's LFO), 101-106 (the tablet's track's lanes), 112 (the tablet's track),
   113 (its MODE), 114-118 (energy 0-127, genre, key, progression, HARMONY); notes 100-115 (the LFOs on / off: note on
@@ -828,7 +832,11 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
   from a step.
 * 0.28: twelve tracks. A project of 0.27 or before keeps its first twelve (its tracks 13-16 are left out); a 0.27 opens
   a project of 0.28 without its notes 5-6 and lanes 7-8. The remote's and the tablet's commands for tracks 13-16 do
-  nothing; the remote's lane knobs (CC 101-106) reach lanes 1-6.
+  nothing; the remote's lane knobs reach all eight lanes (0.28.1: lanes 7 and 8 on channel 12 CC 62 / 63; with 0.28,
+  lanes 1-6 only).
+* 0.28.1: an LFO whose DEST changes keeps a target that kind has: from CC on channel 13-16 to a track's VEL, GATE ...
+  the target becomes track 12 (0.28 kept the number: the screen said TRACK 16 and the LFO moved track 1). The grid's
+  LFO view lights the track row 1-12 only.
 * 0.11: the Pi's variations and progressions need the grid bridge running (it answers for the hub's folders); without
   it SEQ + ALG stops at the FM-1's last variation and SEQ 4 K2 at its last progression (`PI: NO ANSWER`, then `NO MORE
   <MOOD>` without asking again for a while). A progression has up to 8 chords; one from the Pi takes the DICE/PI slot,

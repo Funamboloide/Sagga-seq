@@ -287,7 +287,8 @@ TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5
              (8, "GROOVE AMT", (40,)), (9, "MIDI FX", (3, 1)), (10, "FX AMOUNT", (14, 9)), (12, "ALGO", (1, 2)), (13, "A", (40,)),
              (14, "B", (90,)), (15, "C", (127,)), (17, "PULSES", (3, 7)), (18, "ROTATION", (2,)), (20, "ARP", (1, 8)),
              (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13)),
-             (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40))]   # 0.23: the THEORY engines
+             (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40)),   # 0.23: the THEORY engines
+             (62, "LANE 7", (30, 100)), (63, "LANE 8", (64,))]                  # 0.28.1: SAGGA Mod's lanes 7 and 8 (the base values)
 TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
 TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO"),
             (60, "SHORTER"), (61, "LONGER")]              # (0.25: every track's length, at the bar)

@@ -11871,6 +11871,87 @@ def t028_panel():
           "after a power cycle: the same six notes, the same CC 73 and 72 (%s %s)" % (notes2, [(k, ccs2.get(k)) for k in (72, 73)]))
 
 
+
+def t0281_mod_page():
+    group("0.28.1: SAGGA Mod's lanes 7 and 8 (channel 12 CC 62 / 63, the tablet's track) and DEST MOD ONLY (channel 13 CC 96 = 6); "
+          "the values go back on port 2; an LFO's target stays one its DEST has (a channel 13-16 is no track); the grid's track row stops at 12")
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    s.raw(t, "midi 0xBB 62 30 2"); t += 40                            # lane 7 of the tablet's track (1): base 30
+    s.raw(t, "midi 0xBB 63 100 2"); t += 40                           # lane 8: base 100
+    s.at(t, "dump", 0); t += 60
+    t1 = t + 600                                                      # (the hand off the two cells)
+    t = pg(s, t1, ENV, 6, [(K3, 2)])                                  # the panel: lane 7's base up
+    s.at(t + 100, "dump", 0)
+    log = run(s, t + 600)
+    syn = [(m[2], m[3]) for m, p in zip(log.msgs, log.port) if p != 2 and m[1] == 0xB0 and m[2] in (72, 73)]
+    c = cfgs(log)
+    check(syn[:2] == [(73, 30), (72, 100)], "channel 12 CC 62 / 63: lane 7 (CC 73) and lane 8 (CC 72) of track 1 go out at 30 and 100 (%s)" % syn[:3])
+    check(len(c) == 2 and c[0]["lanes"][6][3] == 30 and c[0]["lanes"][7][3] == 100, "... and they are the lanes' base values (%s)" % [x["lanes"][6:] for x in c])
+    b7 = c[1]["lanes"][6][3] if len(c) == 2 else None
+    back = [(m[0], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] == 62 and m[0] > t1]
+    check(b7 not in (None, 30) and back and back[0][1] == b7 and back[0][0] - t1 < 400,
+          "lane 7's base turned on the panel (%s) goes back to the page on channel 12 CC 62 (%s)" % (b7, back[:2]))
+    check(not [m for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] in (62, 63) and m[0] < t1 - 200],
+          "what the tablet just sent does not come straight back (%s)" % [m for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] in (62, 63)][:2])
+    # DEST: the tablet's CC 96 = 1 on an LFO on channel 16: VEL on track 12 (0.28: the screen said TRACK 16, track 1 moved);
+    # 6 = MOD ONLY, 127 over the seven = MOD ONLY; the panel's DEST back to the page
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    t = pg(s, t, LFO, 1, [(K2, 15)])                                  # the panel: LFO 1 on CC, channel 16
+    for v in (1, 6, 0, 127):
+        s.raw(t, "midi 0xBC 92 0 2"); s.raw(t + 20, "midi 0xBC 96 %d 2" % v); t += 60
+        s.press(t, LFO); s.at(t + 60, "ui"); s.release(t + 100, LFO); t += 160
+    t2 = t + 600
+    t = pg(s, t2, LFO, 1, [(K1, -6)])                                 # the panel: DEST from MOD ONLY down to CC
+    log = run(s, t + 600)
+    cells = [(x["cells"][0][1], (x["cells"][1][0].lstrip("> "), x["cells"][1][1])) for x in log.screens()]   # (">": the knob in focus)
+    check(cells == [("VEL", ("TRACK", "12")), ("MOD ONLY", ("TRACK", "12")), ("CC", ("CHANNEL", "12")), ("MOD ONLY", ("TRACK", "12"))],
+          "CC 96 = 1: VEL on TRACK 12 (not 16); 6: MOD ONLY; 0: CC; 127: MOD ONLY (%s)" % cells)
+    back = [m[3] for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBC and m[2] == 96 and m[0] > t2]
+    check(back[-1:] == [0], "the panel's DEST (CC) goes back to the page on channel 13 CC 96 (%s)" % back)
+    # the grid's LFO view: DEST VEL, then pad 14 of the track row is no track; pad 12 is track 12
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 200, GC_VPERF, alt=True)                              # LFO view
+    s.pad(t, 9, 1); t += 100                                          # DEST VEL (row 2, pad 10)
+    s.pad(t, 13, 6); t += 100                                         # pad 14: nothing
+    t3 = t
+    s.pad(t + 50, 11, 6); t += 200                                    # pad 12: track 12
+    log = run(s, t + 200)
+    pads, _ = log.leds(until=t3 + 40)
+    pads2, _ = log.leds(until=t + 150)
+    row = [pads[6 * 16 + x] for x in range(16)]
+    check(row[0] == GL_WHITE and all(v == GL_OFF for v in row[12:]) and all(v == GL_DIM for v in row[1:12]),
+          "grid, DEST VEL: the track row lights 1-12, 13-16 dark; pad 14 left the target on track 1 (%s)" % row)
+    check(pads2[6 * 16 + 11] == GL_WHITE and pads2[6 * 16] == GL_DIM, "... pad 12: track 12 (%s %s)" % (pads2[6 * 16 + 11], pads2[6 * 16]))
+
+
+def t0281_proposal_start():
+    group("0.28.1: a PROPOSAL enters a track whose loop starts later (HOME + ALG: START 2, a loop of 15): its settings put the "
+          "start back on step 1 and the track goes where the bar says, with QUANTISE AUTO and NOW (the explorer found it a step off)")
+    for q, name in ((0, "AUTO"), (1, "NOW")):
+        s = Script()
+        t = s.steps(100, [0, 8])
+        s.press(t, SEQ); s.tap_key(t + 30, wk(9), hold=700); s.release(t + 800, SEQ); t += 860   # SEQ + BEAT held: a proposal in P2
+        if q:
+            t = perf(s, t, [(K4, q)])                                                          # QUANTISE NOW
+        s.tap_btn(t, PLAY); t0 = t
+        s.press(t0 + 300, HOME); s.enc(t0 + 330, E_ALG, 1); s.release(t0 + 400, HOME)          # START 2
+        s.at(t0 + 600, "probe")
+        s.enc(t0 + 700, E_PRE, 1)                                                              # PRESETS: the proposal queued
+        for k in range(int(BAR_MS) // 10):                                                     # a probe every 10 ms over a bar,
+            s.at(t0 + int(2 * BAR_MS) + 10 * k, "probe")                                       # the second after the proposal
+        log = run(s, t0 + int(3 * BAR_MS) + 100)
+        pb = probes(log)
+        a, b = (pb[0].get("T1", {}), pb[-1].get("T1", {})) if len(pb) >= 2 else ({}, {})
+        late = [x["t"] for x in pb[1:] if x.get("T1", {}).get("ok") == "0"]
+        check(a.get("start") == "1" and b.get("pat") == "2" and b.get("start") == "0" and len(pb) > 100 and not late,
+              "QUANTISE %s: START 2, then the proposal P2 plays from step 1 of its loop, where the bar says - at every 10 ms of a bar (%s -> %s, off at %s)"
+              % (name, {k: a.get(k) for k in ("start", "pat", "ok")}, {k: b.get(k) for k in ("start", "pat", "ok", "step")}, late[:3]))
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -11890,7 +11971,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
-         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel,
+         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

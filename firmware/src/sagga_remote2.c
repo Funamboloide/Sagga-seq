@@ -12,8 +12,10 @@
  *   CC 65 ROLL (held), 66 HALF, 67 DOUBLE, 68 BACKWARDS, 69 DICE, 70 RESET, 71 ROLL 1/32 (held): the selected BREAK track
  *   CC 72 CHOP (0-15, or 0-127 / 8), 73 SWAP (0-7 over 0-127), 74 ROLLS (0-7), 75 SLICES (8 / 16 / 32)
  *   CC 76-91       the 16 slices as pads (the value is the velocity; 0 = off): what the notes do, for pages that send CCs only
- *   CC 92 which LFO (0-127 / 8)   93 SHAPE, 94 RATE, 95 DEPTH, 96 DEST, 97 ON / OFF of that LFO
- *   CC 101-106     lane 1-6 of the selected track: the base value, sent at once
+ *   CC 92 which LFO (0-127 / 8)   93 SHAPE (0-8: ENV the last), 94 RATE, 95 DEPTH, 96 DEST (0-6: 0.28.1, MOD ONLY the
+ *                  last), 97 ON / OFF of that LFO
+ *   CC 101-106     lane 1-6 of the selected track: the base value, sent at once (0.28.1: lanes 7 and 8 on channel 12,
+ *                  CC 62 / 63 - sagga_tablet.c: here one CC is free, 119, and 98-100 do not come back in MIDI 2.0)
  *   CC 107 TAKE    108-111 THROWS: INTENSITY, GATE, SWING, FILTER thrown (they glide back to 0 over a bar)
  *   CC 112 SELECT TRACK (0-15 as they are - 0.28: 12-15 nothing -, else 0-127 over the twelve)    113 MODE (FREE IN KEY DRUM TAPE BREAK)
  *   CC 114 ENERGY  115 GENRE (0-24)    116 KEY (the root, 0-127 / 11)    117 PROGRESSION    118 HARMONY (OFF ON LOCK)
@@ -49,6 +51,16 @@ static void remote13_note(uint8_t d1, uint8_t d2, uint8_t on)
     }
 }
 
+/* a lane's base value from the tablet (CC 101-106 here, lanes 1-6; 0.28.1: channel 12 CC 62 / 63, lanes 7 / 8 -
+ * sagga_tablet.c): kept, and sent to the synth at once */
+static void tab_lane_base(uint8_t t, uint32_t n, uint8_t v)
+{
+    if (n >= SQ_LANES) return;
+    project.track[t].lane_base[n] = v;
+    lane_send(t, n, lane_val((uint8_t)n, v));
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void remote13_cc(uint8_t cc, uint8_t v)
 {
     uint8_t on = v >= 64u ? 1u : 0u, t = selected_track;
@@ -56,13 +68,7 @@ static void remote13_cc(uint8_t cc, uint8_t v)
     if (cc >= 33u && cc < 49u) { queue_pattern((uint8_t)(cc - 33u), v < SQ_PATTERNS ? v : (uint8_t)(v >> 4)); return; }
     if (cc >= 49u && cc < 65u) { set_length((uint8_t)(cc - 49u), (uint8_t)clamp_i32(v, 1, 64)); return; }
     if (cc >= 76u && cc < 92u) { remote13_note((uint8_t)(36u + cc - 76u), v, v ? 1u : 0u); return; }   /* the pads as CCs */
-    if (cc >= 101u && cc < 107u) {
-        uint32_t n = cc - 101u;
-        cfg->lane_base[n] = v;
-        lane_send(t, n, lane_val((uint8_t)n, v));
-        ui_dirty = grid_dirty = 1u;
-        return;
-    }
+    if (cc >= 101u && cc < 107u) { tab_lane_base(t, cc - 101u, v); return; }
     switch (cc) {
     case 65u: if (!on) brk_black_up(0); else if (track_break(t)) brk_black(t, 0); return;   /* (the off counts whatever track is selected now) */
     case 71u: if (!on) brk_black_up(1); else if (track_break(t)) brk_black(t, 1); return;
@@ -74,10 +80,10 @@ static void remote13_cc(uint8_t cc, uint8_t v)
     case 93u: project.lfo[lfo_sel].shape = (uint8_t)(v < SQ_LFO_SHAPES ? v : (uint32_t)v * SQ_LFO_SHAPES / 128u); lfo_last_valid[lfo_sel] = 0u; ui_dirty = 1u; return;
     case 94u: project.lfo[lfo_sel].rate = (uint8_t)(v < SQ_LFO_RATES ? v : (uint32_t)v * SQ_LFO_RATES / 128u); lfo_last_valid[lfo_sel] = 0u; ui_dirty = 1u; return;
     case 95u: project.lfo[lfo_sel].depth = v; lfo_last_valid[lfo_sel] = 0u; ui_dirty = 1u; return;
-    case 96u: {
+    case 96u: {                                                       /* (0.28.1: MOD ONLY too, as on the panel) */
         sq_lfo_t *l = &project.lfo[lfo_sel];
-        l->dest = (uint8_t)(v < SQ_LD_KINDS ? v : (uint32_t)v * SQ_LD_KINDS / 128u);
-        if (l->dest == SQ_LD_CC && l->target >= ch_limit()) l->target = (uint8_t)(ch_limit() - 1u);
+        l->dest = (uint8_t)(v < SQ_LD_ALL ? v : (uint32_t)v * SQ_LD_ALL / 128u);
+        lfo_target_fit(l);
         lfo_last_valid[lfo_sel] = 0u; ui_dirty = 1u;
         return;
     }
