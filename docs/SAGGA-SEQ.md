@@ -45,7 +45,7 @@ genre where it went; a 0.28 opens a project of 0.29, without what it has no room
   harmony it follows the chords as a MELODY (as a LEAD or a VOX). BALANI's band has it where it had a LEAD.
 * **THEORY**: REGGAETON and BALANI have rules written by hand now (TECHNO, HOUSE, DUBSTEP and DRUM+BASS had them; the
   other sixteen are counted from the library). REGGAETON: the dembow at every energy (the snare's `...x..x....x..x.`),
-  little else at a low energy, the log drum's slides, four chords a bar each. BALANI: the clap on 2 and 4, the djembe's
+  the rest coming in with the energy, the log drum's slides, four chords a bar each. BALANI: the clap on 2 and 4, the djembe's
   3-3-2, the balafon's ostinato in 16ths on the pentatonic, one or two chords. The seventeen genres that did not change
   (and FREE) make what they made, bit for bit; UK GARAGE, BATIDA and GQOM's counted rules changed with their libraries.
 * **ROLL** (MIDI FX): each note 2-6 hits in its step - LEVEL, RISING or FALLING - with a chance (K2, K3, K4). The trap

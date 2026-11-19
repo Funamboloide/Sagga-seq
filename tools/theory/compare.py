@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """SAGGA SEQ: what the THEORY engines make against the library of the FM-1, a genre and a part at a time.
 
-  python3 tools/theory/compare.py [SEEDS] [GENRE ...]      (SEEDS: 100; no GENRE: all 25)
+  python3 tools/theory/compare.py [SEEDS] [GENRE ...]      (SEEDS: 100; no GENRE: all 22)
 
 For every part of a genre's band, made at energy 50 on two bars from SEEDS seeds:
   hits     the hits a bar the library writes, and the ones the engines make

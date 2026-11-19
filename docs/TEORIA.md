@@ -1,13 +1,14 @@
-# SAGGA SEQ 0.26 - i motori THEORY
+# SAGGA SEQ 0.29 - i motori THEORY
 
 Questo foglio spiega i motori THEORY: cosa sono, come si usano, cosa fa ognuno e perché, e a quali strumenti che
 esistono già somigliano. In fondo ci sono i dettagli, per chi li vuole.
 
-Le regole dei 21 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
+Le regole dei 16 generi contati dalla libreria sono in un foglio a parte: `TEORIA-GENERI.md`.
 
 I motori sono nati nella 0.23. Dalla **0.25** le parti **si ascoltano fra loro**, la melodia **conosce l'accordo**, e i
 motori lavorano in **qualunque metro** (7/8, 5/4, 6/8...). Sono i punti 9, 10 e 11 più sotto. Dalla **0.26** scrivono
-la parte **dentro la battuta** del metro, e una risposta **ha le note**: sono i punti 11 e 12.
+la parte **dentro la battuta** del metro, e una risposta **ha le note**: sono i punti 11 e 12. Dalla **0.29** anche
+REGGAETON e BALANI (un genere nuovo) hanno le loro regole scritte a mano.
 
 ## In breve
 
@@ -25,7 +26,7 @@ Dalla 0.23 puoi scegliere, con la manopola **SOURCE** (SEQ pagina 8, K1). Ha tre
 Poi:
 
 * Lo stesso seme dà sempre la stessa band. Un altro seme, un'altra band dello stesso genere. I semi sono 999.
-* Vale per tutti i **25 generi** dell'FM-1, e per **FREE** (nessun genere).
+* Vale per tutti i **22 generi** dell'FM-1, e per **FREE** (nessun genere).
 * I motori fanno la batteria, i bassi, gli accordi, gli arpeggi, i motivi (LEAD, VOX) e le progressioni.
 * Quello che esce è un pattern come gli altri: lo modifichi, lo salvi, lo metti nelle scene. In più l'FM-1 ricorda da
   quale seme l'ha fatto, e per questo può **riempirlo e svuotarlo con l'ENERGIA** e portarlo a una **variazione**.
@@ -66,8 +67,8 @@ Tre cose da sapere:
 
 * L'energia **aggiunge soltanto**: salendo, i colpi che c'erano restano dove sono e le note tengono la loro altezza.
 * Uno step che scrivi a mano in un pattern dei motori **resta**, anche quando l'energia cambia. Fanno eccezione le
-  parti che seguono la cassa: il RUMBLE (TECHNO, HARDTECHNO) e il SUB (DRUM+BASS, DUBSTEP, JUNGLE, GRIME, BASSLINE,
-  FOOTWORK, PHONK, UK DRILL, BAILE FUNK). Quelle, quando l'energia cambia, vengono rifatte tutte intorno alla cassa, e
+  parti che seguono la cassa: il RUMBLE (TECHNO, HARDTECHNO), il SUB (DRUM+BASS, DUBSTEP, JUNGLE, UK GARAGE,
+  FOOTWORK, PHONK, UK DRILL, BAILE FUNK) e il BASS di REGGAETON e BALANI. Quelle, quando l'energia cambia, vengono rifatte tutte intorno alla cassa, e
   lo step scritto a mano si perde. Se ci tieni, incolla il pattern su se stesso (non è più dei motori) o scrivilo
   dopo aver scelto l'energia.
 * Se incolli, raddoppi o svuoti un pattern, non è più dei motori: l'energia non lo tocca più. BEAT ne fa uno nuovo.
@@ -119,14 +120,14 @@ le due cose separate vuol dire che ogni band è diversa ma resta nel genere.
 **A cosa somiglia.** A *Grids* di Mutable Instruments, che ha una mappa di pattern di batteria ricavata da loop veri e
 per ogni canale decide i colpi confrontando un livello con una soglia. E a *GESMI* (Eigenfeldt e Pasquier), che ha
 contato su cento brani quante volte ogni sedicesimo ha un colpo e da lì genera: è il modo in cui sono nate le regole di
-21 generi su 25 (vedi più sotto).
+16 generi su 22 (vedi più sotto).
 
 ### 2. L'energia
 
 **Cosa fa.** Riempie una parte o la svuota. A energia zero resta lo **scheletro**: per un hat in ottavi, il levare;
-per la cassa in quattro del reggaeton o della trance, i colpi sull'1 e sul 3 (in TECHNO e HOUSE, scritti a mano, la
-cassa resta in quattro a qualunque energia). Da 25 c'è il pattern intero. Salendo ancora entrano i colpi in più, prima
-i più probabili. A 50 una parte somiglia a quelle della libreria; a 100 è molto piena.
+per la cassa in quattro della trance, i colpi sull'1 e sul 3 (in TECHNO, HOUSE, REGGAETON e BALANI, scritti a mano,
+la cassa resta in quattro a qualunque energia). Da 25 c'è il pattern intero. Salendo ancora entrano i colpi in più,
+prima i più probabili. A 50 una parte somiglia a quelle della libreria; a 100 è molto piena.
 
 **Perché.** In un live l'energia è il gesto più usato. Se svuotando una parte i colpi sparissero a caso, il genere
 sparirebbe con loro. Qui spariscono per ultimi quelli che contano di più: gli accenti, e quello che la libreria stessa
@@ -228,13 +229,13 @@ si alternano si sentono tutte e due. È la differenza fra otto loop messi uno su
 **A cosa somiglia.** Al bassista dei Session Players di Logic Pro, che può seguire il ritmo di un'altra traccia. E al
 vecchio trucco del "call and response": una parte chiama, l'altra risponde nei vuoti.
 
-**Quanto.** Misurato su 60 semi per ognuno dei 26 stili:
+**Quanto.** Misurato su 150 semi per ognuno dei 23 stili (0.29):
 
 | | colpi sugli attacchi dell'altra | colpi subito dopo | colpi in tutto |
 | --- | --- | --- | --- |
-| lead, voci, arpeggi con gli accordi | 23 % in meno | 14 % in più | quasi uguali |
+| lead, voci, arpeggi con gli accordi | 25 % in meno | 13 % in più | quasi uguali |
 | percussioni con il rullante | 28 % in meno | 18 % in più | uguali |
-| bassi con il lead | 28 % in meno | 15 % in più | 10 % in meno |
+| bassi con il lead | 30 % in meno | 14 % in più | 12 % in meno |
 
 Tre cose da sapere:
 
@@ -348,13 +349,15 @@ suona le note. È il modo più semplice di far sentire che due parti parlano fra
 
 ## Da dove vengono le regole
 
-* **TECHNO, HOUSE, DRUM AND BASS, DUBSTEP**: scritte a mano, da quello che si legge su come si costruiscono questi
-  generi (le fonti sono in fondo) e controllate sulla libreria. Sono più sotto in questo foglio.
-* **Gli altri 21 generi**: **contate dalla tua libreria**. Un programma (`tools/theory/gen_rules.py`) legge tutti i
+* **TECHNO, HOUSE, DRUM AND BASS, DUBSTEP** e, dalla 0.29, **REGGAETON e BALANI**: scritte a mano, da quello che si
+  legge su come si costruiscono questi generi (le fonti sono in fondo) e controllate sulla libreria. Sono più sotto in
+  questo foglio.
+* **Gli altri 16 generi**: **contate dalla tua libreria**. Un programma (`tools/theory/gen_rules.py`) legge tutti i
   pattern di un genere, mette insieme quelli che sono lo stesso pattern con altri dettagli (una famiglia), e conta. Quello
   che quasi tutti suonano diventa "c'è sempre". Quello che suonano alcuni diventa un peso. Dai pattern di due e quattro
-  battute impara cosa fa la seconda battuta. Dalle note impara quali usa un basso e come si muove un motivo. Dalle sei
-  progressioni del genere impara come si muovono gli accordi. Le trovi in `TEORIA-GENERI.md`.
+  battute impara cosa fa la seconda battuta. Dalle note impara quali usa un basso e come si muove un motivo. Dalle
+  progressioni del genere impara come si muovono gli accordi (dalle prime sei: le due nuove della 0.29 restano fuori,
+  così i generi di prima suonano come prima). Le trovi in `TEORIA-GENERI.md`.
 * **FREE**: scritto a mano. Usa solo il metro: una cassa sta sui tempi, un rullante sul 2 e sul 4, un hat sugli ottavi.
 
 Se cambi la libreria, le regole contate si possono rifare con un comando.
@@ -363,22 +366,27 @@ Se cambi la libreria, le regole contate si possono rifare con un comando.
 
 Misurato dal programma `tools/theory/compare.py`, 60 semi per genere, energia 50:
 
-* su 229 parti, **218** cadono dove cade la libreria: gli stessi sedicesimi, con frequenze simili;
-* in media una battuta fatta dai motori è a **mezzo sedicesimo** dalla battuta scritta più vicina, e **due battute su
-  tre** sono battute che la libreria ha già, colpo per colpo (sette su dieci nei 21 generi contati, quattro su dieci
-  nei quattro scritti a mano);
-* delle 11 parti lontane, 9 sono nei quattro generi scritti a mano, dove alcune parti sono volute diverse (la
-  percussione tre-contro-quattro della techno non è nella libreria);
+* su 208 parti, **191** cadono dove cade la libreria: gli stessi sedicesimi, con frequenze simili;
+* in media una battuta fatta dai motori è a **meno di un sedicesimo** dalla battuta scritta più vicina, e **una battuta
+  su due** è una battuta che la libreria ha già, colpo per colpo (sei su dieci nei 16 generi contati, una su tre nei
+  sei scritti a mano);
+* delle 17 parti lontane, 14 sono nei sei generi scritti a mano, dove alcune parti sono volute diverse (la
+  percussione tre-contro-quattro della techno non è nella libreria) o la libreria è cambiata dopo le regole (nella
+  0.29 nel DUBSTEP sono entrati i pattern migliori del GRIME, e le sue parti lontane sono fra quelle). Cinque sono
+  shaker che nella libreria suonano quasi tutti i sedicesimi: lì il confronto dei posti dice poco;
 * le note dei bassi hanno le stesse proporzioni della libreria. I motivi usano le stesse note ma più terze e meno
   quarte.
 
 Detto chiaro: a energia 50, nei generi contati, i motori stanno **molto vicini alla libreria**. Il nuovo viene da come
 le battute si combinano fra le parti, dalle note (che non sono quelle scritte), dall'energia e dalle variazioni.
 
-E i controlli sul motore (43 milioni, su 150 semi per ognuno dei 26 stili): una parte non è mai vuota; salendo di
-energia nessun colpo si perde; una nota che resta tiene la sua altezza (ne cambiano 7 su diecimila, le ultime di un
-motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre. Dalla 0.25 anche: una parte che
-risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e resta uguale se non risponde a nessuno.
+E i controlli sul motore (200 milioni, su 150 semi per ognuno dei 23 stili, in 4/4 e in altri 19 metri): una parte non
+è mai vuota; salendo di energia nessun colpo si perde; una nota che resta tiene la sua altezza (ne cambia una su
+mille, le ultime di un motivo); quello che **ogni** pattern della libreria suona, i motori lo suonano sempre. Dalla
+0.25 anche: una parte che risponde a un'altra non è mai vuota, non perde colpi salendo di energia, e resta uguale se
+non risponde a nessuno. Dalla 0.29 anche: nel REGGAETON la cassa sta su tutti e quattro i tempi e il rullante fa il
+dembow a ogni energia, e la batteria a energia 100 ha più del doppio dei colpi che a energia 0; nel BALANI il clap sta
+sul 2 e sul 4, e il balafon non tiene mai una nota, corre in sedicesimi e sta sulla pentatonica.
 
 ## Cosa non sanno fare
 
@@ -433,7 +441,7 @@ Una battuta è sedici sedicesimi. Nei blocchi li leggi così, come nella libreri
 
 Una parte non è mai vuota: se a quell'energia non le toccherebbe niente, ha il colpo che entrerebbe per primo.
 
-Le **regole contate** (i 21 generi di `TEORIA-GENERI.md`) usano gli stessi pesi, e in più:
+Le **regole contate** (i 16 generi di `TEORIA-GENERI.md`) usano gli stessi pesi, e in più:
 
 * **famiglie**: più regole per la stessa parte; il seme ne sceglie una, secondo quante variazioni della libreria le
   somigliano;
@@ -498,13 +506,13 @@ Lo stesso seme in due stili dà la stessa tonica (la scala la sceglie ogni stile
 
 ### ENERGIA e VARIAZIONE, misurate
 
-Su 150 semi per stile, 26 stili, tutte le parti, otto livelli di energia (`tests/sagga_theory_tests.c`, 36 milioni di
-controlli):
+Su 150 semi per stile, 23 stili, tutte le parti, otto livelli di energia (`tests/sagga_theory_tests.c`, in 4/4 42
+milioni di controlli):
 
 * salendo di energia **nessun colpo si perde** (il rumble a parte, dove entra una cassa: sulla cassa non suona mai);
-* una nota che resta **tiene la sua altezza**: su quattro milioni ne cambiano tremila, e sono le note che chiudono un
+* una nota che resta **tiene la sua altezza**: su quattro milioni ne cambiano quattromila, e sono le note che chiudono un
   motivo (l'ultima cambia quando l'energia ne aggiunge una dopo);
-* una variazione dello 0 % non cambia niente; del 10, 25, 50, 75, 100 % cambia in media **3, 6, 12, 18, 22** step su
+* una variazione dello 0 % non cambia niente; del 10, 25, 50, 75, 100 % cambia in media **3, 7, 14, 19, 24** step su
   cento (gli altri sono pause in tutte e due, o colpi che ci sono "sempre");
 * quale **famiglia** segue una parte lo decide il seme, e nessuna variazione lo cambia.
 
@@ -1324,4 +1332,6 @@ I generi scritti a mano:
 * [Attack Magazine, Beat Dissected: Raw Drum & Bass](https://www.attackmagazine.com/technique/beat-dissected/raw-drum-bass/)
 * [MusicRadar, How to program 6 different jungle and drum 'n' bass grooves](https://www.musicradar.com/how-to/how-to-program-6-different-jungle-and-drum-n-bass-grooves)
 * [Sound On Sound, Dubstep Drums](https://www.soundonsound.com/techniques/dubstep-drums)
+* [MusicRadar, Beat Building: how to make a reggaeton beat](https://www.musicradar.com/news/beat-building-how-to-produce-a-reggaeton-beat)
+* [FACT, Balani Show: the electronic music taking over Mali's capital city](https://factmag.com/2015/10/28/balani-show)
 * La libreria di SAGGA SEQ: `tools/hub/patterns/`.

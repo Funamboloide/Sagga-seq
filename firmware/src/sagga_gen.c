@@ -1185,7 +1185,7 @@ static void harm_genre_set(uint8_t g)
     ui_dirty = grid_dirty = 1u;
 }
 
-/* 0.16 ARP 4 K2: FREE, then the 25 genres. FREE keeps the progression playing (its genre stays harm_genre, for what
+/* 0.16 ARP 4 K2: FREE, then the 22 genres (0.29; 25 before). FREE keeps the progression playing (its genre stays harm_genre, for what
  * reads it) and from then on no pattern loaded moves it; K2 on ARP 3 goes through every genre's eight (0.29) */
 static uint8_t harm_genre_pos(void) { return project.gen.harm_free ? 0u : (uint8_t)(project.gen.harm_genre + 1u); }
 static void harm_genre_turn(int32_t d)

@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.28.1"
+#define SQ_VERSION "0.29"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"

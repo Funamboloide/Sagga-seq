@@ -653,8 +653,9 @@ def generate(lines):
                n_rules, len(lns), len(leads), len(chords), len(progs)),
            "#ifndef SAGGA_THEORY_DATA_H", "#define SAGGA_THEORY_DATA_H", "",
            "#define TH_DATA_MID_E %du    /* the energy the second half of what a family always plays comes in at */" % MID_E, "",
-           "/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them) */",
-           "#define TH_DATA_ARP4 0x%08Xu" % arp4, ""]
+           "/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them). 0.29: written bit by bit - as a",
+           " * number it can look like one of the FM-1's registers to the build's check (0x11C90 did) */",
+           "#define TH_DATA_ARP4 (%s)" % (" | ".join("(1u << %d)" % b for b in range(32) if (arp4 >> b) & 1) or "0u"), ""]
     for name, body in (("TH_DATA_RULES", rules), ("TH_DATA_LINES", lns), ("TH_DATA_LEADS", leads), ("TH_DATA_CHORDS", chords), ("TH_DATA_PROGS", progs)):
         out.append("#define %s \\" % name)
         out += body

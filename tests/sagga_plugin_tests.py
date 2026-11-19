@@ -184,7 +184,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in MOD_CH12 and name == "sagga_mod")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -351,7 +351,7 @@ def bsp_tests():
           "SAGGA BeatStep: the 16 encoders are SAGGA Live's knobs (%s)" % [e for e in m.ENCODERS if knobs.get(e[0]) != e[1:]])
     bad = [a for a in m.ACTIONS if not ((a[1] == 11 and a[2] in CH12_CCS) or (a[1] == 13 and a[2] in CH14_CCS) or (a[1] == 12 and a[2] in CH13_CCS))]
     check(len(m.ACTIONS) == 16 and not bad, "SAGGA BeatStep: every action a command the FM-1 answers (%s)" % bad)
-    check(cls.VERSION == "0.28" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
+    check(cls.VERSION == "0.29" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
     p = cls()
     p.on_start()
     bsp_learn(p)

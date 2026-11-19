@@ -62,7 +62,7 @@ class SaggaBeatstep(PluginBase):
     NAME = "SAGGA BeatStep"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a BeatStep Pro's 16 encoders and 16 pads as SAGGA Live's knobs, the mutes or the actions"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.28"
+    VERSION = "0.29"
     HELP = """\
 An Arturia BeatStep Pro in CONTROL mode as SAGGA SEQ's knobs: wire the BeatStep Pro to IN, OUT to the FM-1 (its port 2
 with USB PORTS 2); SAVE K2 on the FM-1 = REMOTE 13 + 14.

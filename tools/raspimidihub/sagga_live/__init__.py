@@ -121,7 +121,7 @@ class SaggaLive(ControllerBase):
     NAME = "SAGGA Live"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): a track of the tablet's own - pattern, length, ARP, chord, MIDI FX, algorithm, euclid, cook, beat, the THEORY engines - and the 12 mutes"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.28"
+    VERSION = "0.29"
     HELP = """\
 TRACK picks the tablet's own track on the FM-1 (the FM-1 keeps its own: one hand there, one here); MODE is its mode.
 MUTE, SOLO, PATTERN (at the QUANTISE), LENGTH (at the bar), OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW (the

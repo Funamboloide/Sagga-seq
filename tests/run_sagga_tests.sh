@@ -25,7 +25,7 @@ step "compat 0.27" tail 2 sh tests/sagga_compat27.sh
 # that genre went
 step "compat 0.28" tail 2 sh tests/sagga_compat28.sh
 # 0.23: the THEORY engines (parts made from the rules of a genre, not loaded). First the rules counted from the library
-# (0.29: 18 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
+# (0.29: 16 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
 # makes of the library as it is now), then what the engines promise over many seeds in the 22 genres and FREE, then the
 # sheet of the rules written by hand (docs/TEORIA.md) against the tables it is written from
 step "theory counted" tail 1 python3 tools/theory/gen_rules.py --check

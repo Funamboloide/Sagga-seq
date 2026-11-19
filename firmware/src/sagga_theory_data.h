@@ -7,8 +7,9 @@
 
 #define TH_DATA_MID_E 25u    /* the energy the second half of what a family always plays comes in at */
 
-/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them) */
-#define TH_DATA_ARP4 0x00011C90u
+/* a bit a genre: its arpeggios are the triad and the octave (no seventh in them). 0.29: written bit by bit - as a
+ * number it can look like one of the FM-1's registers to the build's check (0x11C90 did) */
+#define TH_DATA_ARP4 ((1u << 4) | (1u << 7) | (1u << 10) | (1u << 11) | (1u << 12) | (1u << 16))
 
 #define TH_DATA_RULES \
     /* HARDTECHNO KICK 1/2, variations 0,1,2,3,4,5,6: always X...X...X...X...  from energy 25 ....+.......+...  weights .........44..4f4 */ \

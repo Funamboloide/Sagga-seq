@@ -15,12 +15,12 @@ cosa cambia) e `build/explore/rapporto.json`.
 ## Come lavora
 
 1. **Le situazioni.** Prepara la macchina in 29 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26): vuota ferma e in play, una band TECHNO in play, una HOUSE con
-   l'armonia su LOCK, una AMAPIANO ferma, una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
+   l'armonia su LOCK, una BALANI ferma (0.29; prima era AMAPIANO), una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
    tornano al hub sulla porta 2). 0.23: **cinque con i motori THEORY**: una band TECHNO; una REGGAETON
-   (regole contate) con GENRE LIVE; SOURCE FREE (nessun genere) con pattern di quattro battute, ferma; una AMAPIANO con il tablet e il
-   grid; una HOUSE sulle MOSSE, dove RISER, DROP e l'energia riempiono e svuotano quello che i motori hanno fatto.
+   (regole scritte a mano dalla 0.29) con GENRE LIVE; SOURCE FREE (nessun genere) con pattern di quattro battute, ferma; una GQOM
+   (0.29; prima era AMAPIANO) con il tablet e il grid; una HOUSE sulle MOSSE, dove RISER, DROP e l'energia riempiono e svuotano quello che i motori hanno fatto.
    0.24: **una con le lunghezze**: una band TECHNO con la traccia 1 da 32 step (la seconda battuta sono le copie del
    pattern) e la traccia 8 da 19 (tre copie: il polimetro), sulle MOSSE con le mosse **alla battuta**: così una mossa
    chiesta (LONGER e SHORTER comprese) è già successa quando la sonda guarda, due battute dopo. Nelle altre situazioni
