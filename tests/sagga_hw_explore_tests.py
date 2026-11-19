@@ -461,11 +461,19 @@ def rules_of_the_comparison():
     e2 = touched(lambda t: re.sub(r"msg=[^\n]*", "msg=SOMETHING ELSE", t), [km])
     check(not e and e2 and "G.msg" in e2[0][2], "a message gone on one side: timing; another message: an error (%s / %s)" % (e[:1], e2[:1]))
     # 0.13: a track's "ok" that one side could not ask ("-") at one probe: timing; from the middle to the end: an error
+    # ("vuoto, in play": a track is asked; 0.28: the first seed whose session asks a track to its last probe - with
+    # ENV's eight pages the catalog's gestures changed, and seed 5's session stopped the music half way)
+    for seed in range(5, 40):
+        sp = H.run_like_fm1(H.piano(2, 14, seed)["sessioni"][1], lcdcost=False)
+        idp = [i for i, _ in H.probe_events(sp)]
+        asked = {t: [i for i in idp if re.search(r"PROBE T%d [^\n]*? ok=[01]" % t, sp["fm1"]["sonde"][str(i)])] for t in range(1, 13)}
+        tk = max(asked, key=lambda t: len(asked[t]))
+        has_ok = asked[tk]
+        if len(has_ok) >= 6 and has_ok[-1] == idp[-1]:
+            break
+
     def ok_dash(t):
-        return re.sub(r"(PROBE T3 [^\n]*? ok=)[01]", lambda m: m.group(1) + "-", t)
-    sp = H.run_like_fm1(H.piano(2, 14, 5)["sessioni"][1], lcdcost=False)          # ("vuoto, in play": a track is asked)
-    idp = [i for i, _ in H.probe_events(sp)]
-    has_ok = [i for i in idp if re.search(r"PROBE T3 [^\n]*? ok=[01]", sp["fm1"]["sonde"][str(i)])]
+        return re.sub(r"(PROBE T%d [^\n]*? ok=)[01]" % tk, lambda m: m.group(1) + "-", t)
     ko = has_ok[len(has_ok) // 2] if has_ok else idp[0]
 
     def touched_play(fn, keys):
@@ -475,7 +483,7 @@ def rules_of_the_comparison():
         return errs(H.compare(s)[0])
     e = touched_play(ok_dash, [ko])
     e2 = touched_play(ok_dash, [i for i in has_ok if i >= ko])
-    check(has_ok and not e and e2 and "T3.ok" in e2[0][2], "T3 ok '-' at one probe: timing; to the end: an error (%s / %s)" % (e[:1], e2[:1]))
+    check(len(has_ok) > 2 and not e and e2 and "T%d.ok" % tk in e2[0][2], "T%d ok '-' at one probe: timing; to the end: an error (%s / %s)" % (tk, e[:1], e2[:1]))
     # 0.13: the FM-1's boot message still on at the first probe (PC TEST ...): not COSTRUZIONE, and G.msg still compared
     i0 = idx[0]
     s1 = copy.deepcopy(s0)

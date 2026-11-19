@@ -35,8 +35,8 @@ has no room for.
 * **Eight CC lanes** a track (six until 0.27): the ENV pages go `LANE 1/8` .. `LANE 8/8`; in a new project lane 7 is
   CC 73 (attack) and lane 8 CC 72 (release). The grid's CC view (pads 1-8), the CC learn (a ninth CC: `NO FREE LANE`),
   the scenes and the snapshots keep all eight. The remote's lane knobs (channel 13 CC 101-106) stay on lanes 1-6.
-* **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO, a
-  MOD or a TRIG aimed at one of them stops; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
+* **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO or a
+  MOD aimed at one of them stops, an LFO's TRIG from one of them goes back to CLOCK; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
   for the notes 5-6 and the lanes 7-8: a 0.27 opens it, without them. A MIDI file read into a project on the Pi:
   channels 1-12 become tracks 1-12, channels 13-16 are left out (`sagga_sgqmid` says how many notes).
 * **The memory**: a project is 15 KB smaller (163 KB in RAM; a step is 22 bytes, a track's settings 104).

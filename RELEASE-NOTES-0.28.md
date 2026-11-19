@@ -57,7 +57,8 @@ lane).
 ## 4. I progetti
 
 * **I progetti di prima si aprono**, con le loro prime dodici tracce. Le tracce 13-16 restano fuori (mi avevi detto
-  che non ne hai). Un LFO, un MOD o un TRIG che puntava su una di quelle si ferma.
+  che non ne hai). Un LFO o un MOD che puntava su una di quelle si ferma; un LFO che ripartiva con una di quelle (TRIG)
+  torna sul CLOCK.
 * **Tornare alla 0.27** si può: la 0.27 apre i progetti della 0.28, ma senza le note 5-6 e le lane 7-8.
 * Un **file MIDI** caricato sul Pi: i canali 1-12 diventano le tracce 1-12; le note dei canali 13-16 restano fuori.
 
@@ -70,7 +71,7 @@ lane).
 | 10 errori messi apposta nelle parti nuove, uno alla volta | le prove li trovano tutti e 10 |
 | il cuore del sequencer | 30.968.676 controlli, 0 errori |
 | i motori THEORY | 215.628.289 controlli, 0 errori |
-| il simulatore (il firmware vero che gira sul computer) | XXX_SIM controlli, 0 errori |
+| il simulatore (il firmware vero che gira sul computer) | 1.531 controlli, 0 errori (anche con i rilevatori degli errori di memoria accesi) |
 | l'esploratore: ogni gesto del pannello, in 30 situazioni (una nuova: la traccia 12, sei note, le lane 7 e 8) | 102.073 gesti da soli, 11.995 coppie di gesti, 200 sessioni a caso: 0 errori (al primo giro una coppia segnata: il genere delle MOSSE che arriva prima perché ALG porta le mosse alla battuta; è il firmware come deve essere) |
 | l'editor del Pi | 265 controlli, 0 errori |
 | il bridge del grid, la pagina del Pi, le pagine SAGGA | 325 + 176 + 83 controlli, 0 errori |
@@ -95,7 +96,7 @@ Sullo schermo, dopo l'aggiornamento: `SAGGA SEQ 0.28` per tre secondi.
 2. **Le lane 7 e 8**: ENV, OCT+ fino a `LANE 7/8`, gira K1 sul passo: sul synth si muove il CC 73 (l'attacco), su quel
    passo.
 3. **La banca 9-12**: nero 9 (l'altra banca), poi i neri 1-4: le tracce 9-12.
-4. **Un progetto vecchio**: caricalo (SAVE + PRESETS, lo slot) e guarda che le prime dodici tracce siano come prima.
+4. **Un progetto vecchio**: caricalo dal suo slot e guarda che le prime dodici tracce siano come prima.
 
 ## Da sapere
 
