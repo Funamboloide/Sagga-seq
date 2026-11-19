@@ -19,7 +19,8 @@ import sys
 
 D = {}
 SC = dict(CHROMATIC=0, MAJOR=1, MINOR=2, DORIAN=3, PHRYGIAN=4, LYDIAN=5, MIXOLYDIAN=6, LOCRIAN=7, HARM_MINOR=8,
-          MEL_MINOR=9, PENT_MAJOR=10, PENT_MINOR=11, BLUES=12, WHOLE=13, PHRYG_DOM=14, HIRAJOSHI=15)
+          MEL_MINOR=9, PENT_MAJOR=10, PENT_MINOR=11, BLUES=12, WHOLE=13, PHRYG_DOM=14, HIRAJOSHI=15,
+          HUNG_MINOR=16, DBL_HARM=17, LYD_DOM=18, MAJ_BLUES=19, IN_SEN=20)   # (0.29: five more)
 
 
 def g(name, kick, snare, hat, perc, bass, chord, arp, kit, swing, bpm, scales, chord_size):

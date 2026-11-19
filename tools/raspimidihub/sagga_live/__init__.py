@@ -27,15 +27,18 @@ TRACK_LABELS = ["T%d" % (i + 1) for i in range(TRACKS)]
 MODE_LABELS = ["FREE", "IN KEY", "DRUM", "TAPE", "BREAK"]
 PATTERN_LABELS = ["P%d" % (i + 1) for i in range(8)]
 OCT_LABELS = ["-3", "-2", "-1", "0", "+1", "+2", "+3"]
-GROOVE_LABELS = ["OFF", "HOUSE", "GARAGE", "DILLA", "AFRO", "SAMBA", "LAID BACK", "PUSH", "HUMAN", "TRAP"]
+GROOVE_LABELS = ["OFF", "HOUSE", "GARAGE", "DILLA", "AFRO", "SAMBA", "LAID BACK", "PUSH", "HUMAN", "TRAP",
+                 "MALI", "DEMBOW", "BROKEN"]                         # 0.29: three more
 ARP_LABELS = ["BLOCK", "UP", "DOWN", "UP-DN", "DN-UP", "UP&DN", "CONV", "DIV", "RND", "WALK", "PLAYED", "THUMB", "PINKY"]
 ARP_OCT_LABELS = ["", "X1", "X2", "X3"]
 RATE_LABELS = ["1/4", "1/2", "ROLL", "1", "2", "3", "4"]       # the FM-1's knob order: a note every 4 / 2 steps .. 4 a step
 RUN_LABELS = ["OFF", "RETRIG", "HOLD", "HOLD+RT"]
 CHORD_LABELS = ["OFF", "OCTAVE", "POWER", "5-8", "MAJOR", "MINOR", "DIM", "AUG", "SUS2", "SUS4",
                 "MAJ6", "MIN6", "DOM7", "MIN7", "MAJ7", "MINMAJ7", "DIM7", "M7B5", "7SUS4", "ADD9", "MINADD9", "DOM9", "MIN9", "MAJ9",
-                "9SUS4", "6/9", "MIN6/9", "MIN11", "DOM13", "SHELL7", "MINSHELL", "1-3-5-8"]
-MFX_LABELS = ["OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH"]   # 0.20: nine
+                "9SUS4", "6/9", "MIN6/9", "MIN11", "DOM13", "SHELL7", "MINSHELL", "1-3-5-8",
+                "7#9", "7B9", "MAJ7#11", "QUARTAL"]                  # 0.29: four more
+MFX_LABELS = ["OFF", "HARM", "OCTAVE", "ECHO", "VEL CURVE", "CHANCE", "RANDOM", "NOTE FILTER", "GATE", "GLITCH",
+              "ROLL", "ACCENT"]                                      # 0.20: nine; 0.29: eleven
 MFX_AMT_LABELS = ["%+d" % (i - 12) if i != 12 else "0" for i in range(25)]
 ALGO_LABELS = ["OFF", "TURING", "CELL", "ACCENT", "DENSITY"]
 SEED_LABELS = ["%d" % (i + 1) for i in range(128)]             # 0.23: the FM-1 counts its seeds from 1
@@ -66,7 +69,7 @@ CELLS = [
     tap("retrig", "RETRIG", 30, 4, 2, "blue"),
 
     knob("swing", "SWING", 6, 1, 3, 50, 75, 50),
-    knob("groove", "GROOVE", 7, 2, 3, 0, 9, 0, GROOVE_LABELS),
+    knob("groove", "GROOVE", 7, 2, 3, 0, len(GROOVE_LABELS) - 1, 0, GROOVE_LABELS),
     knob("groove_amt", "GROOVE AMT", 8, 3, 3, 0, 100, 100),
     switch("follow", "FOLLOW", 25, 4, 3, "blue"),
 
@@ -75,8 +78,8 @@ CELLS = [
     knob("arp_rate", "RATE", 22, 3, 4, 0, 6, 3, RATE_LABELS),
     knob("arp_run", "RUN", 23, 4, 4, 0, 3, 0, RUN_LABELS),
 
-    knob("chord", "CHORD", 24, 1, 5, 0, 31, 0, CHORD_LABELS),
-    knob("mfx", "MIDI FX", 9, 2, 5, 0, 9, 0, MFX_LABELS),
+    knob("chord", "CHORD", 24, 1, 5, 0, len(CHORD_LABELS) - 1, 0, CHORD_LABELS),
+    knob("mfx", "MIDI FX", 9, 2, 5, 0, len(MFX_LABELS) - 1, 0, MFX_LABELS),
     knob("mfx_amt", "FX AMOUNT", 10, 3, 5, 0, 24, 12, MFX_AMT_LABELS),
     tap("mfx_go", "FX GO", 11, 4, 5, "yellow"),
 

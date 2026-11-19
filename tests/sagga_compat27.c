@@ -74,12 +74,54 @@ static void fill(sq_project_t *p, uint32_t seed)
 /* 0.29: a genre as it comes back from a firmware of 0.28 or before (its own numbers, no chunk 5): BALANI as GQOM */
 static uint8_t via_old(uint8_t g) { return sq_genre_from28(sq_genre_to28(g), 0u); }
 /* what 0.27 keeps: the notes 5-6 and the lanes 7-8 gone, their settings the defaults; 0.29: BALANI is GQOM */
+
+#ifndef OLD27
+/* 0.29: what 0.28 keeps of what 0.29 added - two MIDI effects (0.28's block holds the nine: ROLL off, ACCENT's values the
+ * defaults, the two where the default order has them), five scales (CHROMATIC), three grooves (OFF), four chord shapes
+ * (OFF; in a progression the key's triad) */
+static void mfxd_via28(sq_mfxd_t *d)
+{
+    sq_mfxd_t x;
+    uint32_t k, n = 0u;
+    uint8_t o9[9];
+    for (k = 0; k < SQ_MFX_ALLN && n < 9u; k++) if (d->order[k] < SQ_MFXS_020) o9[n++] = d->order[k];
+    sq_mfxd_default(&x);
+    x.on = (uint8_t)(d->on & 0x1Fu);
+    for (k = 0, n = 0u; k < 9u; k++) {
+        if (o9[k] == SQ_MFX_ECHO) x.order[n++] = SQ_MFX_ROLL;
+        x.order[n++] = o9[k];
+        if (o9[k] == SQ_MFX_VELOCITY) x.order[n++] = SQ_MFX_ACCENT;
+    }
+    for (k = 0; k < 5u; k++) { x.amt[k] = d->amt[k]; x.time[k] = d->time[k]; x.fb[k] = d->fb[k]; }
+    sq_mfxd_sanitize(&x);
+    *d = x;
+}
+static void more_via28(sq_project_t *p)
+{
+    uint32_t t, k, s;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        mfxd_via28(&p->ext.mfxd[t]);
+        if (p->ext.track[t].groove >= SQ_GROOVES28) p->ext.track[t].groove = SQ_GROOVE_OFF;
+        if (p->track[t].chord >= SQ_CH_COUNT28) p->track[t].chord = SQ_CH_OFF;
+    }
+    if (p->key_scale >= SQ_SCALES28) p->key_scale = SQ_SC_CHROMATIC;
+    for (k = 0; k < sizeof p->key / sizeof p->key[0]; k++) if (p->key[k].scale >= SQ_SCALES28) p->key[k].scale = SQ_SC_CHROMATIC;
+    for (k = 0; k < SQ_UPROG_SLOTS; k++) for (s = 0; s < SQ_HPROG_CH; s++) if (p->uprog[k].shape[s] >= SQ_HSHAPE_CH + SQ_CH_COUNT28) p->uprog[k].shape[s] = SQ_HC_TRIAD;
+    for (s = 0; s < SQ_SNAPS; s++) {
+        if (!p->snap[s].used) continue;
+        if (p->snap[s].key_scale >= SQ_SCALES28) p->snap[s].key_scale = SQ_SC_CHROMATIC;
+        for (t = 0; t < SQ_TRACKS; t++) if (p->snap[s].track[t].chord >= SQ_CH_COUNT28) p->snap[s].track[t].chord = SQ_CH_OFF;
+    }
+}
+#endif
+
 static void strip(sq_project_t *p)
 {
     uint32_t t, pat, i, k, s;
     sq_track_cfg_t d;
     p->gen.genre = via_old(p->gen.genre); p->gen.harm_genre = via_old(p->gen.harm_genre); p->viaggio.set_genre = via_old(p->viaggio.set_genre);
     p->gen.harm_prog = sq_prog_from28(sq_prog_to28(p->gen.harm_prog));      /* (0.29: a genre's 7th and 8th progression: 0.27 has six) */
+    more_via28(p);
     for (t = 0; t < SQ_TRACKS; t++) {
         p->track[t].src_genre = via_old(p->track[t].src_genre);
         for (pat = 0; pat < SQ_PATTERNS; pat++) {

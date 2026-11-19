@@ -244,7 +244,11 @@ uint8_t sq_role_melodic(uint8_t role);  /* 0.11: 1 for the families BASS, CHORD,
 enum { SQ_CH_OFF = 0, SQ_CH_OCT, SQ_CH_POWER, SQ_CH_5_8, SQ_CH_MAJ, SQ_CH_MIN, SQ_CH_DIM, SQ_CH_AUG, SQ_CH_SUS2, SQ_CH_SUS4,
        SQ_CH_MAJ6, SQ_CH_MIN6, SQ_CH_7, SQ_CH_MIN7, SQ_CH_MAJ7, SQ_CH_MINMAJ7, SQ_CH_DIM7, SQ_CH_M7B5, SQ_CH_7SUS4,
        SQ_CH_ADD9, SQ_CH_MADD9, SQ_CH_9, SQ_CH_MIN9, SQ_CH_MAJ9, SQ_CH_9SUS4, SQ_CH_69, SQ_CH_MIN69, SQ_CH_MIN11,
-       SQ_CH_13, SQ_CH_SHELL7, SQ_CH_MSHELL, SQ_CH_1358, SQ_CH_COUNT };
+       SQ_CH_13, SQ_CH_SHELL7, SQ_CH_MSHELL, SQ_CH_1358,
+       /* 0.29: 7#9 (funk) 7b9 (drill and phonk) maj7#11 (deep) in fourths */
+       SQ_CH_7S9, SQ_CH_7B9, SQ_CH_MAJ7S11, SQ_CH_QUARTAL,
+       SQ_CH_COUNT };
+#define SQ_CH_COUNT28 32u        /* (0.28's: a 0.28 opens one of the four new ones as OFF) */
 /* the shapes 0.10's first cut had, for the tests and the tools that named them */
 #define SQ_CH_TRIAD SQ_CH_MAJ
 #define SQ_CH_6     SQ_CH_MAJ6
@@ -359,7 +363,11 @@ enum { SQ_MFX_OFF = 0, SQ_MFX_HARM, SQ_MFX_OCTAVE, SQ_MFX_ECHO, SQ_MFX_VELOCITY,
        SQ_MFX_FILTER,                 /* NOTE FILTER: only the notes between two, or one of every N */
        SQ_MFX_GATE,                   /* the length: times a factor, or a fixed one, a little at random */
        SQ_MFX_GLITCH,                 /* now and then a step stutters, rises, jumps an octave or is cut short */
+       SQ_MFXS_020,                   /* (0.20 - 0.28 know up to here: the image's own block holds these, 0.29's chunk 5 the rest) */
+       SQ_MFX_ROLL = SQ_MFXS_020,     /* 0.29: each note a roll - 2..6 in its step, level, rising or falling (the trap hats) */
+       SQ_MFX_ACCENT,                 /* 0.29: an accent every 2..8 steps, from a step of its own: three over four */
        SQ_MFXS };
+enum { SQ_ROLL_FLAT = 0, SQ_ROLL_UP, SQ_ROLL_DOWN, SQ_ROLLS };   /* ROLL K3: the hits' velocity */
 #define SQ_GATE_FACTORS 7u       /* GATE K2 -3..+3: x1/4 x1/2 x3/4 x1 x3/2 x2 x4 */
 #define SQ_GATE_FIXED 8u         /* GATE K3: OFF, 1/32 1/16 1/8 1/4 1/2 1 BAR 2 BARS */
 enum { SQ_GL_MIX = 0, SQ_GL_STUTTER, SQ_GL_RISE, SQ_GL_JUMP, SQ_GL_CUT, SQ_GLITCHES };   /* GLITCH K3 */
@@ -450,7 +458,12 @@ typedef struct __attribute__((packed)) {
 /* 0.15 GROOVE: a template a track plays its steps with - each 16th of the bar a little early or late (% of a step, on
  * top of the step's nudge and the swing) and louder or softer; the amount scales both */
 enum { SQ_GROOVE_OFF = 0, SQ_GROOVE_HOUSE, SQ_GROOVE_GARAGE, SQ_GROOVE_DILLA, SQ_GROOVE_AFRO, SQ_GROOVE_SAMBA,
-       SQ_GROOVE_LAIDBACK, SQ_GROOVE_PUSH, SQ_GROOVE_HUMAN, SQ_GROOVE_TRAP, SQ_GROOVES };
+       SQ_GROOVE_LAIDBACK, SQ_GROOVE_PUSH, SQ_GROOVE_HUMAN, SQ_GROOVE_TRAP,
+       SQ_GROOVE_MALI,           /* 0.29: the djembe's 16ths, leaning towards three a beat (balani) */
+       SQ_GROOVE_DEMBOW,         /* ... reggaeton's: the snare's two on the 'a' late and loud */
+       SQ_GROOVE_BROKEN,         /* ... broken beat: the 'e' early, the 'a' late, uneven */
+       SQ_GROOVES };
+#define SQ_GROOVES28 10u         /* (0.28's: a 0.28 opens one of the three new ones as OFF) */
 const char *sq_groove_name(uint8_t g);
 int32_t sq_groove_time(uint8_t g, uint8_t amt, uint32_t step);   /* % of a step, - early */
 int32_t sq_groove_vel(uint8_t g, uint8_t amt, uint32_t step);    /* velocity, +/- */
@@ -494,16 +507,18 @@ void sq_mfx_mirror(const sq_mfxc_t *m, sq_track_cfg_t *c);       /* the track's 
 void sq_mfx_from_track(const sq_track_cfg_t *c, sq_mfxc_t *m);   /* a 0.18 track's one effect, as a chain */
 /* 0.20: the five new effects of a track, and the ORDER all nine play in (the player's: SEL + K1 in HOME 6). A 0.19
  * image has none: the defaults, and the order keeps 0.19's VEL CURVE, OCTAVE, HARM, ECHO with the new ones around it */
-#define SQ_MFX_NEW (SQ_MFXS - SQ_MFXS_019)   /* 5: effect x at [x - SQ_MFXS_019] */
-#define SQ_MFX_ALLN (SQ_MFXS - 1u)           /* 9 */
+#define SQ_MFX_NEW (SQ_MFXS - SQ_MFXS_019)   /* 7 (0.20 - 0.28: 5): effect x at [x - SQ_MFXS_019] */
+#define SQ_MFX_ALLN (SQ_MFXS - 1u)           /* 11 (0.20 - 0.28: 9) */
+#define SQ_MFX_NEW28 (SQ_MFXS_020 - SQ_MFXS_019)   /* 5: 0.28's */
+#define SQ_MFX_ALLN28 (SQ_MFXS_020 - 1u)           /* 9 */
 typedef struct __attribute__((packed)) {
     uint8_t on;                  /* bit (1 << (fx - SQ_MFXS_019)): that effect plays */
-    uint8_t order[SQ_MFX_ALLN];  /* the nine effects in the order they play, each once */
+    uint8_t order[SQ_MFX_ALLN];  /* the effects in the order they play, each once (0.29: eleven) */
     int8_t amt[SQ_MFX_NEW];      /* K2 of each new effect */
     uint8_t time[SQ_MFX_NEW];    /* K3 */
     uint8_t fb[SQ_MFX_NEW];      /* K4 */
-} sq_mfxd_t;                     /* 25 bytes */
-extern const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN];   /* FILTER CHANCE VEL RANDOM OCTAVE HARM GATE GLITCH ECHO */
+} sq_mfxd_t;                     /* 33 bytes (0.20 - 0.28: 25, the image's block: sq27_mfxd_t) */
+extern const uint8_t SQ_MFX_ORDER_DEF[SQ_MFX_ALLN];   /* FILTER CHANCE VEL ACCENT RANDOM OCTAVE HARM GATE GLITCH ROLL ECHO */
 void sq_mfxd_default(sq_mfxd_t *d);
 void sq_mfxd_sanitize(sq_mfxd_t *d);
 /* any effect of track t, old or new: on, its values (clamped to the effect's range), the count that plays */
@@ -1279,10 +1294,16 @@ int16_t sq_lfo_offset(const sq_lfo_t *l, uint8_t index, uint32_t tick, uint16_t 
 /* ---- scales and modes: the key of the project. The notes of the tracks with SQ_TF_SCALE are moved by key_shift and
  * then to the nearest note of the key (a tie goes down) when they are played, so a change of root, scale or shift
  * applies at once to every pattern, chord and arpeggio, and changing back brings the written notes back. */
-#define SQ_SCALES 16u
+#define SQ_SCALES 21u             /* 0.29: 21 (0.28: 16 - a 0.28 opens one of the five new ones as CHROMATIC) */
+#define SQ_SCALES28 16u
 enum { SQ_SC_CHROMATIC = 0, SQ_SC_MAJOR, SQ_SC_MINOR, SQ_SC_DORIAN, SQ_SC_PHRYGIAN, SQ_SC_LYDIAN, SQ_SC_MIXOLYDIAN,
        SQ_SC_LOCRIAN, SQ_SC_HARM_MINOR, SQ_SC_MEL_MINOR, SQ_SC_PENT_MAJOR, SQ_SC_PENT_MINOR, SQ_SC_BLUES, SQ_SC_WHOLE,
-       SQ_SC_PHRYG_DOM, SQ_SC_HIRAJOSHI };
+       SQ_SC_PHRYG_DOM, SQ_SC_HIRAJOSHI,
+       SQ_SC_HUNG_MINOR,         /* 0.29: HUNGARIAN MINOR (the harmonic minor with a raised 4th: drill, phonk) */
+       SQ_SC_DBL_HARM,           /* ... DOUBLE HARMONIC (the flat 2nd and the major 3rd, two augmented seconds) */
+       SQ_SC_LYD_DOM,            /* ... LYDIAN DOMINANT (the raised 4th and the flat 7th: funk, jazz) */
+       SQ_SC_MAJ_BLUES,          /* ... MAJOR BLUES (the major pentatonic with the minor 3rd) */
+       SQ_SC_IN_SEN };           /* ... IN SEN (Japanese: 1 b2 4 5 b7) */
 uint16_t sq_scale_mask(uint8_t scale);             /* bit i: the note i semitones above the root belongs to the scale */
 const char *sq_scale_name(uint8_t scale);          /* at most 7 characters: "DORIAN" */
 const char *sq_scale_long_name(uint8_t scale);     /* "HARMONIC MINOR" */
@@ -1318,7 +1339,7 @@ void sq_harm_chord_name(uint8_t scale, int8_t deg, uint8_t color, char *out);   
  * made from the library's or the player's by the HARMONY's RHYTHM: BARS (a chord every so many bars, 0.10), the
  * genre's own, a push of a 16th or an 8th, 3+3+2 (6, 6, 4 16ths), two a bar, 3+5, 3+1, a chord every two bars. */
 #define SQ_HSHAPE_CH 5u          /* shape > 5: the chord shape SQ_CH_* (shape - 5) */
-#define SQ_HSHAPES (SQ_HSHAPE_CH + SQ_CH_COUNT)   /* 0..5 the key's chord + colour, 6..37 the 32 shapes */
+#define SQ_HSHAPES (SQ_HSHAPE_CH + SQ_CH_COUNT)   /* 0..5 the key's chord + colour, 6.. the shapes (0.29: 36, to 40) */
 typedef struct { int8_t deg; uint8_t col, semi, shape; } sq_hchord_t;
 #define SQ_HPROG_CH 8u            /* chords in a progression */
 #define SQ_HPROG_MAX 24u          /* entries of its row: a rhythm of 2 or 3 lengths is laid over the chords round after

@@ -26,8 +26,8 @@ CH12, CH13, CH14 = 11, 12, 13          # MIDI channels 12, 13, 14 (0-based)
 # checks they are the same)
 ENCODERS = [
     ("TRACK", CH13, 112, 0, 11), ("PATTERN", CH12, 3, 0, 7), ("LENGTH", CH12, 4, 1, 64), ("OCTAVE", CH12, 5, 0, 6),
-    ("SWING", CH12, 6, 50, 75), ("GROOVE", CH12, 7, 0, 9), ("ARP", CH12, 20, 0, 12), ("CHORD", CH12, 24, 0, 31),
-    ("MIDI FX", CH12, 9, 0, 9), ("FX AMOUNT", CH12, 10, 0, 24), ("ALGO", CH12, 12, 0, 4), ("A", CH12, 13, 0, 127),
+    ("SWING", CH12, 6, 50, 75), ("GROOVE", CH12, 7, 0, 12), ("ARP", CH12, 20, 0, 12), ("CHORD", CH12, 24, 0, 35),
+    ("MIDI FX", CH12, 9, 0, 11), ("FX AMOUNT", CH12, 10, 0, 24), ("ALGO", CH12, 12, 0, 4), ("A", CH12, 13, 0, 127),   # (0.29: 13 grooves, 36 shapes, 11 effects)
     ("B", CH12, 14, 0, 127), ("C", CH12, 15, 0, 127), ("PULSES", CH12, 17, 1, 64), ("ROTATION", CH12, 18, 0, 63),
 ]
 # the pads as ACTIONS: (label, channel, CC, kind) - "tap": 127 then 0 (the FM-1 acts on the press); "hold": 127 while

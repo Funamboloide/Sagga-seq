@@ -407,6 +407,12 @@ static void ui_build(void)
                                   l4 = "HUMAN"; v4 = f_pre("+-", mv->mfx_fb); break;
             case SQ_MFX_GLITCH:   l2 = "HOW OFTEN"; v2 = f_pct((uint32_t)mv->mfx_amt); l3 = "KIND"; v3 = GL[mv->mfx_time < SQ_GLITCHES ? mv->mfx_time : 0u];
                                   l4 = "PIECES"; v4 = f_u(mv->mfx_fb); break;
+            case SQ_MFX_ROLL: {   /* 0.29 */
+                static const char *const RL[SQ_ROLLS] = {"LEVEL", "RISING", "FALLING"};
+                l2 = "HITS"; v2 = f_u((uint32_t)mv->mfx_amt); l3 = "VELOCITY"; v3 = RL[mv->mfx_time < SQ_ROLLS ? mv->mfx_time : 0u];
+                l4 = "HOW OFTEN"; v4 = f_pct(mv->mfx_fb); break;
+            }
+            case SQ_MFX_ACCENT:   l2 = "ACCENT"; v2 = f_i(mv->mfx_amt); l3 = "EVERY"; v3 = f_u(mv->mfx_time); l4 = "FROM STEP"; v4 = f_u((uint32_t)mv->mfx_fb + 1u); break;   /* 0.29 */
             default: break;
             }
             ui_cell(1, l2, v2, l2[0] != '-' ? on : SQ_C_DIM);

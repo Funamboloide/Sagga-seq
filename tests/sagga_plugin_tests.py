@@ -292,7 +292,12 @@ def structural():
     check(m.ARP_LABELS == re.findall(r'"([^"]+)"', src[i:src.index("};", i)]), "SAGGA Live: ARP names as the FM-1's")
     core = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.c")).read()
     i = core.index("const char *sq_chord_shape_name")
-    check(m.CHORD_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]) and d["chord"].max == 31, "SAGGA Live: the 32 CHORD shapes as the FM-1's")
+    check(m.CHORD_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]) and d["chord"].max == 35, "SAGGA Live: the 36 CHORD shapes as the FM-1's (0.29: four more)")
+    gsrc = core[core.index("GROOVE_NAME[SQ_GROOVES] = {"):]
+    check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', gsrc[:gsrc.index("};")]) and d["groove"].max == 12, "SAGGA Live: the 13 GROOVEs as the FM-1's (0.29: MALI, DEMBOW, BROKEN)")
+    dsrc = open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()
+    msrc = dsrc[dsrc.index("MFX_NAME[SQ_MFXS] = {"):]
+    check(m.MFX_LABELS == re.findall(r'"([^"]+)"', msrc[:msrc.index("};")]) and d["mfx"].max == 11, "SAGGA Live: the 11 MIDI FX as the FM-1's (0.29: ROLL, ACCENT)")
     i = core.index("GROOVE_NAME[SQ_GROOVES]")
     check(m.GROOVE_LABELS == re.findall(r'"([^"]+)"', core[i:core.index("};", i)]), "SAGGA Live: GROOVE names as the FM-1's")
     check(m.RATE_LABELS == ["1/4", "1/2", "ROLL", "1", "2", "3", "4"] and d["arp_rate"].max == 6, "SAGGA Live: RATE in the FM-1's knob order")
@@ -357,7 +362,7 @@ def bsp_tests():
     p.on_cc(0, 10, 127); p.on_cc(0, 11, 0); p.on_cc(0, 11, 1); p.on_cc(0, 18, 64)
     p.on_note_on(9, 40, 100); p.on_note_off(9, 40)
     p.on_note_on(9, 47, 100); p.on_note_off(9, 47); p.on_note_on(9, 48, 100); p.on_note_off(9, 48)
-    check(p.ccs == [(12, 112, 11), (11, 3, 0), (11, 9, 5), (13, 52, 127), (13, 52, 0), (13, 59, 127), (13, 59, 0)],
+    check(p.ccs == [(12, 112, 11), (11, 3, 0), (11, 9, 6), (13, 52, 127), (13, 52, 0), (13, 59, 127), (13, 59, 0)],   # (0.29: eleven effects)
           "SAGGA BeatStep: TRACK 12 (0.28: the last), PATTERN 1 (once), MIDI FX halfway, pad 5 = MUTE 5, pad 12 = MUTE 12, pad 13 nothing (%s)" % p.ccs)
     p.set_param("pads", "ACTIONS"); p.set_param("encoders", "RELATIVE")
     p.ccs = []

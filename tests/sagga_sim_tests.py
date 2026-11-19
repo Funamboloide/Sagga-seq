@@ -8000,6 +8000,7 @@ def t019_mfx_chain():
 
 # ------------------------------------------------------------------------------------------------ 0.20
 FX_CHANCE, FX_RANDOM, FX_FILTER, FX_GATE, FX_GLITCH = 5, 6, 7, 8, 9
+FX_ROLL, FX_ACCENT = 10, 11                                # 0.29
 
 
 def mfx_steps(log, p, ch=0):
@@ -8110,7 +8111,7 @@ def t020_new_fx():
     log = run(s, 400, flash=flash)
     m = log.mfxd[-1] if log.mfxd else {}
     check(m.get("on") == 1 << (FX_RANDOM - 5) and m.get("amt", [0] * 5)[1] == 4 and m.get("fb", [0] * 5)[1] == 60 and
-          m.get("order", [])[:6] == [7, 5, 4, 2, 1, 6] and log.mfxc[-1]["sel"] == FX_RANDOM,
+          m.get("order", [])[:7] == [7, 5, 4, 11, 2, 1, 6] and log.mfxc[-1]["sel"] == FX_RANDOM,   # (0.29: ACCENT after VEL CURVE)
           "after a power cycle: RANDOM +-4 at 60 %%, two places later; K1 shows it (%s)" % m)
     # the tablet: MIDI FX CHANCE, FX AMOUNT 12 of 24 = 50 %%, FX GO
     s = Script()
@@ -8131,6 +8132,80 @@ def t020_new_fx():
     s.at(t + 580, "ctl", GC_SHIFT, 0); s.at(t + 640, "dump", 0)
     log = run(s, t + 800)
     check(log.mfxd[-1]["on"] == 1 << (FX_GLITCH - 5), "the grid: SHIFT + pad 6 twice: GLITCH plays (%s)" % log.mfxd[-1])
+
+
+def t029_more():
+    group("0.29 two MIDI FX more - ROLL (each note 2..6 hits in its step, level, rising or falling) and ACCENT (an accent every 2..8 "
+          "steps: three over four) -, kept by a save; the grid's SHIFT + pads 7 and 8; the five new scales (the grid: SHIFT + row 2)")
+    # ROLL: three a step, level; the step's note three times, a third of a step apart
+    s = Script()
+    t = s.steps(100, (0, 4))
+    t = home_page(s, t, 5, [(K1, FX_ROLL)])                            # ROLL READY: 3, LEVEL, always
+    t = seq_page(s, t, 0, keys=[wk(5)]); s.at(t, "dump", 0)
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(8 * STEP_MS) - 20)
+    n = mfx_steps(log, p)
+    check(states(log)[-1]["msg"] == "T1 MIDI FX ROLL STARTS" and log.mfxd[-1]["on"] == 1 << (FX_ROLL - 5),
+          "ROLL in the chain (%r %s)" % (states(log)[-1]["msg"], log.mfxd[-1:]))
+    check([x[0] for x in n] == [0, 0.25, 0.75, 4, 4.25, 4.75] and len({x[2] for x in n}) == 1,
+          "ROLL 3: each note three times in its step, at one velocity (%s)" % n)
+    # ... five hits, rising: louder and louder up to the note's own
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, FX_ROLL), (K2, 2), (K3, 1)])          # 5, RISING
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(STEP_MS) - 5)
+    on = [(tm, d2) for tm, st, d1, d2 in log.msgs if st == 0x90 and d2 and tm >= p]
+    v = [d2 for _, d2 in on]
+    check(len(on) == 5 and v == sorted(v) and v[0] < v[-1] and v[-1] <= 100, "ROLL 5 RISING: five hits in the step, louder each time (%s)" % v)
+    # ACCENT every 3 from the 1st: of eight steps of velocity 100, 1, 4, 7 at 127 (100 + 30)
+    s = Script()
+    t = s.steps(100, tuple(range(8)))
+    t = home_page(s, t, 5, [(K1, FX_ACCENT)])                          # ACCENT READY: +30, every 3, from step 1
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    p = t + 100
+    s.tap_btn(p, PLAY)
+    log = run(s, p + int(8 * STEP_MS) - 20)
+    n = mfx_steps(log, p)
+    loud = [int(x[0]) for x in n if x[2] > 100]
+    check(len(n) == 8 and loud == [0, 3, 6] and all(x[2] in (100, 127) for x in n), "ACCENT every 3: steps 1, 4, 7 loud (%s)" % [(x[0], x[2]) for x in n])
+    # a power cycle keeps ROLL and its values (chunk 5: the image's own block holds 0.28's nine)
+    d = tempfile.mkdtemp(); flash = os.path.join(d, "flash.bin")
+    s = Script()
+    t = s.steps(100, (0,))
+    t = home_page(s, t, 5, [(K1, FX_ROLL), (K2, 1), (K3, 2), (K4, -4)])   # 4, FALLING, 80 %
+    t = seq_page(s, t, 0, keys=[wk(5)])
+    s.tap_btn(t, SAVE); s.tap_btn(t + 400, SAVE); t += 1200
+    run(s, t, flash=flash)
+    s = Script()
+    s.at(300, "dump", 0)
+    log = run(s, 400, flash=flash)
+    m = log.mfxd[-1] if log.mfxd else {}
+    check(m.get("on") == 1 << (FX_ROLL - 5) and m.get("amt", [0] * 7)[5] == 4 and m.get("time", [0] * 7)[5] == 2 and m.get("fb", [0] * 7)[5] == 80,
+          "after a power cycle: ROLL 4, FALLING, 80 %% (%s)" % m)
+    # the grid: SHIFT + pad 7 of row 2 = ROLL, SHIFT + pad 8 = ACCENT (READY, again: it plays)
+    s = Script()
+    t = s.steps(100, [0])
+    s.raw(t, "attach")
+    view(s, t + 100, GC_VTRACK); view(s, t + 200, GC_VTRACK); view(s, t + 300, GC_VTRACK)
+    s.at(t + 400, "ctl", GC_SHIFT, 127)
+    s.pad(t + 420, 6, 1); s.pad(t + 500, 6, 1); s.pad(t + 580, 7, 1); s.pad(t + 660, 7, 1)
+    s.at(t + 740, "ctl", GC_SHIFT, 0); s.at(t + 800, "dump", 0)
+    log = run(s, t + 900)
+    check(log.mfxd[-1]["on"] == (1 << (FX_ROLL - 5)) | (1 << (FX_ACCENT - 5)), "the grid: SHIFT + pads 7 and 8: ROLL and ACCENT play (%s)" % log.mfxd[-1])
+    # the scales: the grid's PROJECT view, SHIFT + pad 1 of row 2 = the 17th, HUNGARIAN MINOR; without SHIFT pad 16 HIRAJOSHI
+    s = Script()
+    s.raw(100, "attach")
+    view(s, 200, GC_REC, alt=True)                                     # the PROJ view
+    s.at(300, "ctl", GC_SHIFT, 127); s.pad(320, 0, 1); s.at(400, "ctl", GC_SHIFT, 0)
+    s.at(450, "dump", 0)
+    s.pad(500, 15, 1); s.at(560, "dump", 0)
+    log = run(s, 700)
+    c = cfgs(log)
+    check(c[0]["key"][1] == 16 and c[1]["key"][1] == 15, "the grid: SHIFT + row 2 pad 1 the 17th scale, pad 16 the 16th (%s %s)" % (c[0]["key"], c[1]["key"]))
 
 
 def t020_env_mod():
@@ -11973,7 +12048,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
-    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
+    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

@@ -60,6 +60,15 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved[6];
 } sq27_viaggio_t;                /* 28 bytes */
 
+/* 0.20 - 0.28's five new effects and the order of nine (0.29 has two more: sq_mfxd_t, and chunk 5 keeps it whole) */
+typedef struct __attribute__((packed)) {
+    uint8_t on;
+    uint8_t order[9];
+    int8_t amt[5];
+    uint8_t time[5];
+    uint8_t fb[5];
+} sq27_mfxd_t;                   /* 25 bytes */
+
 typedef struct __attribute__((packed)) {
     sq_lfox_t lfo[SQ_LFOS];
     sq_trackx_t track[SQ27_TRACKS];
@@ -69,7 +78,7 @@ typedef struct __attribute__((packed)) {
     uint8_t reserved[1];
     char name[SQ_NAME_LEN];
     sq_mfxc_t mfxc[SQ27_TRACKS];
-    sq_mfxd_t mfxd[SQ27_TRACKS];
+    sq27_mfxd_t mfxd[SQ27_TRACKS];
     sq_lfoe_t lfoe[SQ_LFOS];
     sq_mod_t mod[SQ_MODS];
     uint8_t scene_metre[SQ_SCENES];
