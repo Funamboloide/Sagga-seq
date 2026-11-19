@@ -123,7 +123,7 @@ DRUM+BASS.
 | il cuore del sequencer | 44.556.406 controlli, 0 errori |
 | i motori THEORY | 200.798.646 controlli (150 semi per ognuno dei 23 stili, in 4/4 e in altri 19 metri), 0 errori |
 | il simulatore (il firmware vero che gira sul computer) | 1.551 controlli, 0 errori; 26 giri di gesti a caso con i rilevatori degli errori di memoria: 0 errori |
-| l'esploratore: ogni gesto del pannello, del grid e della pagina | «explore» |
+| l'esploratore: ogni gesto del pannello, del grid e della pagina, in 30 situazioni (fra queste una BALANI ferma e una GQOM con tablet e grid) | 102.082 gesti da soli, 11.995 coppie di gesti, 200 sessioni a caso: 0 errori |
 | l'editor del Pi, il bridge del grid, la pagina del Pi, le pagine SAGGA, il banco, il custode delle celle | 266 + 326 + 179 + 94 + 76 + 49 controlli, 0 errori |
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
