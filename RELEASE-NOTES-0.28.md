@@ -106,4 +106,7 @@ Sullo schermo, dopo l'aggiornamento: `SAGGA SEQ 0.28` per tre secondi.
 
 ## La dimensione
 
-XXX_DIMENSIONE
+Il firmware cresce di 4.592 byte: 483.108 su 581.564 (la 0.27: 478.516). È soprattutto il codice che legge e scrive i
+progetti nel formato della 0.27, perché la 0.27 li possa ancora aprire. La RAM scende di 4.400 byte: 67.696 su 98.304.
+La memoria del progetto scende di 15.220 byte, anche con le note e le lane in più: 311.212 su 344.064, e restano
+liberi 32.852 byte. Le misure sono della build di GitHub.
