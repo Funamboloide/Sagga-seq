@@ -8208,6 +8208,29 @@ def t029_more():
     check(c[0]["key"][1] == 16 and c[1]["key"][1] == 15, "the grid: SHIFT + row 2 pad 1 the 17th scale, pad 16 the 16th (%s %s)" % (c[0]["key"], c[1]["key"]))
 
 
+def t029_viaggio_progs():
+    group("0.29 the grid's VIAGGIO view, row 7: pads 1-8 the genre's eight progressions, 9-12 yours, 13 DICE/PI (named as the "
+          "dice's slot: it read the first user slot's name)")
+    s = Script()
+    s.raw(100, "attach")
+    t = harm_knobs(s, 200, [(K1, 1)])                                   # the HARMONY on (ARP 3 K1)
+    t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)   # PERF, SONG, VIAGGIO
+    s.pad(t, 7, 6); s.at(t + 100, "dump", 0); t += 150                  # pad 8: PROG 8
+    t1 = t
+    s.pad(t, 8, 6); s.at(t + 100, "dump", 0); t += 150                  # pad 9: USER 1
+    s.pad(t, 12, 6); s.at(t + 100, "dump", 0); t += 150                 # pad 13: DICE/PI
+    t2 = t
+    log = run(s, t + 300)
+    msgs = [x["msg"] for x in log.states]
+    check(len(msgs) == 3 and msgs[0].startswith("PROG ") and msgs[1].startswith("USER PROG ") and msgs[2].startswith("DICE/PI "),
+          "pad 8: the genre's 8th progression, pad 9: USER 1, pad 13: DICE/PI, said so on the screen (%s)" % msgs)
+    pads, _ = log.leds(until=t1 - 20)
+    check(pads.get(6 * 16 + 7) == GL_ACCENT and pads.get(6 * 16 + 0) == GL_DIM, "row 7: pad 8 lit as the progression playing (%s)" % [pads.get(6 * 16 + i) for i in range(13)])
+    pads, _ = log.leds(until=t2 + 50)
+    check(pads.get(6 * 16 + 12) == GL_ACCENT and pads.get(6 * 16 + 7) == GL_DIM and pads.get(6 * 16 + 8) == GL_FAINT,
+          "... then pad 13 (DICE/PI), the genre's dim, an empty user slot faint (%s)" % [pads.get(6 * 16 + i) for i in range(13)])
+
+
 def t020_env_mod():
     group("0.20 ENV: an LFO shaped as an envelope on its TRIG track's notes; the MOD MATRIX: CC IN on a track's velocity, LEARN")
     # LFO 1: ENV, CC 74 from 0 up to 127, ATTACK 0, DECAY 1/8, SUSTAIN 0, RELEASE 1/16, TRIG T1: up at each hit, down after
@@ -12049,7 +12072,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
-    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more]
+    t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
+    t029_viaggio_progs]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

@@ -58,7 +58,8 @@ genre where it went; a 0.28 opens a project of 0.29, without what it has no room
   loud), BROKEN (broken beat: the 'e' early, the 'a' late).
 * **Chord shapes**: 7#9, 7B9, MAJ7#11, QUARTAL (36 in all) - for a track's CHORD and in your progressions.
 * **Fixed**: the BEAT part chosen past the sixteenth of the list (a LEAD, a VOX, a LOG DRUM ...) came back as the KICK
-  after a power cycle; now it stays.
+  after a power cycle; now it stays. The dice's progression in the VIAGGIO (DICE/PI: the grid's row 7 pad 13, or
+  PRESETS) took the first user slot's name on the screen (`USER PROG ...`); now it says `DICE/PI` and its chords.
 * **The projects.** A project of 0.29 is saved as 0.28 saves, plus one chunk for what 0.28 has no room for: BALANI, the
   7th and 8th progressions, the balafon, ROLL and ACCENT. A 0.28 opens it: BALANI as AFRO HOUSE, PROG 7 and 8 as PROG 1,
   the balafon as a LEAD, the new effects, scales, grooves and shapes left out (their default).

@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.28.1
+# SAGGA SEQ 0.29
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
@@ -36,7 +36,7 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.28.1.md](RELEASE-NOTES-0.28.1.md): what changed in this version (Italian): the SAGGA Mod page with all eight lanes, SHAPE up to ENV and DEST up to MOD ONLY; an LFO's target that stays a track, a proposal that enters in time. 0.28's (twelve tracks, chords of six notes, eight CC lanes a track): [docs/storia/RELEASE-NOTES-0.28.md](docs/storia/RELEASE-NOTES-0.28.md). 0.27's (the arpeggio of a band with no key on the root, RANDOM a roll of the dice, EVOLVE's RETURN, the screen says who is acting, the profile SEMPLICE): [docs/storia/RELEASE-NOTES-0.27.md](docs/storia/RELEASE-NOTES-0.27.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
+* [RELEASE-NOTES-0.29.md](RELEASE-NOTES-0.29.md): what changed in this version (Italian): 22 genres (AMAPIANO into REGGAETON, BASSLINE into UK GARAGE, GRIME into DUBSTEP, AFRO HOUSE into GQOM and BATIDA; BALANI new, with the BALAFON), eight progressions a genre, REGGAETON and BALANI's THEORY rules written by hand, ROLL and ACCENT, five scales, three grooves, four chord shapes. 0.28.1's (the SAGGA Mod page with all eight lanes): [docs/storia/RELEASE-NOTES-0.28.1.md](docs/storia/RELEASE-NOTES-0.28.1.md). 0.28's (twelve tracks, chords of six notes, eight CC lanes a track): [docs/storia/RELEASE-NOTES-0.28.md](docs/storia/RELEASE-NOTES-0.28.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
 * [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what was joined and hidden in 0.27 (RANDOM a roll of the dice, DRIFT inside EVOLVE, who is acting, the profile SEMPLICE).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 16 genres, counted from the library (Italian).
