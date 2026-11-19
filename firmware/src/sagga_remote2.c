@@ -8,13 +8,14 @@
  *                  the selected track as the keys play it (ARP held): REC writes it, TAKE remembers it
  *   notes 100-115  LFO 1-16 on (note on) / off (note off): the sixteen switches of SAGGA Mod, all at once
  *   CC 33-48       track 1-16: the pattern (0-7, or 0-127 / 16), at the QUANTISE moment     49-64  track 1-16: LENGTH 1-64
+ *                  (0.28: twelve tracks - CC 45-48 and 61-64 do nothing)
  *   CC 65 ROLL (held), 66 HALF, 67 DOUBLE, 68 BACKWARDS, 69 DICE, 70 RESET, 71 ROLL 1/32 (held): the selected BREAK track
  *   CC 72 CHOP (0-15, or 0-127 / 8), 73 SWAP (0-7 over 0-127), 74 ROLLS (0-7), 75 SLICES (8 / 16 / 32)
  *   CC 76-91       the 16 slices as pads (the value is the velocity; 0 = off): what the notes do, for pages that send CCs only
  *   CC 92 which LFO (0-127 / 8)   93 SHAPE, 94 RATE, 95 DEPTH, 96 DEST, 97 ON / OFF of that LFO
  *   CC 101-106     lane 1-6 of the selected track: the base value, sent at once
  *   CC 107 TAKE    108-111 THROWS: INTENSITY, GATE, SWING, FILTER thrown (they glide back to 0 over a bar)
- *   CC 112 SELECT TRACK (0-127 / 8)    113 MODE (FREE IN KEY DRUM TAPE BREAK)
+ *   CC 112 SELECT TRACK (0-15 as they are - 0.28: 12-15 nothing -, else 0-127 over the twelve)    113 MODE (FREE IN KEY DRUM TAPE BREAK)
  *   CC 114 ENERGY  115 GENRE (0-24)    116 KEY (the root, 0-127 / 11)    117 PROGRESSION    118 HARMONY (OFF ON LOCK)
  */
 
@@ -85,7 +86,7 @@ static void remote13_cc(uint8_t cc, uint8_t v)
     case 109u: macro_set(1u, v < 64u ? ((int32_t)v - 64) * 90 / 64 : ((int32_t)v - 64) * 100 / 63); throw_mark(1u, 1u); return;
     case 110u: macro_set(2u, ((int32_t)v - 64) * 25 / 63); throw_mark(2u, 1u); return;
     case 111u: macro_set(3u, (int32_t)v - 64); throw_mark(3u, 1u); return;
-    case 112u: select_track((uint8_t)(v < SQ_TRACKS ? v : v / 8u)); return;
+    case 112u: if (v < 16u) { if (v < SQ_TRACKS) select_track(v); } else select_track((uint8_t)((uint32_t)v * SQ_TRACKS / 128u)); return;
     case 113u: set_track_mode(t, (uint8_t)(v < TRACK_MODES ? v : (uint32_t)v * TRACK_MODES / 128u)); status_msg(track_mode_name(t)); ui_dirty = grid_dirty = 1u; return;
     case 114u: vg_energy_set((uint8_t)(((uint32_t)v * 100u + 63u) / 127u)); return;
     case 115u: { int32_t want = v < SQ_SET_GENRES ? v : (int32_t)((uint32_t)v * SQ_SET_GENRES / 128u); int32_t d = want - vg_genre_shown(); if (d) vg_genre_turn(d); return; }

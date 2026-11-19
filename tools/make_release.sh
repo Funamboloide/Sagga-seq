@@ -52,7 +52,8 @@ cp tools/sagga-grid-bridge.service tools/sagga-grid-bridge-zynthian.service tool
 cp tools/m8link/pi/sagga_m8_host.py tools/m8link/pi/sagga-m8-link.service "$H/"
 cp -r tools/raspimidihub/. "$H/raspimidihub/"
 cp tools/sgqmid/sagga_sgqmid.c tools/sgqmid/sagga_sgqjson.c firmware/src/sagga_seq_core.c firmware/src/sagga_seq_core.h firmware/src/sagga_beats.c \
-   firmware/src/sagga_beats.h firmware/src/sagga_beats_data.h firmware/src/sagga_setgenre_data.h firmware/src/sagga_devices.h "$H/sgqmid/"
+   firmware/src/sagga_beats.h firmware/src/sagga_beats_data.h firmware/src/sagga_setgenre_data.h firmware/src/sagga_devices.h \
+   firmware/src/sagga_img27.h "$H/sgqmid/"                                      # (0.28: the layouts of 0.27's images, the core reads and writes them)
 cp docs/SAGGA-GRID.md docs/SAGGA-GRID-ZYNTHIAN.md docs/INSTALLA.md "$H/"
 find "$H" -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
 (cd "$T" && rm -f "$OUT/$HUB.zip" && zip -qr "$OUT/$HUB.zip" "$HUB")

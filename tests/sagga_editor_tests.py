@@ -70,11 +70,13 @@ def t_converter():
     group('the converter (the firmware\'s core): read, a patch, sanitize, errors')
     d = tempfile.mkdtemp()
     j = read(HW)
-    check(j['version'] == 1 and len(j['track']) == 16 and len(j['scene']) == 16 and len(j['lfo']) == 16 and len(j['song_e']) == 64,
-          'read: the groups with their sizes')
-    check(j['schema']['step']['dims'] == [16, 8, 64] and ['note', 1, 0, 4] in j['schema']['step']['fields'], 'the schema: the steps 16 x 8 x 64, note[4] (%s)' % j['schema']['step'])
+    check(j['version'] == 1 and len(j['track']) == 12 and len(j['scene']) == 16 and len(j['lfo']) == 16 and len(j['song_e']) == 64,
+          'read: the groups with their sizes (0.28: twelve tracks)')
+    check(j['schema']['step']['dims'] == [12, 8, 64] and ['note', 1, 0, 6] in j['schema']['step']['fields'] and ['lane', 1, 0, 8] in j['schema']['step']['fields']
+          and ['lane_cc', 1, 0, 8] in j['schema']['track']['fields'], 'the schema: the steps 12 x 8 x 64, note[6], lane[8]; a track\'s lane_cc[8] (%s)' % j['schema']['step'])
     on = [s for s in j['steps'] if s[3]['flags'] & 1]
-    check(len(on) >= 9 and j['step_default']['note'] == [60, 255, 255, 255], 'the steps that are not a new project\'s, sparse (%d on)' % len(on))
+    check(len(on) >= 9 and j['step_default']['note'] == [60, 255, 255, 255, 255, 255] and j['step_default']['lane'] == [255] * 8,
+          'the steps that are not a new project\'s, sparse (%d on)' % len(on))
     check(len(j['names']['condition']) == 16 and j['names']['role'][1] == 'KICK' and len(j['names']['scale']) == 16, 'the core\'s names')
     out = os.path.join(d, 'same.sgq')
     r = apply(HW, [], out)
@@ -84,7 +86,7 @@ def t_converter():
     apply(out, [], out2)
     check(open(out, 'rb').read() == open(out2, 'rb').read(), '... and once written, byte for byte the same again')
     r = apply(HW, ['project - bpm - 141', 'track 4 length - 32', 'track 4 division - 6', 'step 4,0,3 flags - 3', 'step 4,0,3 note 0 64',
-                   'step 4,0,3 velocity - 90', 'step 4,1,63 lane 5 77', 'scene 2 pattern 15 7', 'song - len - 3', 'song_e 2 bars - 8',
+                   'step 4,0,3 velocity - 90', 'step 4,1,63 lane 5 77', 'scene 2 pattern 11 7', 'song - len - 3', 'song_e 2 bars - 8',
                    'lfo 5 enabled - 1', 'lfox 5 trig - 2', 'chain 1 chain_on - 1', 'chain 1 chain_n - 3', 'live - mac 3 -20', 'ext - kb_mode - 2',
                    'key 3 shift - -5', '# a comment', ''], out)
     j3 = read(out)
@@ -93,7 +95,7 @@ def t_converter():
           'a patch: project and track fields (%s)' % r.stderr)
     check(st.get((4, 0, 3), {}).get('note', [0])[0] == 64 and st[(4, 0, 3)]['velocity'] == 90 and st[(4, 0, 3)]['flags'] == 3 and st[(4, 1, 63)]['lane'][5] == 77,
           'a patch: steps, by track, pattern, step')
-    check(j3['scene'][2]['pattern'][15] == 7 and j3['song']['len'] == 3 and j3['song_e'][2]['bars'] == 8 and j3['lfo'][5]['enabled'] == 1 and j3['lfox'][5]['trig'] == 2
+    check(j3['scene'][2]['pattern'][11] == 7 and j3['song']['len'] == 3 and j3['song_e'][2]['bars'] == 8 and j3['lfo'][5]['enabled'] == 1 and j3['lfox'][5]['trig'] == 2
           and j3['chain'][1]['chain_on'] == 1 and j3['chain'][1]['chain_n'] == 3 and j3['live']['mac'][3] == -20 and j3['ext']['kb_mode'] == 2 and j3['key'][3]['shift'] == -5,
           'a patch: scenes, song, LFOs, chains, macros, LIVE IN, keys, signed values')
     # 0.19: the MIDI FX chain of a track: HARM + ECHO with their values; the track's one effect is its first (HARM)
@@ -121,17 +123,17 @@ def t_converter():
     # * 8 + pattern) - comes through a read, a patch that touches something else, and goes when the patch says so; a
     # style there is not is put right (the record is nobody's)
     r = apply(out, ['th - src - 1', 'th - seed - 41', 'thp 19 style - %d' % (11 | 0x40), 'thp 19 seed - 7', 'thp 19 func - 1', 'thp 19 var - 3', 'thp 19 vary - 40',
-                    'thp 19 energy - 60', 'thp 127 style - 26', 'thp 127 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)
+                    'thp 19 energy - 60', 'thp 95 style - 26', 'thp 95 seed - 998', 'thp 5 style - 31', 'thp 5 seed - 9'], out2)
     j7 = read(out2)
-    check(r.returncode == 0 and j7.get('th') == {'src': 1, 'seed': 41} and len(j7.get('thp', [])) == 128
-          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60, 'metre': 0} and j7['thp'][127]['style'] == 26 and j7['thp'][127]['seed'] == 998,
+    check(r.returncode == 0 and j7.get('th') == {'src': 1, 'seed': 41} and len(j7.get('thp', [])) == 96
+          and j7['thp'][19] == {'seed': 7, 'style': 11 | 0x40, 'func': 1, 'var': 3, 'vary': 40, 'energy': 60, 'metre': 0} and j7['thp'][95]['style'] == 26 and j7['thp'][95]['seed'] == 998,
           '0.23 THEORY: the SOURCE, the next seed, the record of a pattern (track 3 pattern 4: REGGAETON, 64 steps, seed 8, variation 3) (%s %s)' % (j7.get('th'), r.stderr))
     check(j7['thp'][5] == {'seed': 0, 'style': 0, 'func': 0, 'var': 0, 'vary': 0, 'energy': 0, 'metre': 0}, '... a style there is not: the record is put right - nobody\'s (%s)' % j7['thp'][5])
     out3 = os.path.join(d, 'th2.sgq')
-    r = apply(out2, ['step 2,3,0 flags - 3', 'thp 127 style - 0'], out3)
+    r = apply(out2, ['step 2,3,0 flags - 3', 'thp 95 style - 0'], out3)
     j8 = read(out3)
-    check(r.returncode == 0 and j8['thp'][19] == j7['thp'][19] and j8['th'] == j7['th'] and j8['thp'][127]['style'] == 0 and j8['thp'][127]['seed'] == 0,
-          '... a patch of a step keeps the pattern\'s record; the record goes when the patch says so (%s)' % j8['thp'][127])
+    check(r.returncode == 0 and j8['thp'][19] == j7['thp'][19] and j8['th'] == j7['th'] and j8['thp'][95]['style'] == 0 and j8['thp'][95]['seed'] == 0,
+          '... a patch of a step keeps the pattern\'s record; the record goes when the patch says so (%s)' % j8['thp'][95])
     out4 = os.path.join(d, 'th3.sgq')                     # the SOURCE on FREE (2: the engines, the rules of no genre); one there is not
     r = apply(out2, ['th - src - 2'], out4)
     j10 = read(out4)
@@ -155,9 +157,9 @@ def t_converter():
     st0 = {(t, p, s): x for t, p, s, x in j4['steps']}
     check(st0.get((0, 0, 0), j4['step_default'])['ratchet'] <= 8, 'ratchet 40 -> at most 8')
     # errors: nothing written
-    for bad, why in ((['nogroup - bpm - 1'], 'a group'), (['project - nofield - 1'], 'a field'), (['track 16 length - 4'], 'an index'),
+    for bad, why in ((['nogroup - bpm - 1'], 'a group'), (['project - nofield - 1'], 'a field'), (['track 12 length - 4'], 'an index (0.28: twelve tracks)'),
                      (['step 0,0 flags - 1'], 'a step needs three'), (['track 0 length 0 4'], 'an element of a scalar'),
-                     (['track 0 lane_cc 6 4'], 'an element past the array'), (['project - bpm - 70000'], 'a value past u16'),
+                     (['track 0 lane_cc 8 4'], 'an element past the array (0.28: eight lanes)'), (['project - bpm - 70000'], 'a value past u16'),
                      (['live - mac 0 200'], 'a value past s8'), (['project - bpm'], 'four words'), (['project - bpm - x'], 'not a number')):
         o2 = os.path.join(d, 'bad.sgq')
         r = apply(HW, ['project - bpm - 99'] + bad, o2)
@@ -483,7 +485,7 @@ def t015_converter():
     _, _, _, trs = G.read_smf(mid)
     t6 = [G.notes(e) for n, e in trs if n.startswith('T6 ')]
     check(t6 and any(n[2] == 67 and n[3] == 70 for n in t6[0]), 'the firmware\'s core plays the tape note written (T6: %s)' % (t6[0][:2] if t6 else [n for n, _ in trs]))
-    for bad, why in ((['tape 5 add - 1'], 'add needs the event'), (['tape 16 clear - 0'], 'a track past 16'), (['tape 5,0,0,60 add - 100'], 'a length 0'),
+    for bad, why in ((['tape 5 add - 1'], 'add needs the event'), (['tape 12 clear - 0'], 'a track past 12 (0.28)'), (['tape 5,0,0,60 add - 100'], 'a length 0'),
                      (['tape 5,0,96,128 add - 100'], 'a note past 127'), (['tape 5,0,96,60 add - 0'], 'velocity 0'),
                      (['tape 5,30000,96,60 add - 9'], 'past 16 bars'), (['tape 5 wipe - 0'], 'not clear / add'), (['tape 5,0,96 add - 9'], 'three numbers')):
         o3 = os.path.join(d, 'bad.sgq')
@@ -532,7 +534,10 @@ def t015_backend():
     r = ed.preview(3, [60, 64, 67], 90, 300)
     req = json.load(open(os.path.join(ctl, 'bridge-preview.json')))
     check(r['ok'] and req == dict(t=3, notes=[60, 64, 67], vel=90, gate=30, tape=0), 'a preview: a file for the bridge (%s)' % req)
-    for bad in ((16, [60]), (0, []), (0, [128]), ('x', [60])):
+    r = ed.preview(11, [48, 52, 55, 59, 62, 65, 69], 90, 300)
+    req = json.load(open(os.path.join(ctl, 'bridge-preview.json')))
+    check(r['ok'] and req['t'] == 11 and req['notes'] == [48, 52, 55, 59, 62, 65], '0.28: track 12, a chord of six notes (a seventh is not sent) (%s)' % req)
+    for bad in ((12, [60]), (16, [60]), (0, []), (0, [128]), ('x', [60])):
         try:
             ed.preview(*bad)
             check(False, 'preview %r' % (bad,))
@@ -583,7 +588,7 @@ def t023_page():
             pg.evaluate("V.pat=0;V.t=2;V.tab='tracce';render()")
             labels = [x.text_content() for x in pg.query_selector_all('.tr .lb')]
             head = pg.text_content('#main .row small') or ''
-            check(len(labels) == 16 and '\u25c68' in labels[2] and '\u25c621' in labels[5] and not any('\u25c6' in x for i, x in enumerate(labels) if i not in (2, 5)),
+            check(len(labels) == 12 and '\u25c68' in labels[2] and '\u25c621' in labels[5] and not any('\u25c6' in x for i, x in enumerate(labels) if i not in (2, 5)),
                   'the tracks whose pattern the engines made say so, with the seed as the FM-1 shows it (%s)' % [labels[2], labels[5]])
             check('sorgente THEORY (prossimo seme 42)' in head, 'the SOURCE and the next seed (%s)' % head)
             title = pg.get_attribute('.tr .lb.cur', 'title') or ''
@@ -658,8 +663,9 @@ def t015_bridge():
     ctl.tick(6.1)
     check(sent[-1] == [0xF0, 0x7D, 0x53, 0x47, 0x32, 4, 80, 25, 1, 2, 60, 67, 0xF7] and not os.path.exists(os.path.join(d, 'bridge-preview.json')),
           'a preview file: the PREVIEW frame, the file gone (%s)' % sent[-1:])
-    check(B.preview_frame(dict(t=16, notes=[60])) is None and B.preview_frame(dict(t=0, notes=[])) is None and B.preview_frame(dict(t=0, notes=[200])) is None
-          and B.preview_frame('x') is None and B.preview_frame(dict(t=0, notes=[1, 2, 3, 4, 5, 6]))[9] == 4, 'a preview that is not one: no frame; 4 notes at most')
+    check(B.preview_frame(dict(t=16, notes=[60])) is None and B.preview_frame(dict(t=12, notes=[60])) is None and B.preview_frame(dict(t=0, notes=[])) is None
+          and B.preview_frame(dict(t=0, notes=[200])) is None and B.preview_frame('x') is None and B.preview_frame(dict(t=0, notes=[1, 2, 3, 4, 5, 6, 7]))[9] == 6
+          and B.preview_frame(dict(t=11, notes=[60]))[5] == 11, 'a preview that is not one: no frame (0.28: track 13 neither); 6 notes at most (0.28)')
 
 
 def t015_page():
@@ -1321,10 +1327,95 @@ def t027_files():
     check(r.returncode == 0 and j.get('ext', {}).get('evo_ret') == 0, 'a RETURN there is not is put right as the FM-1 does: none (%s)' % j.get('ext', {}).get('evo_ret'))
 
 
+def t028_files_page():
+    group("0.28 in the files and on the page: twelve tracks, a step's six notes, eight lanes - written, read back, put right; the page shows them and saves them")
+    d = tempfile.mkdtemp()
+    a, b = os.path.join(d, 'a.sgq'), os.path.join(d, 'b.sgq')
+    lines = (['step 11,2,5 flags - 3'] + ['step 11,2,5 note %d %d' % (k, 50 + 3 * k) for k in range(6)] +
+             ['step 11,2,5 lane 6 33', 'step 11,2,5 lane 7 99', 'track 11 lane_cc 6 20', 'track 11 lane_cc 7 21', 'track 11 lane_base 7 64', 'track 11 lane_flags 6 1',
+              'scene 4 pattern 11 2', 'scene 4 mute_mask - %d' % 0xFFFF, 'lfo 2 enabled - 1', 'lfo 2 dest - 1', 'lfo 2 target - 11', 'lfox 2 trig - 12',
+              'mod 0 src - 5', 'mod 0 src_i - 11', 'mod 0 dst - 3', 'mod 0 dst_i - 11', 'mod 0 amt - 50',
+              'lfo 3 dest - 1', 'lfo 3 target - 12', 'lfox 3 trig - 13', 'mod 1 src - 5', 'mod 1 src_i - 12', 'mod 1 dst - 4', 'mod 1 dst_i - 15', 'mod 1 amt - 50',
+              'lfo 4 dest - 0', 'lfo 4 target - 15'])
+    r = apply('new', lines, a)
+    j = read(a) if r.returncode == 0 else {}
+    st = {(t, p, s): x for t, p, s, x in j.get('steps', [])}
+    x = st.get((11, 2, 5), {})
+    check(r.returncode == 0 and x.get('note') == [50, 53, 56, 59, 62, 65] and x.get('lane', [0] * 8)[6:] == [33, 99], 'a step of track 12: six notes, lanes 7 and 8 (%s %s)' % (x, r.stderr))
+    tr = j.get('track', [{}] * 12)[11]
+    check(tr.get('lane_cc', [0] * 8)[6:] == [20, 21] and tr.get('lane_base', [0] * 8)[7] == 64 and tr.get('lane_flags', [0] * 8)[6] == 1,
+          'track 12: the settings of lanes 7 and 8 (%s)' % tr.get('lane_cc'))
+    check(all(t.get('lane_cc', [0] * 8)[6:] == [73, 72] for t in j.get('track', [])[:11]), 'a new project: lanes 7 and 8 on CC 73 (attack) and 72 (release)')
+    check(j['scene'][4]['pattern'][11] == 2 and j['scene'][4]['mute_mask'] == 0x0FFF, 'a scene: track 12\'s pattern; no mute for tracks 13-16 (%04x)' % j['scene'][4]['mute_mask'])
+    check(j['lfo'][2]['target'] == 11 and j['lfox'][2]['trig'] == 12 and j['mod'][0]['src_i'] == 11 and j['mod'][0]['dst_i'] == 11,
+          'an LFO on track 12, TRIG by track 12, a MOD from and to track 12 (%s %s)' % (j['lfo'][2], j['mod'][0]))
+    check(j['lfo'][3]['target'] == 0 and j['lfox'][3]['trig'] == 0 and j['mod'][1]['src_i'] == 0 and j['mod'][1]['dst_i'] == 0 and j['lfo'][4]['target'] == 15,
+          'a track past 12 is put right as the FM-1 does; an LFO on CC still has its sixteen channels (%s %s %s)' % (j['lfo'][3], j['mod'][1], j['lfo'][4]))
+    r = apply(a, ['project - bpm - 99'], b)
+    j2 = read(b) if r.returncode == 0 else {}
+    st2 = {(t, p, s): x for t, p, s, x in j2.get('steps', [])}
+    check(r.returncode == 0 and st2.get((11, 2, 5)) == x and j2['track'][11] == j['track'][11], 'an edit of something else keeps them (%s)' % r.stderr)
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (skipped: no playwright)')
+        return
+    import sagga_fw as FW
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    shutil.copy(a, os.path.join(pr, 'dodici.sgq'))
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            br = p.chromium.launch()
+            pg = br.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/' % port)       # a view kept from sixteen tracks: track 16, its tape, lane 8 of a page that had six
+            pg.evaluate("localStorage.setItem('sagga-ed-view', JSON.stringify({tab: 'tape', t: 15, tt: 14, lane: 9, pat: 2, s: 5}))")
+            pg.goto('http://127.0.0.1:%d/edit/dodici.sgq' % port)
+            pg.wait_for_timeout(800)
+            check(pg.evaluate('[NT, NPOLY, NLANES]') == [12, 6, 8] and pg.evaluate('[V.t, V.tt, V.lane]') == [11, 11, 7] and not errs,
+                  'the page takes the sizes from the file; a view of track 16 opens on track 12 (%s %s %s)' % (pg.evaluate('[NT, NPOLY, NLANES]'), pg.evaluate('[V.t, V.tt, V.lane]'), errs))
+            pg.evaluate("V.tab='tracce';V.pat=2;V.t=11;V.s=5;render()")
+            rows = pg.query_selector_all('.tr .lb')
+            notes6 = pg.evaluate("[...document.querySelectorAll('select[data-g=\"step\"][data-f=\"note\"]')].map(s => +s.value)")
+            lanes8 = pg.query_selector_all('select[data-g="step"][data-f="lane"]')
+            check(len(rows) == 12 and notes6 == [50, 53, 56, 59, 62, 65] and len(lanes8) == 8, 'twelve tracks; the step shows its six notes and eight lanes (%d %s %d)' % (len(rows), notes6, len(lanes8)))
+            pg.select_option('select[data-g="step"][data-i="11,2,5"][data-f="note"][data-e="5"]', '67')
+            pg.select_option('select[data-g="step"][data-i="11,2,5"][data-f="lane"][data-e="7"]', '100')
+            pg.evaluate("V.tab='lane';V.lane=7;V.erase=false;render()")
+            opts = pg.evaluate("[...document.querySelectorAll('#main .row select')].map(s => s.options.length)")
+            check(opts[0] == 12 and opts[2] == 8, 'the Lane tab: twelve tracks, eight lanes (%s)' % opts)
+            pg.evaluate("V.tab='lfo';render()")
+            tg = pg.evaluate("[2, 4].map(i => document.querySelector('select[data-g=\"lfo\"][data-i=\"' + i + '\"][data-f=\"target\"]').options.length)")
+            trg = pg.evaluate("document.querySelector('select[data-g=\"lfox\"][data-i=\"2\"][data-f=\"trig\"]').options.length")
+            check(tg == [12, 16] and trg == 13, 'an LFO: a track of twelve, a channel of sixteen; TRIG: the clock and twelve tracks (%s %s)' % (tg, trg))
+            for tb in ('tracce', 'traccia', 'lane', 'tape', 'scene', 'song', 'catene', 'lfo', 'progetto'):
+                pg.evaluate("V.tab='%s';render()" % tb)
+            check(not errs, 'every tab renders (%s)' % errs)
+            pg.click('#bsave')
+            pg.wait_for_timeout(1200)
+            check((pg.text_content('#status') or '').startswith('salvato'), 'Save (%s)' % pg.text_content('#status'))
+            br.close()
+    finally:
+        srv.shutdown()
+    j3 = read(os.path.join(pr, 'dodici.sgq'))
+    st3 = {(t, p, s): x for t, p, s, x in j3['steps']}
+    x3 = st3.get((11, 2, 5), {})
+    check(x3.get('note', [0] * 6)[5] == 67 and x3.get('lane', [0] * 8)[7] == 100, 'in the file: the sixth note and lane 8 changed on the page (%s)' % x3)
+
+
 def main():
     build()
     for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
-              t025_metre, t025_melody, t026_files, t027_files):
+              t025_metre, t025_melody, t026_files, t027_files, t028_files_page):
         try:
             t()
         except Exception as e:

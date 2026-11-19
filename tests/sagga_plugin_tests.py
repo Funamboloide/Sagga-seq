@@ -182,7 +182,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -203,7 +203,7 @@ def structural():
             p.panic()
             check(p.ccs == [(c.channel, c.cc, 127), (c.channel, c.cc, 0)] and p.get_param(c.param.name) is False, "%s: a held button stays until PANIC lets it go (%s)" % (name, p.ccs))
     # 0.12: the pages speak on channel 13 (0-based 12) where the firmware's new commands are
-    for name, ccs in (("sagga_motori", {33, 48, 49, 64, 112, 113, 69}), ("sagga_break", set(range(76, 92)) | {65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 107}),
+    for name, ccs in (("sagga_motori", {33, 44, 49, 60, 112, 113, 69}), ("sagga_break", set(range(76, 92)) | {65, 66, 67, 68, 69, 70, 71, 72, 73, 74, 75, 107}),
                       ("sagga_mod", {92, 93, 94, 95, 96, 97, 101, 106, 108, 111, 114, 115, 116, 117, 118})):
         m, cls = load_plugin(name)
         got = {c.cc for p in cls.params if p.__class__.__name__ == "LayoutGrid" for c in p.cells if c.channel == 12}
@@ -233,6 +233,16 @@ def structural():
     p.on_param_change("l0", 32)
     p.on_param_change("m1", True)
     check(p.ccs == [(12, 36, 5), (12, 49, 32), (13, 49, 127), (13, 49, 0)], "SAGGA Motori: track 4 pattern 6 (ch 13 CC 36), track 1 length 32, MUTE 2 on ch 14 (%s)" % p.ccs)
+    # 0.28: twelve tracks - Motori's rows, Live's TRACK and mutes, the Mutes page: tracks 1-12, nothing for 13-16
+    for name, want in (("sagga_motori", 12), ("sagga_live", 12), ("sagga_mutes", 12)):
+        m2, cls2 = load_plugin(name)
+        cells2 = [c for p2 in cls2.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells]
+        mutes = [c for c in cells2 if c.param.label.startswith("MUTE ")]
+        tk = [c for c in cells2 if c.param.label == "TRACK"]
+        far = [(c.channel, c.cc) for c in cells2 if (c.channel == 13 and (60 <= c.cc <= 63 or 76 <= c.cc <= 79 or 102 <= c.cc <= 105))
+               or (c.channel == 12 and (45 <= c.cc <= 48 or 61 <= c.cc <= 64)) or (c.channel == 11 and 52 <= c.cc <= 55)]
+        check(len(mutes) == want and all(t.param.max == 11 and len(t.param.labels) == 12 for t in tk) and not far,
+              "0.28 %s: twelve MUTES, TRACK 1-12, nothing for tracks 13-16 (%d %s %s)" % (name, len(mutes), [(t.param.max, len(t.param.labels)) for t in tk], far))
     m, cls = load_plugin("sagga_live")
     p = cls()
     p.on_param_change("track", 4); p.on_param_change("pattern", 2); p.on_param_change("m3", True); p.on_param_change("cook", True)
@@ -290,7 +300,7 @@ def bsp_learn(p):
 
 def bsp_tests():
     """0.20 SAGGA BeatStep: its encoders are SAGGA Live's knobs, its actions commands the FM-1 answers; LEARN, then the
-    encoders (ABSOLUTE, RELATIVE) and the pads (MUTE 1-16, ACTIONS)"""
+    encoders (ABSOLUTE, RELATIVE) and the pads (MUTE 1-12, ACTIONS)"""
     stub_hub()
     m, cls = load_plugin("sagga_bsp")
     ml, lcls = load_plugin("sagga_live")
@@ -300,7 +310,7 @@ def bsp_tests():
           "SAGGA BeatStep: the 16 encoders are SAGGA Live's knobs (%s)" % [e for e in m.ENCODERS if knobs.get(e[0]) != e[1:]])
     bad = [a for a in m.ACTIONS if not ((a[1] == 11 and a[2] in CH12_CCS) or (a[1] == 13 and a[2] in CH14_CCS) or (a[1] == 12 and a[2] in CH13_CCS))]
     check(len(m.ACTIONS) == 16 and not bad, "SAGGA BeatStep: every action a command the FM-1 answers (%s)" % bad)
-    check(cls.VERSION == "0.20" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
+    check(cls.VERSION == "0.28" and cls.NAME == "SAGGA BeatStep" and len(cls.HELP) > 100, "SAGGA BeatStep: name, version, help")
     p = cls()
     p.on_start()
     bsp_learn(p)
@@ -310,8 +320,9 @@ def bsp_tests():
     p.ccs = []
     p.on_cc(0, 10, 127); p.on_cc(0, 11, 0); p.on_cc(0, 11, 1); p.on_cc(0, 18, 64)
     p.on_note_on(9, 40, 100); p.on_note_off(9, 40)
-    check(p.ccs == [(12, 112, 15), (11, 3, 0), (11, 9, 5), (13, 52, 127), (13, 52, 0)],
-          "SAGGA BeatStep: TRACK 16, PATTERN 1 (once), MIDI FX halfway, pad 5 = MUTE 5 (%s)" % p.ccs)
+    p.on_note_on(9, 47, 100); p.on_note_off(9, 47); p.on_note_on(9, 48, 100); p.on_note_off(9, 48)
+    check(p.ccs == [(12, 112, 11), (11, 3, 0), (11, 9, 5), (13, 52, 127), (13, 52, 0), (13, 59, 127), (13, 59, 0)],
+          "SAGGA BeatStep: TRACK 12 (0.28: the last), PATTERN 1 (once), MIDI FX halfway, pad 5 = MUTE 5, pad 12 = MUTE 12, pad 13 nothing (%s)" % p.ccs)
     p.set_param("pads", "ACTIONS"); p.set_param("encoders", "RELATIVE")
     p.ccs = []
     p.on_note_on(9, 37, 100); p.on_note_off(9, 37)                     # FILL held
@@ -425,8 +436,8 @@ def main():
 
     p, h = helpers.make_plugin(mutes_cls)
     p.on_param_change("m4", True)
-    p.on_param_change("k15", True)
-    check(h.ccs == [(13, 52, 127), (13, 52, 0), (13, 79, 127)], "MUTE 5: CC 52 pressed; KILL 16: CC 79 held (%s)" % h.ccs)
+    p.on_param_change("k11", True)
+    check(h.ccs == [(13, 52, 127), (13, 52, 0), (13, 75, 127)], "MUTE 5: CC 52 pressed; KILL 12: CC 75 held (%s)" % h.ccs)
     h.clear()
     p.on_param_change("r2", True)
     check(h.ccs == [(13, 92, 127), (13, 92, 0)] and p.get_param("r2") is False, "RETRIG 3: CC 92 pressed (%s)" % h.ccs)

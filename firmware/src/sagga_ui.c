@@ -992,6 +992,7 @@ static uint16_t strip_color(uint32_t i)
     if (mode == UM_FX) return (fx_now() >> i) & 1u ? C_WARN : SQ_C_DIM;
     if (mode == UM_LFO) return i == lfo_sel ? C_ACCENT : project.lfo[i].enabled ? C_ON : SQ_C_DIM;
     if (mode == UM_PERF || mode == UM_HOME) {
+        if (i >= SQ_TRACKS) return SQ_C_OUT;          /* (0.28: twelve tracks, the strip has sixteen cells) */
         if (i == selected_track) return C_ACCENT;
         if (solo_mask & (1u << i)) return C_WARN;
         if (!track_audible(i)) return SQ_C_OUT;

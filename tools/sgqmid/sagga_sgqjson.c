@@ -28,6 +28,9 @@
  * that moves a pattern's record moves them with it.
  * 0.27: ext evo_ret, EVOLVE's RETURN + 1 (1-101: 0 % - 100 % of the way back to the seed; 0: not set, DRIFT's switch
  *   says which).
+ * 0.28: twelve tracks (track, chain, mfxc, mfxd 0-11; thp 0-95; a step "t,p,s" with t 0-11), a step's notes six (note
+ *   0-5), the lanes eight (lane 0-7; a track's lane_cc / lane_base / lane_flags / lane_hi 0-7). Every size is the core's:
+ *   the schema says them. A project of 0.27 or before is read with its first twelve tracks.
  *
  *   sagga_sgqjson read IN.sgq                    the project as JSON on stdout: every field the editor knows, by name;
  *                                                the steps only where they differ from a new project's (sparse), the

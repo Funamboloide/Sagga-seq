@@ -1884,7 +1884,8 @@ static void gr_render_ctl(void)
     g_cwant[GC_SHIFT] = g_shift_lock ? GL_YELLOW : sh ? GL_WHITE : g_follow ? GL_CYAN : GL_FAINT;   /* (0.18: cyan while it FOLLOWs) */
     for (i = 0; i < 8u; i++) {
         uint32_t t = (uint32_t)bank * 8u + i;
-        g_cwant[GC_TRK0 + i] = t == selected_track ? GL_CURSOR
+        g_cwant[GC_TRK0 + i] = t >= SQ_TRACKS ? GL_OFF                     /* (0.28: the bank of 9-12 has four) */
+                             : t == selected_track ? GL_CURSOR
                              : ((solo_mask >> t) & 1u) ? GL_YELLOW
                              : !track_audible(t) ? GL_MUTED : bank ? GL_BLUE : GL_DIM;
         g_cwant[GC_PAT0 + i] = tr[selected_track].pattern == i ? GL_ON

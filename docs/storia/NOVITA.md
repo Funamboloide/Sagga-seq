@@ -5,6 +5,40 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.27
+
+Four proposals of the map of the generators ([MAPPA-GENERATORI.md](../MAPPA-GENERATORI.md)), a fix asked for and one
+the explorer found. Nothing is taken away: the projects of before open as they are and play as they did.
+
+* **A band with no key starts on its root** (the fix). With no key (the scale CHROMA, as in a new project) a part's
+  root was the note it starts from, and an arpeggio starts from a G: the BAND's arpeggio - the library's and the
+  engines' - played a fifth above the bass and the chords. Now a part written on a new track with no key (BAND, BEAT
+  of the engines, a proposal) starts on the project's root (C in a new project), in the part's own register. With a
+  key nothing changes; what is already written stays as it is.
+* **RANDOM is a roll of the dice** (SEQ + white 5): the same bar of chance and its phrase, on the SCOPE's tracks, but
+  it waits like a dice: `RANDOM: OCT+ KEEP, OCT- BACK`. OCT- (or UNDO) puts back what was there, ALG goes through the
+  rolls (up to 16, with the other dice), RANDOM again is one more roll. EVERY repeating RANDOM still changes at once.
+* **EVOLVE's RETURN** (SEQ 3, **SEL + K2**, 0-100 %): before each change, how much of the seed comes back. 100 (EVOLVE
+  as it was): every change starts from the seed, and stays near it; 0: every change starts from the last one and goes
+  away - that is DRIFT; between: that share of the steps (and of the LFOs) goes back to the seed, the rest wanders on.
+  `EVOLVE RETURN 40%: PART OF THE WAY BACK`. The DRIFT key (SEQ + black 8) is RETURN 0, and pressed again the RETURN it
+  had: `DRIFT: EVOLVE WANDERS AWAY`, `NO DRIFT: EVOLVE STAYS NEAR THE SEED`. A project with DRIFT on opens with RETURN 0.
+* **The screen says who is acting**: the four hands that make the music fuller or emptier say what they work on -
+  `T3 DENSITY 60%: THIS TRACK ONLY` (SEQ 2), `T3 CHANCE 40%: THIS TRACK ONLY` (HOME 6), `ENERGY 70: THE WHOLE SET + 4
+  ENGINE PARTS` (GLO 3 K1: every track, and the patterns of the engines it fills and empties), `QUEUED: THIN - THE
+  WHOLE SET, 2 TRACKS OUT` and `QUEUED: SWELL - THE WHOLE SET, 2 TRACKS IN` (the MOSSE).
+* **A third profile, SEMPLICE** (SAVE 1 K4 goes FULL, SEMPLICE, PALCO): all of FULL, but SEQ's pages 2 (the four
+  algorithms) and 3 (EVOLVE) are hidden while nothing of theirs plays - SEQ + OCT- / OCT+ skips them. An algorithm on
+  the selected track brings SEQ 2 back, EVOLVE on brings SEQ 3: nothing is switched off. `PROFILE SEMPLICE: SEQ 2 AND
+  3 HIDDEN WHILE OFF`. PALCO is now two steps of K4 away.
+* **ENV K1 that writes nothing leaves the step alone** (the explorer; there from 0.24). Turned down on a step with no
+  lock, K1 wrote nothing but flagged the step as written: a key that turned it on later played note 60, not the
+  track's pen (on a kick, another drum), and a copy of the pattern turned so made every copy the player's step. And a
+  step written after the loop where a pattern longer than its track keeps the mark of its end (a lock, a note): the
+  steps are the player's at once, as the next LENGTH made them - the mark was left half a mark, half a step.
+
+On the Pi: the converter knows RETURN. An older firmware reads a RETURN under 50 % as DRIFT on, the others as DRIFT off.
+
 ## What is new in 0.26
 
 Seven things, and the technical check of 0.23 - 0.25. The projects of before open as they are and play as they did.

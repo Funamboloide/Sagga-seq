@@ -212,6 +212,27 @@ def main():
     check(log.metre and log.metre[0]["bar"] == 14 and log.metre[0]["sig"] == "7/8" and log.tapes[0]["bars"] == 2, "in the FM-1: a bar of 14, a tape of 2 bars (%s)" % log.metre[:1])
     check(len(a) >= 4 and [x[1] for x in a[:4]] == [60, 62, 60, 62] and S.near(a[1][0], 1700 / 480 * 500, 3) and S.near(a[2][0], 28 * 125, 3) and S.near(a[3][0], 28 * 125 + 1700 / 480 * 500, 3),
           "it plays: the loop comes round every 28 steps, 3500 ms (%s)" % a[:4])
+    # 0.28 TWELVE TRACKS: channel 12 is track 12; channels 13-16 have no track - their notes are left out, and said
+    print("0.28: channel 12 -> track 12, channels 13-16 left out; a chord of six notes goes out whole")
+    evc = [[(0, 0x90 | ch, 60 + ch, 100), (200, 0x80 | ch, 60 + ch, 0)] for ch in (0, 11, 12, 15)]
+    src12, sgq12, back12 = os.path.join(d, "ch.mid"), os.path.join(d, "ch.sgq"), os.path.join(d, "ch-back.mid")
+    write_smf(src12, 480, 500000, evc)
+    r = subprocess.run([TOOL, "mid2sgq", src12, sgq12], capture_output=True, text=True)
+    check(r.returncode == 0 and "2 notes on 2 tapes" in r.stderr and "2 notes on MIDI channels 13-16 left out" in r.stderr,
+          "channels 1 and 12 become tapes, the notes of 13 and 16 are left out and said (%s)" % r.stderr.strip())
+    subprocess.run([TOOL, "sgq2mid", sgq12, back12], check=True, capture_output=True)
+    _, _, _, trc = read_smf(back12)
+    check([n for n, _ in trc[1:]] == ["T1 ch1 TAPE", "T12 ch12 TAPE"] and notes(trc[2][1])[0][1:3] == (11, 71),
+          "back: track 1 and track 12, on their channels (%s)" % [n for n, _ in trc[1:]])
+    p6, s6, m6 = os.path.join(d, "p6.txt"), os.path.join(d, "p6.sgq"), os.path.join(d, "p6.mid")
+    with open(p6, "w") as f:
+        f.write("step 11,0,0 flags - 3\n" + "".join("step 11,0,0 note %d %d\n" % (k, 48 + 4 * k) for k in range(6)))
+    subprocess.run([jt, "apply", "new", p6, s6], check=True, capture_output=True)
+    subprocess.run([TOOL, "sgq2mid", s6, m6, "1"], check=True, capture_output=True)
+    _, _, _, tr6 = read_smf(m6)
+    n6 = notes(tr6[1][1]) if len(tr6) > 1 else []
+    check(tr6[1][0].startswith("T12 ") and sorted(x[2] for x in n6 if x[0] == 0) == [48, 52, 56, 60, 64, 68],
+          "the six notes of a step on track 12 are six notes in the file (%s)" % sorted(x[2] for x in n6 if x[0] == 0))
     print("sgqmid: %d checks, %d failures" % (N[0], len(FAILS)))
     return 1 if FAILS else 0
 

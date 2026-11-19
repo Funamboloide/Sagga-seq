@@ -251,11 +251,11 @@ class Editor:
         """the FM-1 plays these notes on that track, as the track plays a step (its key, CHORD ...); tape: as a TAPE note"""
         try:
             track = int(track)
-            notes = [int(n) for n in notes][:4]
+            notes = [int(n) for n in notes][:6]         # (0.28: a step has six)
             vel, gate_ms = int(vel), int(gate_ms)
         except (TypeError, ValueError):
             raise EditorError('ascolto: valori non validi')
-        if not 0 <= track < 16 or not notes or any(not 0 <= n < 128 for n in notes):
+        if not 0 <= track < 12 or not notes or any(not 0 <= n < 128 for n in notes):
             raise EditorError('ascolto: valori non validi')
         if not self.bridge_alive():
             raise EditorError('per ascoltare serve il bridge acceso, con l\'FM-1 collegato', 409)
