@@ -49,7 +49,7 @@ BAR_MS = 4 * 24 * S.TICK_US / 1000.0          # a bar at 128 BPM, 1875 ms
 BTN_NAME = {S.OCT_DOWN: "OCT-", S.OCT_UP: "OCT+", S.FX: "FX", S.SEL: "SEL", S.ENV: "ENV", S.LFO: "LFO", S.EDIT: "EDIT",
             S.GLO: "GLO", S.HOME: "HOME", S.SAVE: "SAVE", S.ARP: "ARP", S.SEQ: "SEQ", S.PLAY: "PLAY", S.REC: "REC"}
 ENC_NAME = {S.E_SEL: "SELECT", S.E_ALG: "ALG", S.K1: "K1", S.K2: "K2", S.K3: "K3", S.K4: "K4", S.E_PRE: "PRESETS"}
-PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 6, S.LFO: 6, S.ARP: 6, S.SAVE: 5, S.GLO: 4}   # 0.26: SAVE 5 THE CLICK; 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
+PAGES = {S.HOME: 8, S.SEQ: 8, S.ENV: 8, S.LFO: 6, S.ARP: 6, S.SAVE: 5, S.GLO: 4}   # 0.28: ENV 8 (the lanes); 0.26: SAVE 5 THE CLICK; 0.12 (HOME 8 -> GLO 3, SEQ 4 / 8 -> ARP 3-6); 0.13: HOME 8 CHAIN LIST, LFO 4 RATE SEQ, SAVE 4 LIVE IN; 0.20: LFO 5 ENV, 6 MOD; 0.23: SEQ 8 THEORY
 MODS = [S.HOME, S.SEQ, S.ENV, S.LFO, S.ARP, S.SAVE, S.FX, S.SEL, S.EDIT, S.GLO]
 SEL_MODS = (S.HOME, S.SEQ, S.EDIT, S.FX, S.GLO, S.SAVE)    # the groups with SEL + knob variants (0.12: EDIT notes, FX throws, GLO tempo, SAVE 3 reconnect)
 
@@ -711,6 +711,23 @@ def sit_027(s):
     return _play(s, t + 100)
 
 
+def sit_028(s):
+    """0.28: twelve tracks, six notes, eight lanes. A TECHNO band; track 12 selected (the bank of 9-12, which has four),
+    a chord of six notes on its step 1 (SEL + six keys), locks on its lanes 7 and 8 (ENV 7 and 8, K1); in play"""
+    t = _band(s, 200)
+    s.press(t, S.HOME); s.tap_key(t + 30, S.wk(11)); s.release(t + 100, S.HOME); t += 160      # track 12
+    s.press(t, S.SEL)
+    cur = 0
+    for i, b in enumerate((7, 9, 11, 12, 14, 16)):                  # C4 D4 E4 F4 G4 A4, 60 ms apart: one chord
+        cur |= 1 << b
+        s.keys(t + 50 + 60 * i, cur)
+    s.keys(t + 450, 0); s.release(t + 500, S.SEL); t += 560
+    t = S.pg(s, t, S.ENV, 6, [(S.K1, 20)])                         # lane 7: a lock on step 1
+    t = S.pg(s, t, S.ENV, 7, [(S.K1, 30)])                         # lane 8: a lock
+    t = S.pg(s, t, S.ENV, 0)
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -779,6 +796,8 @@ SITUAZIONI = [
                lens={1: (20, 20), 5: (20, 20)}, want={8: {"fm": 3, "thv": 3}, 5: {"thv": 3}, "G": {"harm": 1}}),
     Situazione("0.27 il profilo SEMPLICE: band dei motori senza tonalita', EVOLVE ogni 16 battute con RITORNO 50 sul banco, in play", sit_027,
                want={"G": {"prof": 2, "evo": 1, "ret": 50}}),
+    Situazione("0.28 dodici tracce: la traccia 12 (la banca 9-12), un accordo di sei note, i lock delle lane 7 e 8, band in play", sit_028,
+               want={12: {"poly": 6, "lx": 1}, "G": {"sel": 12}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -1626,7 +1645,8 @@ def main(argv):
     sits = SITUAZIONI if not a.veloce else [SITUAZIONI[0], SITUAZIONI[2], SITUAZIONI[3], SITUAZIONI[5], SITUAZIONI[10],
                                             SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
                                             SITUAZIONI[22],     # (0.24: + the lengths, the copies, the moves at the bar)
-                                            SITUAZIONI[23]]     # (0.25: + the metre: 7/8, the engines' band in it)
+                                            SITUAZIONI[23],     # (0.25: + the metre: 7/8, the engines' band in it)
+                                            SITUAZIONI[-1]]     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:

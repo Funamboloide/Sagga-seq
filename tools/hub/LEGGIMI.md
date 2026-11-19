@@ -178,7 +178,7 @@ dell'orologio del Pi: sbagliate, ma in ordine.
 ## L'EDITOR DEI PROGETTI (0.14)
 
 Nella pagina (porta 8090), accanto a ogni progetto della libreria, **editor**: tutto il progetto su telefono o PC -
-le 16 tracce con i loro step, lo step con note, velocity, gate, condizioni, ratchet, TIE, SLIDE e lock, le impostazioni
+le tracce con i loro step (0.28: dodici), lo step con note (fino a sei), velocity, gate, condizioni, ratchet, TIE, SLIDE e lock, le impostazioni
 di ogni traccia, le lane disegnate col dito, le scene, la song, le catene, gli LFO, la chiave e il resto del progetto.
 **Salva** lo riscrive nella libreria (la versione prima resta in `versioni/`, si ripristina dalla pagina); **Manda
 all'FM-1** lo carica sull'FM-1 fermo (SAVE sull'FM-1 lo tiene). Sotto la lista dei progetti: **Nuovo** (un progetto
@@ -230,6 +230,11 @@ stato fatto.
 **0.27.** Il convertitore conosce il **RETURN** di EVOLVE (SEQ 3, SEL + K2 sull'FM-1): un progetto aperto e salvato
 nell'editor lo tiene. L'editor non mostra EVOLVE, come prima. Il profilo SEMPLICE sta nelle impostazioni dell'FM-1,
 non nel progetto: l'editor non lo vede.
+
+**0.28.** Le tracce sono **dodici**, uno step ha fino a **sei note**, una traccia **otto lane**: l'editor li prende dal
+progetto e li mostra tutti (nello step: nota 1-6, lane 1-8; nella scheda Lane: lane 1-8). Un progetto della 0.27 o di
+prima si apre con le sue prime dodici tracce. Un file MIDI caricato nella pagina: i canali 1-12 diventano le tracce
+1-12, le note dei canali 13-16 restano fuori. **ascolta** suona fino a sei note.
 
 0.15: nella scheda **Progetto** il **NOME** del progetto (fino a 16 caratteri: l'FM-1 lo mostra con SAVE + PRESETS e
 quando carica uno slot; **Nuovo** lo prende dal nome del file). La scheda **Tape** è il piano roll delle tracce TAPE:

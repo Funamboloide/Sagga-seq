@@ -28,6 +28,7 @@ BLACK = [k for k in range(27) if _is_black(KEY0 + k)][:11]
 def wk(i): return 1 << WHITE[i]
 def bk(i): return 1 << BLACK[i]
 KEY_C4, KEY_E4, KEY_G4 = 1 << 7, 1 << 11, 1 << 14       # notes 60, 64, 67
+FW_VERSION = re.search(r'#define SQ_VERSION "([0-9.]+)"', open(os.path.join(ROOT, "firmware", "src", "dinghy.c")).read()).group(1)
 
 # grid LED roles (sagga_grid.c)
 (GL_OFF, GL_FAINT, GL_DIM, GL_ON, GL_ACCENT, GL_PLAY, GL_CURSOR, GL_BLUE, GL_MUTED, GL_PEND, GL_FILL, GL_WHITE,
@@ -285,7 +286,7 @@ def group(name):
 
 
 # ------------------------------------------------------------------------------------------------ helpers of the new tests
-PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 5, GLO: 3, LFO: 6, ENV: 6}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4)
+PAGE_MAX = {HOME: 8, SEQ: 7, ARP: 6, SAVE: 5, GLO: 3, LFO: 6, ENV: 8}   # 0.12: the pages of each button (0.13: HOME 8, SAVE 4, LFO 4; 0.28: ENV 8)
 
 
 def pg(s, t, btn, page, encs=(), keys=(), sel=False):
@@ -6292,7 +6293,7 @@ def t011_pc_test():
     sx(s, 500, TP.hello()); sx(s, 600, TP.open_()); s.tap_btn(900, SEL); sx(s, 1200, TP.boot())
     log = run(s, 2000)
     h = ans(log, "hello")
-    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == "0.27", "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
+    check(h and h[0][1]["state"] == 0 and h[0][1]["booted"] == 0 and h[0][1]["version"] == FW_VERSION, "HELLO: nothing asked yet, a normal boot, its version (%s)" % h)
     check([a for _, a in ans(log, "open")] == [1, 2], "OPEN asks, SEL says yes (%s)" % ans(log, "open"))
     check(ans(log, "boot") == [(1200, 1)] and re.search(r"^\s*12[89]\d ms  TEST REBOOT", log.text, re.M), "BOOT: yes, then the reboot (%s)" % ans(log, "boot"))
     # 0.20.9 DIAG: the HELLOs and the frames that came in since the boot, the USB's counters (the simulator's: one
@@ -11809,6 +11810,67 @@ def t027_semplice():
     check(pr[:4] == [1, 3, 4, 0] and states(log)[-1]["algo"] == 1, "an algorithm playing: SEQ 2 is there, EVOLVE's page not; the algorithm still plays (%s, %s)" % (pr[:4], states(log)[-1]["algo"]))
 
 
+# ------------------------------------------------------------------------------------------------ 0.28
+def t028_panel():
+    group("0.28 on the panel: twelve tracks (HOME + white 13-16 nothing, the banks 1-8 and 9-12, the strip), a chord of six notes "
+          "(SEL + keys; the seventh: CHORD FULL), notes 5 and 6 on the EDIT line, lanes 7 and 8 (ENV 7/8 and 8/8: CC 73 and 72); "
+          "all of it saved, and there after a power cycle")
+    # the tracks: HOME + white 12, white 13 (nothing), black 9 (the other bank), black 5 in 9-12 (nothing), black 2
+    s = Script()
+    s.press(100, HOME); s.tap_key(130, wk(11)); s.release(200, HOME); s.at(260, "probe")
+    s.press(300, HOME); s.tap_key(330, wk(12)); s.at(380, "ui"); s.release(400, HOME); s.at(460, "probe")
+    s.tap_key(500, bk(8)); s.at(560, "probe")
+    s.tap_key(600, bk(8)); s.at(660, "probe")
+    s.tap_key(700, bk(4)); s.at(760, "probe")
+    s.tap_key(800, bk(1)); s.at(860, "probe")
+    log = run(s, 1000)
+    sel = [int(x["G"]["sel"]) for x in probes(log)]
+    check(sel == [12, 12, 4, 12, 12, 10], "HOME + white 12: T12; white 13: nothing; black 9: T4 and back to T12; black 5 in 9-12: nothing; black 2: T10 (%s)" % sel)
+    sc = log.screens()
+    strip = sc[0]["strip"] if sc else ""
+    check(len(strip) == 32 and strip[22] == "c" and all(strip[2 * i] == "o" for i in range(12, 16)) and all(strip[2 * i] != "o" for i in range(11)),
+          "HOME's strip: T12 the cursor, cells 13-16 dark (%r)" % strip)
+    # a chord of six notes on step 1 of track 1 (keys 60 ms apart: one chord); the seventh: CHORD FULL
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    s = Script()
+    s.press(100, SEL)
+    cur = 0
+    for i, b in enumerate((7, 9, 11, 12, 14, 16, 18)):            # C4 D4 E4 F4 G4 A4, then B4
+        cur |= 1 << b
+        s.keys(150 + 60 * i, cur)
+    s.keys(600, 0); s.release(650, SEL)
+    s.at(700, "dump", 0)
+    s.press(800, EDIT); s.press(830, SEL); s.at(890, "ui"); s.release(920, SEL); s.release(950, EDIT)
+    t = pg(s, 1100, ENV, 6, [(K1, 20)])                              # lane 7: a lock on the cursor step (step 1)
+    s.press(t, ENV); s.at(t + 60, "ui"); s.release(t + 100, ENV); t += 160
+    t = pg(s, t, ENV, 7, [(K1, 30)])                                 # lane 8: a lock
+    s.press(t, ENV); s.at(t + 60, "ui"); s.release(t + 100, ENV); t += 160
+    s.tap_btn(t + 100, SAVE); s.tap_btn(t + 400, SAVE); t += 1200   # SAVE: slot 1
+    s.tap_btn(t, PLAY); p0 = t
+    s.tap_btn(t + 600, PLAY)
+    log = run(s, t + 900, flash=flash)
+    msg = states(log)[0]["msg"] if states(log) else ""
+    sc = log.screens()
+    lines = [x["lines"][2] or "" for x in sc]
+    notes = sorted(d1 for tt, d1, _ in log.notes(ch=0, after=p0) if tt < p0 + 100)
+    ccs = {(m[2]): m[3] for m in log.msgs if m[1] == 0xB0 and p0 <= m[0] < p0 + 100}
+    check(msg == "CHORD FULL (6 NOTES)", "SEL + seven keys: the seventh does not fit - CHORD FULL (6 NOTES) (%r)" % msg)
+    check(lines and "5 G4 6 A4" in lines[0], "EDIT + SEL: the line shows notes 5 and 6 (%r)" % (lines[:1],))
+    check(len(lines) >= 3 and "ENV LANE 7/8" in lines[1] and "ENV LANE 8/8" in lines[2] and sc[1]["cells"][1] == ("CC ATTACK", "73") and sc[2]["cells"][1][1] == "72",
+          "ENV: LANE 7/8 on CC 73 (ATTACK), LANE 8/8 on CC 72 (%s %s)" % (lines[1:3], [x["cells"][1] for x in sc[1:3]]))
+    check(notes == [60, 62, 64, 65, 67, 69], "PLAY: the step's six notes (%s)" % notes)
+    check(73 in ccs and 72 in ccs, "... and its locks on lanes 7 and 8: CC 73, CC 72 (%s)" % sorted(ccs))
+    # a power cycle: the slot comes back with its six notes and its eight lanes
+    s = Script()
+    s.tap_btn(600, PLAY); s.tap_btn(1200, PLAY)
+    log2 = run(s, 1500, flash=flash)
+    notes2 = sorted(d1 for tt, d1, _ in log2.notes(ch=0, after=600) if tt < 700)
+    ccs2 = {(m[2]): m[3] for m in log2.msgs if m[1] == 0xB0 and 600 <= m[0] < 700}
+    check(notes2 == notes and ccs2.get(73) == ccs.get(73) and ccs2.get(72) == ccs.get(72),
+          "after a power cycle: the same six notes, the same CC 73 and 72 (%s %s)" % (notes2, [(k, ccs2.get(k)) for k in (72, 73)]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -11828,7 +11890,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t024_lengths, t024_copies, t024_longer_shorter, t024_makers,
          t025_tablet_lengths, t025_metre, t025_metre_makers, t025_turing_numeric, t025_polyrhythm, t025_listen, t025_melody,
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
-         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark,
+         t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]

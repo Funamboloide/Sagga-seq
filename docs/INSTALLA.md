@@ -26,6 +26,8 @@ Pi, porta 8090). Non mentre suoni: l'FM-1 si riavvia, e si riavvia anche RaspiMI
    pagine dopo il riavvio (RaspiMIDIHub 6 li perde quando un dispositivo manca mentre salva: il Pi li rimette da solo).
 
 I progetti negli slot dell'FM-1 e nella libreria del Pi restano. Il formato dei progetti è `SGQB` dalla 0.10.
+**Dalla 0.28** le tracce sono dodici: un progetto di prima si apre con le sue prime dodici tracce. Se torni alla 0.27,
+apre i progetti della 0.28, senza le note 5-6 e le lane 7-8.
 
 ## La prima volta sul Pi
 

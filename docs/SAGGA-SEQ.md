@@ -38,7 +38,7 @@ has no room for.
 * **The projects.** One of 0.27 or before opens with its first twelve tracks: its tracks 13-16 are left out (an LFO, a
   MOD or a TRIG aimed at one of them stops; their mutes go). A project of 0.28 is saved as 0.27 saves, plus one chunk
   for the notes 5-6 and the lanes 7-8: a 0.27 opens it, without them. A MIDI file read into a project on the Pi:
-  channels 1-12 become tracks 1-12, channels 13-16 are left out (the page says how many notes).
+  channels 1-12 become tracks 1-12, channels 13-16 are left out (`sagga_sgqmid` says how many notes).
 * **The memory**: a project is 15 KB smaller (163 KB in RAM; a step is 22 bytes, a track's settings 104).
 
 On the Pi: the editor shows twelve tracks, six notes a step and eight lanes; the bridge sends the previews and the

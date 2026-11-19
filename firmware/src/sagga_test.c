@@ -203,6 +203,17 @@ static uint32_t probe_render(char *buf, uint32_t cap)
         pr_ku("mfx", c->mfx); pr_k("mfxon"); pr_x(project.ext.mfxc[t].on, 2u); pr_k("mfxnew"); pr_x(project.ext.mfxd[t].on, 2u); pr_ku("pat", tr[t].pattern + 1u); pr_ku("step", tr[t].step); pr_k("ok"); pr_s(ok);
         pr_ku("lenpend", len_pend[t]); pr_ku("src", c->src_genre); pr_c('/'); pr_u(c->src_func); pr_c('/'); pr_u(c->src_var);
         pr_k("gh"); pr_s(tst_copies_ok(t)); pr_ku("own", sq_row_own(project.step[t][tr[t].pattern], c->start, c->length));   /* 0.24: the copies in order, the pattern's own length */
+        {   /* 0.28: the most notes a written step of the pattern playing has (six at most), its steps with a lock on lane 7 or 8 */
+            const sq_step_t *row = project.step[t][tr[t].pattern];
+            uint32_t si, ni, most = 0u, lx = 0u;
+            for (si = 0; si < SQ_STEPS; si++) {
+                uint32_t n = 0u;
+                for (ni = 0; ni < SQ_POLY; ni++) if (row[si].note[ni] != SQ_NOTE_NONE) n++;
+                if ((row[si].flags & SQ_STEP_SET) && n > most) most = n;
+                if (row[si].lane[6] != SQ_LANE_NONE || row[si].lane[7] != SQ_LANE_NONE) lx++;
+            }
+            pr_ku("poly", most); pr_ku("lx", lx);
+        }
         {   /* 0.23: what the THEORY engines know of the pattern the track plays: style + 1 (0: not theirs) / seed / variation / its size / energy */
             const sq_thpat_t *m = &project.th.pat[t][tr[t].pattern];
             pr_ku("th", m->style & 31u); pr_c('/'); pr_u(m->seed); pr_c('/'); pr_u(m->var); pr_c('/'); pr_u(SQ_THP_VARY(m)); pr_c('/'); pr_u(m->energy);

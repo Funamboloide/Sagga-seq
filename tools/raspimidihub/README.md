@@ -16,15 +16,16 @@ changes them.
   switched off); EXIT LOOP, UNDO, KEEP DICE, MUTE QUEUE; scene - / +, EVOLVE, FREEZE, scenes 1-8; MORPH (fader) and
   MORPH TO; the macros INTENSITY, GATE, SWING, FILTER (64 = 0); TRANSPOSE (0 in the middle), QUANTISE, EVOLVE amount,
   heat; tempo -1 / +1, TAP, REVERT; the snapshots; HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
-* **SAGGA Mutes** (channel 14): MUTE 1-16, KILL 1-16 (silent while on), RETRIG 1-16 (the track from its first step).
-* **SAGGA Motori** (0.12): a row a track: MUTE, PATTERN 1-8 (at the QUANTISE moment), LENGTH 1-64 (at the bar), RETRIG,
+* **SAGGA Mutes** (channel 14): MUTE 1-12, KILL 1-12 (silent while on), RETRIG 1-12 (the track from its first step).
+  0.28: twelve tracks (until 0.27: sixteen).
+* **SAGGA Motori** (0.12): a row a track (0.28: twelve rows): MUTE, PATTERN 1-8 (at the QUANTISE moment), LENGTH 1-64 (at the bar), RETRIG,
   KILL; under them the tablet's TRACK and its MODE (FREE, IN KEY, DRUM, TAPE, BREAK), DICE, UNDO, KEEP DICE.
 * **SAGGA Break** (0.12): sixteen slice pads (slice 1 bottom left), ROLL and ROLL/2 (held), HALF, DOUBLE, BACKWARDS,
   DICE, RESET, TAKE; the knobs CHOP (the library of sixteen re-orders, the FM-1's white keys), ROLLS, SWAP, SLICES (8 / 16
   / 32). The tablet's track must be a BREAK (HOME 4 K1 on the FM-1, or Motori's MODE): its PEN note is slice 1 on the sampler.
   0.21: ROLLS, SWAP and SLICES show the tablet's track's (they follow TRACK and the FM-1, as the other pages' knobs).
-* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the six CC lanes of the tablet's
-  track (their base, sent as you move it), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
+* **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), lanes 1-6 of the tablet's
+  track (their base, sent as you move it; 0.28: lanes 7 and 8 from the FM-1, the grid, the editor), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
   0.13: RATE goes on to the triplets (1/4T, 1/8T, 1/16T, 1/32T), as the FM-1's LFO RATE does. 0.18: GENRE reaches
@@ -35,7 +36,7 @@ changes them.
   ROTATION, EUCLID; COOK, BEAT, PROPOSAL, QUEUE; DICE, KEEP, BACK, UNDO (on that track only); 0.23: SOURCE (LIBRARY: BEAT
   and the dice load a pattern; THEORY: they MAKE it from a seed and the genre's rules; FREE: from the rules of no
   genre - the FM-1's SEQ 8 K1), NEXT SEED, SEED and VARIATION of the
-  pattern the track plays (seeds 1-128 from here; channel 12 CC 56-59); MUTE 1-16. The hub's PANIC leaves it alone (its
+  pattern the track plays (seeds 1-128 from here; channel 12 CC 56-59); MUTE 1-12 (0.28: TRACK 1-12 too). The hub's PANIC leaves it alone (its
   switches are the FM-1's mutes). 0.23.1: A and B on a CELL say on the FM-1's screen what the rule makes of the track's
   rhythm (`TAB T1 CELL RULE 240: SLIDES 1 STEP LATER EVERY ROW`); 0.23.2: on a CELL, A is the rule, twice the knob - the even rules: 85 is 170, 102 is 204,
   120 is 240 (0.23.1 spread the knob over 0-255: the even rules up to 126, the odd ones from 129, and the rules that
@@ -71,7 +72,7 @@ RaspiMIDIHub loses them.
 real knobs and pads. Wire the BeatStep Pro to its IN, its OUT to the FM-1's port 2. **LEARN**: turn the 16 encoders one
 after the other (top row, then bottom), then tap the 16 pads; the hub keeps what it learned. The encoders are SAGGA
 Live's knobs on the tablet's track (TRACK, PATTERN, LENGTH, OCTAVE, SWING, GROOVE, ARP, CHORD / MIDI FX, FX AMOUNT,
-ALGO, A, B, C, PULSES, ROTATION; ABSOLUTE or RELATIVE), the pads the 16 MUTES or (PADS = ACTIONS) PLAY, FILL, FX GO,
+ALGO, A, B, C, PULSES, ROTATION; ABSOLUTE or RELATIVE), the pads the 12 MUTES (0.28: pads 13-16 send nothing) or (PADS = ACTIONS) PLAY, FILL, FX GO,
 ALGO GO, COOK, BEAT, DICE, UNDO, PROPOSAL, QUEUE, KEEP, BACK, RETRIG, MUTE, EUCLID, ECHO ALL. Its CV outputs are wired
 apart: the FM-1's port 1 to the BeatStep Pro, channels 1, 2 and 10 (docs/SAGGA-SEQ.md, "What is new in 0.20").
 
