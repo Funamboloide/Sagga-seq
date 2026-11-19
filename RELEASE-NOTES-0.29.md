@@ -117,13 +117,14 @@ DRUM+BASS.
 
 | la prova | quanto |
 | --- | --- |
-| i progetti fra le versioni | «compat» |
-| il cuore del sequencer | «core» controlli, 0 errori |
-| i motori THEORY | «theory» controlli, 0 errori |
-| il simulatore (il firmware vero che gira sul computer) | «sim» controlli, 0 errori; «fuzz» |
+| le prove nuove | i progetti fra 0.28 e 0.29 nei due versi (la 0.28 vera, presa dalla storia del codice), un progetto della 0.28 in ognuno dei suoi 25 generi e con le sue 11 progressioni; il balafon, le otto progressioni, ROLL e ACCENT, le scale, i groove e le forme salvati e riaperti; le regole a mano di REGGAETON e BALANI su 150 semi a ogni energia; la riga 7 del grid; i nomi nuovi sulle pagine del Pi: 0 errori |
+| i progetti fra le versioni | 40 progetti della 0.29 aperti dalla 0.28 e ripresi, 60 + 20 con la 0.27: 0 diversi |
+| 13 errori rimessi apposta, uno alla volta (AMAPIANO aperto come BATIDA, un progetto con il BALANI salvato senza il pezzo nuovo, il 7B9 con la nona giusta, IN SEN con la sesta maggiore, ROLL al posto sbagliato nella catena di un progetto 0.28, i colpi di ROLL troppo larghi, ACCENT un passo in ritardo, il rullante del REGGAETON senza il dembow, il pad 13 chiamato USER 1, il pad 13 che non fa niente, SAGGA Mod senza PROG 8, il Pi che lascia le tue progressioni nei generi tolti, la catena dell'editor a dieci effetti) | le prove li trovano tutti e 13 (l'ultimo dopo una prova nuova: prima scappava) |
+| il cuore del sequencer | 44.556.406 controlli, 0 errori |
+| i motori THEORY | 200.798.646 controlli (150 semi per ognuno dei 23 stili, in 4/4 e in altri 19 metri), 0 errori |
+| il simulatore (il firmware vero che gira sul computer) | 1.551 controlli, 0 errori; 26 giri di gesti a caso con i rilevatori degli errori di memoria: 0 errori |
 | l'esploratore: ogni gesto del pannello, del grid e della pagina | «explore» |
-| errori rimessi apposta, uno alla volta | «breaks» |
-| l'editor del Pi, il bridge del grid, la pagina del Pi, le pagine SAGGA | «pi» |
+| l'editor del Pi, il bridge del grid, la pagina del Pi, le pagine SAGGA, il banco, il custode delle celle | 266 + 326 + 179 + 94 + 76 + 49 controlli, 0 errori |
 
 **Non ho un FM-1 in mano**: tutto questo è provato sul simulatore, non sullo strumento vero.
 

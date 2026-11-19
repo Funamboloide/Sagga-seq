@@ -272,6 +272,8 @@ def t_page_lists():
                          ('DESTS', 'static const char *lfo_dest_name'), ('QUANT', 'QUANT_NAME[SQ_QUANTS] =')):
         check(js(name) == c(anchor), '%s as the panel\'s (%s / %s)' % (name, js(name), c(anchor)))
     check(js('MFX') == c('static const char *const MFX_NAME[SQ_MFXS]'), 'MFX as the panel\'s')
+    n = re.search(r"const MFX_N = (\d+);", page)                   # 0.29: the chain's rows - every effect but OFF (ROLL, ACCENT too)
+    check(n and int(n.group(1)) == len(js('MFX')) - 1, 'the page\'s chain has every effect of the panel\'s (MFX_N %s, %d effects)' % (n and n.group(1), len(js('MFX')) - 1))
     check(js('VOICE') == c('static const char *const VN[SQ_VOICES]'), 'VOICE as the panel\'s')
     check(js('FOLLOW') == c('static const char *const FMN[SQ_FMS]') and js('FOLLOW')[-2:] == ['MELODY', 'SMOOTH'], 'FOLLOW\'s ways as the panel\'s: MELODY, and SMOOTH the last (%s)' % js('FOLLOW'))   # 0.25, 0.26
 
