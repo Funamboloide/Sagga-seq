@@ -98,6 +98,11 @@ typedef char sq27_more[(SQ_TRACKS <= SQ27_TRACKS && SQ_POLY >= SQ27_POLY && SQ_L
  *   STEPS  n (2 bytes), n x (track, pattern, 8 bytes: a bit a step, then 4 bytes a step: notes 5 and 6, lanes 7 and 8):
  *          the steps whose extra bytes are not an empty step's */
 #define SQ_CHUNK_X28 4u
+/* 0.29: chunk 5, one byte (1): the genres are numbered as 0.29's - the image keeps 0.28's numbers (sq_genre_from28),
+ * where 0.28's AFRO HOUSE is 0.29's BALANI (an image without the chunk: AFRO HOUSE went into GQOM). Written only when
+ * the project has BALANI somewhere (every other genre reads back as it was). 0.28 skips the chunk and opens the project
+ * with its own genres: BALANI as AFRO HOUSE */
+#define SQ_CHUNK_X29 5u
 #define SQ_X28_VER   1u
 #define SQ_X28_LANES 0x01u
 #define SQ_X28_SCENE 0x02u

@@ -10,10 +10,13 @@ main part). Standard library only.
 """
 import os
 
-# the genres in the FM-1's order (sagga_beats.h SQ_GENRE_*), as the files are named
-GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-          'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+# the genres in the FM-1's order (sagga_beats.h SQ_GENRE_*), as the files are named (0.29: 22)
+GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'DUBSTEP', 'JUNGLE',
+          'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'BALANI', 'FOOTWORK', 'TRANCE',
           'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
+# 0.29: the genres that left the library and the one each went into; RETIRED_STOCK: their files as 0.28 gave them (a
+# line of a file of yours that is not there is one you kept yourself)
+RETIRED = {'AMAPIANO': 'REGGAETON', 'BASSLINE': 'UKGARAGE', 'GRIME': 'DUBSTEP', 'AFROHOUSE': 'GQOM'}
 # the parts in SQ_FUNC_* order (PROG and KIT have no patterns of their own)
 PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
          'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL',
@@ -21,8 +24,14 @@ PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
 DRUM = {'KICK', 'SNARE', 'HAT', 'PERC', 'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL'}
 CHORDS = {'CHORD', 'STAB', 'PAD', 'PIANO'}
 HITS = set('xXog234')
+# a part's family (tools/beat_parts.py FAMILY): a part the genre has not is taken as its family's part
+FAMILY = dict(KICK='KICK', SNARE='SNARE', HAT='HAT', PERC='PERC', BASS='BASS', CHORD='CHORD', ARP='ARP',
+              CLAP='SNARE', OHAT='HAT', RIDE='HAT', SHAKER='HAT', CONGA='PERC', TOM='PERC', RIM='SNARE', CRASH='PERC',
+              COWBELL='PERC', RUMBLE='BASS', SUB='BASS', LOGDRUM='BASS', STAB='CHORD', PAD='CHORD', PIANO='CHORD',
+              LEAD='ARP', VOX='ARP')
 MAX_STEPS = 64
 STOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patterns')
+RETIRED_MARK = '# 0.29: the patterns you kept in %s (a genre that left the library) are here, after these'
 
 
 def kind(part):
@@ -127,6 +136,37 @@ class Patterns:
         lines.append('%s\t%s\t%s' % (part, text, notes if kind(part) != 'drum' else '-'))
         self._write(genre, lines)
         return len(self.of(genre, part)) - 1
+
+    def retire(self):
+        """0.29: the patterns you kept yourself in a genre that left the library (SEQ + SAVE, or the page) go to the end of
+        the genre it went into, each under its part (one that genre has not: the part of the same family it has; none:
+        it stays in the old file, which is left as it was). Once: the genre's file says so. -> how many moved"""
+        moved = 0
+        for old, new in RETIRED.items():
+            if not os.path.isfile(os.path.join(self.folder, '%s.txt' % old)):
+                continue
+            mark = RETIRED_MARK % old
+            lines = self.lines(new)
+            if any(ln.startswith(mark) for ln in lines):
+                continue
+            stock = set()
+            path = os.path.join(self.stock, 'retired', '%s.txt' % old) if self.stock else None
+            if path and os.path.isfile(path):
+                stock = {(p, t, n) for _, p, t, n in Patterns(os.path.join(self.stock, 'retired'), stock=None).entries(old)}
+            yours = [(p, t, n) for _, p, t, n in Patterns(self.folder, stock=None).entries(old) if (p, t, n) not in stock]
+            if not yours:
+                continue
+            have = {p for _, p, _, _ in self.entries(new)}
+            lines = lines or ['# SAGGA SEQ 0.11 pattern library, %s: PART, the pattern, its notes (- for a drum).' % new]
+            lines.append(mark)
+            for part, text, notes in yours:
+                to = part if part in have else next((q for q in PARTS if q in have and FAMILY.get(q) == FAMILY.get(part)), None)
+                if to is None or valid(to, text, notes):
+                    continue
+                lines.append('%s\t%s\t%s' % (to, text, notes if kind(to) != 'drum' else '-'))
+                moved += 1
+            self._write(new, lines)
+        return moved
 
     def delete(self, genre, part, k):
         """takes pattern k of a part away; True if there was one"""

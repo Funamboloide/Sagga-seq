@@ -17,11 +17,13 @@ import os
 import re
 
 try:
-    from sagga_patterns import GENRES
-except ImportError:                                   # (alone: the same list, the FM-1's order)
-    GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-              'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+    from sagga_patterns import GENRES, RETIRED
+except ImportError:                                   # (alone: the same lists, the FM-1's order; 0.29: 22 genres)
+    GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'DUBSTEP', 'JUNGLE',
+              'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'BALANI', 'FOOTWORK', 'TRANCE',
               'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
+    RETIRED = {'AMAPIANO': 'REGGAETON', 'BASSLINE': 'UKGARAGE', 'GRIME': 'DUBSTEP', 'AFROHOUSE': 'GQOM'}
+RETIRED_MARK = '# 0.29: the progressions you kept in %s (a genre that left the library) are here, after these'
 
 # sagga_seq_core.h SQ_MOOD_*
 MOODS = ['ANY', 'SAD', 'MELANCHOLY', 'SATISFYING', 'ENERGETIC', 'EUPHORIC', 'EPIC', 'DREAMY', 'DARK', 'TENSE', 'SUSPENDED']
@@ -213,6 +215,34 @@ class Progressions:
         lines.append('%s\t%s%s' % (mood, name(rows), '\t' + label if label else ''))
         self._write(genre, lines)
         return len(self.of(genre, mood)) - 1
+
+    def retire(self):
+        """0.29: the progressions you kept yourself in a genre that left the library go to the end of the genre it went
+        into (the old file is left as it was). Once: the genre's file says so. -> how many moved"""
+        moved = 0
+        for old, new in RETIRED.items():
+            if not os.path.isfile(os.path.join(self.folder, '%s.txt' % old)):
+                continue
+            mark = RETIRED_MARK % old
+            lines = self.lines(new)
+            if any(ln.startswith(mark) for ln in lines):
+                continue
+            stock = set()
+            path = os.path.join(self.stock, 'retired', '%s.txt' % old) if self.stock else None
+            if path and os.path.isfile(path):
+                stock = {(m, tuple(r)) for _, m, r, _ in Progressions(os.path.join(self.stock, 'retired'), stock=None).entries(old)}
+            yours = [(m, r, nm) for _, m, r, nm in Progressions(self.folder, stock=None).entries(old) if (m, tuple(r)) not in stock]
+            if not yours:
+                continue
+            lines = lines or ['# SAGGA SEQ 0.11 progressions, %s: MOOD, the chords above the key\'s root, a name.' % new]
+            lines.append(mark)
+            for mood, rows, label in yours:
+                if valid(rows):
+                    continue
+                lines.append('%s\t%s%s' % (mood, name(rows), '\t' + label if label else ''))
+                moved += 1
+            self._write(new, lines)
+        return moved
 
     def delete(self, genre, k):
         """takes progression k (of all the genre's, in the file's order) away; True if there was one"""

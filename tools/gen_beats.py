@@ -11,7 +11,8 @@ BASS / ARP: a second string, the semitone above the root of each hit (hex 0-f). 
 four bars; a four-bar pattern carries its fill in the fourth).
 Genres for bass music, UK, techno, house, reggaeton, batida, gqom, experimental club music; 0.8: electro, drum & bass,
 afro house, amapiano, footwork, trance; 0.10: UK drill, hardcore, phonk and baile funk (breakbeat, trap, minimal and
-lo-fi left); 0.16: merengue.
+lo-fi left); 0.16: merengue. 0.29: balani show; amapiano, bassline, grime and afro house left, their best patterns
+went into reggaeton, UK garage, dubstep, gqom and batida (tools/beat_parts.py MOVED).
 """
 import os
 import sys
@@ -28,7 +29,9 @@ def g(name, kick, snare, hat, perc, bass, chord, arp, kit, swing, bpm, scales, c
 
 # 0.8: the progressions of each genre (SQ_PROGS of them): "1:7 4:9" = the tonic's chord with its 7th, then the 4th step's
 # with its 9th; colours 7 9 s4 (sus4) s2 (sus2) 6; the number after: bars a chord. The names the FM-1 shows come from the
-# key (i / I, VI ...), so a progression fits a minor and a major key alike.
+# key (i / I, VI ...), so a progression fits a minor and a major key alike. 0.29: eight a genre - the six of 0.28 where
+# they were (a project keeps its progression by its number), then two more: from the genre that went into it where
+# there was one (the bassline's, the grime's, the amapiano's, the afro house's), else of the genre's own.
 COLORS = {'': 0, '7': 1, '9': 2, 's4': 3, 's2': 4, '6': 5}
 P = {}
 
@@ -39,8 +42,8 @@ def progs(name, *lst):
 
 # EVOLVE: how much of the amount goes to the rhythm and to the notes, in % (rhythm-heavy styles move more)
 EVO = dict(TECHNO=(70, 35), HARDTECHNO=(90, 30), DUBTECHNO=(45, 45), HOUSE=(65, 45), UKGARAGE=(90, 65), UKFUNKY=(85, 60),
-           GRIME=(70, 60), DUBSTEP=(65, 60), JUNGLE=(100, 70), BASSLINE=(85, 70), REGGAETON=(70, 45), BATIDA=(100, 65),
-           GQOM=(95, 40), EXPERIMENTAL=(100, 100), ELECTRO=(80, 50), DNB=(85, 60), AFROHOUSE=(70, 50), AMAPIANO=(75, 60),
+           DUBSTEP=(65, 60), JUNGLE=(100, 70), REGGAETON=(70, 45), BATIDA=(100, 65),
+           GQOM=(95, 40), EXPERIMENTAL=(100, 100), ELECTRO=(80, 50), DNB=(85, 60), BALANI=(95, 55),
            FOOTWORK=(95, 55), TRANCE=(55, 50), UKDRILL=(70, 50), HARDCORE=(90, 35), PHONK=(65, 50), BAILEFUNK=(85, 50),
            MERENGUE=(80, 50))
 
@@ -103,7 +106,7 @@ g('UKGARAGE',
   [("x..x......x..x..", "0..c......0..7.."), ("x.....x...x.....", "0.....0...5....."), ("x..x..x...x.x...", "0..0..3...5.7...")],
   [("..x....x..x.....", "..n....n..n....."), ("x...x.....x...x.", "N...N.....n...n.")],
   [("x.x.x.x.x.x.x.x.", "0.3.7.a.7.3.0.3."), ("xx.xx.xx.xx.xx.x", "07.3c.07.3c.07.3")],
-  (36, 38, 42, 70), 60, (130, 134), ('MINOR', 'DORIAN', 'MAJOR'), 4)
+  (36, 38, 42, 70), 60, (130, 140), ('MINOR', 'DORIAN', 'MAJOR'), 4)          # (0.29: up to the bassline's 140)
 g('UKFUNKY',
   ["X..x..X...x..x..", "X..x..x...X..x..", "X...X..x.x..X...", "X..x...xX..x...xX..x..X...x..x.."],
   ["....X.......X...", "...x..x.....x...", "....X..x.x..X...", "......x.......x."],
@@ -113,15 +116,6 @@ g('UKFUNKY',
   [("..x..x....x.....", "..n..n....n....."), ("x..x....x..x....", "n..n....N..N....")],
   [("x.xx.xx.x.xx.xx.", "0.37.a7.0.37.a7."), ("x.x.x.x.x.x.x.x.", "0.7.3.a.0.7.3.c.")],
   (36, 39, 42, 63), 56, (128, 132), ('MINOR', 'DORIAN', 'PHRYGIAN'), 4)
-g('GRIME',
-  ["X.........x.....", "X.....x...X.....", "X..x......x..x..", "X.......X.x.....X.........x..x.."],
-  ["........X.......", "........X......g", "....X.......X...", "........X..x...."],
-  ["x.x.x.x.x.x.x.x.", "x...x...x...x...", "x.x.xxx.x.x.xxx.", "..x...x...x...x."],
-  ["......x.......x.", "...x.......x....", "x..x..x.x..x..x.", ".......x.......x.......x.....x.x"],
-  [("x.....x...x.....", "0.....0...1....."), ("X.......X..x....", "0.......0..c...."), ("x..x..x.........", "0..3..5.........")],
-  [("x..x..x.........", "m..m..m........."), ("x.....x.....x...", "5.....5.....5...")],
-  [("x.x.x.x.x.x.x.x.", "0.3.0.7.0.3.0.a."), ("xxxxxxxxxxxxxxxx", "0c3c7c3c0c3c7c5c")],
-  (36, 38, 42, 39), 50, (138, 142), ('MINOR', 'PHRYGIAN', 'HARM_MINOR'), 3)
 g('DUBSTEP',
   ["X...............", "X.........x.....", "X.......x.......X.........x.x...", "X.....x.........X......x..x....."],
   ["........X.......", "........X......g", "........X...............X..g....", "........X.......g.......X......."],
@@ -141,15 +135,6 @@ g('JUNGLE',
   [("x...............", "n..............."), ("x.......x.......", "m.......n.......")],
   [("x.x.x.x.x.x.x.x.", "0.3.7.c.7.3.0.3."), ("xxxxxxxxxxxxxxxx", "0307030703070307")],
   (36, 38, 42, 51), 50, (170, 175), ('MINOR', 'DORIAN', 'PHRYGIAN'), 3)
-g('BASSLINE',
-  ["X...X...X...X...", "X...X...X...X..x", "X......xX...X...", "X...X..x..X.X...X...X...X..xX.x."],
-  ["....X.......X...", "....X.......X..g", "....X..g....X...", "....X......xX..."],
-  ["..x...x...x...x.", "..x.x.xx..x.x.xx", "x.x.x.x.x.x.x.x.", ".xx..xx..xx..xx..xx..xx..xx.xxxx"],
-  ["...x..x....x..x.", "x.g.x.g.x.g.x.g.", "......x.......x.", "..x.....x.x....."],
-  [("x.x.x.x.x.x.x.x.", "0.c.0.c.0.c.0.c."), ("x..x..x...x..x..", "0..c..0...7..5.."), ("xx..x.x.xx..x.x.", "0c..0.7.0c..3.5.")],
-  [("..x...x...x...x.", "..m...m...m...m."), ("x..x..x...x.....", "m..m..m...m.....")],
-  [("xxxxxxxxxxxxxxxx", "0c0c3c3c5c5c7c7c"), ("x.x.x.x.x.x.x.x.", "0.3.7.c.0.3.7.a.")],
-  (36, 39, 42, 46), 56, (135, 140), ('MINOR', 'DORIAN', 'PHRYGIAN'), 3)
 g('REGGAETON',
   ["X...X...X...X...", "X.......X.......", "X...X...X...X..x", "X..xX...X..xX...X...X..xX...X.x."],
   ["...X..x....X..x.", "...X..X....X..X.", "...x..x....x..xg", "...X..x....X..x....X..x....X.xxx"],
@@ -158,7 +143,7 @@ g('REGGAETON',
   [("x..x..x.x..x..x.", "0..0..0.0..0..0."), ("x..x....x..x....", "0..0....5..5...."), ("x.....x.x.....x.", "0.....3.5.....7.")],
   [("x..x..x.x..x..x.", "m..m..m.m..m..m."), ("x.......x.......", "m.......M.......")],
   [("x..x..x.x..x..x.", "0..3..7.0..3..a."), ("x.x.x.x.x.x.x.x.", "0.3.7.3.0.3.7.c.")],
-  (36, 38, 42, 37), 50, (90, 100), ('MINOR', 'HARM_MINOR', 'PHRYG_DOM'), 3)
+  (36, 38, 42, 37), 50, (90, 112), ('MINOR', 'HARM_MINOR', 'PHRYG_DOM'), 3)       # (0.29: up to the amapiano's 112)
 g('BATIDA',
   ["X..x..X...X..x..", "X...X..x..X.X...", "X..X..X.X..X..X.", "X.....X.X..x.x..X..x..X.X..x.xx."],
   ["....X.......X...", "....X..x....X...", "...x....X..x....", "....X.......X.x."],
@@ -206,24 +191,18 @@ g('DNB',
   [("x...............", "n..............."), ("x.......x.......", "n.......m.......")],
   [("x..x..x..x..x..x", "0..7..c..7..3..5"), ("x.x.x.x.x.x.x.x.", "0.3.7.a.c.a.7.3.")],
   (36, 38, 42, 51), 50, (170, 176), ('MINOR', 'DORIAN', 'PHRYGIAN'), 4)
-g('AFROHOUSE',
-  ["X...X...X...X...", "X...X...X...X..x", "X...X..xX...X...", "X...X...X..xX...X...X..xX...X.x."],
-  ["....x.......x...", "....x..g....x...", "...........x....", "....x.....g.x..."],
-  ["..x...x...x...x.", "x.xxx.xxx.xxx.xx", "..xx..x...xx..x.", "xxxxxxxxxxxxxxxx"],
-  ["x..x..x...x..x..", "..x.x..x..x.x..x", ".x..x.x..x..x.x.", "x.x..x..x.x..x..x.x..x..x.x.xx.x"],
-  [("x..x......x.....", "0..0......7....."), ("x.....x...x..x..", "0.....0...5..3.."), ("..x...x...x..x..", "..0...0...3..5..")],
-  [("..x.....x.....x.", "..n.....n.....n."), ("x.....x...x.....", "n.....n...m.....")],
-  [("x..x..x..x..x..x", "0..3..7..a..7..3"), ("x.xx.x.xx.xx.x.x", "0.37.a.c7.30.7.a")],
-  (36, 39, 42, 63), 54, (118, 124), ('MINOR', 'DORIAN', 'PHRYGIAN'), 4)
-g('AMAPIANO',
-  ["X...X...X...X...", "X.......X.......", "X...X...X......x", "X..x....X..x....X.......X..x..x."],
-  ["....x.......x...", "......x.......x.", "...x...x...x..x.", "....x..x....x.x."],
-  ["xxxxxxxxxxxxxxxx", "x.x.x.x.x.x.x.x.", "oxxooxxooxxooxxo", "..x...x...x...x."],
-  ["..x..x....x..x..", ".x...x.x..x...x.", "x..x..x.x..x....", "...x...x...x..xx...x...x..x.x.xx"],
-  [("...x..x...x.x...", "...0..7...5.3..."), ("x..x....x.x...x.", "0..c....7.5...3."), ("..x..x.x..x..x..", "..0..0.7..3..5..")],
-  [("x.....x...x.....", "n.....n...n....."), ("..x...x...x...x.", "..N...N...n...n.")],
-  [("x..x..x..x..x...", "0..3..7..a..c..."), ("..x.x...x.x...x.", "..7.3...0.3...5.")],
-  (36, 37, 70, 63), 58, (110, 116), ('DORIAN', 'MINOR', 'MAJOR'), 4)
+# 0.29: balani show (Bamako's street parties, Mali): the balani - the small balafon - sampled and played very fast over
+# drum machines where the djembe was, around 170 BPM; a house kick or the 3-3-2 of the region under hailstones of claps,
+# the djembe as low congas, the balafon's ostinatos in the major pentatonic as the ARP (the band's LEAD)
+g('BALANI',
+  ["X...X...X...X...", "X..x..X...X..x..", "X...X..xX...X.x.", "X...X...X..xX...X..x..X.X...X.xx"],
+  ["....X.......X...", "....X..x....X..x", "..x.X..x..x.X..x", "....X.......X.x.....X..x....X.22"],
+  ["x.x.x.x.x.x.x.x.", "xxxxxxxxxxxxxxxx", "x.xxx.xxx.xxx.xx", "..x...x...x...x."],
+  ["x..x..x.x..x..x.", "..x..x.x..x..x.x", "x.xx.x.xx.xx.x.x", "x..x..x...x.x..xx..x..x.x.x.x.x2"],
+  [("x.......x.......", "0.......0......."), ("x..x..x...x..x..", "0..0..7...5..0.."), ("x...x...x...x.x.", "0...7...0...5.3.")],
+  [("x.....x.........", "M.....M........."), ("..x...x...x...x.", "..M...M...m...M.")],
+  [("xxxxxxxxxxxxxxxx", "c9c7c9c4c9c7c247"), ("x.x.xxx.x.x.xxx.", "c.9.c97.c.9.794.")],
+  (36, 39, 42, 64), 52, (160, 180), ('MAJOR', 'PENT_MAJOR', 'MIXOLYDIAN'), 3)
 g('FOOTWORK',
   ["X..X..X...X..X..", "X..x..X..x..X...", "X.....X..X..X..x", "X..X......X..X..X..X..X...X.X.X."],
   ["........X.......", "....X.......X...", "........X.....x.", "....x.......X..x"],
@@ -302,74 +281,87 @@ g('MERENGUE',
   [("xxxxxxxxxxxxxxxx", "047cc740047cc740"), ("x.x.x.xxx.x.x.xx", "0.4.7.97c.9.7.42")],
   (36, 37, 69, 66), 50, (128, 156), ('MAJOR', 'MIXOLYDIAN', 'MINOR'), 3)
 
-progs('TECHNO', ("1", 4), ("1 6", 2), ("1 4", 2), ("1 7 6 7", 1), ("1:7 4:7", 2), ("1:s4 1", 2))
-progs('HARDTECHNO', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7", 2), ("1 2 1 7", 1), ("1:s2 1", 2))
-progs('DUBTECHNO', ("1:7", 4), ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7 7:6 6:7 7", 1), ("1:s4 1:7", 2), ("4:9 1:7", 2))
+progs('TECHNO', ("1", 4), ("1 6", 2), ("1 4", 2), ("1 7 6 7", 1), ("1:7 4:7", 2), ("1:s4 1", 2),
+      ("1 3", 2), ("1:9 6:7", 2))
+progs('HARDTECHNO', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7", 2), ("1 2 1 7", 1), ("1:s2 1", 2),
+      ("1 6 7 1", 1), ("1 4", 2))
+progs('DUBTECHNO', ("1:7", 4), ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7 7:6 6:7 7", 1), ("1:s4 1:7", 2), ("4:9 1:7", 2),
+      ("1:9", 4), ("6:9 1:7", 2))
 progs('HOUSE', ("1:7 4:9", 1), ("2:7 5:7 1:9 6:7", 1), ("1:9 6:9 4:7 5", 1), ("6 4 1 5", 1), ("1:7 7:6 6:7 5:s4", 1),
-      ("4:9 5:7 3:7 6:7", 1))
+      ("4:9 5:7 3:7 6:7", 1), ("1:7 6:7 2:7 5:7", 1), ("2:9 5:7", 2))
 progs('UKGARAGE', ("1:7 4:9", 1), ("1:9 6:7 3:7 7", 1), ("2:7 5:7 1:9 1:9", 1), ("6:7 5:7 1:9 1:9", 1), ("1:9 4:7", 2),
-      ("1:7 3:7 4:9 5:s4", 1))
-progs('UKFUNKY', ("1:7 4:7", 1), ("1:9 7:7", 2), ("1:7 6:7 7:7 1:7", 1), ("4:9 1:7", 2), ("1:7", 4), ("2:7 5:7", 2))
-progs('GRIME', ("1", 4), ("1 2", 2), ("1 6 7 1", 1), ("1:s4 1", 2), ("1 4 6 5", 1), ("1 6", 2))
-progs('DUBSTEP', ("1", 4), ("1 6", 2), ("1 2", 2), ("1 7 6 5", 1), ("1 4", 2), ("1:s2 1", 2))
-progs('JUNGLE', ("1:9 4:7", 2), ("1:7 6:7", 2), ("1:9 7:7 6:7 7", 1), ("2:7 5:7 1:9 1:9", 1), ("1:7", 4), ("4:9 5:7", 2))
-progs('BASSLINE', ("1 6 3 7", 1), ("1 4", 2), ("1 7 6 7", 1), ("6 7 1 1", 1), ("1:7 4:7", 2), ("1 5 6 4", 1))
-progs('REGGAETON', ("1 6 3 7", 1), ("1 4 5 1", 1), ("6 7 1 1", 1), ("1 4 7 3", 1), ("1 6 7 1", 1), ("1 5 6 4", 1))
-progs('BATIDA', ("1 4 5 4", 1), ("6 4 1 5", 1), ("1 5 6 4", 1), ("1 7 6 7", 1), ("2 5 1 1", 1), ("1 6 4 5", 1))
-progs('GQOM', ("1", 4), ("1 2", 2), ("1 6", 2), ("1:s4 1", 2), ("1 7", 2), ("1 4", 2))
+      ("1:7 3:7 4:9 5:s4", 1), ("1 6 3 7", 1), ("1 7 6 7", 1))   # (0.29: the 7th and 8th the bassline's)
+progs('UKFUNKY', ("1:7 4:7", 1), ("1:9 7:7", 2), ("1:7 6:7 7:7 1:7", 1), ("4:9 1:7", 2), ("1:7", 4), ("2:7 5:7", 2),
+      ("1:9 4:9 5:7 1:9", 1), ("6:7 5:7", 2))
+progs('DUBSTEP', ("1", 4), ("1 6", 2), ("1 2", 2), ("1 7 6 5", 1), ("1 4", 2), ("1:s2 1", 2),
+      ("1 6 7 1", 1), ("1 4 6 5", 1))   # (0.29: the 7th and 8th the grime's)
+progs('JUNGLE', ("1:9 4:7", 2), ("1:7 6:7", 2), ("1:9 7:7 6:7 7", 1), ("2:7 5:7 1:9 1:9", 1), ("1:7", 4), ("4:9 5:7", 2),
+      ("1:9 3:7", 2), ("6:7 5:7 4:9 5:7", 1))
+progs('REGGAETON', ("1 6 3 7", 1), ("1 4 5 1", 1), ("6 7 1 1", 1), ("1 4 7 3", 1), ("1 6 7 1", 1), ("1 5 6 4", 1),
+      ("1:9 4:9", 2), ("1:7 6:7 4:9 5:7", 1))   # (0.29: the 7th and 8th the amapiano's)
+progs('BATIDA', ("1 4 5 4", 1), ("6 4 1 5", 1), ("1 5 6 4", 1), ("1 7 6 7", 1), ("2 5 1 1", 1), ("1 6 4 5", 1),
+      ("1:7 4:9", 2), ("1 4 6 5", 1))   # (0.29: the 7th the afro house's)
+progs('GQOM', ("1", 4), ("1 2", 2), ("1 6", 2), ("1:s4 1", 2), ("1 7", 2), ("1 4", 2),
+      ("1:7", 4), ("1:9 6:7", 2))   # (0.29: the 7th and 8th the afro house's)
 progs('EXPERIMENTAL', ("1:s2 3:6 7:9 2:7", 1), ("1:9 2:s4", 2), ("1 7:s2 6:9 5:s4", 1), ("4:9 1:6", 2), ("1:7 3:7 5:7 7:7", 1),
-      ("1:s4 1:s2", 2))
-progs('ELECTRO', ("1", 4), ("1 6", 2), ("1 7", 2), ("1 4 6 5", 1), ("1:7 4:7", 2), ("1:s4 1", 2))
-progs('DNB', ("1:7 6:7", 2), ("1:9 4:7", 2), ("1:7", 4), ("6:7 7 1:9 1:9", 1), ("1:9 7:7 6:7 7:s4", 1), ("4:9 5:7", 2))
-progs('AFROHOUSE', ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7", 4), ("1:9 4:9 6:7 5:s4", 1), ("1:7 7:7", 2), ("4:9 1:7", 2))
-progs('AMAPIANO', ("1:9 4:9", 2), ("2:7 5:7 1:9 1:9", 1), ("1:7 6:7 4:9 5:7", 1), ("6:7 4:9 1:9 5", 1), ("1:9", 4),
-      ("4:9 5:7 3:7 6:7", 1))
-progs('FOOTWORK', ("1:7", 4), ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7 6:7 7:7 1:7", 1), ("4:9 5:7", 2), ("1:s4 1:7", 2))
-progs('TRANCE', ("1 6 3 7", 1), ("6 4 1 5", 1), ("1 7 6 7", 2), ("1 4 6 5", 1), ("6 7 1 1", 1), ("1:s4 1 6 7", 2))
+      ("1:s4 1:s2", 2), ("1:6 2:s2", 2), ("7:9 3:s4 6:7 1:s2", 1))
+progs('ELECTRO', ("1", 4), ("1 6", 2), ("1 7", 2), ("1 4 6 5", 1), ("1:7 4:7", 2), ("1:s4 1", 2),
+      ("1 2", 2), ("6 7 1 1", 1))
+progs('DNB', ("1:7 6:7", 2), ("1:9 4:7", 2), ("1:7", 4), ("6:7 7 1:9 1:9", 1), ("1:9 7:7 6:7 7:s4", 1), ("4:9 5:7", 2),
+      ("1:9 6:7 3:9 7:7", 1), ("4:9 1:9", 2))
+# 0.29 balani: the tonic and the few chords of the balafon's songs (I, I-V, I-IV, I-IV-V-IV, I-vi-V-I, vi-V-IV-V)
+progs('BALANI', ("1", 4), ("1 5", 2), ("1 4", 2), ("1 4 5 4", 1), ("1 6 5 1", 1), ("6 5 4 5", 1),
+      ("1 5 1 4", 1), ("4 5 1 1", 1))
+progs('FOOTWORK', ("1:7", 4), ("1:7 4:9", 2), ("1:9 6:7", 2), ("1:7 6:7 7:7 1:7", 1), ("4:9 5:7", 2), ("1:s4 1:7", 2),
+      ("2:7 5:7 1:9 6:7", 1), ("1:9 7:7", 2))
+progs('TRANCE', ("1 6 3 7", 1), ("6 4 1 5", 1), ("1 7 6 7", 2), ("1 4 6 5", 1), ("6 7 1 1", 1), ("1:s4 1 6 7", 2),
+      ("1 5 6 4", 1), ("4 6 7 1", 1))
 # drill: i-VI-III-VII and i-II (the flat 2nd of the phrygian); hardcore: the tonic, i-II, i-VI, i-VII-VI-VII
-progs('UKDRILL', ("1 6 3 7", 1), ("1 2", 2), ("1", 4), ("1 6", 2), ("6 7 1 1", 1), ("1 4 2 1", 1))
-progs('HARDCORE', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7 6 7", 1), ("1 2 1 7", 1), ("1:s2 1", 2))
-progs('PHONK', ("1", 4), ("1 6", 2), ("1 2", 2), ("1 4", 2), ("1 7 6 6", 1), ("1:7 5", 2))
-progs('BAILEFUNK', ("1 6", 2), ("1 4 5 1", 1), ("1 7 6 7", 1), ("1", 4), ("6 7 1 1", 1), ("1 2", 2))
+progs('UKDRILL', ("1 6 3 7", 1), ("1 2", 2), ("1", 4), ("1 6", 2), ("6 7 1 1", 1), ("1 4 2 1", 1),
+      ("1 4 6 5", 1), ("1 7 6 6", 1))
+progs('HARDCORE', ("1", 4), ("1 2", 2), ("1 6", 2), ("1 7 6 7", 1), ("1 2 1 7", 1), ("1:s2 1", 2),
+      ("1 6 3 7", 1), ("6 7 1 1", 1))
+progs('PHONK', ("1", 4), ("1 6", 2), ("1 2", 2), ("1 4", 2), ("1 7 6 6", 1), ("1:7 5", 2),
+      ("1 4 1 6", 1), ("1:7 4:7", 2))
+progs('BAILEFUNK', ("1 6", 2), ("1 4 5 1", 1), ("1 7 6 7", 1), ("1", 4), ("6 7 1 1", 1), ("1 2", 2),
+      ("1 6 3 7", 1), ("1 5 6 4", 1))
 # merengue: I - V7 (the merengue's own), I IV V7 I, I vi ii V7, I IV I V7, I ii V7 I, vi IV V7 I
-progs('MERENGUE', ("1 5:7", 1), ("1 4 5:7 1", 1), ("1 6 2 5:7", 1), ("1 4 1 5:7", 1), ("1 2 5:7 1", 1), ("6 4 5:7 1", 1))
+progs('MERENGUE', ("1 5:7", 1), ("1 4 5:7 1", 1), ("1 6 2 5:7", 1), ("1 4 1 5:7", 1), ("1 2 5:7 1", 1), ("6 4 5:7 1", 1),
+      ("4 5:7 1 1", 1), ("1 6 4 5:7", 1))
 
 # the set genres: ladder = KICK SNARE HAT PERC BASS CHORD ARP (the kick within 15, the first in)
 setg('TECHNO', 'HARDTECHNO', (0, 50, 20, 45, 35, 60, 75))
 setg('HARDTECHNO', 'TECHNO', (5, 45, 20, 35, 15, 70, 55))
 setg('DUBTECHNO', 'TECHNO', (10, 60, 25, 45, 35, 30, 70))              # the chord early: it is the dub
-setg('HOUSE', 'AFROHOUSE', (0, 30, 15, 50, 25, 40, 70))
+setg('HOUSE', 'UKGARAGE', (0, 30, 15, 50, 25, 40, 70))          # (0.29: was AFRO HOUSE)
 setg('UKGARAGE', 'UKFUNKY', (5, 20, 15, 45, 30, 50, 65))
 setg('UKFUNKY', 'UKGARAGE', (5, 30, 20, 15, 35, 55, 70), afro=1)      # the percussion makes it funky
-setg('GRIME', 'UKDRILL', (5, 15, 40, 55, 20, 35, 70), half_time=1)
-setg('DUBSTEP', 'GRIME', (15, 20, 35, 50, 10, 60, 75), half_time=1)
+setg('DUBSTEP', 'UKDRILL', (15, 20, 35, 50, 10, 60, 75), half_time=1)   # (0.29: was GRIME)
 setg('JUNGLE', 'DNB', (10, 5, 30, 45, 20, 65, 75))                     # the break first: snare early, no half-time
-setg('BASSLINE', 'UKGARAGE', (0, 25, 20, 50, 10, 55, 70))              # the bass is the genre
 setg('REGGAETON', 'BATIDA', (0, 10, 40, 25, 35, 55, 75), afro=1)       # the dembow: kick and snare at once
 setg('BATIDA', 'GQOM', (0, 35, 30, 10, 40, 60, 70), afro=1)
 setg('GQOM', 'BATIDA', (0, 45, 35, 15, 30, 65, 80), afro=1)
 setg('EXPERIMENTAL', 'FOOTWORK', (10, 40, 50, 20, 35, 30, 60))
 setg('ELECTRO', 'TECHNO', (0, 15, 25, 55, 20, 50, 40))                 # the arp early: the electro lead
 setg('DNB', 'JUNGLE', (10, 5, 25, 50, 15, 60, 75))
-setg('AFROHOUSE', 'HOUSE', (0, 50, 30, 10, 35, 45, 70), afro=1)
-setg('AMAPIANO', 'AFROHOUSE', (15, 55, 35, 20, 30, 10, 70), afro=1)    # the piano opens, the log drum (bass) after
+setg('BALANI', 'BATIDA', (0, 35, 25, 15, 45, 70, 10), afro=1)          # 0.29: the balafon (ARP) right after the kick, the djembe
 setg('FOOTWORK', 'JUNGLE', (0, 30, 35, 15, 25, 70, 55))
 setg('TRANCE', 'TECHNO', (0, 45, 20, 60, 15, 50, 30))                  # the arp early: the trance lead
-setg('UKDRILL', 'GRIME', (5, 15, 10, 50, 25, 45, 70), half_time=1)
+setg('UKDRILL', 'DUBSTEP', (5, 15, 10, 50, 25, 45, 70), half_time=1)   # (0.29: was GRIME)
 setg('HARDCORE', 'HARDTECHNO', (0, 35, 15, 55, 20, 40, 70))
 setg('PHONK', 'UKDRILL', (0, 20, 15, 45, 10, 55, 30), half_time=1)        # the cowbell riff (ARP) comes early
 setg('BAILEFUNK', 'REGGAETON', (0, 25, 30, 10, 20, 60, 70), afro=1)
 setg('MERENGUE', 'BATIDA', (0, 40, 5, 10, 25, 35, 55), afro=1)       # the kick, then the guira and the tambora
 
-GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-          'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+GENRES = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKGARAGE', 'UKFUNKY', 'DUBSTEP', 'JUNGLE',
+          'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'BALANI', 'FOOTWORK', 'TRANCE',
           'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
-SHOWN = ['TECHNO', 'HARDTECHNO', 'DUB TECHNO', 'HOUSE', 'UK GARAGE', 'UK FUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-         'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENT', 'ELECTRO', 'DRUM+BASS', 'AFRO HOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+SHOWN = ['TECHNO', 'HARDTECHNO', 'DUB TECHNO', 'HOUSE', 'UK GARAGE', 'UK FUNKY', 'DUBSTEP', 'JUNGLE',
+         'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENT', 'ELECTRO', 'DRUM+BASS', 'BALANI', 'FOOTWORK', 'TRANCE',
          'UK DRILL', 'HARDCORE', 'PHONK', 'BAILE FUNK', 'MERENGUE']
 # the SQ_GENRE_* names of sagga_beats.h, in this order (the enum is written by hand there: keep the two together)
-ENUM = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKG', 'UKFUNKY', 'GRIME', 'DUBSTEP', 'JUNGLE', 'BASSLINE',
-        'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'AFROHOUSE', 'AMAPIANO', 'FOOTWORK', 'TRANCE',
+ENUM = ['TECHNO', 'HARDTECHNO', 'DUBTECHNO', 'HOUSE', 'UKG', 'UKFUNKY', 'DUBSTEP', 'JUNGLE',
+        'REGGAETON', 'BATIDA', 'GQOM', 'EXPERIMENTAL', 'ELECTRO', 'DNB', 'BALANI', 'FOOTWORK', 'TRANCE',
         'UKDRILL', 'HARDCORE', 'PHONK', 'BAILEFUNK', 'MERENGUE']
 FUNCS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP']
 DRUMS = FUNCS[:4]
@@ -377,7 +369,7 @@ WANT = dict(KICK=4, SNARE=4, HAT=4, PERC=4, BASS=3, CHORD=2, ARP=2)
 # the four-bar kicks the library must have (the genres that live on four-bar phrases)
 WANT64 = ['TECHNO', 'HOUSE', 'UKGARAGE', 'JUNGLE', 'DNB', 'UKDRILL', 'HARDCORE']
 assert list(D) == GENRES, list(D)
-assert len(GENRES) == len(SHOWN) == len(ENUM) == 25
+assert len(GENRES) == len(SHOWN) == len(ENUM) == 22          # 0.29 (25 until 0.28)
 ok = True
 for gn in GENRES:
     for fn in FUNCS:
@@ -410,7 +402,7 @@ for gn in GENRES:
     lo, hi = D[gn]['BPM']
     if not 30 <= lo <= hi <= 300: print('bpm', gn); ok = False
     if D[gn]['CS'] not in (3, 4): print('chord size', gn); ok = False
-    if len(P.get(gn, [])) != 6: print('progressions', gn, len(P.get(gn, []))); ok = False
+    if len(P.get(gn, [])) != 8: print('progressions', gn, len(P.get(gn, []))); ok = False
     for text, bars in P.get(gn, []):
         toks = text.split()
         if not 1 <= len(toks) <= 8 or bars not in (1, 2, 4, 8): print('prog', gn, text, bars); ok = False
@@ -463,7 +455,9 @@ for gn in GENRES:
         src = mp.get(part, part if part in OLD else None)
         old = list(D[gn][src]) if src else []
         own = list(BP.OWN.get((gn, part), []))
-        seeds = (old + own) if part in OLD else (own + old + list(BP.COMMON.get(part, [])))
+        moved = list(BP.MOVED.get((gn, part), []))                         # 0.29: from the genres that left, after the genre's own
+        common = [] if (gn, part) in BP.PURE else list(BP.COMMON.get(part, []))
+        seeds = (old + own + moved) if part in OLD else (own + old + moved + common)
         if not seeds: print('no seeds', gn, part); ok = False; continue
         flash, pi = BP.variations(gn, part, seeds, 12 if main else 6, 12 if main else 6, fill_ratchet(gn) == 3)
         if part in ('KICK', 'SNARE', 'HAT', 'PERC'): note = D[gn]['KIT'][('KICK', 'SNARE', 'HAT', 'PERC').index(part)]
@@ -475,8 +469,8 @@ for gn in GENRES:
         if part == 'KICK' and src and flash[0] != BP.split(D[gn]['KICK'][0])[0]: print('kick #1 moved', gn); ok = False
         ents.append((part, main, inb, flash, pi, note))
     NEWLIB[gn] = ents
-for (gn, part) in BP.OWN:
-    if gn not in GENRES or part not in [e[0] for e in NEWLIB.get(gn, [])]: print('OWN of a part not in the band', gn, part); ok = False
+for (gn, part) in list(BP.OWN) + list(BP.MOVED):
+    if gn not in GENRES or part not in [e[0] for e in NEWLIB.get(gn, [])]: print('OWN / MOVED of a part not in the band', gn, part); ok = False
 if not ok:
     sys.exit(1)
 

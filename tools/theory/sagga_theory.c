@@ -5,7 +5,8 @@
  * 0.26: what the FM-1 makes NOW - in the bar of the metre (--metre 7/8, 5/4, 6/8 ...: its usual division, :1 :2 another
  * one), the answers with notes. --v25: as 0.25 made it (sixteens in 4/4, the answers of rhythm alone); --no-notes: in
  * the bar, the answers of rhythm alone (what a pattern of 0.25 becomes when the metre changes).
- * STYLE: a genre of the FM-1 by its name (TECHNO, "UK GARAGE" or UKGARAGE, DNB ...) or its number 0..24, or FREE (25).
+ * STYLE: a genre of the FM-1 by its name (TECHNO, "UK GARAGE" or UKGARAGE, DNB ...) or its number 0..21, or FREE (22;
+ * 0.29: 22 genres - 0.28's 25 numbered the FM-1's way then, FREE was 25).
  * No PART: the style's band (sq_th_band) and its chords.
  *   cc -std=c11 -O2 -Ifirmware/src tools/theory/sagga_theory.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c \
  *      -o build/sagga_theory

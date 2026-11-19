@@ -37,7 +37,7 @@ import tempfile
 ROOT = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 OUT = os.path.join(ROOT, "firmware", "src", "sagga_theory_data.h")
 DOC = os.path.join(ROOT, "docs", "TEORIA-GENERI.md")
-HAND = (0, 3, 7, 15)             # TECHNO HOUSE DUBSTEP DRUM+BASS: their rules are written by hand (sagga_theory.c)
+HAND = (0, 3, 6, 13)             # TECHNO HOUSE DUBSTEP DRUM+BASS: their rules are written by hand (sagga_theory.c; 0.29: 22 genres)
 ON = "Xxog234"
 ROLLS = "234"
 T_SAME = 3.0                     # variations this near (16ths a bar) are one family

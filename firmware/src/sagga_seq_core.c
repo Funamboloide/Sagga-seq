@@ -928,7 +928,7 @@ void sq_track_sanitize(sq_track_cfg_t *c)
     c->octave = (int8_t)clampi(c->octave, -3, 3);
     if (c->key_slot >= SQ_KEYS && c->key_slot != SQ_KEY_FOLLOW) c->key_slot = SQ_KEY_FOLLOW;
     if (c->src_func >= 64u && c->src_func != 255u) c->src_func = 255u;   /* (the library checks the rest) */
-    if (c->src_genre >= 64u) c->src_genre = 255u;
+    if (c->src_genre >= SQ_SET_GENRES && c->src_genre != 255u) c->src_genre = 255u;   /* (0.29: a genre there is, or not known) */
     if (c->follow_mode >= SQ_FMS) c->follow_mode = SQ_FM_HOLD;
     if (c->euc_fam >= SQ_RF_COUNT) c->euc_fam = SQ_RF_EUCLID;
     if (c->arp_rate > SQ_ARP_RATE_MAX) c->arp_rate = 0u;
@@ -991,12 +991,12 @@ static void sanitize_snap(sq_snap_t *sn)
     sn->mac[2] = (int8_t)clampi(sn->mac[2], -25, 25);
     sn->mac[3] = (int8_t)clampi(sn->mac[3], -64, 63);
     sn->harm_on = sn->harm_on ? 1u : 0u;
-    if (sn->genre >= 64u) sn->genre = 0u;             /* (the library checks the genre itself) */
+    if (sn->genre >= SQ_SET_GENRES) sn->genre = 0u;   /* (0.29: a genre there is - the library's are the set's) */
     if (sn->harm_prog >= SQ_PROGS_ALL) sn->harm_prog = 0u;
     if (sn->harm_bars > 8u) sn->harm_bars = 0u;
     if (sn->morph_b >= SQ_SCENES) sn->morph_b = 1u;
     if (sn->key_cur >= SQ_KEYS) sn->key_cur = 0u;
-    if (sn->harm_genre >= 64u) sn->harm_genre = sn->genre;
+    if (sn->harm_genre >= SQ_SET_GENRES) sn->harm_genre = sn->genre;
     sn->reserved[0] = 0u;
     for (i = 0; i < SQ_TRACKS; i++) sq_track_sanitize(&sn->track[i]);
     for (i = 0; i < SQ_LFOS; i++) sanitize_lfo(&sn->lfo[i]);
@@ -1066,7 +1066,7 @@ void sq_project_sanitize(sq_project_t *p)
     for (n = 0; n < SQ_LFOS; n++) sanitize_lfo(&p->lfo[n]);
     {
         sq_gen_t *g = &p->gen;
-        if (g->genre >= 64u) g->genre = 0u;            /* (the library checks the genre itself) */
+        if (g->genre >= SQ_SET_GENRES) g->genre = 0u;  /* (0.29: a genre there is - the library's are the set's) */
         if (g->func >= 16u) g->func = 0u;
         if (g->var >= 16u) g->var = 0u;
         if (g->scope >= SQ_SCOPES) g->scope = SQ_SCOPE_THIS;
@@ -1085,7 +1085,7 @@ void sq_project_sanitize(sq_project_t *p)
         if (g->every >= SQ_EVERYS) g->every = SQ_EVERY_OFF;
         if (g->every_tool >= 16u && g->every_tool != 255u) g->every_tool = 255u;
         if (g->lib_len >= SQ_LLS) g->lib_len = SQ_LL_PHRASE;   /* (0.24: LIBRARY LEN 64 was 2) */
-        if (g->harm_genre >= 64u) g->harm_genre = g->genre;
+        if (g->harm_genre >= SQ_SET_GENRES) g->harm_genre = g->genre;
         g->harm_lock = g->harm_lock ? 1u : 0u;
         g->harm_free = g->harm_free ? 1u : 0u;      /* (0.16; a 0.15 image: 0) */
         if (g->harm_rhythm >= SQ_HRS) g->harm_rhythm = SQ_HR_BARS;
@@ -3338,7 +3338,104 @@ static uint8_t st27_alike(const sq_step_t *s, const sq27_step_t *def27)   /* its
     return (uint8_t)!bdiff_(&x, def27, sizeof x);
 }
 
-/* a track's settings as 0.27 has them, and back; the settings of its lanes 7-8 */
+/* 0.29: the genres are 22 (0.28: 25) - AMAPIANO went into REGGAETON, BASSLINE into UK GARAGE, GRIME into DUBSTEP, AFRO
+ * HOUSE into GQOM, BALANI came where AFRO HOUSE was. The image keeps 0.28's numbers, so that a 0.28 opens it with its own
+ * genres (BALANI as AFRO HOUSE), and says in chunk 5 (SQ_CHUNK_X29) that it is 0.29's. A number past them (a THEORY
+ * style FREE: 25 then, 22 now) maps too; 255 (not known) and anything else stay as they are */
+#define SQ_GENRES28 25u
+#define SQ_GENRE28_AFRO 16u
+#define SQ_GENRE29_BALANI 14u                /* (sagga_beats.h SQ_GENRE_BALANI: the core does not include the library) */
+static const uint8_t GENRE_FROM28[SQ_GENRES28 + 1u] = {0u, 1u, 2u, 3u, 4u, 5u, 6u /* GRIME: DUBSTEP */, 6u, 7u, 4u /* BASSLINE:
+    UK GARAGE */, 8u, 9u, 10u, 11u, 12u, 13u, 10u /* AFRO HOUSE: GQOM */, 8u /* AMAPIANO: REGGAETON */, 15u, 16u, 17u, 18u, 19u,
+    20u, 21u, SQ_TH_FREE};
+static const uint8_t GENRE_TO28[SQ_TH_FREE + 1u] = {0u, 1u, 2u, 3u, 4u, 5u, 7u, 8u, 10u, 11u, 12u, 13u, 14u, 15u,
+    SQ_GENRE28_AFRO /* BALANI */, 18u, 19u, 20u, 21u, 22u, 23u, 24u, SQ_GENRES28};
+typedef char sq_genre_maps_fit[(SQ_TH_FREE == 22u && SQ_SET_GENRES == 22u) ? 1 : -1];
+uint8_t sq_genre_from28(uint8_t g, uint8_t v29)
+{
+    if (g > SQ_GENRES28) return g;
+    return (v29 && g == SQ_GENRE28_AFRO) ? (uint8_t)SQ_GENRE29_BALANI : GENRE_FROM28[g];
+}
+uint8_t sq_genre_to28(uint8_t g) { return g <= SQ_TH_FREE ? GENRE_TO28[g] : g; }
+static uint8_t thstyle_to28(uint8_t st)         /* a pattern's THEORY style byte (0: not the engines'): bits 0-4, 1 + the style */
+{
+    return (st & 31u) ? (uint8_t)((st & ~31u) | ((sq_genre_to28((uint8_t)((st & 31u) - 1u)) + 1u) & 31u)) : st;
+}
+static uint8_t thstyle_from28(uint8_t st, uint8_t v29)
+{
+    return (st & 31u) ? (uint8_t)((st & ~31u) | ((sq_genre_from28((uint8_t)((st & 31u) - 1u), v29) + 1u) & 31u)) : st;
+}
+#define TR27_SRC_GENRE (__builtin_offsetof(sq_track_cfg_t, src_genre) - (SQ27_TRACK_HEAD + 4u * SQ_LANES))   /* in the tail */
+typedef char tr27_src_genre_in_tail[(__builtin_offsetof(sq_track_cfg_t, src_genre) >= SQ27_TRACK_HEAD + 4u * SQ_LANES &&
+                                     TR27_SRC_GENRE < SQ27_TRACK_TAIL) ? 1 : -1];
+/* 0.29: the genre's progressions are eight (0.28: six). harm_prog: 0..7 the genre's, 8..11 the player's, 12 the Pi's;
+ * the image keeps 0.28's numbers (0..5, 6..9, 10) - the genre's 7th and 8th go as its 1st, and chunk 5 says which they
+ * were. A number 0.28 did not have reads as 0 (0.28 made it so) */
+#define SQ_PROGS28 6u
+typedef char sq_progs28_fit[(SQ_LIB_PROGS > SQ_PROGS28 && SQ_PROGS_ALL == SQ_LIB_PROGS + SQ_UPROGS + 1u) ? 1 : -1];
+uint8_t sq_prog_from28(uint8_t p)
+{
+    return p < SQ_PROGS28 ? p : p <= SQ_PROGS28 + SQ_UPROGS ? (uint8_t)(p + (SQ_LIB_PROGS - SQ_PROGS28)) : 0u;
+}
+uint8_t sq_prog_to28(uint8_t p)
+{
+    return p < SQ_PROGS28 ? p : p < SQ_LIB_PROGS ? 0u : p < SQ_PROGS_ALL ? (uint8_t)(p - (SQ_LIB_PROGS - SQ_PROGS28)) : 0u;
+}
+static uint8_t prog_new29(uint8_t p) { return (uint8_t)(p >= SQ_PROGS28 && p < SQ_LIB_PROGS); }
+/* chunk 5 (SQ_CHUNK_X29): its first byte 1, the genres are 0.29's; 2, the progressions follow too, as 0.29 numbers them
+ * - the project's, then each snapshot's */
+#define SQ_X29_LEN (2u + SQ_SNAPS)
+/* a project that has BALANI somewhere: the only genre whose 0.28 number (AFRO HOUSE's) reads back as another without
+ * chunk 5 - every other one goes to 0.28's number and back as it was, so an image without BALANI is 0.28's byte for byte
+ * (and without the genre's progressions 7 and 8: uses_prog78) */
+static uint8_t uses_prog78(const sq_project_t *p)
+{
+    uint32_t k;
+    if (prog_new29(p->gen.harm_prog)) return 1u;
+    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used && prog_new29(p->snap[k].harm_prog)) return 1u;
+    return 0u;
+}
+static uint8_t uses_balani(const sq_project_t *p)
+{
+    uint32_t t, k;
+    const uint8_t B = (uint8_t)SQ_GENRE29_BALANI;
+    if (p->gen.genre == B || p->gen.harm_genre == B || p->viaggio.set_genre == B) return 1u;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].src_genre == B) return 1u;
+        for (k = 0; k < SQ_PATTERNS; k++) if ((p->th.pat[t][k].style & 31u) == B + 1u) return 1u;
+    }
+    for (k = 0; k < SQ_SNAPS; k++) {
+        const sq_snap_t *sn = &p->snap[k];
+        if (!sn->used) continue;
+        if (sn->genre == B || sn->harm_genre == B) return 1u;
+        for (t = 0; t < SQ_TRACKS; t++) if (sn->track[t].src_genre == B) return 1u;
+    }
+    return 0u;
+}
+/* every genre and progression a project keeps, read with 0.28's numbers (v29: the image says it is 0.29's; x29: the
+ * progressions as 0.29 numbered them, from chunk 5 - or 0) */
+static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29)
+{
+    uint32_t t, k;
+    p->gen.genre = sq_genre_from28(p->gen.genre, v29);
+    p->gen.harm_genre = sq_genre_from28(p->gen.harm_genre, v29);
+    p->gen.harm_prog = x29 ? x29[0] : sq_prog_from28(p->gen.harm_prog);
+    p->viaggio.set_genre = sq_genre_from28(p->viaggio.set_genre, v29);
+    for (t = 0; t < SQ_TRACKS; t++) {
+        p->track[t].src_genre = sq_genre_from28(p->track[t].src_genre, v29);
+        for (k = 0; k < SQ_PATTERNS; k++) p->th.pat[t][k].style = thstyle_from28(p->th.pat[t][k].style, v29);
+    }
+    for (k = 0; k < SQ_SNAPS; k++) {
+        sq_snap_t *sn = &p->snap[k];
+        if (!sn->used) continue;
+        sn->genre = sq_genre_from28(sn->genre, v29);
+        sn->harm_genre = sq_genre_from28(sn->harm_genre, v29);
+        sn->harm_prog = x29 ? x29[1u + k] : sq_prog_from28(sn->harm_prog);
+        for (t = 0; t < SQ_TRACKS; t++) sn->track[t].src_genre = sq_genre_from28(sn->track[t].src_genre, v29);
+    }
+}
+
+/* a track's settings as 0.27 has them, and back; the settings of its lanes 7-8 (0.29: its genre with 0.28's number) */
 static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
 {
     const uint8_t *b = (const uint8_t *)c;
@@ -3349,6 +3446,7 @@ static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
         o->lane_flags[k] = c->lane_flags[k]; o->lane_hi[k] = c->lane_hi[k];
     }
     bcopy_(o->tail, b + SQ27_TRACK_HEAD + 4u * SQ_LANES, SQ27_TRACK_TAIL);
+    o->tail[TR27_SRC_GENRE] = sq_genre_to28(c->src_genre);
 }
 static void tr27_in(const sq27_track_t *o, sq_track_cfg_t *c)   /* (the lanes 7-8 stay as they are) */
 {
@@ -3424,8 +3522,8 @@ static void sh27_out(const sq_snap_t *sn, sq27_snap_head_t *o)
     o->mute = (uint16_t)(sn->mute & ((1u << SQ_TRACKS) - 1u));
     o->solo = (uint16_t)(sn->solo & ((1u << SQ_TRACKS) - 1u));
     for (k = 0; k < 4u; k++) o->mac[k] = sn->mac[k];
-    o->harm_on = sn->harm_on; o->genre = sn->genre; o->harm_prog = sn->harm_prog; o->harm_bars = sn->harm_bars;
-    o->morph_b = sn->morph_b; o->key_cur = sn->key_cur; o->harm_genre = sn->harm_genre; o->reserved[0] = sn->reserved[0];
+    o->harm_on = sn->harm_on; o->genre = sq_genre_to28(sn->genre); o->harm_prog = sq_prog_to28(sn->harm_prog); o->harm_bars = sn->harm_bars;
+    o->morph_b = sn->morph_b; o->key_cur = sn->key_cur; o->harm_genre = sq_genre_to28(sn->harm_genre); o->reserved[0] = sn->reserved[0];
 }
 static void sh27_in(const sq27_snap_head_t *o, sq_snap_t *sn, const uint8_t *map)
 {
@@ -3443,7 +3541,7 @@ static void sh27_in(const sq27_snap_head_t *o, sq_snap_t *sn, const uint8_t *map
 static void vg27_out(const sq_viaggio_t *v, sq27_viaggio_t *o)
 {
     uint32_t t;
-    o->on = v->on; o->phrase_bars = v->phrase_bars; o->energy = v->energy; o->set_genre = v->set_genre;
+    o->on = v->on; o->phrase_bars = v->phrase_bars; o->energy = v->energy; o->set_genre = sq_genre_to28(v->set_genre);
     for (t = 0; t < SQ27_TRACKS; t++) o->state[t] = t < SQ_TRACKS ? v->state[t] : (uint8_t)SQ_TS_EMPTY;
     o->phrase_count = v->phrase_count; o->quant = v->quant;
     bcopy_(o->reserved, v->reserved, sizeof o->reserved);
@@ -3638,11 +3736,14 @@ typedef struct {
     sq_step_t *row;
     sq_thpat_t *th;
     const uint8_t *map;
+    uint8_t v29;                                      /* 0.29: chunk 5 was there (the genres are 0.29's) */
+    uint8_t x29p;                                     /* ... and it has the progressions, x29 (the project's, the snapshots') */
+    uint8_t x29[1u + SQ_SNAPS];
 } parse_t;
 static void parse_init(parse_t *q)
 {
     q->p = 0; q->want_t = 255u; q->want_new = 255u; q->want_pat = 0u;
-    q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME;
+    q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME; q->v29 = 0u; q->x29p = 0u;
 }
 static void x28_in(const uint8_t *src, uint32_t n, parse_t *q)
 {
@@ -3797,7 +3898,8 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
     }
     for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }
     wr_put(&w, p->lfo, sizeof p->lfo);
-    wr_put(&w, &p->gen, sizeof p->gen);
+    { sq_gen_t g = p->gen; g.genre = sq_genre_to28(g.genre); g.harm_genre = sq_genre_to28(g.harm_genre); g.harm_prog = sq_prog_to28(g.harm_prog);
+      wr_put(&w, &g, sizeof g); }
     wr_put(&w, &p->song, sizeof p->song);
     wr_put(&w, &p->live, sizeof p->live);
     { sq27_viaggio_t x; vg27_out(&p->viaggio, &x); wr_put(&w, &x, sizeof x); }
@@ -3863,9 +3965,11 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
                 for (pk = 0; pk < SQ_PATTERNS; pk++) {
                     uint8_t at[2];
                     if (!p->th.pat[tk][pk].style) continue;
+                    sq_thpat_t m = p->th.pat[tk][pk];
+                    m.style = thstyle_to28(m.style);
                     at[0] = (uint8_t)tk; at[1] = (uint8_t)pk;
                     wr_put(&w, at, 2);
-                    wr_put(&w, &p->th.pat[tk][pk], sizeof(sq_thpat_t));
+                    wr_put(&w, &m, sizeof(sq_thpat_t));
                 }
         }
     }
@@ -3893,6 +3997,13 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             if (c.bad) w.bad = 1;
             else { wr_u8(&w, SQ_CHUNK_X28); wr_u16(&w, c.pos); x28_body(&w, p, parts); }
         }
+    }
+    if (uses_balani(p) || uses_prog78(p)) {           /* 0.29: chunk 5 (BALANI is there, or a 7th or 8th progression) */
+        uint8_t x[3u + SQ_X29_LEN];
+        uint32_t k;
+        x[0] = SQ_CHUNK_X29; x[1] = (uint8_t)SQ_X29_LEN; x[2] = 0u; x[3] = 2u; x[4] = p->gen.harm_prog;
+        for (k = 0; k < SQ_SNAPS; k++) x[5u + k] = p->snap[k].harm_prog;
+        wr_put(&w, x, sizeof x);
     }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
     return w.bad ? 0u : w.pos;
@@ -4062,12 +4173,18 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
         } else if (h[0] == SQ_CHUNK_X28 && (p || q->cfg || q->row)) {
             x28_in(in + r.pos, n, q);
             rd_skip(&r, n);
+        } else if (h[0] == SQ_CHUNK_X29 && n >= 1u) {
+            q->v29 = in[r.pos] >= 1u ? 1u : 0u;
+            if (in[r.pos] >= 2u && n >= SQ_X29_LEN) { bcopy_(q->x29, in + r.pos + 1u, 1u + SQ_SNAPS); q->x29p = 1u; }
+            rd_skip(&r, n);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
     if (p && ext_n < SQ27_EXT_019)                     /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
-    if (p) { refs_in(p, map); sq_project_sanitize(p); }
+    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29p ? q->x29 : 0); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
+    if (!p && q->cfg) q->cfg->src_genre = sq_genre_from28(q->cfg->src_genre, q->v29);    /* (RELOAD: the one track) */
+    if (!p && q->th) q->th->style = thstyle_from28(q->th->style, q->v29);
     return 0;
 }
 
@@ -5112,26 +5229,23 @@ const sq_brk_chop_t *sq_brk_chop(uint8_t i) { return &BRK_CHOP[i < SQ_BRK_CHOPS 
 /* the chops of each genre (the order of sagga_beats_data.h's GENRE_NAME), the ones that belong to it, in the order COOK
  * walks them: the first byte is how many, then the chops (0 STRAIGHT 1 END ROLL 2 RUSH 3 REPEAT 4 DOUBLE 5 HALF
  * 6 BACKWARDS 7 GHOST 8 LOW 9 HIGH 10 SHUFFLE 11 THINK 12 APACHE 13 SNARES 14 TRIPLE 15 BUILD) */
-#define BRK_GENRES 25u                     /* (SQ_GENRES: the core does not include the library) */
+#define BRK_GENRES 22u                     /* (SQ_GENRES: the core does not include the library; 0.29: 22) */
 static const uint8_t BRK_GENRE[BRK_GENRES][8] = {
     {5, 0, 7, 5, 8, 1},              /* TECHNO: straight, ghosts, half, the low end, the end roll */
     {5, 0, 4, 2, 15, 1},             /* HARDTECHNO: straight, double, rush, build, end roll */
     {4, 0, 5, 7, 8},                 /* DUB TECHNO: straight, half, ghosts, low */
     {4, 0, 7, 10, 1},                /* HOUSE: straight, ghosts, shuffle, end roll */
-    {5, 10, 7, 13, 11, 1},           /* UK GARAGE: shuffle, ghosts, snares, think, end roll */
+    {6, 10, 7, 13, 11, 3, 1},        /* UK GARAGE: shuffle, ghosts, snares, think, repeat (0.29: the bassline's), end roll */
     {4, 10, 14, 7, 13},              /* UK FUNKY: shuffle, triple, ghosts, snares */
-    {5, 5, 7, 8, 13, 1},             /* GRIME: half, ghosts, low, snares, end roll */
-    {5, 5, 8, 7, 13, 15},            /* DUBSTEP: half, low, ghosts, snares, build */
+    {6, 5, 8, 7, 13, 15, 1},         /* DUBSTEP: half, low, ghosts, snares, build, end roll (0.29: the grime's) */
     {7, 0, 11, 12, 10, 13, 14, 1},   /* JUNGLE: straight, think, apache, shuffle, snares, triple, end roll */
-    {4, 10, 7, 3, 1},                /* BASSLINE: shuffle, ghosts, repeat, end roll */
-    {4, 0, 7, 3, 13},                /* REGGAETON: straight, ghosts, repeat, snares */
+    {6, 0, 7, 3, 13, 5, 8},          /* REGGAETON: straight, ghosts, repeat, snares, half, low (0.29: the amapiano's) */
     {4, 14, 10, 7, 2},               /* BATIDA: triple, shuffle, ghosts, rush */
-    {4, 5, 8, 7, 15},                /* GQOM: half, low, ghosts, build */
+    {6, 5, 8, 7, 15, 10, 14},        /* GQOM: half, low, ghosts, build, shuffle, triple (0.29: the afro house's) */
     {6, 6, 10, 2, 9, 14, 15},        /* EXPERIMENT: backwards, shuffle, rush, high, triple, build */
     {5, 0, 4, 3, 7, 1},              /* ELECTRO: straight, double, repeat, ghosts, end roll */
     {7, 0, 11, 12, 4, 13, 1, 2},     /* DRUM+BASS: straight, think, apache, double, snares, end roll, rush */
-    {4, 10, 7, 14, 8},               /* AFRO HOUSE: shuffle, ghosts, triple, low */
-    {4, 5, 7, 8, 10},                /* AMAPIANO: half, ghosts, low, shuffle */
+    {5, 4, 2, 14, 7, 1},             /* BALANI (0.29): double, rush, triple, ghosts, end roll - the hailstones */
     {6, 14, 2, 3, 4, 13, 15},        /* FOOTWORK: triple, rush, repeat, double, snares, build */
     {4, 0, 4, 15, 1},                /* TRANCE: straight, double, build, end roll */
     {5, 5, 7, 13, 14, 8},            /* UK DRILL: half, ghosts, snares, triple, low */

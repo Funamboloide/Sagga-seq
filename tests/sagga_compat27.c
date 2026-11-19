@@ -71,11 +71,28 @@ static void fill(sq_project_t *p, uint32_t seed)
     for (i = 0; i < sizeof *p; i++) if (rnd() % (every * 4u) == 0u) q[i] = (uint8_t)rnd();
     sq_project_sanitize(p);
 }
-/* what 0.27 keeps: the notes 5-6 and the lanes 7-8 gone, their settings the defaults */
+/* 0.29: a genre as it comes back from a firmware of 0.28 or before (its own numbers, no chunk 5): BALANI as GQOM */
+static uint8_t via_old(uint8_t g) { return sq_genre_from28(sq_genre_to28(g), 0u); }
+/* what 0.27 keeps: the notes 5-6 and the lanes 7-8 gone, their settings the defaults; 0.29: BALANI is GQOM */
 static void strip(sq_project_t *p)
 {
     uint32_t t, pat, i, k, s;
     sq_track_cfg_t d;
+    p->gen.genre = via_old(p->gen.genre); p->gen.harm_genre = via_old(p->gen.harm_genre); p->viaggio.set_genre = via_old(p->viaggio.set_genre);
+    p->gen.harm_prog = sq_prog_from28(sq_prog_to28(p->gen.harm_prog));      /* (0.29: a genre's 7th and 8th progression: 0.27 has six) */
+    for (t = 0; t < SQ_TRACKS; t++) {
+        p->track[t].src_genre = via_old(p->track[t].src_genre);
+        for (pat = 0; pat < SQ_PATTERNS; pat++) {
+            sq_thpat_t *m = &p->th.pat[t][pat];
+            if (m->style & 31u) m->style = (uint8_t)((m->style & ~31u) | ((via_old((uint8_t)((m->style & 31u) - 1u)) + 1u) & 31u));
+        }
+    }
+    for (s = 0; s < SQ_SNAPS; s++) {
+        if (!p->snap[s].used) continue;
+        p->snap[s].genre = via_old(p->snap[s].genre); p->snap[s].harm_genre = via_old(p->snap[s].harm_genre);
+        p->snap[s].harm_prog = sq_prog_from28(sq_prog_to28(p->snap[s].harm_prog));
+        for (t = 0; t < SQ_TRACKS; t++) p->snap[s].track[t].src_genre = via_old(p->snap[s].track[t].src_genre);
+    }
     for (t = 0; t < SQ_TRACKS; t++) {
         sq_track_default(&d, t);
         for (k = 6u; k < SQ_LANES; k++) {

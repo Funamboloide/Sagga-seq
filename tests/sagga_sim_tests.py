@@ -1685,8 +1685,8 @@ def t_beat_cook():
     pos = [round((t - n[0][0]) / STEP_MS) for t, _, _ in n][:5]
     check(pos == [0, 4, 8, 12, 16] and all(d1 == 60 for _, d1, _ in n), "BEAT TECHNO KICK #1: four on the floor, on the track's note (%s)" % pos)
     check(n[0][2] > 100, "an X is an accent")
-    # SEQ + PRESETS: the genre. GQOM KICK #1 "X.....X.....X..."
-    log, p = beat(lambda s, t: (s.enc(t, E_PRE, 12), t + 60)[1])
+    # SEQ + PRESETS: the genre. GQOM KICK #1 "X.....X.....X..." (0.29: the 11th genre)
+    log, p = beat(lambda s, t: (s.enc(t, E_PRE, 10), t + 60)[1])
     n = log.notes(ch=0, after=p)
     pos = [round((t - n[0][0]) / STEP_MS) for t, _, _ in n][:4]
     check(pos == [0, 6, 12, 16], "SEQ + PRESETS = genre: GQOM KICK #1 (%s)" % pos)
@@ -3699,11 +3699,11 @@ def t08_grid_views():
     check(n1 == 3 and n2 == 8, "EUCLID view: track 1 3 hits, track 2 8 hits (%d %d)" % (n1, n2))
     pads, _ = log.leds(until=p)
     check(pads[0] == GL_PLAY and pads[3] == GL_WHITE and pads[16 + 8] == GL_WHITE, "the live tracks and their pulses lit")
-    # BEAT view, genres page 2 (pad 13 of row 1): the 16th genre (0.10: DRUM+BASS), its KICK #1 "X.........X....."
+    # BEAT view, genres page 2 (pad 13 of row 1): the 14th genre (0.29: DRUM+BASS, pad 2 of page 2), its KICK #1 "X.........X....."
     s = Script()
     s.raw(100, "attach")
     view(s, 200, GC_VTRACK, alt=True)
-    s.pad(300, 12, 0); s.pad(400, 3, 0); s.pad(500, 0, 1); s.pad(600, 13, 0)
+    s.pad(300, 12, 0); s.pad(400, 1, 0); s.pad(500, 0, 1); s.pad(600, 13, 0)
     s.tap_btn(800, PLAY)
     log = run(s, 800 + int(BAR) - 30)
     pos = [round((tm - 800) / STEP_MS) for tm, _, _ in log.notes(ch=0, after=800)]
@@ -4986,12 +4986,12 @@ def t010_tools():
     t = s.steps(t, [0])
     t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
     t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])        # USER 1: pos 1 = I (root 0), pos 2 = V (0.11: K3 the root, 7 semitones)
-    t = harm_knobs(s, t, [(K2, 6), (K1, 1)])          # HARMONY: progression 7 = USER 1, READY; K1 ON (0.16)
+    t = harm_knobs(s, t, [(K2, 8), (K1, 1)])          # HARMONY: progression 9 = USER 1 (0.29: past the genre's eight), READY; K1 ON (0.16)
     s.at(t, "dump", 0)
     s.tap_btn(t, PLAY); p0 = t
     log = run(s, p0 + int(4 * BAR) - 20)
     b = [sorted({d1 for tm, d1, v in log.notes(ch=0, after=p0 + int(k * BAR) - 5, before=p0 + int((k + 1) * BAR) - 5)}) for k in range(4)]
-    check(cfgs(log)[0]["prog"] == 6 and log.states[0]["msg"].startswith("HARMONY USER"), "HARMONY USER 1 (%s)" % log.states[0]["msg"])
+    check(cfgs(log)[0]["prog"] == 8 and log.states[0]["msg"].startswith("HARMONY USER"), "HARMONY USER 1 (%s)" % log.states[0]["msg"])
     check(b == [[60], [55], [60], [55]], "i v i v: C G C G, the G the nearest one (%s)" % b)
 
 
@@ -5100,20 +5100,20 @@ def t010_viaggio2():
     s.at(p0 + int(8 * STEP_MS), "dump", 1)
     log = run(s, p0 + int(8 * STEP_MS) + 100)
     check(log.viaggio[0]["states"][:2] == "II", "MOVES AT THE BEAT: track 2 is IN within two beats (%s)" % log.viaggio[0]["states"][:2])
-    # every genre of the library is a VIAGGIO genre: GLO 3 K3 walks all 25 (0.16: the merengue last), each with a kick proposal
+    # every genre of the library is a VIAGGIO genre: GLO 3 K3 walks all 22 (0.16: the merengue last; 0.29: 22), each with a kick proposal
     s = Script()
     t = vg_on(s, 100)
-    for g in range(24):
+    for g in range(21):
         t = viaggio_knobs(s, t, [(K3, 1)])
     s.at(t, "dump", 0)
     vg_tap(s, t + 50, 0)
     s.at(t + 150, "dump", 0)
     log = run(s, t + 250)
-    check(log.viaggio[0]["genre"] == 24 and "MERENGUE" in log.states[0]["msg"], "K3 x 24: MERENGUE, the last genre (%s)" % log.states[0]["msg"])
+    check(log.viaggio[0]["genre"] == 21 and "MERENGUE" in log.states[0]["msg"], "K3 x 21: MERENGUE, the last genre (%s)" % log.states[0]["msg"])
     check(log.viaggio[1]["states"][0] == "P" and log.dumps[1]["on"].count("x") == 0 and log.states[1]["msg"].startswith("T1 KICK P2"), "a MERENGUE kick proposed (%s)" % log.states[1]["msg"])
     s = Script()
     t = vg_on(s, 100)
-    for g in range(22):
+    for g in range(19):                                            # (0.29: PHONK is the 20th)
         t = viaggio_knobs(s, t, [(K3, 1)])
     t = home_page(s, t, 3, [(K2, 7)])                              # role ARP: the cowbell riff
     vg_tap(s, t, 0); t += 100
@@ -5123,7 +5123,7 @@ def t010_viaggio2():
     # a genre with no proposal of a role falls back: UK DRILL's chord
     s = Script()
     t = vg_on(s, 100)
-    for g in range(20):
+    for g in range(17):                                            # (0.29: UK DRILL is the 18th)
         t = viaggio_knobs(s, t, [(K3, 1)])
     t = home_page(s, t, 3, [(K2, 6)])                              # role CHORD
     vg_tap(s, t, 0); t += 100
@@ -5518,7 +5518,7 @@ def t011_progressions():
         t = s.steps(t, list(steps))
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])        # USER 1: I, V
-        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])          # HARMONY: USER 1, ON (0.16: K2 alone makes it READY)
+        t = harm_knobs(s, t, [(K2, 8), (K1, 1)])          # HARMONY: USER 1, ON (0.16: K2 alone makes it READY)
         if rhythm:
             t = harm2_knobs(s, t, [(K4, rhythm)])
         return t
@@ -5609,7 +5609,7 @@ def t011_progressions():
     log = run(s, t + 100)
     hh = harm11(log)
     progs = [h["prog"] for h in hh]
-    check(hh[0]["mood"] == SQ_MOOD_TENSE and all(h["pmood"] == SQ_MOOD_TENSE for h in hh if h["prog"] != 0) and progs[-1] == 6 and 6 in progs,
+    check(hh[0]["mood"] == SQ_MOOD_TENSE and all(h["pmood"] == SQ_MOOD_TENSE for h in hh if h["prog"] != 0) and progs[-1] == 8 and 8 in progs,
           "MOOD TENSE: K2 only through the TENSE ones, the player's TENSE last (%s %s)" % (progs, [h["pmood"] for h in hh]))
     check(any("PI: ASKING" in st["msg"] for st in log.states) and log.states[-2]["msg"].startswith("NO MORE TENSE") and log.states[-1]["msg"].startswith("NO MORE TENSE"),
           "... then the Pi is asked; no answer: NO MORE TENSE (%s)" % [st["msg"] for st in log.states[-3:]])
@@ -5625,7 +5625,7 @@ def t011_progressions():
         log = run(s, t + 100)
         h = harm11(log)[0]
         n5, m5, rows = h["u"][4]
-        check(h["prog"] == 10 and 2 <= n5 <= 5 and (m5 == mood if mood else m5 > 0) and all(0 <= r[0] <= 11 and 6 <= r[1] <= 37 for r in rows)
+        check(h["prog"] == 12 and 2 <= n5 <= 5 and (m5 == mood if mood else m5 > 0) and all(0 <= r[0] <= 11 and 6 <= r[1] <= 37 for r in rows)
               and log.states[0]["msg"].startswith("DICE PROG"), "DICE PROG (mood %d): %s (%s)" % (mood, rows, log.states[0]["msg"]))
 
 
@@ -5634,7 +5634,7 @@ def t011_pi_progressions():
     hexs = lambda b: " ".join("%02X" % x for x in b)
     s = Script()
     t = uprog_knobs(s, 100, [(K1, 3), (K3, 1), (K2, 1), (K3, 8)])              # USER 4: I V
-    t = harm_knobs(s, t, [(K2, 9)])                               # HARMONY: USER 4 (prog 9)
+    t = harm_knobs(s, t, [(K2, 11)])                              # HARMONY: USER 4 (prog 11; 0.28: 9)
     t = harm_knobs(s, t, [(K2, 1)])                               # past the FM-1's: asks how many
     s.at(t, "dump", 0); t += 50
     s.at(t, "sx", "7D 53 47 67 00 00 03 00"); t += 100                         # the Pi: 3 of TECHNO (any mood)
@@ -5661,12 +5661,12 @@ def t011_pi_progressions():
     check(asks and asks[0][5:7] == [0, 0] and log.states[0]["msg"].startswith("PI: ASKING"), "past USER 4: how many TECHNO progressions (%s %s)" % ([hexs(m) for m in asks], log.states[0]["msg"]))
     check(gets and gets[0][5:10] == [0, 0, 0, 0, 2] and gets[0][10] == 0 and gets[0][12] == 7,
           "then the first, most like what played (USER 4: I V) (%s)" % [hexs(m) for m in gets[:1]])
-    check(hh[1]["prog"] == 10 and hh[1]["u"][4] == (2, 8, [(0, 10, 0, 0), (1, 9, 8, 1)]) and log.states[1]["msg"] == "PI DARK 1/3: i-bII",
+    check(hh[1]["prog"] == 12 and hh[1]["u"][4] == (2, 8, [(0, 10, 0, 0), (1, 9, 8, 1)]) and log.states[1]["msg"] == "PI DARK 1/3: i-bII",
           "it comes into DICE/PI and plays (%s %s)" % (hh[1]["u"][4], log.states[1]["msg"]))
     check(len(gets) >= 2 and gets[1][7:9] == [1, 0] and hh[2]["u"][4][:2] == (1, 9), "K2: the Pi's second (%s)" % (hh[2]["u"][4],))
-    check(len(gets) == 3 and gets[2][7:9] == [2, 0] and hh[3]["prog"] == 10 and log.states[3]["msg"] == "PI: THE LAST PROGRESSION OF TECHNO",
+    check(len(gets) == 3 and gets[2][7:9] == [2, 0] and hh[3]["prog"] == 12 and log.states[3]["msg"] == "PI: THE LAST PROGRESSION OF TECHNO",
           "five on: the last; past it: it stays (%s, %s)" % ([hexs(m) for m in gets[2:]], log.states[3]["msg"]))
-    check(hh[4]["prog"] == 9, "K2 back below the first: USER 4 (%s)" % hh[4]["prog"])
+    check(hh[4]["prog"] == 11, "K2 back below the first: USER 4 (%s)" % hh[4]["prog"])
     check(puts and puts[0][5] == 0 and puts[0][7] == 2 and puts[0][8] == 0 and puts[0][12] == 7 and puts[0][5 + 3 + 8:] == [0xF7],
           "ARP + SAVE on ARP 3: the progression to the Pi, its mood, root and shape a chord (%s)" % [hexs(m) for m in puts])
     check(log.states[-1]["msg"] == "ON THE PI: TECHNO SATISFYING #2", "the Pi says where it went (%s)" % log.states[-1]["msg"])
@@ -6022,11 +6022,11 @@ def t012_break():
     s.at(t, "dump", 0)
     log = run(s, t + 50)
     check(log.states[0]["msg"] == "BREAK T1: GHOST (TECHNO 2/5)" and log.dumps[0]["hash"] != log.dumps[1]["hash"], "COOK on a break: the genre's next chop (TECHNO: STRAIGHT, GHOST ...); UNDO: back (%s)" % log.states[0]["msg"])
-    # COOK walks the genre's list and wraps; in JUNGLE (SEQ + PRESETS to genre 9) it starts from STRAIGHT's successor THINK
+    # COOK walks the genre's list and wraps; in JUNGLE (SEQ + PRESETS to genre 8; 0.29: the 8th, number 7) it starts from STRAIGHT's successor THINK
     s = Script()
     t = break_track(s, 100)
     t = break_knobs(s, t, [(K1, 1), (K1, -1)])                # STRAIGHT
-    s.press(t, SEQ); s.enc(t + 30, E_PRE, 8); s.release(t + 100, SEQ); t += 160   # the library's genre: JUNGLE
+    s.press(t, SEQ); s.enc(t + 30, E_PRE, 7); s.release(t + 100, SEQ); t += 160   # the library's genre: JUNGLE
     for _ in range(3):
         s.press(t, SEQ); s.tap_key(t + 30, wk(8), hold=40); s.release(t + 100, SEQ); t += 160   # COOK
         s.at(t, "dump", 0)
@@ -7293,7 +7293,7 @@ def t016_genre_groove():
     check(h and (h[0]["groove"], h[0]["amt"], h[0]["swing"]) == (G_HOUSE, 100, 54), "HOUSE hat: HOUSE 100 %% on the genre's swing 54 (%s)" % h[:1])
     check(k and (k[0]["groove"], k[0]["swing"]) == (G_OFF, 54) and b and (b[0]["groove"], b[0]["amt"]) == (G_HUMAN, 30),
           "HOUSE: the kick the anchor, the bass HUMAN 30 %% (%s %s)" % (k[:1], b[:1]))
-    tr = band(19)                                                        # TRANCE: on the grid
+    tr = band(16)                                                        # TRANCE: on the grid (0.29: number 16)
     check(tr and all(x["groove"] == G_OFF for x in tr.values() if x["role"]), "TRANCE: no GROOVE anywhere (%s)" % sorted((x["role"], x["groove"]) for x in tr.values()))
     # DICE GROOVE (SEQ + black 4): the part's template stays, its amount and the swing move a little
     def dice(s, t):
@@ -7346,12 +7346,12 @@ def t016_genre_groove():
 
 
 def t016_harm_free_copy():
-    group("0.16 ARP 4 K2 FREE: the chords are nobody's genre (ARP 3 K2 through all 144, a loaded pattern does not move them); EDIT + ARP copies the progression into a USER slot")
+    group("0.16 ARP 4 K2 FREE: the chords are nobody's genre (ARP 3 K2 through all of them - 0.29: 22 genres of 8, 176; a loaded pattern does not move them); EDIT + ARP copies the progression into a USER slot")
     # FREE: from TECHNO, K2 one to the left
     s = Script()
     t = harm2_knobs(s, 100, [(K2, -1)])
     s.at(t, "dump", 0); s.press(t + 20, ARP); s.at(t + 200, "ui"); s.release(t + 300, ARP); t += 400   # (ARP 4 still: the Script remembers)
-    t = harm_knobs(s, t, [(K2, 7)])                                      # TECHNO 1 + 7 = HARDTECHNO 2
+    t = harm_knobs(s, t, [(K2, 9)])                                      # TECHNO 1 + 9 = HARDTECHNO 2 (0.29: eight a genre)
     s.at(t, "dump", 0)
     s.press(t + 100, SEQ); s.enc(t + 130, E_PRE, 4); s.release(t + 200, SEQ)
     t = beat_key(s, t + 400)                                             # a UK GARAGE kick loaded
@@ -7396,7 +7396,7 @@ def t016_harm_free_copy():
     log1, n1 = follow_run(True)
     v = v15s(log1)
     st = [x["msg"] for x in log1.states]
-    check(v and v[0]["hprog"] == 6 and v[0]["up"][0] == 4 and st and st[0] == "COPIED TO USER 1: ARP 5 TO CHANGE IT", "EDIT + ARP: into USER 1, which plays (%s %s)" % (v[:1], st[:1]))
+    check(v and v[0]["hprog"] == 8 and v[0]["up"][0] == 4 and st and st[0] == "COPIED TO USER 1: ARP 5 TO CHANGE IT", "EDIT + ARP: into USER 1, which plays (%s %s)" % (v[:1], st[:1]))
     check(len(n0) >= 8 and n0 == n1 and len(set(n0)) >= 3, "the copy plays the same chords as TECHNO 4 (%s / %s)" % (n0, n1))
     # again: USER 1 plays, so the next empty one; then over a full one: asked twice
     s = Script()
@@ -7410,18 +7410,18 @@ def t016_harm_free_copy():
     s.press(t, EDIT); s.tap_btn(t + 30, ARP); s.release(t + 100, EDIT); s.at(t + 150, "dump", 0); t += 300
     log = run(s, t + 100)
     v, st = v15s(log), [x["msg"] for x in log.states]
-    check(v and v[0]["up"][:2] == [4, 4] and v[0]["hprog"] == 7, "copied again: USER 2 (%s)" % v[:1])
-    check(len(v) == 3 and st[1] == "COPY OVER USER 1: EDIT+ARP AGAIN" and v[1]["up"][0] == 4 and v[2]["up"][0] == 1 and v[2]["hprog"] == 6,
+    check(v and v[0]["up"][:2] == [4, 4] and v[0]["hprog"] == 9, "copied again: USER 2 (%s)" % v[:1])
+    check(len(v) == 3 and st[1] == "COPY OVER USER 1: EDIT+ARP AGAIN" and v[1]["up"][0] == 4 and v[2]["up"][0] == 1 and v[2]["hprog"] == 8,
           "over USER 1: asked, then TECHNO 1 (one chord) copied (%s %s)" % ([(x["up"], x["hprog"]) for x in v], st))
 
 
 
 def t016_merengue():
-    group("0.16 MERENGUE, the 25th genre: SEQ + PRESETS x 24, BAND: four on the floor, the guira's cha chi-ki pushed a hair, the tambora played, I - V7 in a major key")
+    group("0.16 MERENGUE, the last genre (0.29: the 22nd): SEQ + PRESETS x 21, BAND: four on the floor, the guira's cha chi-ki pushed a hair, the tambora played, I - V7 in a major key")
     ROLE_CONGA, ROLE_PIANO, ROLE_LEAD, ROLE_VOX, G_PUSH = 12, 22, 23, 24, 7
     s = Script()
     t = kp(s, 100, [(K2, 1), (K4, 1)])                                   # C major, IN KEY
-    s.press(t, SEQ); s.enc(t + 30, E_PRE, 24); s.release(t + 100, SEQ); t += 300
+    s.press(t, SEQ); s.enc(t + 30, E_PRE, 21); s.release(t + 100, SEQ); t += 300
     s.press(t, SEQ); s.tap_key(t + 30, bk(6), hold=700); s.release(t + 800, SEQ); t += 900     # BAND
     for k in range(10):
         s.at(t + 10 * k, "dump", k)
@@ -7441,7 +7441,7 @@ def t016_merengue():
     check(v.get(3) and (v[3]["groove"], v[3]["amt"]) == (G_PUSH, 30) and v.get(4) and (v[4]["groove"], v[4]["amt"]) == (G_HUMAN, 40) and v[1]["groove"] == 0,
           "the guira PUSH 30, the tambora HUMAN 40, the kick straight (%s %s %s)" % (v.get(3), v.get(4), v.get(1)))
     h = harm11(log)
-    check(h and h[0]["prog"] == 0 and v[1]["hgenre"] == 24, "the harmony: the merengue's first, I - V7 (%s)" % (h[:1],))
+    check(h and h[0]["prog"] == 0 and v[1]["hgenre"] == 21, "the harmony: the merengue's first, I - V7 (%s)" % (h[:1],))
 
 
 V16 = re.compile(r"^\s*(\d+) ms  v16 T(\d+) pend((?: \d+){4}) shown (\d+) edit (\d+)/(\d+)/(\d+)/(\d+) euc (\d+) (\d+)/(\d+)$", re.M)
@@ -8446,7 +8446,7 @@ def t022_unrun():
         t = s.steps(t, list(range(16)))
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                           # FOLLOW
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])                 # USER 1: I, V
-        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                           # HARMONY: USER 1, ON
+        t = harm_knobs(s, t, [(K2, 8), (K1, 1)])                           # HARMONY: USER 1, ON
         t = harm2_knobs(s, t, [(K4, r)])
         s.tap_btn(t + 20, PLAY)
         n = run(s, t + 20 + int(4 * BAR_MS) - 30).notes(ch=0, after=t + 20)
@@ -8595,7 +8595,7 @@ def t_theory():
         # FREE: its own band of eight parts, no genre in it, 120 BPM
         head, parts = text("FREE", 1, 60)
         s = Script()
-        s.raw(100, "theory 25 1 0 0 60 0")
+        s.raw(100, "theory 22 1 0 0 60 0")                       # (FREE: 22, past the 22 genres; 0.28: 25)
         s.tap_btn(500, PLAY)
         log = run(s, 500 + 4 * 2000 + 100)
         check(len(parts) == 8 and all(log.notes(ch=i, after=498) for i in range(8)) and not log.notes(ch=8, after=498), "FREE: its eight parts play, a track each (%s)" % [len(log.notes(ch=i, after=498)) for i in range(9)])
@@ -8775,7 +8775,7 @@ def t023_theory():
         msgs = [x["msg"] for x in log.states]
         roles = [c["role"] for c in cfgs(log)]
         check("FREE BAND SEED 1: 8 TRACKS" in msgs and roles[:9] == [1, 2, 3, 4, 5, 6, 7, 23, 0], "GENRE FREE: FREE's band, eight parts (%s, %s)" % (msgs[-1], roles))
-        check(all(at(log, k, 0)[1]["style"] == 26 for k in range(8)) and at(log, 1, 0)[0]["on"] == onoff(text("FREE", 0, at(log, 0, 0)[1]["now"], part="SNARE")), "... made by the rules of no genre")
+        check(all(at(log, k, 0)[1]["style"] == 23 for k in range(8)) and at(log, 1, 0)[0]["on"] == onoff(text("FREE", 0, at(log, 0, 0)[1]["now"], part="SNARE")), "... made by the rules of no genre")
         s = Script()
         t = lib64(s, 100)
         t = pg(s, t, SEQ, 7, [(K1, 1)])
@@ -8818,7 +8818,7 @@ def t023_theory():
         check(k2[0]["hash"] == k0[0]["hash"] and b2[0]["hash"] == b0[0]["hash"] and k2[1]["seed"] == 0 and b2[1]["seed"] == 0, "OCT-: back as it was, and what the engines knew of it")
         m = [x for x in msgs if x.startswith("DICE PROG TECHNO: ")]
         hp = re.findall(r"harm11 T1 prog (\d+)", log.text)
-        check(m and hp and hp[-1] == "10", "DICE PROG: a progression by TECHNO's rules, in the dice's slot, which plays (%s, prog %s)" % (m, hp[-1:] if hp else None))
+        check(m and hp and hp[-1] == "12", "DICE PROG: a progression by TECHNO's rules, in the dice's slot (0.29: 12), which plays (%s, prog %s)" % (m, hp[-1:] if hp else None))
 
         # ---- RELOAD and a power cycle: the pattern comes back with what the engines knew of it, and still follows the energy
         d = tempfile.mkdtemp()
@@ -8853,7 +8853,7 @@ def t023_theory():
 
 
 def t023_theory_genres():
-    group("0.23 THEORY, every genre of the FM-1: BAND makes the band of each of the 25 by its rules (four written by hand, 21 counted from the library); a counted genre fills and empties with the ENERGY, keeps what its library always plays, cooks, rolls its chords")
+    group("0.23 THEORY, every genre of the FM-1: BAND makes the band of each of the 22 (0.29) by its rules (four written by hand, 18 counted from the library); a counted genre fills and empties with the ENERGY, keeps what its library always plays, cooks, rolls its chords")
     tool = os.path.join(tempfile.gettempdir(), "sagga_theory_%d" % os.getpid())
     subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/theory/sagga_theory.c", ROOT + "/firmware/src/sagga_seq_core.c",
                     ROOT + "/firmware/src/sagga_beats.c", "-o", tool], check=True)
@@ -8883,14 +8883,14 @@ def t023_theory_genres():
         # follow the kick that PLAYS, in the tool the seed's own - the same kick here, but a sub leans on other hits of it
         rules = subprocess.run([tool, "--rules"], capture_output=True, text=True, check=True).stdout.splitlines()
         minds = {(f[1], f[2]) for f in (l.split("\t") for l in rules) if f[0] == "R" and f[21] == "2"}
-        names = [text(g, 0, 50, 16)[0].split(" seed")[0][2:] for g in range(25)]
+        names = [text(g, 0, 50, 16)[0].split(" seed")[0][2:] for g in range(22)]
 
         # ---- every genre: BAND, by the buttons; each part is what the engines make of the seed in that genre's style
         # (a band goes onto the tracks that have its roles: a part is found by what the engines say they made there)
         FUNCS = {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6, "CLAP": 9, "OPEN HAT": 10, "RIDE": 11, "SHAKER": 12, "CONGA": 13,
                  "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20, "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25}
         bad, sizes, counted = [], [], 0
-        for g in range(25):                                     # (a new project each: a band wants free tracks for its roles)
+        for g in range(22):                                     # (a new project each: a band wants free tracks for its roles)
             s = Script()
             t = lib64(s, 100)
             t = pg(s, t, SEQ, 7, [(K1, 1), (K2, g)])            # SOURCE THEORY, the next seed g + 1
@@ -8921,7 +8921,7 @@ def t023_theory_genres():
                     bad.append("%s %s: empty" % (names[g], name))
                 else:
                     counted += 1
-        check(not bad, "BAND in each of the 25 genres: every part is the engines' part of that seed in the genre's style (%d parts; %s)" % (counted, bad[:4]))
+        check(not bad, "BAND in each of the 22 genres: every part is the engines' part of that seed in the genre's style (%d parts; %s)" % (counted, bad[:4]))
         check(min(sizes) >= 8 and max(sizes) <= 11 and counted >= 200, "... the bands are the genres' own, 8 to 11 parts (%s)" % sizes)
 
         # ---- a genre whose rules are counted: REGGAETON. The dembow at every energy; the band fills and empties
@@ -9042,7 +9042,7 @@ def t023_theory_free():
         # genre; the genre itself is still there (the SOURCE back on THEORY: its parts)
         s = Script()
         t = lib64(s, 100)
-        s.press(t, SEQ); s.enc(t + 30, E_PRE, 10); s.release(t + 100, SEQ); t += 200        # the genre: REGGAETON
+        s.press(t, SEQ); s.enc(t + 30, E_PRE, 8); s.release(t + 100, SEQ); t += 200         # the genre: REGGAETON (0.29: number 8)
         t = pg(s, t, SEQ, 7, [(K1, 2)])                         # SEQ 8 K1: LIBRARY -> THEORY -> FREE
         t = screen(s, t)
         t = band(s, t)
@@ -9071,7 +9071,7 @@ def t023_theory_free():
         for n, en in enumerate((e, 10, 95)):
             want = text("FREE", 0, en)
             got = [at(log, k, n) for k in range(8)]
-            check(all(got[k][1]["style"] == 26 and got[k][1]["src"] == 2 and got[k][0]["on"] == onoff(want[FREE[k]]) and got[k][1]["energy"] == en for k in range(8)),
+            check(all(got[k][1]["style"] == 23 and got[k][1]["src"] == 2 and got[k][0]["on"] == onoff(want[FREE[k]]) and got[k][1]["energy"] == en for k in range(8)),
                   "... at energy %d every part is what the engines make by the rules of no genre (%s)" % (en, [FREE[k] for k in range(8) if got[k][0]["on"] != onoff(want[FREE[k]])]))
         lo, hi = [at(log, k, 1)[0]["on"] for k in range(8)], [at(log, k, 2)[0]["on"] for k in range(8)]
         check(all(x == "." or y == "x" for a, b in zip(lo, hi) for x, y in zip(a, b)) and sum(r.count("x") for r in hi) > sum(r.count("x") for r in lo) * 3 // 2,
@@ -9082,7 +9082,7 @@ def t023_theory_free():
         check(len(cook) == 12 and reached and all(m.startswith("COOK HAT VAR ") for m in cook), "COOK walks FREE's hat to a variation of its seed (%s)" % cook[:4])
         if reached:
             dr, hr = walk[reached[0]]
-            check(hr["style"] == 26 and hr["var"] >= 1 and hr["seed"] == 0 and dr["on"] == onoff(text("FREE", 0, 95, hr["var"], hr["vary"], "HAT")) and dr["hash"] != at(log, 2, 2)[0]["hash"],
+            check(hr["style"] == 23 and hr["var"] >= 1 and hr["seed"] == 0 and dr["on"] == onoff(text("FREE", 0, 95, hr["var"], hr["vary"], "HAT")) and dr["hash"] != at(log, 2, 2)[0]["hash"],
                   "... which is the engines' variation %d of it by the rules of no genre, and not the pattern as it was (%s)" % (hr["var"], hr))
         m = [x for x in msgs if x.startswith("DICE PROG ")]
         check(len(m) == 1 and m[0].startswith("DICE PROG FREE: "), "DICE PROG: a progression by the rules of no genre, not REGGAETON's (%s)" % m)
@@ -9115,7 +9115,7 @@ def t023_theory_free():
         free = [at(log, k, 1) for k in range(10)]
         want = text("FREE", 1, e, parts=TECHNO[:8])            # (0.25: the eight tracks as they are: the PERC answers the CLAP)
         check(all(x[1]["style"] == 1 and x[1]["seed"] == 0 for x in tech) and "BEAT: BANK (8)" in msgs, "TECHNO's band from the engines, then BEAT on the bank with the SOURCE on FREE (%s)" % [m for m in msgs if m.startswith("BEAT")][:2])
-        check(all(free[k][1]["style"] == 26 and free[k][1]["seed"] == 1 and free[k][1]["func"] == tech[k][1]["func"] for k in range(8)),
+        check(all(free[k][1]["style"] == 23 and free[k][1]["seed"] == 1 and free[k][1]["func"] == tech[k][1]["func"] for k in range(8)),
               "... every track of the bank: the part of its role, of the next seed, by the rules of no genre (%s)" % [(x[1]["style"], x[1]["func"], x[1]["seed"]) for x in free[:8]])
         check(all(free[k][0]["on"] == onoff(want[TECHNO[k]]) and "x" in free[k][0]["on"] for k in range(8)),
               "... each is what the engines write for that role in FREE: a clap, an open hat, a ride, a rumble too (%s)" % [TECHNO[k] for k in range(8) if free[k][0]["on"] != onoff(want[TECHNO[k]])])
@@ -9141,7 +9141,7 @@ def t023_theory_free():
                 t = seqkey(s, t, wk(9))                         # BEAT: a kick of no genre there
                 t = look(s, t, [1])
             t = pg(s, t, SEQ, 5, [(K4, 1)])                     # GENRE LIVE
-            s.press(t, SEQ); s.enc(t + 30, E_PRE, 15); s.release(t + 100, SEQ); t += 300    # the genre: DRUM+BASS
+            s.press(t, SEQ); s.enc(t + 30, E_PRE, 13); s.release(t + 100, SEQ); t += 300    # the genre: DRUM+BASS (0.29: number 13)
             t = look(s, t, [0, 1])
             log = run(s, t + 300)
             got.append((at(log, 0, 0), at(log, 0, 1), at(log, 1, 0), at(log, 1, -1), [x["msg"] for x in log.states]))
@@ -9149,7 +9149,7 @@ def t023_theory_free():
         check(a0[0]["hash"] != a1[0]["hash"] and a1[1]["style"] == 0 and b0[0]["hash"] == a0[0]["hash"],
               "GENRE LIVE, the SOURCE on LIBRARY: the library's kick becomes DRUM+BASS's (%s -> %s)" % (a0[0]["on"][:16], a1[0]["on"][:16]))
         check(b1[0]["hash"] == a1[0]["hash"] and b1[1]["style"] == 0, "... with the SOURCE on FREE the same: the library's track takes the new genre's part from the library (%s, style %d)" % (b1[0]["on"][:16], b1[1]["style"]))
-        check(b2[1]["style"] == 26 and b2[0]["on"] == onoff(text("FREE", 0, b2[1]["now"], part="KICK")) and "FREE KICK SEED 1" in bm and b3[1]["style"] == 26 and b3[0]["hash"] == b2[0]["hash"],
+        check(b2[1]["style"] == 23 and b2[0]["on"] == onoff(text("FREE", 0, b2[1]["now"], part="KICK")) and "FREE KICK SEED 1" in bm and b3[1]["style"] == 23 and b3[0]["hash"] == b2[0]["hash"],
               "... and the kick of no genre beside it stays as it is (%s, %s)" % (b3[1], [m for m in bm if "SEED" in m][:1]))
 
         s = Script()
@@ -9163,7 +9163,7 @@ def t023_theory_free():
         e = at(log, 0, 0)[1]["now"]
         want = text("FREE", 0, e)
         kit = [at(log, k, 0) for k in range(5)]
-        check(any(m.startswith("FREE KIT SEED 1") for m in msgs) and all(kit[k][1]["style"] == 26 and kit[k][0]["on"] == onoff(want[FREE[k]]) for k in range(4)) and kit[4][1]["style"] == 0,
+        check(any(m.startswith("FREE KIT SEED 1") for m in msgs) and all(kit[k][1]["style"] == 23 and kit[k][0]["on"] == onoff(want[FREE[k]]) for k in range(4)) and kit[4][1]["style"] == 0,
               "KIT in HOUSE with the SOURCE on FREE: FREE's drums, four tracks (%s, %s)" % ([m for m in msgs if "KIT" in m][:1], [x[1]["style"] for x in kit]))
 
         # ---- the other two ways to be free of the genre. The harmony FREE (ARP 4 K2) with the SOURCE on THEORY: the
@@ -9192,7 +9192,7 @@ def t023_theory_free():
         check("GENRE FREE: THEORY MAKES PARTS OF NO GENRE" in msgs and sc and sc[-1]["cells"][0] == ("> SOURCE", "THEORY") and sc[-1]["lines"][2].startswith("SEQ 8/8 FREE KICK SEED 2"),
               "the GENRE mode FREE with the SOURCE on THEORY: the engines make parts of no genre, the screen says so (%s, %s)" % (sc[-1]["cells"][0] if sc else None, sc[-1]["lines"][2] if sc else None))
         d, h = at(log, 0, 3)
-        check("FREE LEAD SEED 2" in msgs and h["style"] == 26 and h["func"] == 24 and h["seed"] == 1 and d["on"] == onoff(text("FREE", 1, h["now"], part="LEAD", mate=("TECHNO", 0, "STAB"))),   # (0.25: it answers the band's STAB, the first track of chords)
+        check("FREE LEAD SEED 2" in msgs and h["style"] == 23 and h["func"] == 24 and h["seed"] == 1 and d["on"] == onoff(text("FREE", 1, h["now"], part="LEAD", mate=("TECHNO", 0, "STAB"))),   # (0.25: it answers the band's STAB, the first track of chords)
               "... BEAT goes through FREE's eight parts: the eighth is its LEAD, made from the next seed (%s, %s)" % ([m for m in msgs if "SEED" in m][-1:], h))
 
         # ---- the hub's LIVE page: its SOURCE knob (channel 12, CC 56) has the three positions - 0 LIBRARY, 1 THEORY, 2
@@ -9221,7 +9221,7 @@ def t023_theory_free():
         out = [(m[0], m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] == 56]
         check(src == [2, 2, 2, 0, 1, 2], "the page's SOURCE: 2 is FREE; a switch's \"on\" keeps it; 0: LIBRARY; \"on\" from there: THEORY; the panel: FREE again (%s)" % src)
         d, h = at(log, 0, 1)
-        check(h["style"] == 26 and h["seed"] == 0 and d["on"] == onoff(text("FREE", 0, h["now"], part="KICK")), "BEAT from the page with its SOURCE on FREE: a part of no genre (%s)" % h)
+        check(h["style"] == 23 and h["seed"] == 0 and d["on"] == onoff(text("FREE", 0, h["now"], part="KICK")), "BEAT from the page with its SOURCE on FREE: a part of no genre (%s)" % h)
         check([v for tm, _, v in out if tm > t0][:1] == [2], "the panel's SOURCE FREE goes back to the page: CC 56 = 2 (%s)" % [x for x in out if x[0] > t0][:3])
         check(1 in [v for tm, _, v in out if tm <= t0], "... and a switch's \"on\" is answered with where the SOURCE is: CC 56 = 1, THEORY (%s)" % [x for x in out if x[0] <= t0][:4])
     finally:
@@ -10248,7 +10248,7 @@ def t025_melody():
         t = s.steps(t, list(steps))
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])             # USER 1: I, V
-        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                       # HARMONY: USER 1, ON
+        t = harm_knobs(s, t, [(K2, 8), (K1, 1)])                       # HARMONY: USER 1, ON
         if rhythm:
             t = harm2_knobs(s, t, [(K4, rhythm)])
         if fm:
@@ -10787,7 +10787,7 @@ def t026_tune_answers():
         t = pg(s, t, SEQ, 7, [(K1, 2)])                          # SOURCE FREE: KICK SNARE HAT PERC BASS CHORD ARP LEAD
         t = band(s, t)
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8), (K2, 1), (K3, 1)])   # USER 1: home, the fifth's chord, home - a bar each: three bars
-        t = harm_knobs(s, t, [(K2, 6)])                          #  against the pattern's four: every step is heard on both chords
+        t = harm_knobs(s, t, [(K2, 8)])                          #  against the pattern's four: every step is heard on both chords (0.29: USER 1 is the 9th)
         if old: s.raw(t, "thold"); t += 200
         s.at(t, "dump", 5); s.at(t + 20, "dump", 7); t += 80
         s.tap_btn(t, PLAY); p0 = t
@@ -11007,7 +11007,7 @@ def t026_smooth():
         t = kp(s, 100, [(K2, 1), (K4, 1)])                             # C major, IN KEY
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
         t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])             # USER 1: I, V
-        t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                       # HARMONY: USER 1, ON
+        t = harm_knobs(s, t, [(K2, 8), (K1, 1)])                       # HARMONY: USER 1, ON
         if rhythm:
             t = harm2_knobs(s, t, [(K4, rhythm)])
         if fm:
@@ -11085,7 +11085,7 @@ def t026_live_chords():
         t = home_page(s, t, 1, [(K4, 1)], cur=2)                       # FOLLOW
         if harm:
             t = uprog_knobs(s, t, [(K3, 1), (K2, 1), (K3, 8)])         # USER 1: I, V a bar each
-            t = harm_knobs(s, t, [(K2, 6), (K1, 1)])                   # HARMONY: USER 1, ON
+            t = harm_knobs(s, t, [(K2, 8), (K1, 1)])                   # HARMONY: USER 1, ON
         t = pg(s, t, SAVE, 3, [(K2, mode)])                            # KEYBOARD: 3 CHORDS, 4 CHORDS <C3
         return t
 
@@ -11563,8 +11563,8 @@ def t027_keyless_band():
         s.press(t, SEQ); s.enc(t + 30, E_PRE, n); s.release(t + 100, SEQ)
         return t + 200
     res = {}
-    for name, setup in (("FREE", lambda s, t: seq_page(s, t, 7, encs=[(K1, 2)])), ("TRANCE", lambda s, t: genre(s, t, 19)),
-                        ("TRANCE THEORY", lambda s, t: seq_page(s, genre(s, t, 19), 7, encs=[(K1, 1)]))):
+    for name, setup in (("FREE", lambda s, t: seq_page(s, t, 7, encs=[(K1, 2)])), ("TRANCE", lambda s, t: genre(s, t, 16)),     # (0.29: TRANCE 16)
+                        ("TRANCE THEORY", lambda s, t: seq_page(s, genre(s, t, 16), 7, encs=[(K1, 1)]))):
         s = Script()
         t = setup(s, 100)
         t = band_hold(s, t)

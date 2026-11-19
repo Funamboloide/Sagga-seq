@@ -30,7 +30,7 @@ changes them.
   ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
   0.13: RATE goes on to the triplets (1/4T, 1/8T, 1/16T, 1/32T), as the FM-1's LFO RATE does. 0.18: GENRE reaches
-  MERENGUE (25 genres); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1.
+  MERENGUE (25 genres; 0.29: 22, with BALANI); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1.
 * **SAGGA Live** (0.18, channel 12): the tablet's track, everything at hand while the FM-1 works on another - TRACK and
   MODE, MUTE, SOLO, PATTERN, LENGTH, OCTAVE, RETRIG; SWING, GROOVE, GROOVE AMT, FOLLOW; ARP, OCTAVES, RATE (1/4, 1/2:
   a note every 4 / 2 steps), RUN; CHORD; MIDI FX (READY), FX AMOUNT, FX GO (0.19: the effect shown joins the track's chain, again: it leaves); ALGO (READY), A, B, C, ALGO GO; PULSES,

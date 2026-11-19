@@ -596,8 +596,9 @@ uint8_t sq_click_render(sq_click_t *c, int32_t *out, uint32_t frames, uint32_t f
 /* 0.23 THEORY: a pattern can be MADE by the engines (sagga_theory.h) from the rules of a style instead of loaded from
  * the library. The project keeps where its patterns come from, the seed of the next one, and for every pattern the
  * engines made what it was made from - so it can be made again at another energy, or walked to its next variation. */
-#define SQ_TH_FREE 25u           /* a style is a genre of the library (SQ_GENRE_* of sagga_beats.h: 0..24), or FREE: no genre */
-#define SQ_TH_STYLES 26u
+#define SQ_TH_FREE 22u           /* a style is a genre of the library (SQ_GENRE_* of sagga_beats.h: 0..21), or FREE: no genre
+                                  * (0.29: 22; 0.28's images: 25, sq_genre_from28) */
+#define SQ_TH_STYLES 23u
 #define SQ_TH_SEEDS 999u         /* the seeds of the FM-1: 0..998 (the screen shows 1..999) */
 enum { SQ_SRC_LIBRARY = 0,      /* the patterns are loaded from the library */
        SQ_SRC_THEORY,           /* ... made by the engines, in the style of the genre (of no genre while the GENRE mode is FREE) */
@@ -671,10 +672,15 @@ enum { SQ_EVERY_OFF = 0, SQ_EVERY_1, SQ_EVERY_2, SQ_EVERY_4, SQ_EVERY_8, SQ_EVER
  * length a pattern was loaded at - and the track made that long. The length is the track's now: 16 reads as COPY,
  * 32 and 64 as PHRASE.) */
 enum { SQ_LL_COPY = 0, SQ_LL_PHRASE, SQ_LLS };
+#define SQ_LIB_PROGS 8u          /* the library's progressions a genre (sagga_beats.h SQ_PROGS; 0.29: 8, until then 6) */
 #define SQ_UPROGS 4u             /* 0.10: progressions written by the player; harm_prog SQ_PROGS.. picks them */
-#define SQ_UPROG_SLOTS (SQ_UPROGS + 1u)   /* 0.11: and one more, the progression that came from the Pi (harm_prog 10) */
-#define SQ_PROG_PI (6u + SQ_UPROGS)       /* 0.11: harm_prog of the Pi's progression (uprog[SQ_UPROGS]) */
-#define SQ_PROGS_ALL (6u + SQ_UPROGS + 1u)
+#define SQ_UPROG_SLOTS (SQ_UPROGS + 1u)   /* 0.11: and one more, the progression that came from the Pi (harm_prog 12) */
+#define SQ_PROG_PI (SQ_LIB_PROGS + SQ_UPROGS)       /* 0.11: harm_prog of the Pi's progression (uprog[SQ_UPROGS]) */
+#define SQ_PROGS_ALL (SQ_LIB_PROGS + SQ_UPROGS + 1u)
+/* 0.29: a harm_prog as 0.28 numbered it (0..5 the genre's, 6..9 the player's, 10 the Pi's) and back: the image keeps
+ * 0.28's numbers; the genre's 7th and 8th go to 0.28 as its 1st (chunk 5 keeps which they were) */
+uint8_t sq_prog_from28(uint8_t p);
+uint8_t sq_prog_to28(uint8_t p);
 typedef struct __attribute__((packed)) {
     uint8_t genre, func, var;    /* the BEAT library: what LOAD brings; genre: THE genre */
     uint8_t scope;               /* SQ_SCOPE_*: which tracks the generators work on */
@@ -686,7 +692,8 @@ typedef struct __attribute__((packed)) {
     uint8_t evo_drift;           /* 0: every change starts from the seed again; 1: each change starts from the last */
     uint8_t harm_on;             /* 0.8 HARMONY: the progression plays; the tracks with SQ_TF_FOLLOW move with it */
     uint8_t genre_mode;          /* 0.10: SQ_GM_* */
-    uint8_t harm_prog;           /* ... which progression: 0..5 the genre's, 6..9 the player's (uprog) */
+    uint8_t harm_prog;           /* ... which progression: 0..7 the genre's, 8..11 the player's (uprog), 12 the Pi's
+                                  * (0.29; 0.28: 0..5, 6..9, 10 - and so in the image: sq_prog_to28) */
     uint8_t harm_bars;           /* ... bars a chord: 0 the progression's own, else 1, 2, 4, 8 */
     uint16_t custom;             /* SCOPE CUSTOM: bit per track */
     uint8_t panel_lights;        /* 0 unset (HIGH), else 1..5 OFF..MAX */
@@ -842,7 +849,7 @@ uint8_t sq_song_locate(const sq_song_t *sg, const uint8_t *scene_metre, uint8_t 
 #define SQ_PHRASE_MAX 16u
 #define SQ_MOVES     16u             /* the queue */
 #define SQ_TRAIL     128u            /* phrases remembered */
-#define SQ_SET_GENRES 25u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h) */
+#define SQ_SET_GENRES 22u            /* 0.10: every genre of the library is a genre of the set (sagga_setgenre_data.h); 0.29: 22 */
 #define SQ_ROLES     7u              /* KICK SNARE HAT PERC BASS CHORD ARP (sagga_beats.h SQ_FUNC_*) */
 enum { SQ_VQ_PHRASE = 0, SQ_VQ_BAR, SQ_VQ_BEAT, SQ_VQS };   /* 0.10: when VIAGGIO's moves happen: the phrase boundary, every bar, every beat */
 enum { SQ_TS_EMPTY = 0, SQ_TS_PROPOSED, SQ_TS_IN, SQ_TS_OUT };
@@ -856,7 +863,7 @@ enum { SQ_MV_NONE = 0,
        SQ_MV_DROP,               /* every track with a phrase in, energy 100 at once, a fill before */
        SQ_MV_HALF, SQ_MV_DOUBLE, /* the next phrase at half / twice the speed (the step, not the tempo) */
        SQ_MV_TRANSPOSE,          /* a: 12 + semitones (-12..+12) */
-       SQ_MV_PROG,               /* a: the progression 0..5 */
+       SQ_MV_PROG,               /* a: the progression (harm_prog) */
        SQ_MV_GENRE,              /* a: the set genre 0..SQ_SET_GENRES-1 */
        SQ_MV_THIN, SQ_MV_SWELL,  /* two tracks out / two proposals in */
        SQ_MV_LOOP,               /* a: track; b: 0 the whole phrase, 1 four bars repeated */
@@ -1434,6 +1441,10 @@ int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len);
  * what was aimed at them: an LFO stops, a MOD slot goes OFF, their mutes go) */
 /* 0 if sq_deserialize() would take the image whole (it reads nothing into a project): check first, then replace */
 int sq_image_ok(const uint8_t *in, uint32_t len);
+/* 0.29: a genre (or a THEORY style) of 0.28's numbering as 0.29 numbers it (v29: the image is 0.29's - its AFRO HOUSE is
+ * BALANI), and back (BALANI: AFRO HOUSE) */
+uint8_t sq_genre_from28(uint8_t g, uint8_t v29);
+uint8_t sq_genre_to28(uint8_t g);
 uint32_t sq_crc32(const uint8_t *p, uint32_t n);
 
 #endif

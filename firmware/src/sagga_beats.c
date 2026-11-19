@@ -149,18 +149,15 @@ static const genre_groove_t GENRE_GROOVE[SQ_GENRES][GG_N] = {
     /* HOUSE */  {O_,     O_,     HO(100),   HO(60),    HO(100),   HO(60),    HU(30), HU(30), HU(30)},
     /* UKGAR */  {GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), GA(100, 50), SW(63), SW(63), SW(63)},
     /* UKFUNKY */{O_,     AF(40), GA(50, 50), GA(50, 50), AF(80),  AF(80),    O_,     HU(30), O_},
-    /* GRIME */  {O_,     O_,     TR(50),    O_,        TR(40),    HU(30),    O_,     O_,     O_},
     /* DUBSTEP */{O_,     O_,     LB(40),    LB(40),    LB(40),    LB(40),    O_,     O_,     O_},
     /* JUNGLE */ {HU(30), HU(60), PU(50),    PU(40),    PU(50),    HU(50),    O_,     HU(30), O_},
-    /* BASSLN */ {O_,     O_,     GA(60, 50), GA(60, 50), GA(60, 50), GA(60, 50), SW(58), SW(58), SW(58)},
     /* REGGAET */{O_,     AF(60), TR(40),    O_,        AF(50),    AF(60),    O_,     O_,     O_},
     /* BATIDA */ {O_,     AF(40), AF(60),    AF(40),    AF(80),    AF(100),   O_,     O_,     O_},
     /* GQOM */   {O_,     O_,     AF(50),    O_,        AF(60),    AF(80),    O_,     O_,     O_},
     /* EXPERIM */{HU(30), DI(40), DI(60),    DI(40),    DI(60),    DI(60),    HU(50), HU(50), HU(50)},
     /* ELECTRO */{O_,     O_,     TR(40),    O_,        TR(30),    HU(20),    O_,     O_,     O_},
     /* DNB */    {O_,     O_,     PU(40),    PU(30),    PU(40),    HU(30),    O_,     HU(30), O_},
-    /* AFROHOU */{O_,     O_,     HO(70),    HO(50),    AF(100),   AF(100),   HU(30), HU(30), HU(30)},
-    /* AMAPIAN */{O_,     O_,     AF(60),    AF(40),    AF(80),    AF(80),    O_,     LB(40), LB(30)},
+    /* BALANI */ {O_,     O_,     PU(30),    O_,        AF(50),    AF(60),    O_,     O_,     O_},   /* 0.29: the hats ahead, the djembe played; the balafon tight */
     /* FOOTWRK */{O_,     O_,     TR(60),    O_,        TR(40),    HU(30),    O_,     O_,     O_},
     /* TRANCE */ {O_,     O_,     O_,        O_,        O_,        O_,        O_,     O_,     O_},
     /* UKDRILL */{O_,     O_,     TR(100),   TR(60),    TR(60),    TR(60),    O_,     O_,     O_},
@@ -199,9 +196,9 @@ uint8_t sq_genre_scale(uint8_t genre, uint8_t i) { return GENRE[genre < SQ_GENRE
 uint8_t sq_genre_chord_size(uint8_t genre) { return GENRE[genre < SQ_GENRES ? genre : 0u].chord_size; }
 uint8_t sq_genre_hrhythm(uint8_t genre)
 {
-    static const uint8_t R[SQ_GENRES] = {SQ_HR_BARS, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_PUSH16, SQ_HR_PUSH16, SQ_HR_PUSH8, SQ_HR_BARS,
-        SQ_HR_2BARS, SQ_HR_2BARS, SQ_HR_PUSH16, SQ_HR_332, SQ_HR_332, SQ_HR_BARS, SQ_HR_35, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_PUSH8,
-        SQ_HR_PUSH16, SQ_HR_31, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_332, SQ_HR_BARS};
+    static const uint8_t R[SQ_GENRES] = {SQ_HR_BARS, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_PUSH16, SQ_HR_PUSH16, SQ_HR_PUSH8,
+        SQ_HR_2BARS, SQ_HR_2BARS, SQ_HR_332, SQ_HR_332, SQ_HR_BARS, SQ_HR_35, SQ_HR_BARS, SQ_HR_2BARS, SQ_HR_BARS /* BALANI */,
+        SQ_HR_31, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_BARS, SQ_HR_332, SQ_HR_BARS};   /* (0.29: 22 genres) */
     return R[genre < SQ_GENRES ? genre : 0u];
 }
 void sq_genre_evolve(uint8_t genre, uint8_t *rhy, uint8_t *note)

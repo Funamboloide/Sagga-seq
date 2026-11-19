@@ -97,33 +97,43 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 | parte | famiglia | base | pieno | in più | |
 | --- | --- | --- | --- | --- | --- |
-| KICK | la sola | `X.........X.....`<br>`X.........X.....` | `X.........X.....`<br>`X.........X.....` | `...1.4.2....91.1`<br>`...6..2e11.....2` | chiusura |
+| KICK | 1 di 3 · 67 % | `X.........X.....`<br>`X.........X.....` | `X.........X.....`<br>`X.........X.....` | `.....2.3.2..a...`<br>`.3.5.3.f.2.....6` | chiusura |
+|  | 2 di 3 · 25 % | `X.......X...X...` | `X.......X...X...` | `....f..9.......9` | chiusura |
+|  | 3 di 3 · 8 % | `X.........X.....`<br>`X.......X...X...` | `X...X..x..X.X...`<br>`X...X...X..xX.x.` | `................`<br>`................` | chiusura |
 | SNARE | 1 di 3 · 50 % | `....X.......X..g` | `....X.......X..g` | `...6...6.6......` |  |
 |  | 2 di 3 · 33 % | `....X.......X...` | `....X......gX.g.` | `.6........6....6` |  |
 |  | 3 di 3 · 17 % | `....X...g...X...` | `....X...g...X...` | `.........d...d..` |  |
-| HAT | 1 di 4 · 33 % | `......x.......x.` | `..x...x...x...x.` | `.6.111.611.611.1` | rullate |
-|  | 2 di 4 · 33 % | `..x...x...x...x.` | `..x.x.xx..x.x.xx` | `.6.1.1..16.6.1..` | rullate |
-|  | 3 di 4 · 25 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `.xxx.xxx.xxx.xxx`<br>`..xx.xxx.xxx.xxx` | `....1...9...1...`<br>`.f..1...9...9...` | rullate |
-|  | 4 di 4 · 8 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1.1.1.1.1.1.1.1` |  |
+| HAT | 1 di 4 · 55 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `.xx..xx..xx..xx.`<br>`.xx..xx..xx.xxxx` | `...91..11..41..1`<br>`...41..d...1....` |  |
+|  | 2 di 4 · 18 % | `..x...x...x...x.` | `..x.x.xx..x.x.xx` | `.d.1.1...1.1.1..` | rullate |
+|  | 3 di 4 · 18 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `..xx.xxx.xxx.xxx`<br>`.xxx.xxx.xxx.xxx` | `.d..1...d...1...`<br>`....1.......1...` | rullate |
+|  | 4 di 4 · 9 % | `......x.......x.` | `..x...x...x...x.` | `.1.111.1.1.111.1` |  |
 | OPEN HAT | la sola | `......x.......x.` | `..X...x...X...x.` | `.............6.6` |  |
 | SHAKER | 1 di 2 · 50 % | `..x...x...x...x.` | `xoxo.oxoxoxo.oxo` | `....f.......f...` |  |
 |  | 2 di 2 · 50 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.911.f` |  |
-| PERC | 1 di 4 · 50 % | `...x..x....X....` | `...x..x....X....` | `.11.....441..444` | chiusura |
-|  | 2 di 4 · 33 % | `......x..x....x.` | `......x..x....x.` | `.611....1.16.1.6` | chiusura, rullate |
-|  | 3 di 4 · 8 % | `..x.....x.x.....` | `..x.....x.x.....` | `...1..1..1.1..11` | chiusura |
-|  | 4 di 4 · 8 % | `.g.g.g.g.g.g.g.g` | `xgxgxgxgxgxgxgxg` | `................` | chiusura |
-| BASS | 1 di 2 · 83 % | `x.....x...x.....` | `x..x..x...x.x...` | `.4.....4.4...4..` |  |
-|  | 2 di 2 · 17 % | `x.........x.....` | `x..x......x..x..` | `......1.....1...` |  |
+| PERC | 1 di 4 · 30 % | `..x.....x.x.....` | `..x.....x.x.....` | `1..11.19.9.91.11` | chiusura |
+|  | 2 di 4 · 30 % | `x.....g.x.g.....` | `x...x.g.x.g.x.g.` | `..f9...9.1.1...1` | chiusura |
+|  | 3 di 4 · 20 % | `...x..X....x....` | `...x..X....x....` | `1.1.1..1111.1.d1` | chiusura |
+|  | 4 di 4 · 20 % | `......x..x....x.` | `......x..x....x.` | `1.111..11.111..d` | chiusura, rullate |
+| BASS | 1 di 3 · 83 % | `x.........x.....` | `x..x..x...x.....` | `.11.13.311..ad1.` |  |
+|  | 2 di 3 · 8 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `...1.........1..` |  |
+|  | 3 di 3 · 8 % | `x.....x.x...x...` | `xx..x.x.xx..x.x.` | `...1......1..1..` |  |
+| SUB | 1 di 2 · 67 % | `x.......x.......` | `x.......x.......` | `....d.1...16d..1` | con il kick |
+|  | 2 di 2 · 33 % | `x.....x...x.....` | `x.....x...x.....` | `....1...1..11..d` | con il kick |
 | CHORD | 1 di 2 · 50 % | `..x....x..X.....` | `..x....x..X.....` | `1..41.........1.` |  |
 |  | 2 di 2 · 50 % | `X.........x.....` | `X...x.....x...x.` | `..1....1........` |  |
+| STAB | 1 di 4 · 33 % | `..x..X....x.....` | `..x..X....x.....` | `1......d....1.1.` |  |
+|  | 2 di 4 · 33 % | `x.....x.........` | `x.....x.........` | `..1d......d1d.1.` |  |
+|  | 3 di 4 · 17 % | `..x.......x.....` | `..x...x...x...x.` | `1...............` |  |
+|  | 4 di 4 · 17 % | `...x.......x....` | `...x.......x....` | `1....11.........` |  |
 | VOX | 1 di 2 · 67 % | `........x.x.....` | `........x.x.....` | `d.1d1.......116.` |  |
 |  | 2 di 2 · 33 % | `..x.x.......x...` | `..x.x.......x...` | `1..1....1.1..d1.` |  |
-| ARP | 1 di 2 · 83 % | `x...x...x...x...` | `x.x.x.x.x.x.x.x.` | `.1.1...1.5...1.1` |  |
-|  | 2 di 2 · 17 % | `x...x.x..xx.x...` | `xx.xx.xx.xx.xx.x` | `..1.....1.....1.` |  |
+| ARP | 1 di 3 · 50 % | `xx.xx.xx.xx.xx.x` | `xxxxxxxxxxxxxxxx` | `................` |  |
+|  | 2 di 3 · 33 % | `..X...x...x...x.` | `x.X.x.x.x.x.x.x.` | `.1.1.1.1.1.1.1.1` |  |
+|  | 3 di 3 · 17 % | `xx..x.x...x.x...` | `xx.xx.xx.xx.xx.x` | `..1..1..1..1..1.` |  |
 
-**Le note.** BASS: fondamentale 54 %, quinta 14 %, quarta 14 %, terza 12 %, ottava 4 %. CHORD: accordi di settima 95 %, triadi 5 %. VOX: un motivo - scende 50 %, sale 17 %, fa un arco 17 %, alterna due note 17 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 46 %, fondamentale 31 %, terza 23 %. ARP: le note dell'accordo in fila, con la settima.
+**Le note.** BASS: fondamentale 44 %, ottava 17 %, quarta 16 %, quinta 14 %, terza 9 %. SUB: fondamentale 74 %, quinta 11 %, settima 11 %, terza 5 %; note tenute. CHORD: accordi di settima 95 %, triadi 5 %. STAB: triadi 65 %, accordi di settima 35 %. VOX: un motivo - scende 50 %, sale 17 %, fa un arco 17 %, alterna due note 17 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 46 %, fondamentale 31 %, terza 23 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
 
-**La progressione.** quattro accordi 60 %, due accordi 32 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 74 %, 2 battute 18 %, 4 battute 4 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di una quarta sopra 38 %, un grado sopra 17 %, una quinta sopra 17 %, una terza sopra 9 %, una terza sotto 9 %, un grado sotto 9 %; colori: settima 47 %, nona 38 %, triade 6 %, sus4 6 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: MINOR, DORIAN, MAJOR.
+**La progressione.** quattro accordi 60 %, due accordi 32 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 74 %, 2 battute 18 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di una quarta sopra 29 %, una quinta sopra 29 %, un grado sopra 16 %, una terza sotto 16 %, una terza sopra 9 %; colori: settima 38 %, nona 29 %, triade 24 %, sus4 6 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: MINOR, DORIAN, MAJOR.
 
 ## UK FUNKY
 
@@ -167,35 +177,6 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di un grado sopra 26 %, una quarta sopra 26 %, una quinta sopra 15 %, una terza sotto 15 %, un grado sotto 15 %, una terza sopra 3 %; colori: settima 76 %, nona 16 %; gli accordi entrano spesso un ottavo prima. Le scale del genere: MINOR, DORIAN, PHRYG.
 
-## GRIME
-
-| parte | famiglia | base | pieno | in più | |
-| --- | --- | --- | --- | --- | --- |
-| KICK | la sola | `X.........x.....`<br>`X.........x.....` | `X.........x.....`<br>`X.........x.....` | `...4..b.b..2.4.2`<br>`...4..b....4.d92` |  |
-| SNARE | 1 di 2 · 83 % | `........X.......` | `........X.......` | `......3a..3d.338` | rullate |
-|  | 2 di 2 · 17 % | `....X.......X...` | `....X.......X...` | `..........d..d..` |  |
-| HAT | 1 di 3 · 50 % | `x...x...x...x...` | `x.x.x.x.x.x.x.x.` | `.4.9.9.......d..` | chiusura, rullate |
-|  | 2 di 3 · 33 % | `..x.......X.....` | `..x...x...X...x.` | `1..611..16.611..` | chiusura |
-|  | 3 di 3 · 17 % | `X.......x.......` | `X...x...x...x...` | `..11..1...1..1d.` | chiusura |
-| PERC | 1 di 4 · 50 % | `.......x.......x`<br>`.......x.....x.x` | `.......x.......x`<br>`.......x.....x.x` | `1..1..1.1..9.99.`<br>`1..9..1.1..1..1.` |  |
-|  | 2 di 4 · 17 % | `......x.......x.` | `......x.......x.` | `...1...1...1.1.1` |  |
-|  | 3 di 4 · 17 % | `...x.......x....` | `...x.......x....` | `......11.....111` |  |
-|  | 4 di 4 · 17 % | `...x.......x....` | `x..x..x.x..x..x.` | `.......1.....1.1` |  |
-| BASS | 1 di 2 · 50 % | `x.....x...x.....` | `x.....x...x.....` | `.5......15.1.5..` |  |
-|  | 2 di 2 · 50 % | `X.......X..x....` | `X.......X..x....` | `......1...1....4` |  |
-| SUB | la sola | `x...............` | `x...............` | `......4.9.f.....` | con il kick |
-| STAB | 1 di 3 · 67 % | `x.....x.....x...` | `x.....x.....x...` | `.414.1.1..14.47.` |  |
-|  | 2 di 3 · 17 % | `...x.......X....` | `...x.......X....` | `1.d...1.....1...` |  |
-|  | 3 di 3 · 17 % | `..x..x....X.....` | `..x..x....X.....` | `1..1..1d...11...` |  |
-| LEAD | 1 di 4 · 50 % | `x.....x.........` | `x..x..x.x.......` | `.11.41.4..1.1414` |  |
-|  | 2 di 4 · 33 % | `x.xx....x...x...` | `x.xx.x.xx.x.x.x.` | `.6..1.6......6.1` |  |
-|  | 3 di 4 · 8 % | `x...x...x...x...` | `x.x.x.x.x.x.x.x.` | `...1.1.1.....1..` |  |
-|  | 4 di 4 · 8 % | `x.xx.x.xx.x.x.x.` | `xxxxxxxxxxxxxxxx` | `................` |  |
-
-**Le note.** BASS: fondamentale 52 %, ottava 22 %, seconda 15 %, terza 5 %, quarta 5 %. SUB: fondamentale 77 %, quinta 8 %, terza 8 %, seconda 8 %; note tenute. STAB: quinte vuote 46 %, triadi 34 %, accordi di settima 20 %. LEAD: un motivo - fa un arco 56 %, sale 32 %, scende 8 %, alterna due note 5 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 50 %, quinta 25 %, terza 25 %.
-
-**La progressione.** due accordi 46 %, quattro accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di un grado sopra 34 %, una terza sotto 23 %, una terza sopra 13 %, una quarta sopra 13 %, un grado sotto 13 %, una quinta sopra 3 %; colori: triade 85 %, sus4 8 %. Le scale del genere: MINOR, PHRYG, H.MINOR.
-
 ## JUNGLE
 
 | parte | famiglia | base | pieno | in più | |
@@ -227,74 +208,49 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **La progressione.** due accordi 46 %, quattro accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 2 battute 46 %, 1 battuta 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 70 volte su 100; la fondamentale si muove di una quarta sopra 34 %, un grado sopra 23 %, un grado sotto 23 %, una terza sotto 13 %, una terza sopra 3 %, una quinta sopra 3 %; colori: settima 55 %, nona 32 %, triade 8 %. Le scale del genere: MINOR, DORIAN, PHRYG.
 
-## BASSLINE
-
-| parte | famiglia | base | pieno | in più | |
-| --- | --- | --- | --- | --- | --- |
-| KICK | 1 di 2 · 67 % | `X...X.......X...`<br>`X...X...X...X...` | `X...X..x..X.X...`<br>`X...X...X..xX.x.` | `...3.3.....3....`<br>`.3...3.3.....3..` | rullate |
-|  | 2 di 2 · 33 % | `....X.......X...` | `X...X...X...X...` | `......66.......d` |  |
-| SNARE | 1 di 2 · 67 % | `....X.......X...` | `....X.......X...` | `...........d.6ad` |  |
-|  | 2 di 2 · 33 % | `....X.......X...` | `....X..g..g.X...` | `........6..6....` |  |
-| HAT | 1 di 4 · 42 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `.xx..xx..xx..xx.`<br>`.xx..xx..xx.xxxx` | `1...1..11...1..1`<br>`1...1..a1..f....` |  |
-|  | 2 di 4 · 33 % | `..x...x...x...x.` | `..x.x.xx..x.x.xx` | `16.6.1..11.6.1..` | rullate |
-|  | 3 di 4 · 17 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1...1.d.1.1.1.1` | rullate |
-|  | 4 di 4 · 8 % | `......x.......x.` | `..x...x...x...x.` | `.1..11.1.1.111.1` |  |
-| OPEN HAT | la sola | `......x.......x.` | `......x.......x.` | `..d......4d..4.4` |  |
-| PERC | 1 di 3 · 67 % | `......x.......x.` | `......x.......x.` | `16161...1.1616..` | chiusura, rullate |
-|  | 2 di 3 · 17 % | `..x.....x.x.....` | `..x.....x.x.....` | `......1.......1.` | chiusura |
-|  | 3 di 3 · 17 % | `..g.....x.g.....` | `x.g.x.g.x.g.x.g.` | `................` | chiusura |
-| BASS | 1 di 3 · 50 % | `x.....x...x.....` | `x..x..x...x..x..` | `.44.1...11..1.14` |  |
-|  | 2 di 3 · 33 % | `..x...x...X...x.` | `x.x.x.x.x.X.x.x.` | `.1.1.....1...1..` |  |
-|  | 3 di 3 · 17 % | `x...x.x.x.......` | `xx..x.x.xx..x.x.` | `..11......1..1..` |  |
-| SUB | 1 di 2 · 83 % | `x.......x.......` | `x...x...x...x...` | `......1...1.....` | con il kick |
-|  | 2 di 2 · 17 % | `x.....x...x.....` | `x.....x...x.....` | `....1...1...1...` | con il kick |
-| STAB | 1 di 4 · 33 % | `x.....x.....x...` | `x.....x.....x...` | `..16.1....61..1.` |  |
-|  | 2 di 4 · 33 % | `...X.......x....` | `...X.......x....` | `1.1.661...1.1.1.` |  |
-|  | 3 di 4 · 25 % | `......x.......x.` | `..x...x...x...x.` | `1..1.......19...` |  |
-|  | 4 di 4 · 8 % | `..x..x....x.....` | `..x..x....x.....` | `1..1..1....11.1.` |  |
-| VOX | 1 di 3 · 50 % | `...x......x.....` | `...x......x.....` | `1.1.19..1...9...` |  |
-|  | 2 di 3 · 33 % | `....x.......x...` | `....x.......x...` | `1.d1.1..1.1.....` |  |
-|  | 3 di 3 · 17 % | `x.......x.x.....` | `x.......x.x.....` | `...11.......1...` |  |
-| ARP | 1 di 2 · 67 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1.6.1.6.1.1.1.1` |  |
-|  | 2 di 2 · 33 % | `x.x.x.x.x.x.x.x.` | `xxxxxxxxxxxxxxxx` | `................` |  |
-
-**Le note.** BASS: fondamentale 37 %, ottava 33 %, quarta 15 %, quinta 11 %, terza 4 %. SUB: fondamentale 83 %, quinta 6 %, ottava 6 %, terza 6 %; note tenute. STAB: triadi 74 %, accordi di settima 26 %. VOX: un motivo - alterna due note 61 %, scende 30 %, sale 5 %, fa un arco 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 50 %, fondamentale 25 %, terza 25 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
-
-**La progressione.** quattro accordi 60 %, due accordi 32 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 60 %, 2 battute 32 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 29 %, una quinta sopra 22 %, una quarta sopra 16 %, una terza sotto 16 %, un grado sotto 16 %; colori: triade 84 %, settima 11 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: MINOR, DORIAN, PHRYG.
-
 ## REGGAETON
 
 | parte | famiglia | base | pieno | in più | |
 | --- | --- | --- | --- | --- | --- |
-| KICK | 1 di 3 · 58 % | `X...X...X...X...`<br>`X...X...X...X...` | `X..xX...X..xX...`<br>`X...X..xX...X.x.` | `..4..44........4`<br>`..44......44....` | rullate |
-|  | 2 di 3 · 25 % | `X.......X.......` | `X...X...X...X...` | `...9...........f` |  |
-|  | 3 di 3 · 17 % | `X.......X.......` | `X.......X.......` | `..........d.....` |  |
-| SNARE | la sola | `...X.......X....`<br>`...X.......X....` | `...X..x....X..x.`<br>`...X..x....X..x.` | `.22..2.6.....2.2`<br>`.....4.2.2...f.f` |  |
-| HAT | 1 di 4 · 50 % | `..x...x...x...x.` | `x.xx.xx.x.xx.xx.` | `.9..1..4.9..1..9` | chiusura |
-|  | 2 di 4 · 25 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1.1.1...f.1.9.1` | chiusura, rullate |
-|  | 3 di 4 · 17 % | `..X.......x.....` | `..X...x...x...x.` | `11.111..1d.111.1` | chiusura |
-|  | 4 di 4 · 8 % | `x.xx.xx.x.xx.xx.` | `xxxxxxxxxxxxxxxx` | `................` | chiusura |
-| RIM | 1 di 3 · 67 % | `......x.......x.` | `...x..x....x..x.` | `.......66.......` |  |
-|  | 2 di 3 · 17 % | `......x.....x...` | `......x.....x...` | `................` |  |
+| KICK | 1 di 2 · 58 % | `X.......X.......`<br>`X.......X.......` | `X...X...X...X...`<br>`X...X...X...X...` | `..4f.4.....f...4`<br>`.4.4...f......f4` | rullate |
+|  | 2 di 2 · 42 % | `X.......X.......`<br>`X.......X.......` | `X..X....X..x....`<br>`X.......X..x..x.` | `.6........6.....`<br>`.............6..` | rullate |
+| SNARE | 1 di 2 · 75 % | `...X.......X..x.` | `...X.......X..x.` | `.....3f9..3..6.6` | rullate |
+|  | 2 di 2 · 25 % | `......x.......x.` | `......x.......x.` | `.......9....9...` | rullate |
+| HAT | 1 di 4 · 33 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.6.1.1.6.d.1.1.1` | chiusura |
+|  | 2 di 4 · 25 % | `..x...x...x...x.` | `x.xx.xx.x.xx.xx.` | `.f..1..1.9..1..1` | chiusura, rullate |
+|  | 3 di 4 · 25 % | `o.xo.xx.o.xo.xx.` | `oxxo.xxooxxooxxo` | `....f...........` | chiusura |
+|  | 4 di 4 · 17 % | `......x.......x.` | `..x...x...x...x.` | `11.111.d11.111.1` | chiusura, rullate |
+| SHAKER | 1 di 2 · 83 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `xoxoxoxoxoxoxoxo`<br>`xoxo.oxoxoxoxoxo` | `................`<br>`....f...........` |  |
+|  | 2 di 2 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
+| RIM | 1 di 3 · 67 % | `...x..x.......x.` | `...x..x.......x.` | `........9..f....` |  |
+|  | 2 di 3 · 17 % | `...x......x.....` | `...x......x.....` | `................` |  |
 |  | 3 di 3 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `................` |  |
 | CONGA | 1 di 4 · 36 % | `x.....x.......x.` | `x..x..x.x..x..x.` | `..d.11.6..d.16.1` | chiusura, rullate |
 |  | 2 di 4 · 27 % | `...X..x.......x.` | `...X..x....x.xx.` | `191.19.11.1.1...` | chiusura |
 |  | 3 di 4 · 27 % | `..o.X.........x.` | `..o.X..x....x.x.` | `1..1.91.1.f1.1..` | chiusura |
 |  | 4 di 4 · 9 % | `x..x..x.o.......` | `x..x..x.o.x.x..o` | `..1.11.1...1.11.` | chiusura |
-| PERC | 1 di 3 · 50 % | `......x.......x.` | `......x.......x.` | `1..911.1..191..9` | rullate |
-|  | 2 di 3 · 33 % | `....x.......x...`<br>`....x.......x..x` | `....x..x....x..x`<br>`....x..x..x.x..x` | `1..1..1...11..1.`<br>`1..1.d1....1..d.` |  |
-|  | 3 di 3 · 17 % | `x.....x.....x...` | `x..x..x...x.x...` | `....1..1......11` |  |
+| PERC | 1 di 4 · 40 % | `......x.......x.` | `......x.......x.` | `1.1d11.1..1d11.1` |  |
+|  | 2 di 4 · 20 % | `......x...x.x...` | `x..x..x...x.x...` | `.......1...1..11` |  |
+|  | 3 di 4 · 20 % | `...x...x......x.`<br>`..........x.x.x.` | `...x...x...x..xx`<br>`...x...x..x.x.xx` | `......1...1.1...`<br>`......1.........` |  |
+|  | 4 di 4 · 20 % | `....x.......x...`<br>`....x.....x.x...` | `....x..x....x..x`<br>`....x..x..x.x..x` | `...1..1...11..1.`<br>`...1..1.......1.` |  |
 | BASS | 1 di 2 · 67 % | `x.......x.......` | `x..x....x..x....` | `.....1f...3..3d.` |  |
 |  | 2 di 2 · 33 % | `x.......x.......` | `x.....x.x.....x.` | `...1.6.....1....` |  |
-| CHORD | 1 di 2 · 50 % | `x.......x.......` | `x..x..x.x..x..x.` | `.........44.....` |  |
-|  | 2 di 2 · 50 % | `x.......x.......` | `x.......x.......` | `...1.44....1..1.` |  |
-| LEAD | 1 di 3 · 67 % | `x.......x.......` | `x..x..x.x.......` | `..1.61.1..161.6.` |  |
-|  | 2 di 3 · 17 % | `x...x...x...x...` | `x.x.x.x.x.x.x.x.` | `...1............` |  |
-|  | 3 di 3 · 17 % | `x..x....x...x.x.` | `x.xx.x.xx.x.x.x.` | `....1.1.........` |  |
+| LOG DRUM | 1 di 4 · 60 % | `x.........x..x..` | `x.........x..x..` | `..1f.1a11...1.1.` |  |
+|  | 2 di 4 · 20 % | `..x.......x..x..` | `..x..x.x..x..x..` | `1..1..1.........` |  |
+|  | 3 di 4 · 10 % | `......x...x.....` | `...x..x...x.x...` | `1.1..........1..` |  |
+|  | 4 di 4 · 10 % | `x.........x.....` | `x...x.....x.x...` | `..11..1......1..` |  |
+| CHORD | 1 di 4 · 33 % | `x.......x.......` | `x..x..x.x..x..x.` | `.61..6...61.....` |  |
+|  | 2 di 4 · 25 % | `x.....x...x.....` | `x.....x...x.....` | `..11.9..1..1..1.` |  |
+|  | 3 di 4 · 25 % | `..x.......x.....` | `..x...x...x...x.` | `1..1....19.1....` |  |
+|  | 4 di 4 · 17 % | `x.......X.......` | `x.......X.......` | `..11..1...11..1d` |  |
+| LEAD | 1 di 4 · 33 % | `x.......x.......` | `x..x..x.x.......` | `..1.11.1.11d1.d.` |  |
+|  | 2 di 4 · 33 % | `..x.....x.....x.` | `..x.x...x.x...x.` | `d..1.1d1.1.1d...` |  |
+|  | 3 di 4 · 17 % | `x.....x.....x...` | `x..x..x..x..x...` | `..1.1...1.1...1.` |  |
+|  | 4 di 4 · 17 % | `x..x....x...x.x.` | `x.xx.x.xx.x.x.x.` | `....1.1.........` |  |
 
-**Le note.** BASS: fondamentale 62 %, quarta 18 %, quinta 8 %, terza 5 %, ottava 3 %, settima 3 %. CHORD: triadi 90 %, accordi di settima 10 %. LEAD: un motivo - sale 63 %, scende 16 %, fa un arco 16 %, alterna due note 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 40 %, terza 33 %, quinta 27 %.
+**Le note.** BASS: fondamentale 62 %, quarta 18 %, quinta 8 %, terza 5 %, ottava 3 %, settima 3 %. LOG DRUM: fondamentale 40 %, quinta 23 %, quarta 23 %, terza 9 %, ottava 6 %. CHORD: triadi 62 %, accordi di settima 38 %. LEAD: un motivo - sale 61 %, fa un arco 30 %, scende 5 %, alterna due note 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 38 %, terza 38 %, quinta 25 %.
 
-**La progressione.** quattro accordi 88 %, un accordo 4 %, due accordi 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 88 %, 2 battute 4 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 34 %, una quarta sopra 28 %, una quinta sopra 18 %, una terza sotto 18 %; colori: triade 94 %. Le scale del genere: MINOR, H.MINOR, PHR.DOM.
+**La progressione.** quattro accordi 74 %, due accordi 18 %, un accordo 4 %, tre accordi 4 %; ogni accordo dura 1 battuta 74 %, 2 battute 18 %, 4 battute 4 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sopra 32 %, una terza sotto 26 %, una quarta sopra 20 %, una quinta sopra 20 %; colori: triade 68 %, settima 14 %, nona 14 %. Le scale del genere: MINOR, H.MINOR, PHR.DOM.
 
 ## BATIDA
 
@@ -306,20 +262,24 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 | SNARE | 1 di 3 · 83 % | `....X.......X.x.` | `....X.......X.x.` | `.......a.d...6.3` |  |
 |  | 2 di 3 · 8 % | `....X.......X...` | `....Xg......Xg..` | `................` |  |
 |  | 3 di 3 · 8 % | `...x....X..x....` | `...x....X..x....` | `................` |  |
-| HAT | 1 di 4 · 50 % | `x.x.....x.xx....` | `x.xx.xx.x.xx.xx.` | `.4..1..9.9..4...` | chiusura |
-|  | 2 di 4 · 25 % | `..x.....x.x.....` | `..x.x...x.x...x.` | `1..1.111.9.119..` | chiusura, rullate |
-|  | 3 di 4 · 17 % | `..x.x...x.x...x.` | `x.x.x.x.x.x.x.x.` | `...1.d.d.1.1.1..` | chiusura |
-|  | 4 di 4 · 8 % | `x.xx.xx.x.xx.xx.` | `xxxxxxxxxxxxxxxx` | `................` | chiusura |
-| SHAKER | 1 di 2 · 83 % | `..x...x...x...x.` | `xoxoooxoxoxo.oxo` | `............f...` |  |
+| HAT | 1 di 4 · 36 % | `..x.....x.x.....` | `..x.x...x.x...x.` | `11.6.111.6.116..` | chiusura |
+|  | 2 di 4 · 27 % | `..xx..x...xx..x.` | `x.xx.xx.x.xx.xx.` | `.9..1..9....1...` | chiusura, rullate |
+|  | 3 di 4 · 18 % | `..x.......x...x.` | `..xx..x...xx..x.` | `1...1d..1...11..` | chiusura, rullate |
+|  | 4 di 4 · 18 % | `..x.x...x.x...x.` | `x.x.x.x.x.x.x.x.` | `...1.d.....1.1..` | chiusura, rullate |
+| SHAKER | 1 di 2 · 83 % | `xo..x.x.x.x.x.x.` | `xo.oxoxoxoxoxoxo` | `..f.............` |  |
 |  | 2 di 2 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
-| CONGA | 1 di 4 · 30 % | `x.....x...x...x.` | `x.xx..x.x.xx..x.` | `....1..1....19..` | chiusura, rullate |
-|  | 2 di 4 · 30 % | `.......x..o...x.` | `....x..x..o.x.x.` | `1.f1..1.1..1.9..` | chiusura, rullate |
+| CONGA | 1 di 4 · 40 % | `x.....x.x.x.....` | `x.xx..x.x.xx..x.` | `....1..6....16.1` | chiusura, rullate |
+|  | 2 di 4 · 30 % | `....x..x..o.....` | `....x..x..o.x.x.` | `1.f1..9.1..1.1..` | chiusura |
 |  | 3 di 4 · 20 % | `x.....x...x.....` | `x..x..x...x..x..` | `..1.1..11..11.1d` | chiusura, rullate |
-|  | 4 di 4 · 20 % | `...x..x.......x.` | `...x..x....x.xx.` | `1.1.1..11d1.1...` | chiusura, rullate |
+|  | 4 di 4 · 10 % | `x.....x.o.x.....` | `x..x..x.o.x.x..o` | `..1.1..1...1.11.` | chiusura |
 | PERC | 1 di 4 · 50 % | `....x..x.....x..`<br>`....x..x.x...x..` | `.x..x..x..x..x.x`<br>`.x..x..x.x.x.x.x` | `1.41.11.1f.41.4.`<br>`1.11.11.1...1.9.` |  |
 |  | 2 di 4 · 17 % | `x........x....x.` | `x..x..x..x..x.x.` | `.11.11.1..11.d.1` | rullate |
 |  | 3 di 4 · 17 % | `x......x.X....x.` | `x.x..x.x.X..x.x.` | `.1..1.....1d.1.1` |  |
 |  | 4 di 4 · 17 % | `........x..X..x.` | `..x..x..x..X..x.` | `11..1..1.11.11.d` |  |
+| RIM | 1 di 4 · 33 % | `...x..........x.` | `...x..........x.` | `......dd...d....` |  |
+|  | 2 di 4 · 33 % | `......x.....x...` | `......x.....x...` | `.........d......` | rullate |
+|  | 3 di 4 · 17 % | `...x..x.........` | `...x..x....x...x` | `................` |  |
+|  | 4 di 4 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `................` |  |
 | TOM | 1 di 3 · 67 % | `......x.......x.`<br>`......x.......xx` | `......x.......x.`<br>`......x.......xx` | `1........61.61.d`<br>`6........61.61..` |  |
 |  | 2 di 3 · 17 % | `x.....x.....x...` | `x.....x.....x...` | `..............11` |  |
 |  | 3 di 3 · 17 % | `..........x..x..` | `..........x..x..` | `1.....1.....1.11` |  |
@@ -351,14 +311,20 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 |  | 2 di 4 · 25 % | `..x.......x.....` | `..x..x....x..x..` | `1..11.991..1..1.` | chiusura, rullate |
 |  | 3 di 4 · 25 % | `..x..x....x..x..` | `x.xx.x..x.xx.x..` | `.9..1.1..9....1.` | chiusura, rullate |
 |  | 4 di 4 · 17 % | `x.......x.......` | `x...x...x...x...` | `..11.11d..11.11.` | chiusura, rullate |
-| PERC | 1 di 4 · 42 % | `...x........x...`<br>`...x......x.x...` | `...xx.....x.x...`<br>`...xx.....x.x.xx` | `115..115.1...155`<br>`11...55..1...5..` |  |
-|  | 2 di 4 · 25 % | `...x..x.....x...` | `...x..x.....x...` | `.9..11...91..111` | rullate |
-|  | 3 di 4 · 17 % | `...x..x.....x...` | `x..x..x...x.x...` | `.1..1d...1...111` | rullate |
-|  | 4 di 4 · 17 % | `.....x.......X..` | `.x...x...x...X..` | `..d11.1...1.1.11` |  |
-| TOM | 1 di 4 · 40 % | `..........x..x..` | `..x..x....x..x..` | `1..1..19.9.11.11` | rullate |
-|  | 2 di 4 · 30 % | `......x.......x.`<br>`x.....x.........` | `......x.......x.`<br>`x.....x.......xx` | `1.19.1....1.11..`<br>`..9..1....1919..` |  |
-|  | 3 di 4 · 20 % | `x.....x.....x...`<br>`x...........x...` | `x.....x.....x...`<br>`x...........x...` | `..11.1....1..11.`<br>`..1.d1d...d..111` |  |
-|  | 4 di 4 · 10 % | `x.....x...x.....` | `x..x..x...x..x..` | `..1..1......1.11` |  |
+| SHAKER | 1 di 2 · 83 % | `..x...x...x...x.` | `xoxoxoxoxoxo.oxo` | `............f...` |  |
+|  | 2 di 2 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
+| PERC | 1 di 4 · 45 % | `...x..x.....x...` | `...x..x.....x...` | `511.15..1155.151` | rullate |
+|  | 2 di 4 · 18 % | `..........x.x...`<br>`...x......x.x...` | `...xx.....x.x...`<br>`...xx.....x.x..x` | `1.1..11......1..`<br>`111..1d......1d.` |  |
+|  | 3 di 4 · 18 % | `x.......x.x.....`<br>`x.......x.x.x...` | `x.x..x..x.x..x..`<br>`x.x..x..x.x.xx.x` | `...11.1.....1...`<br>`.d.11.1.......d.` |  |
+|  | 4 di 4 · 18 % | `.....x.......x..` | `.x...x...x...x..` | `1.111.1...1.1.1d` | rullate |
+| CONGA | 1 di 4 · 33 % | `x..x..x.........`<br>`x..x..x.o.......` | `x..x..x...x.x..x`<br>`x..x..x.o.x.x..o` | `..1.1..1d..1.11.`<br>`..1.1..1...1.1d.` |  |
+|  | 2 di 4 · 33 % | `...x..x.......x.` | `...x..x....x.xx.` | `1.1.1..11.1.1..d` | rullate |
+|  | 3 di 4 · 17 % | `x..x..x.......x.` | `x.ox..x.x.ox..x.` | `............11.1` |  |
+|  | 4 di 4 · 17 % | `..........o.x.x.` | `..o.x..x..o.x.x.` | `1..1..1.1..1.1.1` |  |
+| TOM | 1 di 4 · 50 % | `............x.xx` | `............x.xx` | `1..1..1...19.9..` | rullate |
+|  | 2 di 4 · 20 % | `..........x..x..` | `..........x..x..` | `1.d..d1.....1.11` |  |
+|  | 3 di 4 · 20 % | `x.....x.....x...`<br>`x...........x...` | `x.....x.....x...`<br>`x...........x...` | `..........1..111`<br>`....d.d...d..111` |  |
+|  | 4 di 4 · 10 % | `..........x..x..` | `x..x..x...x..x..` | `............1.11` |  |
 | BASS | la sola | `x.....x.....x...` | `x.....x.....x...` | `...a.3.3.......3` |  |
 | PAD | la sola | `x...............` | `x...............` | `......9.4.......` |  |
 | VOX | 1 di 3 · 50 % | `................` | `................` | `1.1f1.9.11f.1...` |  |
@@ -443,90 +409,47 @@ la fondamentale sull'uno e l'ottava dopo una fondamentale come fa un bassista.
 
 **La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 95 volte su 100; la fondamentale si muove di una quarta sopra 29 %, un grado sotto 29 %, una terza sopra 17 %, una terza sotto 17 %, un grado sopra 4 %, una quinta sopra 4 %; colori: triade 70 %, settima 16 %, sus4 9 %. Le scale del genere: MINOR, PHRYG, DORIAN.
 
-## AFRO HOUSE
+## BALANI
 
 | parte | famiglia | base | pieno | in più | |
 | --- | --- | --- | --- | --- | --- |
-| KICK | la sola | `....X.......X...`<br>`....X.......X...` | `X...X...X...X...`<br>`X...X...X...X...` | `.......4.42d...2`<br>`......2f.42..2d4` | rullate |
-| CLAP | 1 di 2 · 92 % | `....X.......X...` | `....X.......X...` | `.......5.572..57` | rullate |
-|  | 2 di 2 · 8 % | `...........x....` | `...........x....` | `................` |  |
-| HAT | 1 di 3 · 58 % | `......x.......x.` | `..x...x...x...x.` | `14.b14.111.f14.1` | chiusura, rullate |
-|  | 2 di 3 · 25 % | `..x...x...x...x.` | `x.xxx.xxx.xxx.xx` | `.1...1...9...9..` | chiusura, rullate |
-|  | 3 di 3 · 17 % | `x.xxx.xxx.xxx.xx` | `xxxxxxxxxXxxxxxx` | `................` | chiusura |
-| SHAKER | 1 di 2 · 75 % | `xo.o..x.x...x.x.` | `xo.oxoxoxo.oxoxo` | `..f.......f.....` |  |
-|  | 2 di 2 · 25 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
-| CONGA | 1 di 4 · 42 % | `x.....x...x.....`<br>`x.....x.o.x.....` | `x..x..x...x.x..x`<br>`x..x..x.o.x.x.oo` | `.f5.1..15..5.11.`<br>`..5.1..1...1.1..` |  |
-|  | 2 di 4 · 25 % | `x.....x.x.o.....` | `x.ox..x.x.ox..x.` | `.1...9.9....11.1` | rullate |
-|  | 3 di 4 · 17 % | `...x..x.......x.` | `...x..x....x.xx.` | `111....d1.1.1..1` | rullate |
-|  | 4 di 4 · 17 % | `..........o.x.x.` | `..o.x..x..o.x.x.` | `11.1..1.1..1.d.1` | rullate |
-| PERC | 1 di 4 · 42 % | `x.x.......x.....`<br>`x.x.......x.x...` | `x.x..x..x.x..x..`<br>`x.x..x..x.x.xx.x` | `.1.a1.15.1..1.11`<br>`.1.11.15.a....5.` |  |
-|  | 2 di 4 · 25 % | `..x.......x.x...` | `..x.x..x..x.x..x` | `1..1.11.19.9.11.` | rullate |
-|  | 3 di 4 · 17 % | `x.........x..x..` | `x..x..x...x..x..` | `..1.11.d11..1.11` | rullate |
-|  | 4 di 4 · 17 % | `.X..x.......x...` | `.X..x.x..x..x.x.` | `1.11.1.11.d..1.1` |  |
-| RIM | 1 di 4 · 33 % | `...x..........x.` | `...x..........x.` | `......dd...d....` |  |
-|  | 2 di 4 · 33 % | `......x.....x...` | `......x.....x...` | `...............d` | rullate |
-|  | 3 di 4 · 17 % | `...x..x.........` | `...x..x....x...x` | `................` |  |
-|  | 4 di 4 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `................` |  |
-| TOM | 1 di 3 · 67 % | `..............x.`<br>`..............x.` | `..............x.`<br>`..............x.` | `1.....d...1.d1.6`<br>`6.....d...1.d1.d` |  |
-|  | 2 di 3 · 17 % | `x.....x.....x...` | `x.....x.....x...` | `..............11` |  |
-|  | 3 di 3 · 17 % | `..........x..x..` | `..........x..x..` | `1.....1.....1.11` |  |
-| BASS | 1 di 2 · 92 % | `......x...x..x..` | `......x...x..x..` | `e2e1.....2....22` |  |
-|  | 2 di 2 · 8 % | `x..x......x.....` | `x..x......x.....` | `..1...1......1..` |  |
-| CHORD | 1 di 2 · 58 % | `..x.....x.....x.` | `..x.....x.....x.` | `1.....1...1.....` |  |
-|  | 2 di 2 · 42 % | `x.....x...x.....` | `x.....x...x.....` | `..1.....1.....1.` |  |
-| VOX | 1 di 4 · 50 % | `...x......x.....` | `...x......x.....` | `1.1.1.1.1...1.9.` |  |
-|  | 2 di 4 · 17 % | `......x.........` | `......x.........` | `...1......1.....` |  |
-|  | 3 di 4 · 17 % | `x.......x.x.....` | `x.......x.x.....` | `...1............` |  |
-|  | 4 di 4 · 17 % | `..x.x.......x...` | `..x.x.......x...` | `...1......1.....` |  |
-| ARP | 1 di 2 · 67 % | `x..x....x....x.x` | `x.xx.x.xx.xx.x.x` | `......6..6..6...` |  |
-|  | 2 di 2 · 33 % | `x..x...........x` | `x..x..x..x..x..x` | `..1..1.11.11.d..` |  |
+| KICK | 1 di 3 · 75 % | `....X...X...X...`<br>`X.....X.X...X...` | `X...X...X..xX...`<br>`X..x..X.X...X.xx` | `..3..........3.3`<br>`.....3.......6..` | rullate |
+|  | 2 di 3 · 17 % | `X.......X.......` | `X...X...X...X...` | `.......d......d.` |  |
+|  | 3 di 3 · 8 % | `X.....X...X.....` | `X..x..X...X..x..` | `................` |  |
+| CLAP | 1 di 2 · 92 % | `....X.......X...`<br>`....X.......X...` | `....X.......X...`<br>`....X.......X...` | `.......e.....2e7`<br>`.22....f..22..ef` | rullate |
+|  | 2 di 2 · 8 % | `....X.......X...` | `..x.X..x..x.X..x` | `................` |  |
+| HAT | 1 di 3 · 42 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.1.5...1.5.1.f.5` | chiusura |
+|  | 2 di 3 · 42 % | `x.x.x.x.x.x.x.x.` | `x.xxx.xxx.xxx.xx` | `.f...5...5...f..` | chiusura, rullate |
+|  | 3 di 3 · 17 % | `......x.......x.` | `..x...x...x...x.` | `1d.11..11..111.d` | chiusura |
+| SHAKER | 1 di 3 · 67 % | `x.xxx.xxx.xxx.xx` | `xxxxxxxxxxxxxxxx` | `................` |  |
+|  | 2 di 3 · 17 % | `..x...x...x...x.` | `x.xxx.xxx.xxx.xx` | `.1...1...1...1..` |  |
+|  | 3 di 3 · 17 % | `......o.......o.` | `..o...o...o...o.` | `11.111.111.111.1` |  |
+| PERC | 1 di 4 · 33 % | `..........x..x.x` | `..x..x.x..x..x.x` | `1..1..6.1..61.1.` |  |
+|  | 2 di 4 · 25 % | `x..x....x.......` | `x..x..x.x..x..x.` | `..1..9.9..1..1.1` | rullate |
+|  | 3 di 4 · 25 % | `..x..x.x..X..x.x` | `x.xx.x.xx.Xx.x.x` | `.9....1..9....1.` |  |
+|  | 4 di 4 · 17 % | `x.........x....x`<br>`x.......x.x....x` | `x..x......x.x..x`<br>`x..x..x.x.x.x.xx` | `..1..1d11..1.11.`<br>`..1..d.1...1.1..` | rullate |
+| CONGA | 1 di 4 · 40 % | `x.x.....x.x.....` | `x.xx..x.x.xx..x.` | `....11.1....11.1` | chiusura |
+|  | 2 di 4 · 20 % | `x.....x...x.....` | `x..x..x...x..x..` | `..1....11..11.11` | chiusura |
+|  | 3 di 4 · 20 % | `x.....x.o.x.....` | `x..x..x.o.x.x..o` | `..1....1...1.11.` | chiusura |
+|  | 4 di 4 · 20 % | `..o.......o...x.` | `..o.x..x..o.x.x.` | `1..1..1.1..1.1.1` | chiusura |
+| TOM | 1 di 4 · 33 % | `......x.........` | `......x.........` | `d..1......1.d1d1` | chiusura |
+|  | 2 di 4 · 33 % | `............x.xx` | `............x.xx` | `1..1..1...1..d..` | chiusura |
+|  | 3 di 4 · 17 % | `..........x..x..` | `..........x..x..` | `1.....1.....1.11` | chiusura |
+|  | 4 di 4 · 17 % | `x.....x.......x.` | `x..x..x...x...x.` | `............11.1` | chiusura |
+| BASS | 1 di 2 · 75 % | `x.......x.......` | `x.......x.......` | `...1c.1...1.c1c.` |  |
+|  | 2 di 2 · 25 % | `x.....x...x.....` | `x..x..x...x..x..` | `........1.......` |  |
+| LEAD | 1 di 3 · 58 % | `x.xxx.xxx.xxx.xx` | `xxxxxxxxxxxxxxxx` | `................` |  |
+|  | 2 di 3 · 25 % | `x.x.x...x...x...` | `x.x.xxx.x.x.xxx.` | `.1.1...1.1.1...1` |  |
+|  | 3 di 3 · 17 % | `x.x.x...x..Xx...` | `x.xxx.xxx.xXx.xx` | `.1...1...1...1..` |  |
+| VOX | 1 di 3 · 33 % | `x...............` | `x...............` | `..111...d.d.1..1` |  |
+|  | 2 di 3 · 33 % | `...x......X.....` | `...x......X.....` | `1.1.1...1...1..d` |  |
+|  | 3 di 3 · 33 % | `....x.......x...` | `....x.......x...` | `1.d1....1.1....1` |  |
+| CHORD | 1 di 2 · 67 % | `X.....x.........` | `X.....x.........` | `..1.......1..61.` |  |
+|  | 2 di 2 · 33 % | `......X.......x.` | `..x...X...x...x.` | `1............d..` |  |
 
-**Le note.** BASS: fondamentale 50 %, terza 23 %, quarta 23 %. CHORD: accordi di settima 77 %, triadi 23 %. VOX: un motivo - alterna due note 55 %, scende 36 %, sale 5 %, fa un arco 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 55 %, fondamentale 36 %, terza 9 %. ARP: le note dell'accordo in fila, con la settima.
+**Le note.** BASS: fondamentale 51 %, quarta 18 %, quinta 16 %, terza 11 %, ottava 4 %. LEAD: un motivo - fa un arco 79 %, scende 12 %, sale 5 %, alterna due note 5 %; scala pentatonica 92 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su fondamentale 40 %, quinta 33 %, terza 27 %. VOX: un motivo - alterna due note 55 %, scende 36 %, sale 5 %, fa un arco 5 %; scala pentatonica 65 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 55 %, fondamentale 45 %. CHORD: triadi 94 %, accordi di settima 6 %.
 
-**La progressione.** due accordi 60 %, un accordo 18 %, quattro accordi 18 %, tre accordi 4 %; ogni accordo dura 2 battute 60 %, 1 battuta 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di una quarta sopra 26 %, un grado sotto 26 %, una terza sopra 15 %, una quinta sopra 15 %, una terza sotto 15 %, un grado sopra 3 %; colori: settima 49 %, nona 36 %, sus4 9 %; gli accordi entrano spesso un ottavo prima. Le scale del genere: MINOR, DORIAN, PHRYG.
-
-## AMAPIANO
-
-| parte | famiglia | base | pieno | in più | |
-| --- | --- | --- | --- | --- | --- |
-| KICK | 1 di 2 · 67 % | `X.......X.......`<br>`X.......X.......` | `X..x....X..x....`<br>`X.......X..x..x.` | `.........4......`<br>`..4....4.....4.b` | rullate |
-|  | 2 di 2 · 33 % | `X.......X.......` | `X...X...X......x` | `............d6..` |  |
-| CLAP | 1 di 3 · 58 % | `....X.......X...` | `....X.......X...` | `.......7.4....77` | rullate |
-|  | 2 di 3 · 33 % | `......x.......x.` | `......x.......x.` | `.......6...6...6` | rullate |
-|  | 3 di 3 · 8 % | `.......x......x.` | `...x...x...x..x.` | `................` |  |
-| SHAKER | 1 di 2 · 92 % | `..x...x...x...x.`<br>`..x...x...x...x.` | `xoxoxoxoxoxoxoxo`<br>`xoxo.oxoxoxoxoxo` | `................`<br>`....e...........` |  |
-|  | 2 di 2 · 8 % | `..o.......o.....` | `..o...o...o...o.` | `11.111.111.111.1` |  |
-| HAT | 1 di 3 · 42 % | `o.x.o.x.o.x.o.x.` | `oxxooxxooxxooxxx` | `................` | chiusura |
-|  | 2 di 3 · 33 % | `......x.......x.` | `..x...x...x...x.` | `11.111.111.116.6` | chiusura |
-|  | 3 di 3 · 25 % | `..x...x...x...x.` | `x.x.x.x.x.x.x.x.` | `.9.f.1.1.1.1.1.1` | chiusura, rullate |
-| RIM | 1 di 3 · 50 % | `...x..x.......x.` | `...x..x.......x.` | `..........d.....` |  |
-|  | 2 di 3 · 33 % | `......x.........` | `......x.........` | `.........d..d.d.` |  |
-|  | 3 di 3 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `................` |  |
-| PERC | 1 di 4 · 50 % | `...x...x......x.`<br>`...x......x...x.` | `...x...x...x..xx`<br>`...x...x..x.x.x.` | `111..11.1.1..1..`<br>`199..11.19.1.1.f` |  |
-|  | 2 di 4 · 17 % | `..x.......x.....` | `..x..x....x..x..` | `.1.1...1...11.11` |  |
-|  | 3 di 4 · 17 % | `.......x..x...x.` | `.x...x.x..x...x.` | `..11.......11..1` |  |
-|  | 4 di 4 · 17 % | `x..x....x.......` | `x..x..x.x..x....` | `.11..1.1..1.1.11` |  |
-| LOG DRUM | 1 di 4 · 40 % | `x.........x.....` | `x.....x...x..x..` | `..16.1.116..1.1.` |  |
-|  | 2 di 4 · 20 % | `......x...x.....` | `...x..x...x.x...` | `1.1.....1....11.` |  |
-|  | 3 di 4 · 20 % | `x.......x.x.....` | `x..x....x.x...x.` | `..1...1.....11..` |  |
-|  | 4 di 4 · 20 % | `..x.......x..x..` | `..x..x.x..x..x..` | `1..1..1.1...1.1.` |  |
-| BASS | 1 di 3 · 50 % | `x.......x.......` | `x.......x.......` | `..19.11...9.119.` |  |
-|  | 2 di 3 · 33 % | `..........x.x...` | `...x..x...x.x...` | `1.......1.....1.` |  |
-|  | 3 di 3 · 17 % | `..x..x....x.....` | `..x..x.x..x..x..` | `1...............` |  |
-| PIANO | 1 di 4 · 42 % | `......x.......x.` | `..x...x...x...x.` | `1..1.1.115.1.1.1` |  |
-|  | 2 di 4 · 25 % | `x.....X...x.....` | `x..x..X...x..x..` | `..1..d........1.` |  |
-|  | 3 di 4 · 17 % | `..X..x....x.....` | `..X..x.x..x..x.x` | `1..1d.1.......1.` |  |
-|  | 4 di 4 · 17 % | `x.....x.......x.` | `x..x..x.x..x..x.` | `..1..d....1..1..` |  |
-| PAD | la sola | `x...............` | `x...............` | `......4.9.......` |  |
-| VOX | 1 di 3 · 50 % | `..x.x.......x...` | `..x.x.......x...` | `1..1....1.11.99.` |  |
-|  | 2 di 3 · 33 % | `...x......x.....` | `...x......x.....` | `1.1.1...1..d111.` |  |
-|  | 3 di 3 · 17 % | `x.......x.x.....` | `x.......x.x.....` | `..111.......1...` |  |
-| ARP | 1 di 2 · 83 % | `....x...x.x.....` | `..x.x...x.x...x.` | `1..1..1..5..15.5` |  |
-|  | 2 di 2 · 17 % | `x........x..x...` | `x..x..x..x..x...` | `..1.1...1.1...1.` |  |
-
-**Le note.** LOG DRUM: fondamentale 33 %, quinta 24 %, quarta 20 %, terza 15 %, ottava 7 %. BASS: fondamentale 32 %, terza 23 %, quarta 23 %, quinta 18 %, ottava 5 %. PIANO: accordi di settima 100 %. PAD: accordi di settima 82 %, triadi 18 %; tenuti. VOX: un motivo - scende 61 %, alterna due note 30 %, sale 5 %, fa un arco 5 %; scala pentatonica 90 volte su 100, altrimenti tutte e sette le note; fino a 12 semitoni sopra la fondamentale; poggia su quinta 55 %, fondamentale 36 %, terza 9 %. ARP: le note dell'accordo in fila (fondamentale, terza, quinta, ottava).
-
-**La progressione.** quattro accordi 60 %, un accordo 18 %, due accordi 18 %, tre accordi 4 %; ogni accordo dura 1 battuta 60 %, 2 battute 18 %, 4 battute 18 %, 8 battute 4 %; parte da casa 57 volte su 100; la fondamentale si muove di una quarta sopra 31 %, una terza sotto 31 %, un grado sopra 17 %, una quinta sopra 17 %; colori: settima 45 %, nona 45 %, triade 6 %; gli accordi entrano spesso un sedicesimo prima. Le scale del genere: DORIAN, MINOR, MAJOR.
+**La progressione.** quattro accordi 46 %, due accordi 32 %, un accordo 18 %, tre accordi 4 %; ogni accordo dura 1 battuta 46 %, 2 battute 32 %, 4 battute 18 %, 8 battute 4 %; parte da casa 82 volte su 100; la fondamentale si muove di un grado sotto 34 %, una quarta sopra 26 %, un grado sopra 18 %, una quinta sopra 10 %, una terza sotto 10 %; colori: triade 92 %. Le scale del genere: MAJOR, PENT.+, MIXOLY.
 
 ## FOOTWORK
 

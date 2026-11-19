@@ -311,7 +311,15 @@ def structural():
           "SAGGA Live: SOURCE is a knob of three positions, named as the FM-1 names them: LIBRARY, THEORY, FREE (%s, %s)" % (m.SOURCE_LABELS, srcs))
     m, cls = load_plugin("sagga_mod")
     g = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "genre"][0]
-    check(g.param.max == 24 and m.GENRE_LABELS[24] == "MERENGUE", "SAGGA Mod: GENRE reaches MERENGUE (25 genres)")
+    check(g.param.max == 21 and m.GENRE_LABELS[21] == "MERENGUE" and m.GENRE_LABELS[14] == "BALANI", "SAGGA Mod: GENRE reaches MERENGUE (0.29: 22 genres)")
+    beats = open(os.path.join(ROOT, "firmware", "src", "sagga_beats_data.h")).read()
+    names = re.search(r'GENRE_NAME\[SQ_GENRES\] = \{([^}]*)\}', beats).group(1)
+    check([x.strip().strip('"') for x in names.split(",")] == m.GENRE_LABELS, "SAGGA Mod: the genres with the FM-1's names, in its order")
+    pr = [c for p2 in cls.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells if c.param.name == "prog"][0]
+    hdr = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.h")).read()
+    lib = int(re.search(r"#define SQ_LIB_PROGS (\d+)u", hdr).group(1))
+    check(pr.param.max == 12 and pr.cc == 117 and m.PROG_LABELS[lib - 1] == "PROG 8" and m.PROG_LABELS[lib] == "USER 1" and m.PROG_LABELS[12] == "DICE/PI"
+          and len(m.PROG_LABELS) == lib + 4 + 1, "SAGGA Mod: PROGRESSION, the genre's eight (0.29), the player's four, DICE/PI: the FM-1's 0..12 (%d)" % pr.param.max)
     for k in [k for k in list(sys.modules) if k.startswith("raspimidihub")]:
         del sys.modules[k]
 

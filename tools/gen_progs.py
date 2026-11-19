@@ -43,20 +43,17 @@ GENRES = {
     'HARDTECHNO':   (['DARK', 'TENSE', 'EPIC', 'ENERGETIC'], 'power'),
     'DUBTECHNO':    (['DREAMY', 'SUSPENDED', 'MELANCHOLY', 'DARK'], 'dub'),
     'HOUSE':        (['SATISFYING', 'EUPHORIC', 'DREAMY', 'MELANCHOLY'], 'house'),
-    'UKGARAGE':     (['MELANCHOLY', 'DREAMY', 'SATISFYING', 'SAD'], 'garage'),
+    'UKGARAGE':     (['MELANCHOLY', 'DREAMY', 'SATISFYING', 'SAD', 'ENERGETIC'], 'garage'),   # (0.29: + the bassline's)
     'UKFUNKY':      (['SATISFYING', 'MELANCHOLY', 'ENERGETIC', 'DREAMY'], 'house'),
-    'GRIME':        (['DARK', 'TENSE', 'SAD'], 'plain'),
     'DUBSTEP':      (['DARK', 'TENSE', 'SAD', 'EPIC'], 'plain'),
     'JUNGLE':       (['MELANCHOLY', 'DREAMY', 'SAD', 'DARK'], 'dub'),
-    'BASSLINE':     (['ENERGETIC', 'EUPHORIC', 'SAD'], 'plain'),
-    'REGGAETON':    (['SAD', 'EUPHORIC', 'MELANCHOLY', 'SATISFYING'], 'plain'),
+    'REGGAETON':    (['SAD', 'EUPHORIC', 'MELANCHOLY', 'SATISFYING', 'DREAMY'], 'plain'),   # (0.29: + the amapiano's)
     'BATIDA':       (['ENERGETIC', 'DARK', 'SAD'], 'plain'),
-    'GQOM':         (['DARK', 'TENSE', 'SUSPENDED'], 'plain'),
+    'GQOM':         (['DARK', 'TENSE', 'SUSPENDED', 'MELANCHOLY'], 'plain'),   # (0.29: + the afro house's)
     'EXPERIMENTAL': (['TENSE', 'DARK', 'SUSPENDED', 'DREAMY'], 'plain'),
     'ELECTRO':      (['DARK', 'TENSE', 'SAD', 'ENERGETIC'], 'plain'),
     'DNB':          (['MELANCHOLY', 'DREAMY', 'SAD', 'EPIC'], 'dub'),
-    'AFROHOUSE':    (['MELANCHOLY', 'SATISFYING', 'DREAMY', 'SUSPENDED'], 'house'),
-    'AMAPIANO':     (['DREAMY', 'MELANCHOLY', 'SATISFYING', 'EUPHORIC'], 'jazz'),
+    'BALANI':       (['EUPHORIC', 'SATISFYING', 'ENERGETIC'], 'plain'),        # 0.29: the balafon's few, bright chords
     'FOOTWORK':     (['MELANCHOLY', 'DREAMY', 'ENERGETIC', 'TENSE'], 'jazz'),
     'TRANCE':       (['EPIC', 'EUPHORIC', 'SAD', 'SUSPENDED'], 'trance'),
     'UKDRILL':      (['DARK', 'SAD', 'TENSE'], 'plain'),

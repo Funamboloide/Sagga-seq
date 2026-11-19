@@ -55,6 +55,11 @@ for f in sagga_banco.py sagga_testport.py sagga_hw_test.py sagga_hw_explore.py b
 done
 mkdir -p /opt/sagga/hub/patterns && install -m 644 "$HERE/hub/patterns/"*.txt /opt/sagga/hub/patterns/   # 0.11: the stock patterns (a genre's file is copied to the projects folder when it changes)
 mkdir -p /opt/sagga/hub/progressions && install -m 644 "$HERE/hub/progressions/"*.txt /opt/sagga/hub/progressions/   # 0.11: the stock progressions (the same way)
+# 0.29: the four genres that left, as 0.28 gave them (the hub moves the patterns you kept in them to where they went)
+for d in patterns progressions; do
+    if [ -d "$HERE/hub/$d/retired" ]; then mkdir -p "/opt/sagga/hub/$d/retired" && install -m 644 "$HERE/hub/$d/retired/"*.txt "/opt/sagga/hub/$d/retired/"; fi
+    for g in AMAPIANO BASSLINE GRIME AFROHOUSE; do rm -f "/opt/sagga/hub/$d/$g.txt"; done   # (0.28's stock of them: no genre now)
+done
 # 0.11: the .sgq <-> .mid converter, built here from the firmware's own core
 if [ -d "$HERE/sgqmid" ] && command -v cc >/dev/null 2>&1; then
     rwroot
