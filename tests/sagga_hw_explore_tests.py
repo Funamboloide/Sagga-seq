@@ -488,6 +488,79 @@ def rules_of_the_comparison():
           "the boot message at the first probe: no COSTRUZIONE, and a later message still compared (%s / %s)" % (f1[:1], f2[:1]))
 
 
+def rules_027():
+    """After 0.27, what the comparison learnt from the 0.27 banco and FM-1 completo on the real FM-1: a probe read a clock
+    tick apart, whatever it shows, equal again at the very next probe (s021, b020); a polyrhythm's step one apart for
+    probes in a row, equal again later (b024); the notes of the window's last 40 ms (b007). And still an error when the
+    difference stays."""
+    import copy
+    import re
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import sagga_explore_hw as H
+    H.E.build()
+    errs = lambda f: [x for x in f if x[1] == "ERRORE"]
+    plan = H.piano(1, 14, 5)["sessioni"][0]
+    s0 = H.run_like_fm1(plan, lcdcost=False)
+    idx = [i for i, _ in H.probe_events(s0)]
+    k = idx[len(idx) // 2]
+    pos = idx.index(k)
+
+    def touched(base, fn, keys):
+        s = copy.deepcopy(base)
+        for i in keys:
+            s["fm1"]["sonde"][str(i)] = fn(s["fm1"]["sonde"][str(i)])
+        return errs(H.compare(s)[0])
+
+    def tick_mac(t):                                   # (the probe a tick later, and a THROW's macro a step on)
+        t = re.sub(r"(PROBE H [^\n]*?gc=)(\d+)", lambda m: m.group(1) + str(int(m.group(2)) + 1), t)
+        return re.sub(r"(PROBE G [^\n]*?mac=)([^ \n]*)", lambda m: m.group(1) + "0/0/0/-10", t)
+    e = touched(s0, tick_mac, [k])
+    e2 = touched(s0, tick_mac, [k, idx[pos + 1]])
+    e3 = touched(s0, lambda t: re.sub(r"(PROBE G [^\n]*?mac=)([^ \n]*)", lambda m: m.group(1) + "0/0/0/-10", t), [k])
+    check(not e and e2 and e3 and "G.mac" in e3[0][2],
+          "a probe read a tick apart with the macro a step on, equal at the next: timing; at two probes, or without the tick: "
+          "an error (%s / %s / %s)" % (e[:1], e2[:1], e3[:1]))
+    # the polyrhythm (track 5 at 1/16 7:4)
+    sit = next(x for x in H.E.SITUAZIONI if x.name.startswith("0.25 i poliritmi"))
+    by = {g.name: g for g in H.E.catalogo(veloce=True)}
+    gs = [g for g in by.values() if H.gesture_ok(g)][:10]
+    sp = H.run_like_fm1(H.session_plan(sit, gs, "p001"), lcdcost=False)
+    ip = [i for i, _ in H.probe_events(sp)]
+    f0 = errs(H.compare(sp)[0])
+    t5 = [i for i in ip if re.search(r"PROBE T5 [^\n]*? div=1[3-8] ", sp["fm1"]["sonde"][str(i)])]
+
+    def t5_on(t):
+        return re.sub(r"(PROBE T5 [^\n]*?len=(\d+)[^\n]*? step=)(\d+)", lambda m: m.group(1) + str((int(m.group(3)) + 1) % int(m.group(2))), t)
+    mid = len(ip) // 3
+    e = touched(sp, t5_on, ip[mid:mid + 5])
+    e2 = touched(sp, t5_on, ip[mid:-1])
+    def t2_on(t):
+        return re.sub(r"(PROBE T2 [^\n]*?len=(\d+)[^\n]*? step=)(\d+)", lambda m: m.group(1) + str((int(m.group(3)) + 1) % int(m.group(2))), t)
+    e3 = touched(sp, t2_on, ip[mid:mid + 5])
+    check(not f0 and len(t5) >= len(ip) - 2 and not e and e2 and e3,
+          "track 5 at 7:4 one step on for five probes, equal later: timing; to the end: an error; a plain track (T2) five "
+          "probes: an error (%s %s / %s / %s / %s)" % (f0[:1], len(t5), e[:1], e2[:1], e3[:1]))
+    # the notes at the window's end: the FM-1's last 30 ms of MIDI not heard (the Pi closed its ports) - the band, its
+    # MIDI as the runner keeps it (from the FM-1's GO; the simulator as the FM-1 keeps its own ms)
+    s0 = copy.deepcopy(sp)
+    s0["fm1"]["midi"] = [[m[0] - sp["fm1"]["go_ms"]] + list(m[1:]) for m in sp["fm1"]["midi"]]
+    f00 = [x for x in H.compare(s0)[0] if x[0] in ("NOTE", "PERSI")]
+    s1 = copy.deepcopy(s0)
+    midi = s1["fm1"]["midi"]
+    ons = [m for m in midi if (m[1] & 0xF0) == 0x90 and m[3]]
+    steps = sorted(set(m[0] for m in ons))
+    many = [t for t in steps if sum(1 for m in ons if m[0] == t) >= 2]
+    cut = many[-1] if many else steps[-1]
+    s1["fm1"]["midi"] = [m for m in midi if m[0] < cut - 25]
+    last = s1["fm1"]["midi"][-1][0]
+    f1 = [x for x in H.compare(s1)[0] if x[0] == "NOTE"]
+    s2 = copy.deepcopy(s0)
+    s2["fm1"]["midi"] = [m for m in midi if not ((m[1] & 0xF0) == 0x90 and m[3] and m[0] in steps[len(steps) // 2:len(steps) // 2 + 2])]
+    f2 = [x for x in H.compare(s2)[0] if x[0] in ("NOTE", "PERSI")]
+    check(not f00 and many and cut - last <= 40 and not f1 and f2, "a step of notes just after the last message heard: the window's "
+          "edge; notes gone in the middle: still found (%s / %s / %s)" % (f00[:1], f1[:1], f2[:1]))
+
+
 def counts_account():
     """0.23.1: the session's account - DIAG's 16 more numbers, the tally of a port, the verdict that says where"""
     base = [0] * len(T.DIAG_FIELDS)
@@ -614,6 +687,7 @@ def main():
     rc, data, log, _ = run(dev, n=1, midi=True)
     check(rc == 0 and data and len(data["sessioni"]) == 1, "the same plan and a 0.18.1 FM-1: it runs (%s)" % rc)
     rules_of_the_comparison()
+    rules_027()
     print("sagga hw explore: %d checks, %d failures" % (CHECKS[0], len(FAILS)))
     return 1 if FAILS else 0
 
