@@ -15,7 +15,7 @@
  *   CC 20 ARP 0-12   21 OCTAVES 1-3   22 RATE 0-6 (1/4 1/2 ROLL 1 2 3 4)   23 RUN 0-3 (OFF RETRIG HOLD HOLD+RT)
  *   CC 24 CHORD 0-31   25 FOLLOW (a switch)
  *   CC 26 COOK   27 BEAT   28 PROPOSAL   29 THE PROPOSAL QUEUED   30 RETRIG   31 DICE   32 UNDO   (taps; this track only)
- *   CC 40-55 MUTE of track 1-16 (switches)
+ *   CC 40-55 MUTE of track 1-16 (switches; 0.28: 1-12, the four after them do nothing)
  *   CC 56 SOURCE 0-2 (0.23: LIBRARY, THEORY - BEAT / KIT / BAND / the dice MAKE their patterns by the genre's rules -,
  *   FREE - by the rules of no genre; a higher value, a switch's "on": THEORY from LIBRARY)   57 NEXT SEED 0-127
  *   (seeds 1-128)   58 the SEED of the pattern its track plays 0-127 (made again at once)   59 its VARIATION 0-99
@@ -110,6 +110,7 @@ static uint16_t tab_mutes(void) { return (uint16_t)(vg_mutes_to_keep() ^ pending
 static void tab_mute(uint8_t t, uint8_t on)
 {
     char *p = msg_buf;
+    if (t >= SQ_TRACKS) return;                        /* (0.28: twelve tracks) */
     if (((tab_mutes() >> t) & 1u) != on) toggle_mute(t);
     p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u);
     p = put_s(p, ((pending_mute >> t) & 1u) ? (on ? " MUTES AT THE QUANTISE" : " BACK AT THE QUANTISE") : on ? " MUTED" : " ON");
@@ -280,6 +281,8 @@ static uint8_t fb_value(uint32_t k)
     if (ch != 13u && project.live.remote_mode != SQ_RM_13_14 && !(ch == TB_CH && num == FB_E_QUANT))
         return 255u;                                    /* (channels 12 and 13: REMOTE 13 + 14; 0.20.7: QUANTISE, SAGGA
                                                          *  Remote's, also with REMOTE 14 - port 2 goes to the pages only) */
+    if (k < FB_MUTE && (k % 16u) >= SQ_TRACKS) return 255u;      /* 0.28: the rows have sixteen places, the tracks are twelve */
+    if (k >= FB_MUTE && k < FB_LSW && k - FB_MUTE >= SQ_TRACKS) return 255u;
     if (k < FB_LEN) return tr[k].pending_pattern < SQ_PATTERNS ? tr[k].pending_pattern : tr[k].pattern;
     if (k < FB_MUTE) return len_shown((uint8_t)(k - FB_LEN));
     if (k < FB_LSW) return ((tab_mutes() >> (k - FB_MUTE)) & 1u) ? 127u : 0u;

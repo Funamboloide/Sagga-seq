@@ -259,9 +259,9 @@ static void learn_service(void)
  *   7 INTENSITY   8 GATE   9 SWING   10 FILTER (the macros, 64 = 0)   11 TRANSPOSE (12 = 0: 0..24 = -12..+12)
  *   20 PLAY / STOP   21 CONTINUE   22 RELOAD   23 FILL (held)   24-27 LOOP / REPEAT 1/4 1/8 1/16 1/32 (tap / hold)
  *   28 scene -1   29 scene +1   30 tempo -1   31 tempo +1   32 TAP   33 EVOLVE   34 FREEZE   35 REVERT   36 UNDO
- *   37 TEMP (held)   38 PANIC   39 MUTE QUEUE on / off   40-47 scene 1-8   48-63 mute track 1-16
- *   64-79 kill track 1-16 (held)   80-84 dice SEQ CC LFO GROOVE ALL   85 keep the dice   86 put it back
- *   87 STOP at the end of the bar   88 RESTART   89 EXIT the loop   90-105 RETRIG track 1-16
+ *   37 TEMP (held)   38 PANIC   39 MUTE QUEUE on / off   40-47 scene 1-8   48-63 mute track 1-16 (0.28: 1-12)
+ *   64-79 kill track 1-16 (held; 0.28: 1-12)   80-84 dice SEQ CC LFO GROOVE ALL   85 keep the dice   86 put it back
+ *   87 STOP at the end of the bar   88 RESTART   89 EXIT the loop   90-105 RETRIG track 1-16 (0.28: 1-12)
  *   0.8: 106-113 SNAPSHOT 1-8   114 CC CAPTURE on / off   115 SEND the snapshot's sound   116 PATCHES (the Pi)
  *   117 HARMONY on / off   118 the global ECHO on / off   119 WRITE LIVE   12-19 store SNAPSHOT 1-8
  *   (120-127 are the channel mode messages of MIDI: never commands; a PANIC's CC 123 on every channel must not store) */
@@ -298,6 +298,7 @@ static void remote_cc(uint8_t cc, uint8_t v)
     }
     if (cc >= 64u && cc < 80u) {
         uint16_t bit = (uint16_t)(1u << (cc - 64u));
+        if (cc - 64u >= SQ_TRACKS) return;              /* 0.28: tracks 13-16 are gone */
         if (on) { remote_kill |= bit; track_all_off(cc - 64u); } else remote_kill &= (uint16_t)~bit;
         ui_dirty = grid_dirty = 1u;
         return;

@@ -859,6 +859,7 @@ static void held_same_off(uint32_t t, uint8_t ch, uint8_t note, uint32_t end_us)
 static void track_all_off(uint32_t t)
 {
     uint32_t n;
+    if (t >= SQ_TRACKS) return;                        /* (0.28: the remote's track 13-16) */
     for (n = 0; n < SQ_POLY_OUT; n++) midi_note_off_track(t, n);
     tape_track_off(t);
     ev[t].ratchet_left = 0u;
@@ -2163,7 +2164,7 @@ static int32_t mod_src(const sq_mod_t *m, uint32_t slot)
     case SQ_MS_MACRO:  return m->src_i == 0u ? mac_vel * 1000 / 63 : m->src_i == 1u ? mac_gate * 10 : m->src_i == 2u ? mac_swing * 40 : mac_filt * 1000 / 64;
     case SQ_MS_ENERGY: return ((int32_t)vg_energy_now() - 50) * 20;
     case SQ_MS_RANDOM: return (int32_t)(hash3(global_clock / 6u, slot, 0x5EEDu) % 2001u) - 1000;   /* a new value each 16th */
-    case SQ_MS_VEL:    return (int32_t)mod_vel_seen[m->src_i & 15u] * 1000 / 127;
+    case SQ_MS_VEL:    return (int32_t)mod_vel_seen[m->src_i % SQ_TRACKS] * 1000 / 127;
     case SQ_MS_CCIN:   return (int32_t)cc_in_val[m->src_i & 127u] * 1000 / 127;
     default:           return 0;
     }
@@ -2609,7 +2610,7 @@ static void step_activate(uint32_t t, sq_step_t *s)
 
 static void select_track(uint8_t t)
 {
-    if (t >= SQ_TRACKS) return;
+    if (t >= SQ_TRACKS) return;                        /* (0.28: twelve tracks; a key or a pad of 13-16 does nothing) */
     selected_track = t;
     page = (uint8_t)(tr[t].step / 16u);
     cursor_step = (uint8_t)(page * 16u);
@@ -2629,7 +2630,7 @@ static void cursor_to(uint8_t stn)
 
 static void queue_pattern(uint8_t t, uint8_t p)
 {
-    if (p >= SQ_PATTERNS) return;
+    if (p >= SQ_PATTERNS || t >= SQ_TRACKS) return;
     if (!playing || project.live.quant == SQ_Q_NOW) {          /* QUANTISE NOW: at once, where the track is */
         tr[t].pattern = p;
         tr[t].pending_pattern = SQ_NO_PENDING;
@@ -2640,10 +2641,18 @@ static void queue_pattern(uint8_t t, uint8_t p)
 }
 
 /* solo: the tracks that go silent stop their notes now; the others play on (0.3 stopped every note) */
+/* 0.28: the other bank of the tracks (1-8, 9-12): the same place in it, or its last track */
+static uint8_t track_other_bank(uint8_t t)
+{
+    uint8_t n = (uint8_t)(t ^ 8u);
+    return n < SQ_TRACKS ? n : (uint8_t)(SQ_TRACKS - 1u);
+}
+
 static void toggle_solo(uint8_t t)
 {
     uint32_t k;
     uint16_t before = 0u;
+    if (t >= SQ_TRACKS) return;
     for (k = 0; k < SQ_TRACKS; k++) if (track_audible(k)) before |= (uint16_t)(1u << k);
     solo_mask ^= (uint16_t)(1u << t);
     for (k = 0; k < SQ_TRACKS; k++)
@@ -2655,6 +2664,7 @@ static void toggle_solo(uint8_t t)
  * before then, it is taken back */
 static void toggle_mute(uint8_t t)
 {
+    if (t >= SQ_TRACKS) return;
     if (playing && project.live.mute_q && project.live.quant != SQ_Q_NOW) pending_mute ^= (uint16_t)(1u << t);
     else { mute_mask ^= (uint16_t)(1u << t); vg_state_sync(t); }
     ui_dirty = grid_dirty = 1u;
@@ -2781,6 +2791,7 @@ static void length_say(uint8_t t, uint8_t copies, const char *tail)
 }
 static void set_length(uint8_t t, uint8_t len)
 {
+    if (t >= SQ_TRACKS) return;
     len = (uint8_t)clamp_i32(len, 1, 64);
     if (!playing || track_tape(t)) { len_pend[t] = 0u; length_say(t, length_apply(t, len), ""); }
     else {
@@ -3487,7 +3498,7 @@ static uint8_t drum_track_for_note(uint8_t note)    /* the drum track (its bank 
 {
     uint32_t k, b = selected_track & 8u;
     for (k = 0; k < SQ_TRACKS; k++) {
-        uint32_t t = (b + k) & 15u;
+        uint32_t t = (b + k) % SQ_TRACKS;
         if ((project.track[t].flags & SQ_TF_DRUM) && PEN(t) == note) return (uint8_t)t;
     }
     return 255u;
@@ -3645,9 +3656,8 @@ static int key_is_in(const uint8_t *a, uint32_t n, uint32_t k)
     uint32_t i; for (i = 0; i < n; i++) if (a[i] == k) return (int)i; return -1;
 }
 
-/* SEL + keys: put notes on the cursor step. Keys pressed close together make a chord (up to 4 notes). */
 /* SEL + keys: put notes on the cursor step (it lights), and that note is the PEN: what the next step lit will play.
- * Keys pressed close together make a chord (up to 4 notes). A drum track's pen is which drum it is: left alone. */
+ * Keys pressed close together make a chord (up to 6 notes; 0.27: 4). A drum track's pen is which drum it is: left alone. */
 static void note_entry(uint32_t k)
 {
     uint32_t t = selected_track;
@@ -3664,7 +3674,7 @@ static void note_entry(uint32_t k)
             if (s->note[n] == note) break;
             if (s->note[n] == SQ_NOTE_NONE) { s->note[n] = note; break; }
         }
-        if (n == SQ_POLY) status_msg("CHORD FULL (4 NOTES)");
+        if (n == SQ_POLY) status_msg("CHORD FULL (6 NOTES)");
     }
     s->flags |= SQ_STEP_ON | SQ_STEP_SET;
     if (!track_drum(t)) PEN(t) = note;
@@ -3759,8 +3769,8 @@ static void perf_black(int bi, uint8_t sel_held, uint8_t home_held)
         if (sel_held) capture_scene(sc); else scene_recall(sc);
     }
     else if (bi == 8) { mute_mask = 0u; solo_mask = 0u; pending_mute = 0u; vg_states_sync_all(); }
-    else if (bi == 9) { mute_mask = (uint16_t)(0xFFFFu & ~(1u << selected_track)); solo_mask = 0u; pending_mute = 0u; vg_states_sync_all(); }
-    else { mute_mask = (uint16_t)~mute_mask; pending_mute = 0u; vg_states_sync_all(); }
+    else if (bi == 9) { mute_mask = (uint16_t)(SQ_TRACK_BITS & ~(1u << selected_track)); solo_mask = 0u; pending_mute = 0u; vg_states_sync_all(); }
+    else { mute_mask = (uint16_t)(~mute_mask & SQ_TRACK_BITS); pending_mute = 0u; vg_states_sync_all(); }
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -3781,8 +3791,8 @@ static void seq_black(int bi)
 /* the black keys with nothing held: tracks 1-8 of the bank, 9 the other bank, 10 mute and 11 solo of the selected track */
 static void track_black(int bi)
 {
-    if (bi < 8) select_track((uint8_t)((selected_track & 8u) + (uint8_t)bi));
-    else if (bi == 8) select_track((uint8_t)(selected_track ^ 8u));
+    if (bi < 8) select_track((uint8_t)((selected_track & 8u) + (uint8_t)bi));    /* (0.28: in 9-12, black 5-8 nothing) */
+    else if (bi == 8) select_track(track_other_bank(selected_track));
     else if (bi == 9) toggle_mute(selected_track);
     else toggle_solo(selected_track);
 }
@@ -3993,7 +4003,7 @@ static void handle_keys(uint32_t keys)
             continue;
         }
         if (held & (1u << BTN_HOME)) {                         /* HOME + a white key: that track, 1-16 */
-            if (wi >= 0) { select_track((uint8_t)wi); status_num("TRACK ", (uint32_t)wi + 1u); }
+            if (wi >= 0 && wi < (int)SQ_TRACKS) { select_track((uint8_t)wi); status_num("TRACK ", (uint32_t)wi + 1u); }
             else if (bi >= 0) { if (perf_mode) perf_black(bi, sel_held, 1u); else track_black(bi); }
             continue;
         }
@@ -4932,7 +4942,7 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[9]), stop_at_bar ? blink : 0u);
         fm1_led_key(KEY_LED(black_key[10]), loop_on);
     } else if (held & (1u << BTN_HOME)) {                      /* the track selected, 1-16; PERF: the song on the blacks */
-        for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), i == selected_track);
+        for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), i == selected_track);   /* (0.28: whites 13-16 dark) */
         if (perf_mode) {
             for (i = 0; i < project.song.len; i++)                 /* (0.9: the scenes of the cursor's bank) */
                 if ((project.song.e[i].scene & 8u) == (scene_cursor & 8u)) fm1_led_key(KEY_LED(black_key[project.song.e[i].scene & 7u]), 1);
@@ -4975,7 +4985,7 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[8]), evo_run != 0u);
         fm1_led_key(KEY_LED(black_key[9]), evo_run == 2u);
     } else if (perf_mode || (held & (1u << BTN_GLO))) {        /* (0.12: GLO held shows the PERF keys in any mode) */
-        for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), perf_solo_mode ? ((solo_mask >> i) & 1u) : (((pending_mute >> i) & 1u) ? blink : track_audible(i)));
+        for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), perf_solo_mode ? ((solo_mask >> i) & 1u) : (((pending_mute >> i) & 1u) ? blink : track_audible(i)));
         if (perf_page == 2u) for (i = 0; i < 11u; i++) fm1_led_key(KEY_LED(black_key[i]), vg_move_lit((int)i, blink));   /* 0.17 the MOSSE: what waits */
         else for (i = 0; i < 8u; i++) { uint32_t sc = (scene_cursor & 8u) + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
     } else if (record_arm) {

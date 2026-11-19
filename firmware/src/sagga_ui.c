@@ -422,12 +422,17 @@ static void ui_build(void)
         }
         break;
     case UM_EDIT:
-        if (in_held() & (1u << BTN_SEL)) {                                   /* 0.12 EDIT + SEL: the four notes of the step */
-            static const char *const NL[SQ_POLY] = {"NOTE 1", "NOTE 2", "NOTE 3", "NOTE 4"};
+        if (in_held() & (1u << BTN_SEL)) {                                   /* 0.12 EDIT + SEL: the notes 1-4 of the step, a knob each */
+            static const char *const NL[4] = {"NOTE 1", "NOTE 2", "NOTE 3", "NOTE 4"};
             uint32_t k;
-            for (k = 0; k < SQ_POLY; k++)
+            for (k = 0; k < 4u; k++)
                 ui_cell(k, NL[k], s->note[k] == SQ_NOTE_NONE ? "--" : f_note_key(t, s->note[k]), s->note[k] == SQ_NOTE_NONE ? SQ_C_DIM : on);
-            p = b; p = put_s(p, "EDIT+SEL STEP "); p = put_u(p, (uint32_t)cursor_step + 1u); p = put_s(p, "  A KNOB UNDER 0: NO NOTE"); finish(p);
+            p = b; p = put_s(p, "EDIT+SEL STEP "); p = put_u(p, (uint32_t)cursor_step + 1u);
+            if (s->note[4] != SQ_NOTE_NONE) {                                /* 0.28: the notes 5 and 6 (played in, not on a knob) */
+                p = put_s(p, "  5 "); p = put_note(p, s->note[4]);
+                if (s->note[5] != SQ_NOTE_NONE) { p = put_s(p, " 6 "); p = put_note(p, s->note[5]); }
+            } else p = put_s(p, "  A KNOB UNDER 0: NO NOTE");
+            finish(p);
             ui_line(2, b, C_WARN);
             break;
         }
@@ -832,7 +837,11 @@ static void ui_build(void)
         ui_cell(2, "CHANCE", f_pct(s->chance), on);
         ui_cell(3, "RATCHET", f_u(s->ratchet), on);
         p = b; p = put_s(p, "STEP "); p = put_u(p, (uint32_t)cursor_step + 1u); p = put_s(p, (s->flags & SQ_STEP_ON) ? " ON " : " OFF ");
-        if (s->flags & SQ_STEP_SET) for (k = 0; k < SQ_POLY; k++) if (s->note[k] != SQ_NOTE_NONE && c < 4u) { p = put_note(p, s->note[k]); p = put_s(p, " "); c++; }
+        if (s->flags & SQ_STEP_SET) {
+            uint32_t more = 0u;
+            for (k = 0; k < SQ_POLY; k++) if (s->note[k] != SQ_NOTE_NONE) { if (c < 4u) { p = put_note(p, s->note[k]); p = put_s(p, " "); c++; } else more++; }
+            if (more) { p = put_s(p, "+"); p = put_u(p, more); p = put_s(p, " "); }   /* 0.28: a chord of five or six */
+        }
         if (s->flags & SQ_STEP_TIE) p = put_s(p, "TIE ");
         if (s->flags & SQ_STEP_SLIDE) p = put_s(p, "SLIDE ");
         p = put_s(p, "PEN "); p = put_note(p, PEN(t));

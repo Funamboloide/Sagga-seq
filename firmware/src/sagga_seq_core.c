@@ -1,5 +1,6 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 #include "sagga_seq_core.h"
+#include "sagga_img27.h"
 
 static void tape_zero_tail(sq_project_t *p);   /* 0.11, below */
 
@@ -274,7 +275,8 @@ void sq_step_default(sq_step_t *st)
 
 void sq_track_default(sq_track_cfg_t *c, uint32_t index)
 {
-    static const uint8_t CC[SQ_LANES] = {74u, 71u, 1u, 11u, 7u, 10u};   /* cutoff, resonance, mod wheel, expression, volume, pan */
+    static const uint8_t CC[SQ_LANES] = {74u, 71u, 1u, 11u, 7u, 10u, 73u, 72u};   /* cutoff, resonance, mod wheel, expression,
+                                                                        * volume, pan; 0.28: attack, release */
     uint32_t n;
     c->channel = (uint8_t)(index % SQ_MIDI_CH);
     c->length = 16u;
@@ -983,6 +985,7 @@ static void sanitize_snap(sq_snap_t *sn)
     sn->key_shift = (int8_t)clampi(sn->key_shift, -24, 24);
     sn->ktrans = (int8_t)clampi(sn->ktrans, -SQ_KTRANS_MAX, SQ_KTRANS_MAX);
     for (i = 0; i < SQ_TRACKS; i++) if (sn->pattern[i] >= SQ_PATTERNS) sn->pattern[i] = 0u;
+    sn->mute = (uint16_t)(sn->mute & SQ_TRACK_BITS); sn->solo = (uint16_t)(sn->solo & SQ_TRACK_BITS);   /* 0.28 */
     sn->mac[0] = (int8_t)clampi(sn->mac[0], -63, 63);
     sn->mac[1] = (int8_t)clampi(sn->mac[1], -90, 100);
     sn->mac[2] = (int8_t)clampi(sn->mac[2], -25, 25);
@@ -1035,7 +1038,10 @@ void sq_project_sanitize(sq_project_t *p)
         }
         for (i = 0; i < SQ_CHANNELS; i++) if (sc->pc[i] > 127u) sc->pc[i] = SQ_PC_NONE;
         if (sc->key_slot >= SQ_KEYS && sc->key_slot != SQ_KEY_FOLLOW) sc->key_slot = SQ_KEY_FOLLOW;
+        sc->mute_mask = (uint16_t)(sc->mute_mask & SQ_TRACK_BITS);   /* 0.28: a bit a track, twelve */
     }
+    p->live.mute_hi = (uint8_t)(p->live.mute_hi & (SQ_TRACK_BITS >> 8));
+    p->gen.custom = (uint16_t)(p->gen.custom & SQ_TRACK_BITS);
     if (p->live.quant >= SQ_QUANTS) p->live.quant = SQ_Q_AUTO;
     p->live.mute_q = p->live.mute_q ? 1u : 0u;
     if (p->live.morph_b >= SQ_SCENES) p->live.morph_b = 1u;
@@ -2148,6 +2154,22 @@ uint8_t sq_lfo_cc(const sq_lfo_t *l, uint8_t index, uint32_t tick, uint16_t frac
 }
 
 /* ---- 0.13 */
+/* a track's part of the 0.13 block, as a new project has it (0.28: also the four tracks of the image past the twelve) */
+static void trackx_default(sq_trackx_t *t)
+{
+    uint32_t k;
+    uint8_t *b = (uint8_t *)t;
+    for (k = 0; k < sizeof *t; k++) b[k] = 0u;
+    t->chain_n = 1u;
+    for (k = 0; k < SQ_CHAIN_MAX; k++) { t->chain_pat[k] = (uint8_t)(k < SQ_PATTERNS ? k : 0u); t->chain_rep[k] = 1u; }
+}
+static void mfxc_default(sq_mfxc_t *m)                 /* 0.19: no MIDI FX plays; each one's values when first chosen */
+{
+    uint32_t k;
+    uint8_t *b = (uint8_t *)m;
+    for (k = 0; k < sizeof *m; k++) b[k] = 0u;
+    for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &m->amt[k], &m->time[k], &m->fb[k]);
+}
 void sq_ext_default(sq_ext_t *x)
 {
     uint32_t i, k;
@@ -2157,13 +2179,9 @@ void sq_ext_default(sq_ext_t *x)
         x->lfo[i].seq_every = SQ_RE_BEAT;
         for (k = 0; k < SQ_RSEQ_MAX; k++) x->lfo[i].seq_rate[k] = SQ_RSEQ_OWN;
     }
-    for (i = 0; i < SQ_TRACKS; i++) {
-        x->track[i].chain_n = 1u;
-        for (k = 0; k < SQ_CHAIN_MAX; k++) { x->track[i].chain_pat[k] = (uint8_t)(k < SQ_PATTERNS ? k : 0u); x->track[i].chain_rep[k] = 1u; }
-    }
+    for (i = 0; i < SQ_TRACKS; i++) trackx_default(&x->track[i]);
     for (i = 0; i < 4u; i++) for (k = 0; k < SQ_MOTION_CELLS; k++) x->motion[i][k] = (int8_t)SQ_MOTION_NONE;
-    for (i = 0; i < SQ_TRACKS; i++)                    /* 0.19: no MIDI FX plays; each one's values when first chosen */
-        for (k = 0; k < SQ_MFX_N; k++) sq_mfx_defaults((uint8_t)(k + 1u), &x->mfxc[i].amt[k], &x->mfxc[i].time[k], &x->mfxc[i].fb[k]);
+    for (i = 0; i < SQ_TRACKS; i++) mfxc_default(&x->mfxc[i]);
     for (i = 0; i < SQ_TRACKS; i++) sq_mfxd_default(&x->mfxd[i]);   /* 0.20 */
     for (i = 0; i < SQ_LFOS; i++) { x->lfoe[i].a = 1u; x->lfoe[i].d = 7u; x->lfoe[i].s = 0u; x->lfoe[i].r = 5u; }   /* a short pluck */
     for (i = 0; i < SQ_MODS; i++) x->mod[i].amt = 50;
@@ -3230,13 +3248,19 @@ uint32_t sq_crc32(const uint8_t *p, uint32_t n)
     return ~c;
 }
 
-typedef struct { uint8_t *p; uint32_t pos, cap; int bad; } wr_t;
+/* ---- the saved image. 0.28: still SGQB in the layout of 0.27 (sagga_img27.h), so that a 0.27 firmware opens it - the
+ * twelve tracks go out as sixteen (the last four empty), a step as its first four notes and six lanes, a track's
+ * settings with six lanes; what 0.27 has no room for is in the chunk SQ_CHUNK_X28. An image of 0.27 or before: its
+ * tracks 13-16 are left out (the player has none). map[the image's track] = the project's, 255 = not kept. */
+typedef struct { uint8_t *p; uint32_t pos, cap; int bad; } wr_t;   /* (p 0: it only counts) */
 static void wr_put(wr_t *w, const void *src, uint32_t n)
 {
     if (w->bad || w->pos + n > w->cap) { w->bad = 1; return; }
-    bcopy_(w->p + w->pos, src, n);
+    if (w->p) bcopy_(w->p + w->pos, src, n);
     w->pos += n;
 }
+static void wr_u8(wr_t *w, uint32_t v) { uint8_t b = (uint8_t)v; wr_put(w, &b, 1); }
+static void wr_u16(wr_t *w, uint32_t v) { uint8_t b[2]; b[0] = (uint8_t)(v & 0xFFu); b[1] = (uint8_t)((v >> 8) & 0xFFu); wr_put(w, b, 2); }
 
 typedef struct { const uint8_t *p; uint32_t pos, len; int bad; } rd_t;
 static void rd_get(rd_t *r, void *dst, uint32_t n)
@@ -3245,52 +3269,476 @@ static void rd_get(rd_t *r, void *dst, uint32_t n)
     bcopy_(dst, r->p + r->pos, n);
     r->pos += n;
 }
-
-/* a step is written as the bytes that differ from an empty step: a 24-bit mask (bit k = byte k, low byte first), then
- * those bytes. A hit is ~7 bytes instead of 18. */
-typedef char sq_step_is_18_bytes[(sizeof(sq_step_t) == 18u) ? 1 : -1];
-typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 96u) ? 1 : -1];
-typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 1524u && sizeof(sq_ext_t) % 4u == 0u && __builtin_offsetof(sq_ext_t, name) == SQ_EXT_014 &&
-                          __builtin_offsetof(sq_ext_t, mfxc) == SQ_EXT_018 && __builtin_offsetof(sq_ext_t, mfxd) == SQ_EXT_019 &&
-                          __builtin_offsetof(sq_ext_t, scene_metre) == SQ_EXT_025 && __builtin_offsetof(sq_ext_t, click) == SQ_EXT_014 - 8u) ? 1 : -1];
-typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
-typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
-                                SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t)) ? 1 : -1];
-
-static void wr_step(wr_t *w, const sq_step_t *step, const sq_step_t *def)
-{
-    sq_step_t x = *step;
-    const sq_step_t *s = &x;
-    const uint8_t *a = (const uint8_t *)&x, *d = (const uint8_t *)def;
-    uint32_t k, m = 0u;
-    uint8_t mb[3];
-    x.flags &= (uint8_t)~SQ_STEP_GHOST;                  /* 0.24: that it is a copy is in chunk 3 */
-    for (k = 0; k < sizeof *s; k++) if (a[k] != d[k]) m |= 1u << k;
-    mb[0] = (uint8_t)(m & 0xFFu); mb[1] = (uint8_t)((m >> 8) & 0xFFu); mb[2] = (uint8_t)(m >> 16);
-    wr_put(w, mb, 3);
-    for (k = 0; k < sizeof *s; k++) if (m & (1u << k)) wr_put(w, &a[k], 1);
-}
-static void rd_step(rd_t *r, sq_step_t *s, const sq_step_t *def)
-{
-    uint8_t mb[3] = {0, 0, 0}, *a = (uint8_t *)s;
-    uint32_t k, m;
-    rd_get(r, mb, 3);
-    m = (uint32_t)mb[0] | ((uint32_t)mb[1] << 8) | ((uint32_t)mb[2] << 16);
-    *s = *def;
-    for (k = 0; k < sizeof *s; k++) if (m & (1u << k)) rd_get(r, &a[k], 1);
-}
 static void rd_skip(rd_t *r, uint32_t n)
 {
     if (r->bad || r->pos + n > r->len) { r->bad = 1; return; }
     r->pos += n;
 }
+static uint32_t rd_u8(rd_t *r) { uint8_t b = 0u; rd_get(r, &b, 1); return b; }
+static uint32_t rd_u16(rd_t *r) { uint8_t b[2] = {0u, 0u}; rd_get(r, b, 2); return (uint32_t)b[0] | ((uint32_t)b[1] << 8); }
+
+typedef char sq_step_size[(sizeof(sq_step_t) == 22u) ? 1 : -1];
+typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 104u) ? 1 : -1];
+typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1292u && sizeof(sq_ext_t) % 4u == 0u &&
+                          __builtin_offsetof(sq_ext_t, name) - __builtin_offsetof(sq_ext_t, motion_bars) ==
+                          __builtin_offsetof(sq27_ext_t, name) - __builtin_offsetof(sq27_ext_t, motion_bars)) ? 1 : -1];
+typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
+typedef char sq_snap_head_size[(sizeof(sq_snap_t) == SQ_SNAP_HEAD + SQ_TRACKS * sizeof(sq_track_cfg_t) +
+                                SQ_LFOS * sizeof(sq_lfo_t) + SQ_SNAP_CC * sizeof(sq_ccv_t) &&
+                                __builtin_offsetof(sq_snap_t, track) == SQ_SNAP_HEAD) ? 1 : -1];
+#define EXT_MID ((uint32_t)(__builtin_offsetof(sq_ext_t, name) - __builtin_offsetof(sq_ext_t, motion_bars)))   /* motion_bars .. reserved */
+
+static const uint8_t MAP_SAME[SQ27_TRACKS] = {0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u, 8u, 9u, 10u, 11u, 255u, 255u, 255u, 255u};
+typedef char sq_map_same[(SQ_TRACKS == 12u) ? 1 : -1];
+static uint8_t map_track(uint32_t t, const uint8_t *map) { return t < SQ27_TRACKS ? map[t] : 255u; }
+static uint16_t mask_in(uint32_t m, const uint8_t *map)    /* a bit per track of the image -> of the project */
+{
+    uint32_t t, out = 0u;
+    for (t = 0; t < SQ27_TRACKS; t++) if (((m >> t) & 1u) && map[t] < SQ_TRACKS) out |= 1u << map[t];
+    return (uint16_t)out;
+}
+
+/* a step as 0.27 has it, and back; its extra bytes (the notes 5-6, the lanes 7-8) */
+static void st27_out(const sq_step_t *s, sq27_step_t *o)
+{
+    uint32_t k;
+    for (k = 0; k < SQ27_POLY; k++) o->note[k] = s->note[k];
+    o->velocity = s->velocity; o->length = s->length; o->chance = s->chance;
+    o->ratchet = s->ratchet; o->condition = s->condition; o->flags = s->flags;
+    for (k = 0; k < SQ27_LANES; k++) o->lane[k] = s->lane[k];
+    o->nudge = s->nudge; o->ramp = s->ramp;
+}
+static void st27_in(const sq27_step_t *o, sq_step_t *s)     /* (the extra bytes stay as they are) */
+{
+    uint32_t k;
+    for (k = 0; k < SQ27_POLY; k++) s->note[k] = o->note[k];
+    s->velocity = o->velocity; s->length = o->length; s->chance = o->chance;
+    s->ratchet = o->ratchet; s->condition = o->condition; s->flags = o->flags;
+    for (k = 0; k < SQ27_LANES; k++) s->lane[k] = o->lane[k];
+    s->nudge = o->nudge; s->ramp = o->ramp;
+}
+static void st_extra_get(const sq_step_t *s, uint8_t *x)
+{
+    uint32_t k, n = 0u;
+    for (k = SQ27_POLY; k < SQ_POLY; k++) x[n++] = s->note[k];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) x[n++] = s->lane[k];
+}
+static void st_extra_put(sq_step_t *s, const uint8_t *x)
+{
+    uint32_t k, n = 0u;
+    for (k = SQ27_POLY; k < SQ_POLY; k++) s->note[k] = x[n++];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) s->lane[k] = x[n++];
+}
+static uint8_t st27_alike(const sq_step_t *s, const sq27_step_t *def27)   /* its 0.27 form is an empty step's */
+{
+    sq27_step_t x;
+    st27_out(s, &x);
+    x.flags &= (uint8_t)~SQ_STEP_GHOST;
+    return (uint8_t)!bdiff_(&x, def27, sizeof x);
+}
+
+/* a track's settings as 0.27 has them, and back; the settings of its lanes 7-8 */
+static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
+{
+    const uint8_t *b = (const uint8_t *)c;
+    uint32_t k;
+    bcopy_(o->head, b, SQ27_TRACK_HEAD);
+    for (k = 0; k < SQ27_LANES; k++) {
+        o->lane_cc[k] = c->lane_cc[k]; o->lane_base[k] = c->lane_base[k];
+        o->lane_flags[k] = c->lane_flags[k]; o->lane_hi[k] = c->lane_hi[k];
+    }
+    bcopy_(o->tail, b + SQ27_TRACK_HEAD + 4u * SQ_LANES, SQ27_TRACK_TAIL);
+}
+static void tr27_in(const sq27_track_t *o, sq_track_cfg_t *c)   /* (the lanes 7-8 stay as they are) */
+{
+    uint8_t *b = (uint8_t *)c;
+    uint32_t k;
+    bcopy_(b, o->head, SQ27_TRACK_HEAD);
+    for (k = 0; k < SQ27_LANES; k++) {
+        c->lane_cc[k] = o->lane_cc[k]; c->lane_base[k] = o->lane_base[k];
+        c->lane_flags[k] = o->lane_flags[k]; c->lane_hi[k] = o->lane_hi[k];
+    }
+    bcopy_(b + SQ27_TRACK_HEAD + 4u * SQ_LANES, o->tail, SQ27_TRACK_TAIL);
+}
+static uint8_t tr27_differ(const sq_track_cfg_t *a, const sq_track_cfg_t *b)
+{
+    sq27_track_t x, y;
+    tr27_out(a, &x); tr27_out(b, &y);
+    return (uint8_t)bdiff_(&x, &y, sizeof x);
+}
+static void tr_lx_get(const sq_track_cfg_t *c, uint8_t *x)
+{
+    uint32_t k, n = 0u;
+    for (k = SQ27_LANES; k < SQ_LANES; k++) x[n++] = c->lane_cc[k];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) x[n++] = c->lane_base[k];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) x[n++] = c->lane_flags[k];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) x[n++] = c->lane_hi[k];
+}
+static void tr_lx_put(sq_track_cfg_t *c, const uint8_t *x)
+{
+    uint32_t k, n = 0u;
+    for (k = SQ27_LANES; k < SQ_LANES; k++) c->lane_cc[k] = x[n++];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) c->lane_base[k] = x[n++];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) c->lane_flags[k] = x[n++];
+    for (k = SQ27_LANES; k < SQ_LANES; k++) c->lane_hi[k] = x[n++];
+}
+static uint8_t tr_lx_differ(const sq_track_cfg_t *a, const sq_track_cfg_t *b)
+{
+    uint8_t x[SQ_X28_LCFG], y[SQ_X28_LCFG];
+    tr_lx_get(a, x); tr_lx_get(b, y);
+    return (uint8_t)bdiff_(x, y, sizeof x);
+}
+
+/* a scene, a snapshot's head, the journey: the sixteen tracks of the image */
+static void sc27_out(const sq_scene_t *s, sq27_scene_t *o)
+{
+    uint32_t t, k;
+    for (t = 0; t < SQ27_TRACKS; t++) {
+        o->pattern[t] = t < SQ_TRACKS ? s->pattern[t] : 0u;
+        for (k = 0; k < SQ27_LANES; k++) o->lane[t][k] = t < SQ_TRACKS ? s->lane[t][k] : (uint8_t)SQ_LANE_NONE;
+    }
+    o->mute_mask = (uint16_t)(s->mute_mask & ((1u << SQ_TRACKS) - 1u));
+    for (k = 0; k < SQ_CHANNELS; k++) o->pc[k] = s->pc[k];
+    o->key_slot = s->key_slot;
+}
+static void sc27_in(const sq27_scene_t *o, sq_scene_t *s, const uint8_t *map)   /* (s: the defaults) */
+{
+    uint32_t t, k;
+    for (t = 0; t < SQ27_TRACKS; t++) {
+        uint8_t nt = map[t];
+        if (nt >= SQ_TRACKS) continue;
+        s->pattern[nt] = o->pattern[t];
+        for (k = 0; k < SQ27_LANES; k++) s->lane[nt][k] = o->lane[t][k];
+    }
+    s->mute_mask = mask_in(o->mute_mask, map);
+    for (k = 0; k < SQ_CHANNELS; k++) s->pc[k] = o->pc[k];
+    s->key_slot = o->key_slot;
+}
+static void sh27_out(const sq_snap_t *sn, sq27_snap_head_t *o)
+{
+    uint32_t t, k;
+    o->used = sn->used; o->ccn = sn->ccn; o->bpm = sn->bpm;
+    o->key_root = sn->key_root; o->key_scale = sn->key_scale; o->key_shift = sn->key_shift; o->ktrans = sn->ktrans;
+    for (t = 0; t < SQ27_TRACKS; t++) o->pattern[t] = t < SQ_TRACKS ? sn->pattern[t] : 0u;
+    o->mute = (uint16_t)(sn->mute & ((1u << SQ_TRACKS) - 1u));
+    o->solo = (uint16_t)(sn->solo & ((1u << SQ_TRACKS) - 1u));
+    for (k = 0; k < 4u; k++) o->mac[k] = sn->mac[k];
+    o->harm_on = sn->harm_on; o->genre = sn->genre; o->harm_prog = sn->harm_prog; o->harm_bars = sn->harm_bars;
+    o->morph_b = sn->morph_b; o->key_cur = sn->key_cur; o->harm_genre = sn->harm_genre; o->reserved[0] = sn->reserved[0];
+}
+static void sh27_in(const sq27_snap_head_t *o, sq_snap_t *sn, const uint8_t *map)
+{
+    uint32_t t, k;
+    sn->used = o->used; sn->ccn = o->ccn; sn->bpm = o->bpm;
+    sn->key_root = o->key_root; sn->key_scale = o->key_scale; sn->key_shift = o->key_shift; sn->ktrans = o->ktrans;
+    for (t = 0; t < SQ_TRACKS; t++) sn->pattern[t] = 0u;
+    for (t = 0; t < SQ27_TRACKS; t++) if (map[t] < SQ_TRACKS) sn->pattern[map[t]] = o->pattern[t];
+    sn->mute = mask_in(o->mute, map);
+    sn->solo = mask_in(o->solo, map);
+    for (k = 0; k < 4u; k++) sn->mac[k] = o->mac[k];
+    sn->harm_on = o->harm_on; sn->genre = o->genre; sn->harm_prog = o->harm_prog; sn->harm_bars = o->harm_bars;
+    sn->morph_b = o->morph_b; sn->key_cur = o->key_cur; sn->harm_genre = o->harm_genre; sn->reserved[0] = o->reserved[0];
+}
+static void vg27_out(const sq_viaggio_t *v, sq27_viaggio_t *o)
+{
+    uint32_t t;
+    o->on = v->on; o->phrase_bars = v->phrase_bars; o->energy = v->energy; o->set_genre = v->set_genre;
+    for (t = 0; t < SQ27_TRACKS; t++) o->state[t] = t < SQ_TRACKS ? v->state[t] : (uint8_t)SQ_TS_EMPTY;
+    o->phrase_count = v->phrase_count; o->quant = v->quant;
+    bcopy_(o->reserved, v->reserved, sizeof o->reserved);
+}
+static void vg27_in(const sq27_viaggio_t *o, sq_viaggio_t *v, const uint8_t *map)   /* (v: the defaults) */
+{
+    uint32_t t;
+    v->on = o->on; v->phrase_bars = o->phrase_bars; v->energy = o->energy; v->set_genre = o->set_genre;
+    for (t = 0; t < SQ27_TRACKS; t++) if (map[t] < SQ_TRACKS) v->state[map[t]] = o->state[t];
+    v->phrase_count = o->phrase_count; v->quant = o->quant;
+    bcopy_(v->reserved, o->reserved, sizeof v->reserved);
+}
+
+/* the 0.13 block (chunk 1) in 0.27's layout; read back from the chunk's own bytes, the k of them it has (an older
+ * image has fewer: the rest stays the default) */
+static void wr_ext27(wr_t *w, const sq_ext_t *x)
+{
+    sq_trackx_t tx;
+    sq_mfxc_t cx;
+    sq_mfxd_t dx;
+    uint32_t t;
+    trackx_default(&tx); mfxc_default(&cx); sq_mfxd_default(&dx);
+    wr_put(w, x->lfo, sizeof x->lfo);
+    for (t = 0; t < SQ27_TRACKS; t++) wr_put(w, t < SQ_TRACKS ? &x->track[t] : &tx, sizeof tx);
+    wr_put(w, &x->motion_bars, EXT_MID);
+    wr_put(w, x->name, sizeof x->name);
+    for (t = 0; t < SQ27_TRACKS; t++) wr_put(w, t < SQ_TRACKS ? &x->mfxc[t] : &cx, sizeof cx);
+    for (t = 0; t < SQ27_TRACKS; t++) wr_put(w, t < SQ_TRACKS ? &x->mfxd[t] : &dx, sizeof dx);
+    wr_put(w, x->lfoe, sizeof x->lfoe);
+    wr_put(w, x->mod, sizeof x->mod);
+    wr_put(w, x->scene_metre, sizeof x->scene_metre);
+}
+static void x27_range(void *dst, const uint8_t *src, uint32_t k, uint32_t off, uint32_t n)   /* what [off, off + n) has */
+{
+    if (k <= off) return;
+    if (k - off < n) n = k - off;
+    bcopy_(dst, src + off, n);
+}
+#define X27_OFF(f) ((uint32_t)__builtin_offsetof(sq27_ext_t, f))
+static void ext27_in(const uint8_t *src, uint32_t k, sq_ext_t *x, const uint8_t *map)
+{
+    uint32_t t, i;
+    for (i = 0; i < SQ_LFOS; i++)
+        if (X27_OFF(lfo) + (i + 1u) * sizeof(sq_lfox_t) <= k) {
+            sq_lfox_t *l = &x->lfo[i];
+            bcopy_(l, src + X27_OFF(lfo) + i * sizeof(sq_lfox_t), sizeof *l);
+            if (l->trig) { uint8_t nt = map_track(l->trig - 1u, map); l->trig = nt < SQ_TRACKS ? (uint8_t)(nt + 1u) : 0u; }
+        }
+    for (t = 0; t < SQ27_TRACKS; t++)
+        if (map[t] < SQ_TRACKS && X27_OFF(track) + (t + 1u) * sizeof(sq_trackx_t) <= k)
+            bcopy_(&x->track[map[t]], src + X27_OFF(track) + t * sizeof(sq_trackx_t), sizeof(sq_trackx_t));
+    x27_range(&x->motion_bars, src, k, X27_OFF(motion_bars), EXT_MID);
+    x27_range(x->name, src, k, X27_OFF(name), sizeof x->name);
+    for (t = 0; t < SQ27_TRACKS; t++) {
+        if (map[t] >= SQ_TRACKS) continue;
+        if (X27_OFF(mfxc) + (t + 1u) * sizeof(sq_mfxc_t) <= k)
+            bcopy_(&x->mfxc[map[t]], src + X27_OFF(mfxc) + t * sizeof(sq_mfxc_t), sizeof(sq_mfxc_t));
+        if (X27_OFF(mfxd) + (t + 1u) * sizeof(sq_mfxd_t) <= k)
+            bcopy_(&x->mfxd[map[t]], src + X27_OFF(mfxd) + t * sizeof(sq_mfxd_t), sizeof(sq_mfxd_t));
+    }
+    x27_range(x->lfoe, src, k, X27_OFF(lfoe), sizeof x->lfoe);
+    if (X27_OFF(mod) < k) {
+        x27_range(x->mod, src, k, X27_OFF(mod), sizeof x->mod);
+        for (i = 0; i < SQ_MODS; i++) {                /* a source or a destination that is a track */
+            sq_mod_t *m = &x->mod[i];
+            uint8_t nt;
+            if (m->src == SQ_MS_VEL) {
+                nt = map_track(m->src_i, map);
+                if (nt < SQ_TRACKS) m->src_i = nt; else { m->src = SQ_MS_OFF; m->src_i = 0u; }
+            }
+            if (m->dst != SQ_MD_OFF && m->dst != SQ_MD_DEPTH && m->dst != SQ_MD_CENTER) {
+                nt = map_track(m->dst_i, map);
+                if (nt < SQ_TRACKS) m->dst_i = nt; else { m->dst = SQ_MD_OFF; m->dst_i = 0u; }
+            }
+        }
+    }
+    x27_range(x->scene_metre, src, k, X27_OFF(scene_metre), sizeof x->scene_metre);
+}
+
+/* the LFOs aimed at a track, the SCOPE CUSTOM, the mutes saved: the image's track -> the project's (an LFO aimed at a
+ * track that is not kept stops) */
+static void lfo_refs_in(sq_lfo_t *l, const uint8_t *map)
+{
+    uint8_t nt;
+    if (l->dest == SQ_LD_CC) return;
+    nt = map_track(l->target, map);
+    if (nt < SQ_TRACKS) { l->target = nt; return; }
+    l->target = 0u;
+    if (l->dest != SQ_LD_MOD) l->enabled = 0u;           /* (MOD ONLY aims at nothing: it stays) */
+}
+static void refs_in(sq_project_t *p, const uint8_t *map)
+{
+    uint32_t i, k;
+    uint16_t m;
+    for (i = 0; i < SQ_LFOS; i++) lfo_refs_in(&p->lfo[i], map);
+    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used) for (i = 0; i < SQ_LFOS; i++) lfo_refs_in(&p->snap[k].lfo[i], map);
+    p->gen.custom = mask_in(p->gen.custom, map);
+    m = mask_in((uint32_t)p->live.mute_lo | ((uint32_t)p->live.mute_hi << 8), map);
+    p->live.mute_lo = (uint8_t)(m & 0xFFu);
+    p->live.mute_hi = (uint8_t)(m >> 8);
+}
+
+/* the chunk of 0.28 (sagga_img27.h) */
+static uint8_t sc_lx_set(const sq_scene_t *s, uint32_t t)
+{
+    uint32_t k;
+    for (k = SQ27_LANES; k < SQ_LANES; k++) if (s->lane[t][k] != SQ_LANE_NONE) return 1u;
+    return 0u;
+}
+static uint8_t st_extra_set(const sq_step_t *s, const uint8_t *xd)
+{
+    uint8_t x[SQ_X28_EXTRA];
+    st_extra_get(s, x);
+    return (uint8_t)bdiff_(x, xd, sizeof x);
+}
+static uint8_t x28_parts(const sq_project_t *p)
+{
+    sq_track_cfg_t d;
+    sq_step_t def;
+    uint8_t xd[SQ_X28_EXTRA], parts = 0u;
+    uint32_t t, s, i, pat;
+    sq_step_default(&def);
+    st_extra_get(&def, xd);
+    for (t = 0; t < SQ_TRACKS; t++) {
+        sq_track_default(&d, t);
+        if (tr_lx_differ(&p->track[t], &d)) parts |= SQ_X28_LANES;
+        for (s = 0; s < SQ_SCENES; s++) if (sc_lx_set(&p->scene[s], t)) parts |= SQ_X28_SCENE;
+        for (s = 0; s < SQ_SNAPS; s++) if (p->snap[s].used && tr_lx_differ(&p->snap[s].track[t], &p->track[t])) parts |= SQ_X28_SNAP;
+        for (pat = 0; pat < SQ_PATTERNS && !(parts & SQ_X28_STEPS); pat++)
+            for (i = 0; i < SQ_STEPS; i++) if (st_extra_set(&p->step[t][pat][i], xd)) { parts |= SQ_X28_STEPS; break; }
+    }
+    return parts;
+}
+static void x28_body(wr_t *w, const sq_project_t *p, uint8_t parts)
+{
+    sq_step_t def;
+    uint8_t xd[SQ_X28_EXTRA], x[SQ_X28_EXTRA > SQ_X28_LCFG ? SQ_X28_EXTRA : SQ_X28_LCFG];
+    uint32_t t, s, k, i, pat, n;
+    sq_step_default(&def);
+    st_extra_get(&def, xd);
+    wr_u8(w, SQ_X28_VER);
+    wr_u8(w, parts);
+    if (parts & SQ_X28_LANES)
+        for (t = 0; t < SQ_TRACKS; t++) { tr_lx_get(&p->track[t], x); wr_put(w, x, SQ_X28_LCFG); }
+    if (parts & SQ_X28_SCENE) {
+        for (n = 0, s = 0; s < SQ_SCENES; s++) for (t = 0; t < SQ_TRACKS; t++) n += sc_lx_set(&p->scene[s], t);
+        wr_u16(w, n);
+        for (s = 0; s < SQ_SCENES; s++)
+            for (t = 0; t < SQ_TRACKS; t++) {
+                if (!sc_lx_set(&p->scene[s], t)) continue;
+                wr_u8(w, s); wr_u8(w, t);
+                for (k = SQ27_LANES; k < SQ_LANES; k++) wr_u8(w, p->scene[s].lane[t][k]);
+            }
+    }
+    if (parts & SQ_X28_SNAP) {
+        for (n = 0, s = 0; s < SQ_SNAPS; s++)
+            if (p->snap[s].used) for (t = 0; t < SQ_TRACKS; t++) n += tr_lx_differ(&p->snap[s].track[t], &p->track[t]);
+        wr_u8(w, n);
+        for (s = 0; s < SQ_SNAPS; s++)
+            if (p->snap[s].used)
+                for (t = 0; t < SQ_TRACKS; t++) {
+                    if (!tr_lx_differ(&p->snap[s].track[t], &p->track[t])) continue;
+                    wr_u8(w, s); wr_u8(w, t);
+                    tr_lx_get(&p->snap[s].track[t], x);
+                    wr_put(w, x, SQ_X28_LCFG);
+                }
+    }
+    if (parts & SQ_X28_STEPS) {
+        for (n = 0, t = 0; t < SQ_TRACKS; t++)
+            for (pat = 0; pat < SQ_PATTERNS; pat++)
+                for (i = 0; i < SQ_STEPS; i++) if (st_extra_set(&p->step[t][pat][i], xd)) { n++; break; }
+        wr_u16(w, n);
+        for (t = 0; t < SQ_TRACKS; t++)
+            for (pat = 0; pat < SQ_PATTERNS; pat++) {
+                uint8_t m[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+                for (i = 0; i < SQ_STEPS; i++) if (st_extra_set(&p->step[t][pat][i], xd)) m[i >> 3] |= (uint8_t)(1u << (i & 7u));
+                if (!(m[0] | m[1] | m[2] | m[3] | m[4] | m[5] | m[6] | m[7])) continue;
+                wr_u8(w, t); wr_u8(w, pat);
+                wr_put(w, m, 8);
+                for (i = 0; i < SQ_STEPS; i++)
+                    if (m[i >> 3] & (1u << (i & 7u))) { st_extra_get(&p->step[t][pat][i], x); wr_put(w, x, SQ_X28_EXTRA); }
+            }
+    }
+}
+
+/* what the reader is asked for: the whole project, or for RELOAD one track and one pattern (want_t: the image's track,
+ * want_new: the project's - the same, the map being the twelve as they are), or nothing (a check) */
+typedef struct {
+    sq_project_t *p;
+    uint8_t want_t, want_new, want_pat;
+    sq_track_cfg_t *cfg;
+    sq_step_t *row;
+    sq_thpat_t *th;
+    const uint8_t *map;
+} parse_t;
+static void parse_init(parse_t *q)
+{
+    q->p = 0; q->want_t = 255u; q->want_new = 255u; q->want_pat = 0u;
+    q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME;
+}
+static void x28_in(const uint8_t *src, uint32_t n, parse_t *q)
+{
+    rd_t r;
+    sq_project_t *p = q->p;
+    uint32_t parts, t, k, i, cnt;
+    uint8_t x[SQ_X28_LCFG];
+    r.p = src; r.pos = 0; r.len = n; r.bad = 0;
+    if (!rd_u8(&r)) return;
+    parts = rd_u8(&r);
+    if (parts & SQ_X28_LANES) {
+        for (t = 0; t < SQ_TRACKS && !r.bad; t++) {
+            rd_get(&r, x, SQ_X28_LCFG);
+            if (r.bad) return;
+            if (p) tr_lx_put(&p->track[t], x);
+            else if (q->cfg && t == q->want_new) tr_lx_put(q->cfg, x);
+        }
+        if (p)                                         /* a snapshot's tracks have the project's, unless the chunk says */
+            for (i = 0; i < SQ_SNAPS; i++)
+                if (p->snap[i].used) for (t = 0; t < SQ_TRACKS; t++) { tr_lx_get(&p->track[t], x); tr_lx_put(&p->snap[i].track[t], x); }
+    }
+    if (parts & SQ_X28_SCENE) {
+        cnt = rd_u16(&r);
+        for (i = 0; i < cnt && !r.bad; i++) {
+            uint8_t e[2u + SQ_LANES - SQ27_LANES];
+            rd_get(&r, e, sizeof e);
+            if (r.bad || !p || e[0] >= SQ_SCENES || e[1] >= SQ_TRACKS) continue;
+            for (k = SQ27_LANES; k < SQ_LANES; k++) p->scene[e[0]].lane[e[1]][k] = e[2u + k - SQ27_LANES];
+        }
+    }
+    if (parts & SQ_X28_SNAP) {
+        cnt = rd_u8(&r);
+        for (i = 0; i < cnt && !r.bad; i++) {
+            uint8_t e[2u + SQ_X28_LCFG];
+            rd_get(&r, e, sizeof e);
+            if (r.bad || !p || e[0] >= SQ_SNAPS || e[1] >= SQ_TRACKS || !p->snap[e[0]].used) continue;
+            tr_lx_put(&p->snap[e[0]].track[e[1]], e + 2);
+        }
+    }
+    if (parts & SQ_X28_STEPS) {
+        cnt = rd_u16(&r);
+        for (i = 0; i < cnt && !r.bad; i++) {
+            uint8_t hd[2] = {255u, 255u}, m[8] = {0, 0, 0, 0, 0, 0, 0, 0};
+            uint32_t s;
+            rd_get(&r, hd, 2);
+            rd_get(&r, m, 8);
+            for (s = 0; s < SQ_STEPS && !r.bad; s++) {
+                uint8_t e[SQ_X28_EXTRA];
+                sq_step_t *dst = 0;
+                if (!(m[s >> 3] & (1u << (s & 7u)))) continue;
+                rd_get(&r, e, sizeof e);
+                if (r.bad || hd[0] >= SQ_TRACKS || hd[1] >= SQ_PATTERNS) continue;
+                if (p) dst = &p->step[hd[0]][hd[1]][s];
+                else if (q->row && hd[0] == q->want_new && hd[1] == q->want_pat) dst = &q->row[s];
+                if (dst) st_extra_put(dst, e);
+            }
+        }
+    }
+}
+
+/* a step is written as the bytes of its 0.27 form that differ from an empty step's: a 24-bit mask (bit k = byte k,
+ * low byte first), then those bytes. A hit is ~7 bytes instead of 18. */
+static void wr_step(wr_t *w, const sq_step_t *step, const sq27_step_t *def27)
+{
+    sq27_step_t x;
+    const uint8_t *a = (const uint8_t *)&x, *d = (const uint8_t *)def27;
+    uint32_t k, m = 0u;
+    uint8_t mb[3];
+    st27_out(step, &x);
+    x.flags &= (uint8_t)~SQ_STEP_GHOST;                  /* 0.24: that it is a copy is in chunk 3 */
+    for (k = 0; k < sizeof x; k++) if (a[k] != d[k]) m |= 1u << k;
+    mb[0] = (uint8_t)(m & 0xFFu); mb[1] = (uint8_t)((m >> 8) & 0xFFu); mb[2] = (uint8_t)(m >> 16);
+    wr_put(w, mb, 3);
+    for (k = 0; k < sizeof x; k++) if (m & (1u << k)) wr_put(w, &a[k], 1);
+}
+static void rd_step(rd_t *r, sq_step_t *s, const sq_step_t *def)   /* s: an empty step, then what is read */
+{
+    sq27_step_t x;
+    uint8_t mb[3] = {0, 0, 0}, *a = (uint8_t *)&x;
+    uint32_t k, m;
+    *s = *def;
+    st27_out(def, &x);
+    rd_get(r, mb, 3);
+    m = (uint32_t)mb[0] | ((uint32_t)mb[1] << 8) | ((uint32_t)mb[2] << 16);
+    for (k = 0; k < sizeof x; k++) if (m & (1u << k)) rd_get(r, &a[k], 1);
+    st27_in(&x, s);
+}
 /* a track's settings: all of them, or the 80 bytes a 0.10 image holds (what came after is left as it was: defaults) */
 static void rd_track(rd_t *r, sq_track_cfg_t *c, uint8_t old)
 {
+    sq27_track_t x;
     uint32_t n;
-    if (!old) { rd_get(r, c, sizeof *c); return; }
-    rd_get(r, c, SQ_TRACK_CFG_A);
+    tr27_out(c, &x);
+    rd_get(r, &x, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof x);
+    tr27_in(&x, c);
+    if (!old) return;
     for (n = 0; n < SQ_ALGO_SLOTS - 1u; n++) sq_algo_slot_default(&c->algo2[n], SQ_ALGO_OFF);
     c->src_genre = 255u;
     c->follow_mode = SQ_FM_HOLD;
@@ -3316,16 +3764,18 @@ static void rd_gen(rd_t *r, sq_gen_t *g, uint8_t old)
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
 }
 
-/* SGQA (0.10): the project's settings at their sizes, the snapshots (a track or the LFOs equal to the project's are
- * not written again), the patterns, sparse, the tape events, then the chunks (none yet: the end mark). */
+/* SGQB (0.11 ..; 0.28 in 0.27's layout): the project's settings at their sizes, the snapshots (a track or the LFOs equal
+ * to the project's are not written again), the patterns, sparse, the tape events, then the chunks */
 uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
 {
     wr_t w;
     sq_step_t def;
+    sq27_step_t def27;
     uint32_t magic = SQ_SAVE_MAGIC, t, pat, i, n;
     uint8_t b, smask = 0u, nb[2];
     w.p = out; w.pos = 0; w.cap = cap; w.bad = 0;
     sq_step_default(&def);
+    st27_out(&def, &def27);
     wr_put(&w, &magic, 4);
     wr_put(&w, &p->id, 4);
     wr_put(&w, &p->bpm, 2);
@@ -3337,43 +3787,54 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
     wr_put(&w, p->key, sizeof p->key);
     wr_put(&w, p->device, sizeof p->device);
     wr_put(&w, p->uprog, sizeof p->uprog);
-    wr_put(&w, p->track, sizeof p->track);
-    wr_put(&w, p->scene, sizeof p->scene);
+    for (t = 0; t < SQ27_TRACKS; t++) {                /* 0.28: the twelve, then four as a new project of 0.27 has them */
+        sq27_track_t x;
+        sq_track_cfg_t d;
+        const sq_track_cfg_t *c = &p->track[t < SQ_TRACKS ? t : 0u];
+        if (t >= SQ_TRACKS) { sq_track_default(&d, t); c = &d; }
+        tr27_out(c, &x);
+        wr_put(&w, &x, sizeof x);
+    }
+    for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }
     wr_put(&w, p->lfo, sizeof p->lfo);
     wr_put(&w, &p->gen, sizeof p->gen);
     wr_put(&w, &p->song, sizeof p->song);
     wr_put(&w, &p->live, sizeof p->live);
-    wr_put(&w, &p->viaggio, sizeof p->viaggio);
-    wr_put(&w, p->tape_cnt, sizeof p->tape_cnt);
+    { sq27_viaggio_t x; vg27_out(&p->viaggio, &x); wr_put(&w, &x, sizeof x); }
+    for (t = 0; t < SQ27_TRACKS; t++) wr_u16(&w, t < SQ_TRACKS ? p->tape_cnt[t] : 0u);
     for (i = 0; i < SQ_SNAPS; i++) if (p->snap[i].used) smask |= (uint8_t)(1u << i);
     wr_put(&w, &smask, 1);
     for (i = 0; i < SQ_SNAPS; i++) {
         const sq_snap_t *sn = &p->snap[i];
+        sq27_snap_head_t h;
         uint8_t tm[2] = {0, 0}, lf;
         if (!(smask & (1u << i))) continue;
-        wr_put(&w, sn, SQ_SNAP_HEAD);
-        for (t = 0; t < SQ_TRACKS; t++) if (bdiff_(&sn->track[t], &p->track[t], sizeof p->track[0])) tm[t >> 3] |= (uint8_t)(1u << (t & 7u));
+        sh27_out(sn, &h);
+        wr_put(&w, &h, sizeof h);
+        for (t = 0; t < SQ_TRACKS; t++) if (tr27_differ(&sn->track[t], &p->track[t])) tm[t >> 3] |= (uint8_t)(1u << (t & 7u));
         wr_put(&w, tm, 2);
-        for (t = 0; t < SQ_TRACKS; t++) if (tm[t >> 3] & (1u << (t & 7u))) wr_put(&w, &sn->track[t], sizeof sn->track[t]);
+        for (t = 0; t < SQ_TRACKS; t++)
+            if (tm[t >> 3] & (1u << (t & 7u))) { sq27_track_t x; tr27_out(&sn->track[t], &x); wr_put(&w, &x, sizeof x); }
         lf = (uint8_t)bdiff_(sn->lfo, p->lfo, sizeof p->lfo);
         wr_put(&w, &lf, 1);
         if (lf) wr_put(&w, sn->lfo, sizeof sn->lfo);
         wr_put(&w, sn->cc, (uint32_t)(sn->ccn <= SQ_SNAP_CC ? sn->ccn : 0u) * (uint32_t)sizeof(sq_ccv_t));
     }
-    for (t = 0; t < SQ_TRACKS; t++) {
+    for (t = 0; t < SQ27_TRACKS; t++) {
         uint8_t pmask = 0u;
-        for (pat = 0; pat < SQ_PATTERNS; pat++)
-            for (i = 0; i < SQ_STEPS; i++)
-                if (!sq_step_alike(&p->step[t][pat][i], &def)) { pmask |= (uint8_t)(1u << pat); break; }
+        if (t < SQ_TRACKS)
+            for (pat = 0; pat < SQ_PATTERNS; pat++)
+                for (i = 0; i < SQ_STEPS; i++)
+                    if (!st27_alike(&p->step[t][pat][i], &def27)) { pmask |= (uint8_t)(1u << pat); break; }
         wr_put(&w, &pmask, 1);
         for (pat = 0; pat < SQ_PATTERNS; pat++) {
             uint8_t m[8] = {0, 0, 0, 0, 0, 0, 0, 0};
             if (!(pmask & (1u << pat))) continue;
             for (i = 0; i < SQ_STEPS; i++)
-                if (!sq_step_alike(&p->step[t][pat][i], &def)) m[i >> 3] |= (uint8_t)(1u << (i & 7u));
+                if (!st27_alike(&p->step[t][pat][i], &def27)) m[i >> 3] |= (uint8_t)(1u << (i & 7u));
             wr_put(&w, m, 8);
             for (i = 0; i < SQ_STEPS; i++)
-                if (m[i >> 3] & (1u << (i & 7u))) wr_step(&w, &p->step[t][pat][i], &def);
+                if (m[i >> 3] & (1u << (i & 7u))) wr_step(&w, &p->step[t][pat][i], &def27);
         }
     }
     n = p->tape_n > SQ_TAPE_MAX ? SQ_TAPE_MAX : p->tape_n;             /* the tapes' events */
@@ -3384,9 +3845,9 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
         sq_ext_t xd;
         sq_ext_default(&xd);
         if (bdiff_(&p->ext, &xd, sizeof xd)) {
-            uint8_t h[3] = {SQ_CHUNK_EXT, (uint8_t)(sizeof xd & 0xFFu), (uint8_t)(sizeof xd >> 8)};
-            wr_put(&w, h, 3);
-            wr_put(&w, &p->ext, sizeof p->ext);
+            wr_u8(&w, SQ_CHUNK_EXT);
+            wr_u16(&w, sizeof(sq27_ext_t));
+            wr_ext27(&w, &p->ext);
         }
     }
     {   /* 0.23: chunk 2, the THEORY block, when it says something: the source, the seed, the patterns the engines made */
@@ -3423,17 +3884,30 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             }
         }
     }
+    {   /* 0.28: chunk 4, what 0.27 has no room for - the notes 5-6, the lanes 7-8 and their settings */
+        uint8_t parts = x28_parts(p);
+        if (parts) {
+            wr_t c;
+            c.p = 0; c.pos = 0; c.cap = 0xFFFFu; c.bad = 0;
+            x28_body(&c, p, parts);                   /* (its length first) */
+            if (c.bad) w.bad = 1;
+            else { wr_u8(&w, SQ_CHUNK_X28); wr_u16(&w, c.pos); x28_body(&w, p, parts); }
+        }
+    }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
     return w.bad ? 0u : w.pos;
 }
 
-/* SGQB / SGQA reader: the whole project, or one track and pattern for RELOAD. */
-static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t want_t, uint8_t want_pat,
-                    sq_track_cfg_t *cfg, sq_step_t *row, sq_thpat_t *th)
+/* SGQB / SGQA reader: the whole project, or one track and pattern for RELOAD, or a check (and which tracks have
+ * something on them) */
+static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
 {
     rd_t r;
+    sq_project_t *p = q->p;
+    const uint8_t *map = q->map;
     sq_step_t def, tmp;
-    uint32_t magic = 0, t, pat, i, ev, ext_n = 0u;
+    uint32_t magic = 0, t, pat, i, ev, ev_pos, ext_n = 0u;
+    uint16_t cnt27[SQ27_TRACKS];
     uint8_t b = 0, smask = 0u, nb[2] = {0u, 0u}, old;
     r.p = in; r.pos = 0; r.len = len; r.bad = 0;
     sq_step_default(&def);
@@ -3453,50 +3927,57 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
         rd_get(&r, p->key, sizeof p->key);
         rd_get(&r, p->device, sizeof p->device);
         rd_uprogs(&r, p->uprog, old);
-        for (t = 0; t < SQ_TRACKS; t++) rd_track(&r, &p->track[t], old);
-        rd_get(&r, p->scene, sizeof p->scene);
+        for (t = 0; t < SQ27_TRACKS; t++) {
+            sq_track_cfg_t scratch;
+            sq_track_cfg_t *c = map[t] < SQ_TRACKS ? &p->track[map[t]] : &scratch;
+            if (c == &scratch) sq_track_default(&scratch, t);
+            rd_track(&r, c, old);
+        }
+        for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; rd_get(&r, &x, sizeof x); sc27_in(&x, &p->scene[i], map); }
         rd_get(&r, p->lfo, sizeof p->lfo);
         rd_gen(&r, &p->gen, old);
         rd_get(&r, &p->song, sizeof p->song);
         rd_get(&r, &p->live, sizeof p->live);
-        rd_get(&r, &p->viaggio, sizeof p->viaggio);
-        rd_get(&r, p->tape_cnt, sizeof p->tape_cnt);
+        { sq27_viaggio_t x; rd_get(&r, &x, sizeof x); vg27_in(&x, &p->viaggio, map); }
         if (old) { p->gen.harm_genre = p->gen.genre; p->gen.harm_lock = 0u; }   /* 0.10: one genre for all */
     } else {
         rd_skip(&r, 4u + 2u + 1u + 4u + (uint32_t)sizeof(p->key) + (uint32_t)sizeof(p->device) + (old ? SQ_UPROG_A * SQ_UPROGS : (uint32_t)sizeof(p->uprog)));
-        for (t = 0; t < SQ_TRACKS; t++) {
-            if (cfg && t == want_t) { sq_track_default(cfg, t); rd_track(&r, cfg, old); }
-            else rd_skip(&r, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof(sq_track_cfg_t));
+        for (t = 0; t < SQ27_TRACKS; t++) {
+            if (q->cfg && t == q->want_t) rd_track(&r, q->cfg, old);
+            else rd_skip(&r, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof(sq27_track_t));
         }
-        rd_skip(&r, SQ_SCENES * (uint32_t)sizeof(sq_scene_t) + SQ_LFOS * (uint32_t)sizeof(sq_lfo_t));
+        rd_skip(&r, SQ_SCENES * (uint32_t)sizeof(sq27_scene_t) + SQ_LFOS * (uint32_t)sizeof(sq_lfo_t));
         rd_skip(&r, (old ? SQ_GEN_A : (uint32_t)sizeof(sq_gen_t)) + (uint32_t)sizeof(sq_song_t) + (uint32_t)sizeof(sq_live_t) +
-                    (uint32_t)sizeof(sq_viaggio_t) + SQ_TRACKS * 2u);
+                    (uint32_t)sizeof(sq27_viaggio_t));
     }
+    for (t = 0; t < SQ27_TRACKS; t++) cnt27[t] = (uint16_t)rd_u16(&r);
     rd_get(&r, &smask, 1);
     for (i = 0; i < SQ_SNAPS && !r.bad; i++) {
-        uint8_t head[SQ_SNAP_HEAD], tm[2] = {0, 0}, lf = 0u;
+        sq27_snap_head_t h;
+        uint8_t tm[2] = {0, 0}, lf = 0u;
         sq_snap_t *sn = p ? &p->snap[i] : 0;
         if (!(smask & (1u << i))) continue;
-        rd_get(&r, head, SQ_SNAP_HEAD);
-        if (r.bad || head[1] > SQ_SNAP_CC) return -2;   /* (head[1]: the CC values that follow) */
+        rd_get(&r, &h, sizeof h);
+        if (r.bad || h.ccn > SQ_SNAP_CC) return -2;     /* (ccn: the CC values that follow) */
         if (sn) {
-            bcopy_(sn, head, SQ_SNAP_HEAD);
+            sh27_in(&h, sn, map);
             if (old) sn->harm_genre = sn->genre;
             for (t = 0; t < SQ_TRACKS; t++) sn->track[t] = p->track[t];
             bcopy_(sn->lfo, p->lfo, sizeof p->lfo);
         }
         rd_get(&r, tm, 2);
-        for (t = 0; t < SQ_TRACKS; t++) {
+        for (t = 0; t < SQ27_TRACKS; t++) {
             if (!(tm[t >> 3] & (1u << (t & 7u)))) continue;
-            if (sn) rd_track(&r, &sn->track[t], old); else rd_skip(&r, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof(sq_track_cfg_t));
+            if (sn && map[t] < SQ_TRACKS) rd_track(&r, &sn->track[map[t]], old);
+            else rd_skip(&r, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof(sq27_track_t));
         }
         rd_get(&r, &lf, 1);
         if (lf) { if (sn) rd_get(&r, sn->lfo, sizeof sn->lfo); else rd_skip(&r, SQ_LFOS * (uint32_t)sizeof(sq_lfo_t)); }
-        if (sn) rd_get(&r, sn->cc, (uint32_t)head[1] * (uint32_t)sizeof(sq_ccv_t));
-        else rd_skip(&r, (uint32_t)head[1] * (uint32_t)sizeof(sq_ccv_t));
+        if (sn) rd_get(&r, sn->cc, (uint32_t)h.ccn * (uint32_t)sizeof(sq_ccv_t));
+        else rd_skip(&r, (uint32_t)h.ccn * (uint32_t)sizeof(sq_ccv_t));
     }
-    if (row) for (i = 0; i < SQ_STEPS; i++) row[i] = def;
-    for (t = 0; t < SQ_TRACKS && !r.bad; t++) {
+    if (q->row) for (i = 0; i < SQ_STEPS; i++) q->row[i] = def;
+    for (t = 0; t < SQ27_TRACKS && !r.bad; t++) {
         uint8_t pmask = 0u;
         rd_get(&r, &pmask, 1);
         for (pat = 0; pat < SQ_PATTERNS && !r.bad; pat++) {
@@ -3506,7 +3987,8 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
             for (i = 0; i < SQ_STEPS && !r.bad; i++) {
                 sq_step_t *dst;
                 if (!(m[i >> 3] & (1u << (i & 7u)))) continue;
-                dst = p ? &p->step[t][pat][i] : (row && t == want_t && pat == want_pat) ? &row[i] : &tmp;
+                if (p) dst = map[t] < SQ_TRACKS ? &p->step[map[t]][pat][i] : &tmp;
+                else dst = (q->row && t == q->want_t && pat == q->want_pat) ? &q->row[i] : &tmp;
                 rd_step(&r, dst, &def);
             }
         }
@@ -3514,22 +3996,38 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
     rd_get(&r, nb, 2);                                /* the tapes' events */
     ev = (uint32_t)nb[0] | ((uint32_t)nb[1] << 8);
     if (ev > SQ_TAPE_MAX) return -2;
-    if (p) { rd_get(&r, p->tape_ev, ev * sizeof(sq_tape_ev_t)); p->tape_n = (uint16_t)ev; }
-    else rd_skip(&r, ev * (uint32_t)sizeof(sq_tape_ev_t));
-    for (;;) {                                        /* the chunks: 1 = 0.13's sq_ext_t; the others skipped */
+    ev_pos = r.pos;
+    rd_skip(&r, ev * (uint32_t)sizeof(sq_tape_ev_t));
+    if (p && !r.bad) {                                /* each track's events in the project's order of the tracks */
+        uint32_t nt, first, used = 0u, start27[SQ27_TRACKS];
+        for (t = 0, first = 0u; t < SQ27_TRACKS; t++) { start27[t] = first; first += cnt27[t]; }
+        for (nt = 0; nt < SQ_TRACKS; nt++) {
+            p->tape_cnt[nt] = 0u;
+            for (t = 0; t < SQ27_TRACKS; t++) {
+                uint32_t c = cnt27[t];
+                if (map[t] != nt) continue;
+                if (start27[t] + c > ev) c = start27[t] < ev ? ev - start27[t] : 0u;   /* (counts past the events: what there is) */
+                bcopy_(&p->tape_ev[used], in + ev_pos + start27[t] * (uint32_t)sizeof(sq_tape_ev_t), c * (uint32_t)sizeof(sq_tape_ev_t));
+                used += c;
+                p->tape_cnt[nt] = (uint16_t)c;
+            }
+        }
+        p->tape_n = (uint16_t)used;
+    }
+    for (;;) {                                        /* the chunks: 1 the 0.13 block, 2 THEORY, 3 the copies, 4 0.28's */
         uint8_t h[3] = {0, 0, 0};
         uint32_t n;
         rd_get(&r, h, 1);
         if (r.bad || !h[0]) break;
         rd_get(&r, h + 1, 2);
         n = (uint32_t)h[1] | ((uint32_t)h[2] << 8);
-        if (r.bad) break;
+        if (r.bad || r.pos + n > r.len) { r.bad = 1; break; }
         if (h[0] == SQ_CHUNK_EXT && p) {             /* (a longer one, from later: its first bytes are ours) */
-            uint32_t k = n < (uint32_t)sizeof p->ext ? n : (uint32_t)sizeof p->ext;
-            rd_get(&r, &p->ext, k);
-            rd_skip(&r, n - k);
+            uint32_t k = n < (uint32_t)sizeof(sq27_ext_t) ? n : (uint32_t)sizeof(sq27_ext_t);
+            ext27_in(in + r.pos, k, &p->ext, map);
             ext_n = k;
-        } else if (h[0] == SQ_CHUNK_TH && (p || th) && n >= 4u) {   /* 0.23 (what a later one adds after the patterns: skipped) */
+            rd_skip(&r, n);
+        } else if (h[0] == SQ_CHUNK_TH && (p || q->th) && n >= 4u) {   /* 0.23 (what a later one adds after the patterns: skipped) */
             uint8_t hd[4] = {0u, 0u, 0u, 0u};
             uint32_t k, used = 4u;
             rd_get(&r, hd, 4);
@@ -3543,43 +4041,63 @@ static int sq_parse(const uint8_t *in, uint32_t len, sq_project_t *p, uint8_t wa
                 rd_get(&r, at, 2);
                 rd_get(&r, &m, sizeof m);
                 used += 2u + (uint32_t)sizeof m;
-                if (r.bad || at[0] >= SQ_TRACKS || at[1] >= SQ_PATTERNS) continue;
-                if (p) p->th.pat[at[0]][at[1]] = m;
-                else if (at[0] == want_t && at[1] == want_pat) *th = m;   /* (one pattern asked: RELOAD) */
+                if (r.bad || at[1] >= SQ_PATTERNS) continue;
+                if (p) { if (map_track(at[0], map) < SQ_TRACKS) p->th.pat[map[at[0]]][at[1]] = m; }
+                else if (at[0] == q->want_t && at[1] == q->want_pat) *q->th = m;   /* (one pattern asked: RELOAD) */
             }
             rd_skip(&r, n - used);
-        } else if (h[0] == SQ_CHUNK_GHOST && (p || row)) {   /* 0.24: the copies (the steps were read before: the flag is put on them) */
+        } else if (h[0] == SQ_CHUNK_GHOST && (p || q->row)) {   /* 0.24: the copies (the steps were read before: the flag is put on them) */
             uint32_t used = 0u;
             while (used + 4u <= n && !r.bad) {
                 uint8_t e[4] = {255u, 255u, 0u, 0u};
-                sq_step_t *dst;
+                sq_step_t *dst = 0;
                 rd_get(&r, e, 4);
                 used += 4u;
-                if (r.bad || e[0] >= SQ_TRACKS || e[1] >= SQ_PATTERNS || e[2] >= e[3] || e[3] > SQ_STEPS) continue;
-                dst = p ? p->step[e[0]][e[1]] : (e[0] == want_t && e[1] == want_pat) ? row : 0;
+                if (r.bad || e[1] >= SQ_PATTERNS || e[2] >= e[3] || e[3] > SQ_STEPS) continue;
+                if (p) { if (map_track(e[0], map) < SQ_TRACKS) dst = p->step[map[e[0]]][e[1]]; }
+                else if (e[0] == q->want_t && e[1] == q->want_pat) dst = q->row;
                 if (dst) for (i = e[2]; i < e[3]; i++) dst[i].flags |= SQ_STEP_GHOST;
             }
             rd_skip(&r, n - used);
+        } else if (h[0] == SQ_CHUNK_X28 && (p || q->cfg || q->row)) {
+            x28_in(in + r.pos, n, q);
+            rd_skip(&r, n);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
-    if (p && ext_n < SQ_EXT_019)                       /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
+    if (p && ext_n < SQ27_EXT_019)                     /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
-    if (p) sq_project_sanitize(p);
+    if (p) { refs_in(p, map); sq_project_sanitize(p); }
     return 0;
 }
 
-int sq_image_ok(const uint8_t *in, uint32_t len) { return sq_parse(in, len, 0, 0u, 0u, 0, 0, 0); }
+int sq_image_ok(const uint8_t *in, uint32_t len)
+{
+    parse_t q;
+    parse_init(&q);
+    return sq_parse(in, len, &q);
+}
 
-int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len) { return sq_parse(in, len, p, 0u, 0u, 0, 0, 0); }
+int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len)
+{
+    parse_t q;
+    parse_init(&q);
+    q.p = p;
+    return sq_parse(in, len, &q);
+}
 
 int sq_image_track_th(const uint8_t *in, uint32_t len, uint8_t t, uint8_t pat, sq_track_cfg_t *cfg, sq_step_t *row, sq_thpat_t *th)
 {
-    int rc;
+    parse_t q;
     uint32_t i;
+    int rc;
     if (t >= SQ_TRACKS || pat >= SQ_PATTERNS) return -1;
     if (th) { th->seed = 0u; th->style = 0u; th->func = 0u; th->var = 0u; th->vary = 0u; th->energy = 0u; th->metre = 0u; }
-    rc = sq_parse(in, len, 0, t, pat, cfg, row, th);
+    sq_track_default(cfg, t);
+    parse_init(&q);
+    q.want_t = t; q.want_new = t; q.want_pat = pat;
+    q.cfg = cfg; q.row = row; q.th = th;
+    rc = sq_parse(in, len, &q);
     if (rc) return rc;
     if (th) sq_thpat_sanitize(th);
     sq_track_sanitize(cfg);

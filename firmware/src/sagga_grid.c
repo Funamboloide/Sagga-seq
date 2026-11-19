@@ -104,7 +104,7 @@ static uint32_t g_down[2];                /* step pads that are down (64 bits; n
 
 #define g_lane env_lane                   /* CC view: the lane being drawn (0.10: the same lane the panel shows) */
 static uint16_t g_fx_held, g_fx_latch, g_kill_held, g_kill_latch;   /* FX view: momentary and (with SHIFT) latched */
-static uint16_t g_loop_mask = 0xFFFFu;    /* FX view: the tracks the DJ loop takes */
+static uint16_t g_loop_mask = (uint16_t)SQ_TRACK_BITS;   /* FX view: the tracks the DJ loop takes */
 static uint8_t g_temp_held;               /* FX view: TEMP is held on its pad (not latched) */
 static uint8_t g_song_sel;                /* SONG view: the entry being edited (len = a new one at the end) */
 static uint8_t g_pc_scene;                /* TRACK 2 view: the scene whose Program Change row 4 sets */
@@ -272,7 +272,7 @@ static void gr_ctl(uint8_t id, uint8_t down)
     if (down) { g_shift_clean = 0u; g_shift_tapped = 0u; }   /* (a SHIFT used with something is not a tap) */
     if (id == GC_FILL) {
         if (!down) grid_fill = 0u;
-        else if (shift) select_track((uint8_t)(selected_track ^ 8u));       /* SHIFT + FILL: the other eight tracks */
+        else if (shift) select_track(track_other_bank(selected_track));     /* SHIFT + FILL: the other bank (0.28: 9-12) */
         else grid_fill = 1u;
         ui_dirty = 1u;
         return;
@@ -420,6 +420,7 @@ static void gr_pad_perf(uint8_t x, uint8_t y, uint8_t down)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y);
     uint16_t bit = (uint16_t)(1u << t);
+    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
     if (x == 11u) {                                     /* KILL, like the FX view's row 6 */
         if (!down) g_kill_held &= (uint16_t)~bit;
         else {
@@ -511,7 +512,7 @@ static void gr_pad_cc(uint8_t x, uint8_t y)
         break;
     }
     case 4:
-        if (x < SQ_LANES) { g_lane = x; status_num("LANE ", (uint32_t)x + 1u); }   /* 0.10: six lanes (pads 1-6), the pages on 9-12 */
+        if (x < SQ_LANES) { g_lane = x; status_num("LANE ", (uint32_t)x + 1u); }   /* 0.10: six lanes (pads 1-6; 0.28: eight, 1-8), the pages on 9-12 */
         else if (x >= 8u && x < 12u) { page = (uint8_t)(x - 8u); cursor_step = (uint8_t)(page * 16u); }
         else if (x == 15u) {                            /* clear the lane in the whole pattern */
             uint32_t i;
@@ -647,7 +648,8 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
 static void gr_pad_euclid(uint8_t x, uint8_t y)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y);
-    sq_track_cfg_t *c = &project.track[t];
+    sq_track_cfg_t *c = &project.track[t < SQ_TRACKS ? t : 0u];
+    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
     if (x == 0u) {
         c->flags ^= SQ_TF_EUC;
         euclid_status(t);
@@ -769,8 +771,11 @@ static uint8_t gr_drum_step(uint32_t t, uint32_t x)
 
 static void gr_pad_drum(uint8_t x, uint8_t y, uint8_t down)
 {
-    uint8_t t = (uint8_t)((selected_track & 8u) + y), stn = gr_drum_step(t, x), id = (uint8_t)(y * 16u + x);
-    sq_step_t *s = &project.step[t][tr[t].pattern][stn];
+    uint8_t t = (uint8_t)((selected_track & 8u) + y), stn, id = (uint8_t)(y * 16u + x);
+    sq_step_t *s;
+    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
+    stn = gr_drum_step(t, x);
+    s = &project.step[t][tr[t].pattern][stn];
     if (!down) { if (g_drum_hold == id) g_drum_hold = 255u; return; }
     if (gr_shift()) {
         if (x < 4u) { page = x; cursor_step = (uint8_t)(page * 16u); status_num("PAGE ", (uint32_t)x + 1u); }
@@ -792,6 +797,7 @@ static void gr_drum_service(void)              /* a DRUM pad held long enough se
     if (g_drum_hold >= 128u || (uint32_t)(fm1_ms - g_drum_since) < SQ_HOLD_MS) return;
     x = g_drum_hold & 15u; y = g_drum_hold >> 4;
     t = (uint8_t)((selected_track & 8u) + y);
+    if (t >= SQ_TRACKS) { g_drum_hold = 255u; return; }
     stn = gr_drum_step(t, x);
     project.step[t][tr[t].pattern][stn] = g_drum_prev;
     if (t != selected_track) select_track(t);
@@ -873,6 +879,7 @@ static uint16_t gr_loop_ticks(uint8_t x) { return x < 8u ? loop_ticks(x) : x < 1
 static void gr_pad_fx(uint8_t x, uint8_t y, uint8_t down)
 {
     uint16_t bit = (uint16_t)(1u << x);
+    if ((y == 3u || y == 5u) && x >= SQ_TRACKS) return;   /* 0.28: rows 4 and 6 are the tracks: twelve of them */
     if (y == 0u) {
         if (!down) g_fx_held &= (uint16_t)~bit;
         else if (gr_shift()) g_fx_latch ^= bit;
@@ -951,6 +958,7 @@ static void gr_pad_proj(uint8_t x, uint8_t y)
     case 1: project.key_scale = x; key_toast(); break;
     case 2: if (x < 15u) { project.key_shift = GR_SHIFT[x]; key_toast(); } break;
     case 3:                                             /* the mode of track x: FREE, IN KEY, DRUM */
+        if (x >= SQ_TRACKS) break;                      /* (0.28: twelve tracks) */
         set_track_mode(x, (uint8_t)((track_mode(x) + 1u) % 3u));
         { char *p = msg_buf; p = put_s(p, "T"); p = put_u(p, (uint32_t)x + 1u); p = put_s(p, " "); p = put_s(p, track_mode_name(x)); finish(p); status_msg(msg_buf); }
         break;
@@ -1053,6 +1061,7 @@ static void gr_pad_lib(uint8_t x, uint8_t y)
  *   7 the progression (tap: in the queue)     8 the trail (tap: INDIETRO up to there) */
 static void gr_pad_viaggio(uint8_t x, uint8_t y, uint8_t down)
 {
+    if ((y == 1u || y == 2u) && x >= SQ_TRACKS) return;   /* 0.28: rows 2 and 3 are the tracks: twelve of them */
     if (y == 1u) {                                        /* a track: tap now, the dice if it is held; SHIFT: its role (0.10) */
         if (down && gr_shift()) {
             sq_track_cfg_t *c = &project.track[x];
@@ -1347,7 +1356,7 @@ static void gr_render_step(void)
 static void gr_render_perf(void)
 {
     uint32_t y, x, b = selected_track & 8u;
-    for (y = 0; y < 8u; y++) {
+    for (y = 0; y < 8u && b + y < SQ_TRACKS; y++) {     /* (0.28: the bank of 9-12, four rows) */
         uint32_t t = b + y;
         sq_track_cfg_t *cfg = &project.track[t];
         uint8_t sel = t == selected_track;
@@ -1371,7 +1380,7 @@ static void gr_render_viaggio(void)
         if (x >= bars) gr_put(x, 0, GL_OFF);
         else gr_put(x, 0, (playing && x == vg_bar) ? GL_PLAY : x < vg_bar ? GL_ON : (vg_fill && x + 1u == bars) ? GL_FILL : GL_FAINT);
     }
-    for (x = 0; x < 16u; x++) {                            /* row 2: the tracks; row 3: the queue */
+    for (x = 0; x < SQ_TRACKS; x++) {                      /* row 2: the tracks; row 3: the queue (0.28: twelve) */
         uint8_t st = vg_state(x), role;
         int q;
         role = st == SQ_TS_EMPTY ? GL_FAINT : st == SQ_TS_PROPOSED ? GL_DIM : st == SQ_TS_IN ? GL_ON : GL_MUTED;
@@ -1622,7 +1631,7 @@ static void gr_render_euclid(void)
 {
     uint32_t y, x, b = selected_track & 8u;
     uint8_t sh = gr_shift();
-    for (y = 0; y < 8u; y++) {
+    for (y = 0; y < 8u && b + y < SQ_TRACKS; y++) {     /* (0.28: the bank of 9-12, four rows) */
         uint32_t t = b + y;
         const sq_track_cfg_t *c = &project.track[t];
         uint8_t euc = (c->flags & SQ_TF_EUC) ? 1u : 0u, sel = t == selected_track;
@@ -1693,7 +1702,7 @@ static void gr_render_drum(void)
 {
     uint32_t y, x, b = selected_track & 8u;
     uint8_t shift = gr_shift();
-    for (y = 0; y < 8u; y++) {
+    for (y = 0; y < 8u && b + y < SQ_TRACKS; y++) {     /* (0.28: the bank of 9-12, four rows) */
         uint32_t t = b + y;
         const sq_track_cfg_t *c = &project.track[t];
         sq_step_t *row = project.step[t][tr[t].pattern];
@@ -1759,8 +1768,10 @@ static void gr_render_fx(void)
             int32_t v = (int32_t)x - 7;
             gr_put(x, 2, v == kt && ktrans_pend != SQ_KT_NONE ? GL_PEND : v == project.live.ktrans ? GL_WHITE : v == 0 ? GL_DIM : GL_VIOLET);
         }
-        gr_put(x, 3, ((g_loop_mask >> x) & 1u) ? (x == selected_track ? GL_ACCENT : GL_ON) : GL_FAINT);
-        gr_put(x, 5, (grid_kill >> x) & 1u ? GL_PLAY : !track_audible(x) ? GL_MUTED : x == selected_track ? GL_CURSOR : GL_DIM);
+        if (x < SQ_TRACKS) {                                /* (0.28: the rows of the tracks: twelve) */
+            gr_put(x, 3, ((g_loop_mask >> x) & 1u) ? (x == selected_track ? GL_ACCENT : GL_ON) : GL_FAINT);
+            gr_put(x, 5, (grid_kill >> x) & 1u ? GL_PLAY : !track_audible(x) ? GL_MUTED : x == selected_track ? GL_CURSOR : GL_DIM);
+        }
     }
     gr_put(15, 1, loop_on ? GL_PLAY : GL_FAINT);                                          /* EXIT */
     gr_put(13, 1, echo_global ? GL_PLAY : GL_BLUE);                                       /* 0.8: ECHO */
@@ -1790,7 +1801,7 @@ static void gr_render_proj(void)
     gr_put(4, 4, project.live.remote_mode == SQ_RM_OFF ? GL_FAINT : project.live.remote_mode == SQ_RM_14 ? GL_ON : GL_ACCENT);   /* the remote: 14, 13 + 14 */
     for (x = 0; x < 16u; x++) {
         gr_put(x, 1, project.key_scale == x ? GL_WHITE : GL_VIOLET);
-        gr_put(x, 3, track_drum(x) ? GL_ORANGE : track_in_key(x) ? GL_CYAN : GL_FAINT);
+        if (x < SQ_TRACKS) gr_put(x, 3, track_drum(x) ? GL_ORANGE : track_in_key(x) ? GL_CYAN : GL_FAINT);
         gr_put(x, 7, bar == x ? GL_PLAY : GL_FAINT);
     }
     for (x = 0; x < 15u; x++) gr_put(x, 2, project.key_shift == GR_SHIFT[x] ? GL_WHITE : GR_SHIFT[x] == 0 ? GL_DIM : GL_FAINT);
