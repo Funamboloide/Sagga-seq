@@ -20,7 +20,8 @@ enum { SX_POS_SUB = 0x30, SX_POS = 0x31, SX_PREVIEW = 0x32 };
 
 static uint8_t link_on, link_play_last = 255u;
 static uint32_t link_until;
-static uint8_t link_out[5u + 3u + 3u + 2u + 2u * SQ_TRACKS + 1u];
+#define LINK_TRACKS 16u                          /* 0.28: the message keeps sixteen places (the last four 0): a Pi of 0.27 reads it */
+static uint8_t link_out[5u + 3u + 3u + 2u + 2u * LINK_TRACKS + 1u];
 static uint8_t aud_note[SQ_POLY_OUT], aud_ch, aud_n;   /* the notes the editor asked to hear, sounding */
 static uint32_t aud_off_ms;
 static uint32_t link_sent;                              /* (the simulator's dump: positions sent) */
@@ -35,9 +36,9 @@ static void link_pos_send(void)
     *q++ = song_on ? (uint8_t)(song_pos & 127u) : 127u;
     *q++ = (uint8_t)(clk & 127u); *q++ = (uint8_t)((clk >> 7) & 127u); *q++ = (uint8_t)((clk >> 14) & 127u);
     *q++ = (uint8_t)(bpm & 127u); *q++ = (uint8_t)((bpm >> 7) & 127u);
-    for (t = 0; t < SQ_TRACKS; t++) {                  /* playing: the step sounding (tr[].step is the next one by now) */
-        *q++ = (uint8_t)((playing ? ev[t].step_index : tr[t].step) & 127u);
-        *q++ = (uint8_t)(tr[t].pattern & 127u);
+    for (t = 0; t < LINK_TRACKS; t++) {                /* playing: the step sounding (tr[].step is the next one by now) */
+        *q++ = t < SQ_TRACKS ? (uint8_t)((playing ? ev[t].step_index : tr[t].step) & 127u) : 0u;
+        *q++ = t < SQ_TRACKS ? (uint8_t)(tr[t].pattern & 127u) : 0u;
     }
     *q++ = 0xF7u;
     link_play_last = playing;                          /* (START / STOP: this one says it) */

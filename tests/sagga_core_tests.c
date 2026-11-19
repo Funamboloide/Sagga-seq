@@ -4016,6 +4016,87 @@ static void test_v0231_cell(void)
     CHECK(found > 12000u && lost > 100u && lost < found / 8u);                /* (most stories are short; the long ones are there too) */
 }
 
+/* 0.28: twelve tracks, chords of six notes, eight lanes. Everything goes round the image - what 0.27 has no room for
+ * in chunk 4 -; RELOAD brings a track's lanes 7-8 and a pattern's notes 5-6 too; nothing of it, no chunk 4 */
+static uint32_t v28_rs;
+static uint32_t v28_rnd(void) { v28_rs = v28_rs * 1103515245u + 12345u; return v28_rs >> 8; }
+static void test_v028_image(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    static sq_track_cfg_t cfg;
+    static sq_step_t row[SQ_STEPS];
+    uint32_t n, n0, k, seed, i;
+    for (seed = 1u; seed <= 30u; seed++) {             /* projects of chance bytes, put right by the sanitizer */
+        uint8_t *q = (uint8_t *)&a;
+        uint32_t every = 3u + seed % 9u;
+        v28_rs = seed * 2654435761u;
+        sq_project_init(&a);
+        for (i = 0; i < sizeof a; i++) if (v28_rnd() % (every * 4u) == 0u) q[i] = (uint8_t)v28_rnd();
+        for (i = 0; i < SQ_TRACKS * SQ_PATTERNS * SQ_STEPS; i++)   /* (a copy is a run of steps, never chance bits: the image keeps runs) */
+            a.step[i / (SQ_PATTERNS * SQ_STEPS)][(i / SQ_STEPS) % SQ_PATTERNS][i % SQ_STEPS].flags &= (uint8_t)~SQ_STEP_GHOST;
+        sq_project_sanitize(&a);
+        n = sq_serialize(&a, img, sizeof img);
+        CHECK(n > 0u && sq_image_ok(img, n) == 0);
+        memset(&b, 0x5A, sizeof b);
+        CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+        for (k = 0; k < 8u; k++) {
+            uint8_t t = (uint8_t)((seed * 5u + k) % SQ_TRACKS), pat = (uint8_t)((seed + k * 3u) % SQ_PATTERNS);
+            memset(&cfg, 0xEE, sizeof cfg); memset(row, 0xEE, sizeof row);
+            CHECK(sq_image_track(img, n, t, pat, &cfg, row) == 0 && !memcmp(&cfg, &a.track[t], sizeof cfg) && !memcmp(row, a.step[t][pat], sizeof row));
+        }
+    }
+    /* by hand: a chord of six with locks on the lanes 7 and 8; a lock on lane 8 alone (in 0.27's terms an empty step);
+     * the lanes 7-8 of a track, of a scene, of a snapshot's track */
+    sq_project_init(&a);
+    n0 = sq_serialize(&a, img, sizeof img);
+    CHECK(n0 > 0u && img[n0 - 1u] == 0u && img[n0 - 2u] == 0u && img[n0 - 3u] == 0u);   /* (nothing new: no chunk at all) */
+    {
+        sq_step_t *s = &a.step[3][2][5];
+        static const uint8_t ch[6] = {60u, 64u, 67u, 71u, 74u, 77u};
+        for (k = 0; k < 6u; k++) s->note[k] = ch[k];
+        s->flags = SQ_STEP_ON | SQ_STEP_SET; s->lane[6] = 10u; s->lane[7] = 127u;
+        a.step[0][0][0].lane[7] = 99u;
+        a.track[4].lane_cc[6] = 20u; a.track[4].lane_base[7] = 64u; a.track[4].lane_flags[6] = SQ_LF_SLIDE; a.track[4].lane_hi[7] = 3u;
+        a.scene[9].lane[11][7] = 55u;
+        a.snap[2].used = 1u; a.snap[2].bpm = 120u;
+        for (k = 0; k < SQ_TRACKS; k++) a.snap[2].track[k] = a.track[k];
+        memcpy(a.snap[2].lfo, a.lfo, sizeof a.lfo);
+        a.snap[2].track[4].lane_cc[7] = 91u;
+        sq_project_sanitize(&a);
+    }
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > n0 && sq_image_ok(img, n) == 0);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(b.step[3][2][5].note[5] == 77u && b.step[3][2][5].note[4] == 74u && b.step[3][2][5].lane[7] == 127u && b.step[0][0][0].lane[7] == 99u);
+    CHECK(b.track[4].lane_cc[6] == 20u && b.track[4].lane_base[7] == 64u && b.track[4].lane_flags[6] == SQ_LF_SLIDE && b.track[4].lane_hi[7] == 3u);
+    CHECK(b.scene[9].lane[11][7] == 55u && b.snap[2].track[4].lane_cc[7] == 91u && b.snap[2].track[5].lane_cc[7] == 72u && b.snap[2].track[4].lane_cc[6] == 20u);
+    CHECK(sq_image_track(img, n, 3u, 2u, &cfg, row) == 0 && row[5].note[5] == 77u && row[5].lane[6] == 10u && row[4].note[4] == SQ_NOTE_NONE);
+    CHECK(sq_image_track(img, n, 4u, 0u, &cfg, row) == 0 && cfg.lane_cc[6] == 20u && cfg.lane_hi[7] == 3u);
+    /* the chunk is the last one, tag 4, its parts as the format says */
+    {
+        uint32_t at = 0u, x;
+        for (x = 0; x + 3u < n; x++) if (img[x] == SQ_CHUNK_X28 && x + 3u + ((uint32_t)img[x + 1u] | ((uint32_t)img[x + 2u] << 8)) == n - 1u) at = x;
+        CHECK(at && img[at + 3u] == SQ_X28_VER && img[at + 4u] == (SQ_X28_LANES | SQ_X28_SCENE | SQ_X28_SNAP | SQ_X28_STEPS));
+        /* cut inside it: refused whole, as any image cut short */
+        CHECK(sq_deserialize(&b, img, n - 5u) != 0);
+        /* a later version of it (another first byte): skipped, the rest of the project as it is */
+        img[at + 3u] = 0u;
+        CHECK(sq_deserialize(&b, img, n) == 0 && b.step[3][2][5].note[4] == SQ_NOTE_NONE && b.step[3][2][5].note[3] == 71u && b.track[4].lane_cc[6] == 73u);
+        img[at + 3u] = SQ_X28_VER;
+    }
+    /* the twelve tracks go out as sixteen: the last four empty, as a new 0.27 project has them */
+    {
+        sq27_track_t x;
+        uint32_t off = 4u + 4u + 2u + 1u + 3u + 1u + (uint32_t)sizeof a.key + (uint32_t)sizeof a.device + (uint32_t)sizeof a.uprog + 12u * (uint32_t)sizeof x;
+        memcpy(&x, img + off, sizeof x);
+        CHECK(x.head[0] == 12u && x.lane_cc[0] == 74u && x.lane_cc[5] == 10u && x.lane_base[0] == SQ_LANE_NONE);   /* track 13: channel 13, the default lanes */
+        memcpy(&x, img + off + 3u * (uint32_t)sizeof x, sizeof x);
+        CHECK(x.head[0] == 1u);                                                                                   /* track 16: channel 2 (sixteen on fourteen) */
+    }
+}
+
 int main(void)
 {
     test_v012_break();
@@ -4058,6 +4139,7 @@ int main(void)
     test_v026_image();
     test_v027_return();
     test_v027_mark();
+    test_v028_image();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

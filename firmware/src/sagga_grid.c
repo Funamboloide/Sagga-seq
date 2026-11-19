@@ -1156,6 +1156,7 @@ static uint8_t gr_pt(int g, uint32_t k)
 static void gr_desc_of(int g, uint32_t k, uint8_t t, pick_t *d)   /* knob k as track t has it */
 {
     uint8_t keep = selected_track;
+    if (t >= SQ_TRACKS) t = keep;
     selected_track = t;
     pick_desc(g, k, d);
     selected_track = keep;
@@ -1166,6 +1167,7 @@ static void gr_follow_copy(int g, uint32_t k, uint8_t t)
     pick_t me, it;
     uint8_t keep = selected_track;
     int32_t dd[4] = {0, 0, 0, 0};
+    if (t >= SQ_TRACKS) return;
     char *p;
     pick_desc(g, k, &me);
     gr_desc_of(g, k, t, &it);
@@ -1186,6 +1188,7 @@ static void gr_pad_pick(uint8_t x, uint8_t y)
     uint8_t pg = pick_page(g);
     uint32_t key;
     if (y >= 4u && gr_pt(g, y & 3u)) {                                 /* 0.18: a track's knob across the tracks */
+        if (x >= SQ_TRACKS) return;                                    /* (0.28: twelve) */
         if (gr_shift()) select_track(x);
         else gr_follow_copy(g, y & 3u, x);
         return;
@@ -1514,8 +1517,8 @@ static void gr_render_pick(void)
     for (y = 0; y < 8u; y++) {
         pick_t d;
         pick_desc(g, y & 3u, &d);
-        if (y >= 4u && gr_pt(g, y & 3u)) {                             /* 0.18: across the tracks */
-            for (x = 0; x < 16u; x++) {
+        if (y >= 4u && gr_pt(g, y & 3u)) {                             /* 0.18: across the tracks (0.28: twelve) */
+            for (x = 0; x < SQ_TRACKS; x++) {
                 pick_t e;
                 if (x == selected_track) { gr_put((uint8_t)x, (uint8_t)y, GL_WHITE); continue; }
                 gr_desc_of(g, y & 3u, (uint8_t)x, &e);
