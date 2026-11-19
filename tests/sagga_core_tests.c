@@ -1109,7 +1109,7 @@ static void test_beats(void)
 {
     static sq_step_t row[SQ_STEPS];
     uint32_t g, f, v, i;
-    CHECK(SQ_GENRES == 22u && SQ_FUNCS == 26u && SQ_GENRE_BALANI == 14 && SQ_GENRE_HARDCORE == 18 && SQ_GENRE_BAILEFUNK == 20 && SQ_GENRE_MERENGUE == 21 && SQ_BEAT_VARS == 12u);
+    CHECK(SQ_GENRES == 22u && SQ_FUNCS == 27u && SQ_FUNC_BALAFON == 26 && SQ_GENRE_BALANI == 14 && SQ_GENRE_HARDCORE == 18 && SQ_GENRE_BAILEFUNK == 20 && SQ_GENRE_MERENGUE == 21 && SQ_BEAT_VARS == 12u);
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_TECHNO), "TECHNO") && !strcmp(sq_genre_name(SQ_GENRE_GQOM), "GQOM"));
     CHECK(!strcmp(sq_genre_name(SQ_GENRE_UKG), "UK GARAGE") && !strcmp(sq_genre_name(SQ_GENRE_REGGAETON), "REGGAETON"));
     {   /* 0.10: the 24 genres by name (breakbeat, trap, minimal and lo-fi left; UK drill, hardcore, phonk, baile funk came);
@@ -4119,6 +4119,8 @@ static void test_v028_image(void)
 
 /* 0.29: 22 genres. The image keeps 0.28's numbers (a 0.28 opens it with its own genres), chunk 5 says AFRO HOUSE's number
  * is BALANI; an image of 0.28 brings its four gone genres into the ones that took them in */
+#define X29_LEN 59u                              /* chunk 5's data (sagga_seq_core.c SQ_X29_LEN) */
+#define X29_AT (1u + 3u + X29_LEN)               /* ... its id, so many bytes before the image's end */
 static void test_v029_genres(void)
 {
     static sq_project_t a, b;
@@ -4145,17 +4147,17 @@ static void test_v029_genres(void)
     a.snap[1].genre = SQ_GENRE_DUBSTEP; a.snap[1].harm_genre = SQ_GENRE_BALANI; a.snap[1].track[7].src_genre = SQ_GENRE_BALANI;
     sq_project_sanitize(&a);
     n = sq_serialize(&a, img, sizeof img);
-    /* (chunk 5: its id, 10 bytes - 2, the project's progression, the eight snapshots' - and the end) */
-    CHECK(n > 14u && img[n - 1u] == 0u && img[n - 14u] == SQ_CHUNK_X29 && img[n - 13u] == 2u + SQ_SNAPS && img[n - 12u] == 0u && img[n - 11u] == 2u &&
-          img[n - 10u] == a.gen.harm_prog && img[n - 8u] == a.snap[1].harm_prog);
+    /* (chunk 5: its id, 59 bytes - 2, the project's progression, the eight snapshots', where the balafon is - and the end) */
+    CHECK(n > X29_AT && img[n - 1u] == 0u && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 1u] == X29_LEN && img[n - X29_AT + 2u] == 0u &&
+          img[n - X29_AT + 3u] == 2u && img[n - X29_AT + 4u] == a.gen.harm_prog && img[n - X29_AT + 6u] == a.snap[1].harm_prog);
     memset(&b, 0x5A, sizeof b);
     CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));       /* back whole: BALANI where it was */
     CHECK(sq_image_track_th(img, n, 2u, 1u, &cfg, row, &b.th.pat[0][0]) == 0 && SQ_THP_STYLE(&b.th.pat[0][0]) == SQ_GENRE_BALANI);
     CHECK(sq_image_track(img, n, 3u, 0u, &cfg, row) == 0 && cfg.src_genre == SQ_GENRE_BALANI);       /* RELOAD: the track's genre */
     /* the same image without chunk 5 (as a 0.28 saves it again): AFRO HOUSE's number is GQOM, everything else as it was */
-    img[n - 14u] = 0u;
+    img[n - X29_AT] = 0u;
     memset(&b, 0x5A, sizeof b);
-    CHECK(sq_deserialize(&b, img, n - 13u) == 0 && b.gen.genre == SQ_GENRE_GQOM && b.gen.harm_genre == SQ_GENRE_REGGAETON &&
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.gen.genre == SQ_GENRE_GQOM && b.gen.harm_genre == SQ_GENRE_REGGAETON &&
           b.viaggio.set_genre == SQ_GENRE_GQOM && b.track[3].src_genre == SQ_GENRE_GQOM && b.track[4].src_genre == SQ_GENRE_MERENGUE &&
           b.track[5].src_genre == 255u && SQ_THP_STYLE(&b.th.pat[2][1]) == SQ_GENRE_GQOM && SQ_THP_STYLE(&b.th.pat[6][0]) == SQ_TH_FREE &&
           b.snap[1].genre == SQ_GENRE_DUBSTEP && b.snap[1].harm_genre == SQ_GENRE_GQOM && b.snap[1].track[7].src_genre == SQ_GENRE_GQOM);
@@ -4164,7 +4166,7 @@ static void test_v029_genres(void)
     a.track[3].src_genre = SQ_GENRE_UKG; a.th.pat[2][1].style = SQ_THP_PACK(SQ_GENRE_DUBSTEP, 16u);
     a.snap[1].harm_genre = SQ_GENRE_JUNGLE; a.snap[1].track[7].src_genre = SQ_GENRE_PHONK; a.snap[1].track[3].src_genre = SQ_GENRE_HOUSE;
     n = sq_serialize(&a, img, sizeof img);
-    CHECK(n > 14u && img[n - 14u] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
+    CHECK(n > X29_AT && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
     memset(&b, 0x5A, sizeof b);
     CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
 }
@@ -4193,18 +4195,66 @@ static void test_v029_progs(void)
     a.snap[3].harm_prog = SQ_PROG_PI; a.snap[3].genre = SQ_GENRE_HOUSE; a.snap[3].harm_genre = SQ_GENRE_HOUSE;
     sq_project_sanitize(&a);
     n = sq_serialize(&a, img, sizeof img);
-    CHECK(n > 14u && img[n - 14u] == SQ_CHUNK_X29 && img[n - 11u] == 2u && img[n - 10u] == 6u && img[n - 7u] == 7u && img[n - 6u] == SQ_PROG_PI);
+    CHECK(n > X29_AT && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 3u] == 2u && img[n - X29_AT + 4u] == 6u && img[n - X29_AT + 7u] == 7u && img[n - X29_AT + 8u] == SQ_PROG_PI);
     memset(&b, 0x5A, sizeof b);
     CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
-    img[n - 14u] = 0u;
+    img[n - X29_AT] = 0u;
     memset(&b, 0x5A, sizeof b);
-    CHECK(sq_deserialize(&b, img, n - 13u) == 0 && b.gen.harm_prog == 0u && b.snap[2].harm_prog == 0u && b.snap[3].harm_prog == SQ_PROG_PI && b.gen.genre == SQ_GENRE_HOUSE);
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.gen.harm_prog == 0u && b.snap[2].harm_prog == 0u && b.snap[3].harm_prog == SQ_PROG_PI && b.gen.genre == SQ_GENRE_HOUSE);
     /* the player's and the Pi's: no chunk 5 - 0.28's own numbers in the image, back whole */
     a.gen.harm_prog = SQ_LIB_PROGS + 3u; a.snap[2].harm_prog = SQ_LIB_PROGS; a.snap[3].harm_prog = 5u;
     n = sq_serialize(&a, img, sizeof img);
-    CHECK(n > 14u && img[n - 14u] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
+    CHECK(n > X29_AT && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
     memset(&b, 0x5A, sizeof b);
     CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+}
+
+/* 0.29: the BALAFON, a part and a role 0.28 has not. In the image it is 0.28's LEAD (a 0.28 plays a lead there), and
+ * chunk 5 marks where it is the balafon: the tracks' roles and parts, the patterns the engines made, the BEAT part, the
+ * snapshots' tracks. A LEAD stays a LEAD; RELOAD brings the balafon back too */
+static void test_v029_balafon(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    static sq_track_cfg_t cfg;
+    static sq_step_t row[SQ_STEPS];
+    static sq_thpat_t th;
+    uint32_t n, k;
+    CHECK(sq_role_func(SQ_ROLE_BALAFON) == SQ_FUNC_BALAFON && sq_func_role(SQ_FUNC_BALAFON) == SQ_ROLE_BALAFON && sq_func_family(SQ_FUNC_BALAFON) == SQ_FUNC_ARP &&
+          sq_func_kind(SQ_FUNC_BALAFON) == SQ_KIND_MONO && sq_func_tune(SQ_FUNC_BALAFON) && !strcmp(sq_role_name(SQ_ROLE_BALAFON), "BALAFON") &&
+          !strcmp(sq_func_name(SQ_FUNC_BALAFON), "BALAFON") && sq_genre_has(SQ_GENRE_BALANI, SQ_FUNC_BALAFON) && !sq_genre_has(SQ_GENRE_TECHNO, SQ_FUNC_BALAFON));
+    sq_project_init(&a);
+    a.gen.genre = SQ_GENRE_BALANI; a.gen.harm_genre = SQ_GENRE_BALANI; a.viaggio.set_genre = SQ_GENRE_BALANI;
+    a.gen.func = SQ_FUNC_BALAFON;
+    a.track[6].role = SQ_ROLE_BALAFON; a.track[6].src_func = SQ_FUNC_BALAFON; a.track[6].src_genre = SQ_GENRE_BALANI; a.track[6].src_var = 2u;
+    a.track[7].role = SQ_ROLE_LEAD; a.track[7].src_func = SQ_FUNC_LEAD; a.track[7].src_genre = SQ_GENRE_TECHNO; a.track[7].src_var = 1u;   /* a LEAD stays one */
+    a.th.pat[6][2].seed = 11u; a.th.pat[6][2].style = SQ_THP_PACK(SQ_GENRE_BALANI, 16u); a.th.pat[6][2].func = SQ_FUNC_BALAFON;
+    a.th.pat[7][0].seed = 12u; a.th.pat[7][0].style = SQ_THP_PACK(SQ_GENRE_BALANI, 16u); a.th.pat[7][0].func = SQ_FUNC_LEAD;
+    a.snap[4].used = 1u; for (k = 0; k < SQ_TRACKS; k++) a.snap[4].track[k] = a.track[k];
+    memcpy(a.snap[4].lfo, a.lfo, sizeof a.lfo);
+    a.snap[4].genre = SQ_GENRE_BALANI; a.snap[4].harm_genre = SQ_GENRE_BALANI;
+    a.snap[4].track[6].role = SQ_ROLE_LEAD; a.snap[4].track[6].src_func = SQ_FUNC_LEAD;         /* the snapshot: a LEAD there, */
+    a.snap[4].track[9].role = SQ_ROLE_BALAFON; a.snap[4].track[9].src_func = SQ_FUNC_BALAFON;   /* the balafon here */
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > X29_AT && img[n - X29_AT] == SQ_CHUNK_X29 && img[n - X29_AT + 3u] == 2u);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));        /* back whole */
+    CHECK(sq_image_track(img, n, 6u, 0u, &cfg, row) == 0 && cfg.role == SQ_ROLE_BALAFON && cfg.src_func == SQ_FUNC_BALAFON);   /* RELOAD */
+    CHECK(sq_image_track(img, n, 7u, 0u, &cfg, row) == 0 && cfg.role == SQ_ROLE_LEAD && cfg.src_func == SQ_FUNC_LEAD);
+    CHECK(sq_image_track_th(img, n, 6u, 2u, &cfg, row, &th) == 0 && th.func == SQ_FUNC_BALAFON);
+    CHECK(sq_image_track_th(img, n, 7u, 0u, &cfg, row, &th) == 0 && th.func == SQ_FUNC_LEAD);
+    /* without chunk 5 (a 0.28 saved it again): the balafon is a LEAD everywhere, BALANI GQOM */
+    img[n - X29_AT] = 0u;
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n - X29_AT + 1u) == 0 && b.track[6].role == SQ_ROLE_LEAD && b.track[6].src_func == SQ_FUNC_LEAD &&
+          b.th.pat[6][2].func == SQ_FUNC_LEAD && b.gen.func == SQ_FUNC_LEAD && b.snap[4].track[9].role == SQ_ROLE_LEAD &&
+          b.snap[4].track[9].src_func == SQ_FUNC_LEAD && b.gen.genre == SQ_GENRE_GQOM && b.track[7].role == SQ_ROLE_LEAD);
+    /* 0.29 also keeps the BEAT part past the sixteenth (until 0.28 a LEAD chosen came back a KICK) */
+    sq_project_init(&a);
+    a.gen.func = SQ_FUNC_VOX;
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(sq_deserialize(&b, img, n) == 0 && b.gen.func == SQ_FUNC_VOX && img[n - X29_AT] != SQ_CHUNK_X29 && img[n - 5u] != SQ_CHUNK_X29);
 }
 
 int main(void)
@@ -4252,6 +4302,7 @@ int main(void)
     test_v028_image();
     test_v029_genres();
     test_v029_progs();
+    test_v029_balafon();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

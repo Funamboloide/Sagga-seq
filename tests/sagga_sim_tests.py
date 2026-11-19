@@ -8888,7 +8888,8 @@ def t023_theory_genres():
         # ---- every genre: BAND, by the buttons; each part is what the engines make of the seed in that genre's style
         # (a band goes onto the tracks that have its roles: a part is found by what the engines say they made there)
         FUNCS = {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6, "CLAP": 9, "OPEN HAT": 10, "RIDE": 11, "SHAKER": 12, "CONGA": 13,
-                 "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20, "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25}
+                 "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20, "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25,
+                 "BALAFON": 26}
         bad, sizes, counted = [], [], 0
         for g in range(22):                                     # (a new project each: a band wants free tracks for its roles)
             s = Script()

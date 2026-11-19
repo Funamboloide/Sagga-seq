@@ -1415,7 +1415,7 @@ static void beat_onto(uint8_t t, uint8_t func, uint8_t var);
  * a track that was a tune's goes back to HOLD, the ways the player chose for held notes (RETRIG, LEGATO) stay. */
 static uint8_t follow_way_for(const sq_track_cfg_t *c, uint8_t func)
 {
-    if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) return SQ_FM_MELODY;
+    if (sq_func_tune(func)) return SQ_FM_MELODY;      /* (0.29: the balafon too) */
     /* 0.26 THE CHORDS MOVE LITTLE: the chords a hand holds (a PAD, a PIANO) follow SMOOTH - each note to the nearest note
      * of the chord playing; a riff's chords (a STAB, the CHORD part) go on moving whole, as riffs do */
     if (func == SQ_FUNC_PAD || func == SQ_FUNC_PIANO)

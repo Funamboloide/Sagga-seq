@@ -1067,7 +1067,7 @@ void sq_project_sanitize(sq_project_t *p)
     {
         sq_gen_t *g = &p->gen;
         if (g->genre >= SQ_SET_GENRES) g->genre = 0u;  /* (0.29: a genre there is - the library's are the set's) */
-        if (g->func >= 16u) g->func = 0u;
+        if (g->func >= 32u) g->func = 0u;              /* (0.29: every part - until then 16, and a LEAD came back a KICK) */
         if (g->var >= 16u) g->var = 0u;
         if (g->scope >= SQ_SCOPES) g->scope = SQ_SCOPE_THIS;
         g->targets = (uint8_t)((g->targets & (SQ_GT_NOTES | SQ_GT_CC | SQ_GT_LFO)) | SQ_GT_RHYTHM);
@@ -3382,9 +3382,27 @@ uint8_t sq_prog_to28(uint8_t p)
     return p < SQ_PROGS28 ? p : p < SQ_LIB_PROGS ? 0u : p < SQ_PROGS_ALL ? (uint8_t)(p - (SQ_LIB_PROGS - SQ_PROGS28)) : 0u;
 }
 static uint8_t prog_new29(uint8_t p) { return (uint8_t)(p >= SQ_PROGS28 && p < SQ_LIB_PROGS); }
-/* chunk 5 (SQ_CHUNK_X29): its first byte 1, the genres are 0.29's; 2, the progressions follow too, as 0.29 numbers them
- * - the project's, then each snapshot's */
-#define SQ_X29_LEN (2u + SQ_SNAPS)
+/* 0.29: the BALAFON, a part and a role 0.28 has not: in the image it is 0.28's LEAD, and chunk 5 marks where it is the
+ * balafon (a 0.28 plays a lead there) */
+#define SQ_FUNC29_BALAFON 26u                /* (sagga_beats.h SQ_FUNC_BALAFON: the core does not include the library) */
+#define SQ_FUNC28_LEAD 24u                   /* (... SQ_FUNC_LEAD) */
+#define TR27_TAIL_AT(f) (__builtin_offsetof(sq_track_cfg_t, f) - (SQ27_TRACK_HEAD + 4u * SQ_LANES))
+typedef char tr27_role_func_in_tail[(__builtin_offsetof(sq_track_cfg_t, role) >= SQ27_TRACK_HEAD + 4u * SQ_LANES &&
+                                     TR27_TAIL_AT(src_func) < SQ27_TRACK_TAIL) ? 1 : -1];
+static uint8_t bal_role(uint8_t r) { return r == SQ_ROLE_BALAFON ? (uint8_t)SQ_ROLE_LEAD : r; }
+static uint8_t bal_func(uint8_t f) { return f == SQ_FUNC29_BALAFON ? (uint8_t)SQ_FUNC28_LEAD : f; }
+/* chunk 5 (SQ_CHUNK_X29): its first byte 1, the genres are 0.29's; 2, what 0.28 has not follows - the progressions as
+ * 0.29 numbers them (the project's, each snapshot's), then where the balafon is (a bit a track whose role is, whose
+ * part is; a byte a track, a bit a pattern the engines made as one; the BEAT part; each snapshot's two bits a track) */
+#define X29_PROG 0u
+#define X29_ROLE (1u + SQ_SNAPS)
+#define X29_FUNC (X29_ROLE + 2u)
+#define X29_TH (X29_FUNC + 2u)
+#define X29_GEN (X29_TH + SQ_TRACKS)
+#define X29_SNAP (X29_GEN + 1u)
+#define X29_DATA (X29_SNAP + 4u * SQ_SNAPS)
+#define SQ_X29_LEN (1u + X29_DATA)
+typedef char x29_fits[(SQ_TRACKS <= 16u && SQ_PATTERNS <= 8u) ? 1 : -1];
 /* a project that has BALANI somewhere: the only genre whose 0.28 number (AFRO HOUSE's) reads back as another without
  * chunk 5 - every other one goes to 0.28's number and back as it was, so an image without BALANI is 0.28's byte for byte
  * (and without the genre's progressions 7 and 8: uses_prog78) */
@@ -3394,6 +3412,56 @@ static uint8_t uses_prog78(const sq_project_t *p)
     if (prog_new29(p->gen.harm_prog)) return 1u;
     for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used && prog_new29(p->snap[k].harm_prog)) return 1u;
     return 0u;
+}
+static uint8_t uses_balafon(const sq_project_t *p)
+{
+    uint32_t t, k;
+    if (p->gen.func == SQ_FUNC29_BALAFON) return 1u;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].role == SQ_ROLE_BALAFON || p->track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
+        for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) return 1u;
+    }
+    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used)
+        for (t = 0; t < SQ_TRACKS; t++) if (p->snap[k].track[t].role == SQ_ROLE_BALAFON || p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
+    return 0u;
+}
+/* chunk 5's data, of a project */
+static void x29_of(const sq_project_t *p, uint8_t *x)
+{
+    uint32_t t, k;
+    for (k = 0; k < X29_DATA; k++) x[k] = 0u;
+    x[X29_PROG] = p->gen.harm_prog;
+    for (k = 0; k < SQ_SNAPS; k++) x[X29_PROG + 1u + k] = p->snap[k].harm_prog;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->track[t].role == SQ_ROLE_BALAFON) x[X29_ROLE + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        if (p->track[t].src_func == SQ_FUNC29_BALAFON) x[X29_FUNC + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) x[X29_TH + t] |= (uint8_t)(1u << k);
+    }
+    if (p->gen.func == SQ_FUNC29_BALAFON) x[X29_GEN] = 1u;
+    for (k = 0; k < SQ_SNAPS; k++) for (t = 0; t < SQ_TRACKS; t++) {
+        if (p->snap[k].track[t].role == SQ_ROLE_BALAFON) x[X29_SNAP + 4u * k + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+        if (p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) x[X29_SNAP + 4u * k + 2u + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
+    }
+}
+static uint8_t x29_bit(const uint8_t *x, uint32_t at, uint32_t t) { return (uint8_t)(t < 16u && ((x[at + (t >> 3)] >> (t & 7u)) & 1u)); }
+static void bal_track_in(sq_track_cfg_t *c, const uint8_t *x, uint32_t role_at, uint32_t func_at, uint32_t t)   /* (t: the image's track) */
+{
+    if (x29_bit(x, role_at, t) && c->role == SQ_ROLE_LEAD) c->role = SQ_ROLE_BALAFON;
+    if (x29_bit(x, func_at, t) && c->src_func == SQ_FUNC28_LEAD) c->src_func = SQ_FUNC29_BALAFON;
+}
+/* the balafon back where chunk 5 says it was (the image's tracks onto the project's, by map) */
+static void balafon_in(sq_project_t *p, const uint8_t *x, const uint8_t *map)
+{
+    uint32_t t, k;
+    if (x[X29_GEN] & 1u && p->gen.func == SQ_FUNC28_LEAD) p->gen.func = SQ_FUNC29_BALAFON;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        uint8_t nt = map_track((uint8_t)t, map);
+        if (nt >= SQ_TRACKS) continue;
+        bal_track_in(&p->track[nt], x, X29_ROLE, X29_FUNC, t);
+        for (k = 0; k < SQ_PATTERNS; k++)
+            if (((x[X29_TH + t] >> k) & 1u) && p->th.pat[nt][k].func == SQ_FUNC28_LEAD) p->th.pat[nt][k].func = SQ_FUNC29_BALAFON;
+        for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used) bal_track_in(&p->snap[k].track[nt], x, X29_SNAP + 4u * k, X29_SNAP + 4u * k + 2u, t);
+    }
 }
 static uint8_t uses_balani(const sq_project_t *p)
 {
@@ -3412,14 +3480,15 @@ static uint8_t uses_balani(const sq_project_t *p)
     }
     return 0u;
 }
-/* every genre and progression a project keeps, read with 0.28's numbers (v29: the image says it is 0.29's; x29: the
- * progressions as 0.29 numbered them, from chunk 5 - or 0) */
-static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29)
+/* every genre and progression a project keeps, read with 0.28's numbers (v29: the image says it is 0.29's; x29: chunk
+ * 5's data - the progressions as 0.29 numbered them, where the balafon is - or 0) */
+static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29, const uint8_t *map)
 {
     uint32_t t, k;
     p->gen.genre = sq_genre_from28(p->gen.genre, v29);
     p->gen.harm_genre = sq_genre_from28(p->gen.harm_genre, v29);
-    p->gen.harm_prog = x29 ? x29[0] : sq_prog_from28(p->gen.harm_prog);
+    p->gen.harm_prog = x29 ? x29[X29_PROG] : sq_prog_from28(p->gen.harm_prog);
+    if (x29) balafon_in(p, x29, map);
     p->viaggio.set_genre = sq_genre_from28(p->viaggio.set_genre, v29);
     for (t = 0; t < SQ_TRACKS; t++) {
         p->track[t].src_genre = sq_genre_from28(p->track[t].src_genre, v29);
@@ -3430,7 +3499,7 @@ static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29)
         if (!sn->used) continue;
         sn->genre = sq_genre_from28(sn->genre, v29);
         sn->harm_genre = sq_genre_from28(sn->harm_genre, v29);
-        sn->harm_prog = x29 ? x29[1u + k] : sq_prog_from28(sn->harm_prog);
+        sn->harm_prog = x29 ? x29[X29_PROG + 1u + k] : sq_prog_from28(sn->harm_prog);
         for (t = 0; t < SQ_TRACKS; t++) sn->track[t].src_genre = sq_genre_from28(sn->track[t].src_genre, v29);
     }
 }
@@ -3447,6 +3516,8 @@ static void tr27_out(const sq_track_cfg_t *c, sq27_track_t *o)
     }
     bcopy_(o->tail, b + SQ27_TRACK_HEAD + 4u * SQ_LANES, SQ27_TRACK_TAIL);
     o->tail[TR27_SRC_GENRE] = sq_genre_to28(c->src_genre);
+    o->tail[TR27_TAIL_AT(role)] = bal_role(c->role);                  /* (0.29: the balafon as 0.28's LEAD) */
+    o->tail[TR27_TAIL_AT(src_func)] = bal_func(c->src_func);
 }
 static void tr27_in(const sq27_track_t *o, sq_track_cfg_t *c)   /* (the lanes 7-8 stay as they are) */
 {
@@ -3463,7 +3534,7 @@ static uint8_t tr27_differ(const sq_track_cfg_t *a, const sq_track_cfg_t *b)
 {
     sq27_track_t x, y;
     tr27_out(a, &x); tr27_out(b, &y);
-    return (uint8_t)bdiff_(&x, &y, sizeof x);
+    return (uint8_t)(bdiff_(&x, &y, sizeof x) || a->role != b->role || a->src_func != b->src_func);   /* (a LEAD is not the balafon) */
 }
 static void tr_lx_get(const sq_track_cfg_t *c, uint8_t *x)
 {
@@ -3737,8 +3808,8 @@ typedef struct {
     sq_thpat_t *th;
     const uint8_t *map;
     uint8_t v29;                                      /* 0.29: chunk 5 was there (the genres are 0.29's) */
-    uint8_t x29p;                                     /* ... and it has the progressions, x29 (the project's, the snapshots') */
-    uint8_t x29[1u + SQ_SNAPS];
+    uint8_t x29p;                                     /* ... and it has what 0.28 has not, x29 (X29_*) */
+    uint8_t x29[X29_DATA];
 } parse_t;
 static void parse_init(parse_t *q)
 {
@@ -3899,7 +3970,7 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
     for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }
     wr_put(&w, p->lfo, sizeof p->lfo);
     { sq_gen_t g = p->gen; g.genre = sq_genre_to28(g.genre); g.harm_genre = sq_genre_to28(g.harm_genre); g.harm_prog = sq_prog_to28(g.harm_prog);
-      wr_put(&w, &g, sizeof g); }
+      g.func = bal_func(g.func); wr_put(&w, &g, sizeof g); }
     wr_put(&w, &p->song, sizeof p->song);
     wr_put(&w, &p->live, sizeof p->live);
     { sq27_viaggio_t x; vg27_out(&p->viaggio, &x); wr_put(&w, &x, sizeof x); }
@@ -3967,6 +4038,7 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
                     if (!p->th.pat[tk][pk].style) continue;
                     sq_thpat_t m = p->th.pat[tk][pk];
                     m.style = thstyle_to28(m.style);
+                    m.func = bal_func(m.func);
                     at[0] = (uint8_t)tk; at[1] = (uint8_t)pk;
                     wr_put(&w, at, 2);
                     wr_put(&w, &m, sizeof(sq_thpat_t));
@@ -3998,11 +4070,10 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             else { wr_u8(&w, SQ_CHUNK_X28); wr_u16(&w, c.pos); x28_body(&w, p, parts); }
         }
     }
-    if (uses_balani(p) || uses_prog78(p)) {           /* 0.29: chunk 5 (BALANI is there, or a 7th or 8th progression) */
+    if (uses_balani(p) || uses_prog78(p) || uses_balafon(p)) {   /* 0.29: chunk 5 (BALANI, a 7th or 8th progression, the balafon) */
         uint8_t x[3u + SQ_X29_LEN];
-        uint32_t k;
-        x[0] = SQ_CHUNK_X29; x[1] = (uint8_t)SQ_X29_LEN; x[2] = 0u; x[3] = 2u; x[4] = p->gen.harm_prog;
-        for (k = 0; k < SQ_SNAPS; k++) x[5u + k] = p->snap[k].harm_prog;
+        x[0] = SQ_CHUNK_X29; x[1] = (uint8_t)SQ_X29_LEN; x[2] = 0u; x[3] = 2u;
+        x29_of(p, x + 4);
         wr_put(&w, x, sizeof x);
     }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
@@ -4175,16 +4246,23 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
             rd_skip(&r, n);
         } else if (h[0] == SQ_CHUNK_X29 && n >= 1u) {
             q->v29 = in[r.pos] >= 1u ? 1u : 0u;
-            if (in[r.pos] >= 2u && n >= SQ_X29_LEN) { bcopy_(q->x29, in + r.pos + 1u, 1u + SQ_SNAPS); q->x29p = 1u; }
+            if (in[r.pos] >= 2u && n >= SQ_X29_LEN) { bcopy_(q->x29, in + r.pos + 1u, X29_DATA); q->x29p = 1u; }
             rd_skip(&r, n);
         } else rd_skip(&r, n);
     }
     if (r.bad) return -2;
     if (p && ext_n < SQ27_EXT_019)                     /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
-    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29p ? q->x29 : 0); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
-    if (!p && q->cfg) q->cfg->src_genre = sq_genre_from28(q->cfg->src_genre, q->v29);    /* (RELOAD: the one track) */
-    if (!p && q->th) q->th->style = thstyle_from28(q->th->style, q->v29);
+    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29p ? q->x29 : 0, map); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
+    if (!p && q->cfg) {                                   /* (RELOAD: the one track) */
+        q->cfg->src_genre = sq_genre_from28(q->cfg->src_genre, q->v29);
+        if (q->x29p) bal_track_in(q->cfg, q->x29, X29_ROLE, X29_FUNC, q->want_t);
+    }
+    if (!p && q->th) {
+        q->th->style = thstyle_from28(q->th->style, q->v29);
+        if (q->x29p && q->want_t < SQ_TRACKS && q->want_pat < SQ_PATTERNS && ((q->x29[X29_TH + q->want_t] >> q->want_pat) & 1u) &&
+            q->th->func == SQ_FUNC28_LEAD) q->th->func = SQ_FUNC29_BALAFON;
+    }
     return 0;
 }
 
@@ -4730,7 +4808,7 @@ const char *sq_role_name(uint8_t role)
 {
     static const char *const N[SQ_ROLE_COUNT] = {"NONE", "KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP",
         "CLAP", "OPEN HAT", "RIDE", "SHAKER", "CONGA", "TOM", "RIM", "CRASH", "COWBELL", "RUMBLE", "SUB", "LOG DRUM",
-        "STAB", "PAD", "PIANO", "LEAD", "VOX"};
+        "STAB", "PAD", "PIANO", "LEAD", "VOX", "BALAFON"};
     return N[role < SQ_ROLE_COUNT ? role : 0u];
 }
 uint8_t sq_role_family(uint8_t role)
@@ -4741,7 +4819,7 @@ uint8_t sq_role_family(uint8_t role)
         SQ_ROLE_PERC /* CONGA */, SQ_ROLE_PERC /* TOM */, SQ_ROLE_SNARE /* RIM */, SQ_ROLE_PERC /* CRASH */,
         SQ_ROLE_PERC /* COWBELL */, SQ_ROLE_BASS /* RUMBLE */, SQ_ROLE_BASS /* SUB */, SQ_ROLE_BASS /* LOG DRUM */,
         SQ_ROLE_CHORD /* STAB */, SQ_ROLE_CHORD /* PAD */, SQ_ROLE_CHORD /* PIANO */, SQ_ROLE_ARP /* LEAD */,
-        SQ_ROLE_ARP /* VOX */};
+        SQ_ROLE_ARP /* VOX */, SQ_ROLE_ARP /* BALAFON */};
     return F[role < SQ_ROLE_COUNT ? role : 0u];
 }
 uint8_t sq_role_melodic(uint8_t role) { uint8_t f = sq_role_family(role); return (uint8_t)(f >= SQ_ROLE_BASS); }

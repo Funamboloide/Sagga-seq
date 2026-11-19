@@ -1040,7 +1040,7 @@ static uint8_t th_part(const sq_th_t *t, uint8_t func, uint8_t len, char *r, cha
     if (kind == SQ_KIND_CHORD) th_chords(t, &x, func, len, r, nt);
     else if (kind == SQ_KIND_MONO) {
         if (func == SQ_FUNC_ARP) th_arp(t, &x, len, r, nt);
-        else if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) th_lead(t, &x, func, len, r, nt);
+        else if (sq_func_tune(func)) th_lead(t, &x, func, len, r, nt);   /* (0.29: the balafon is a tune too) */
         else th_line(t, &x, func, len, r, nt);
     }
     return len;

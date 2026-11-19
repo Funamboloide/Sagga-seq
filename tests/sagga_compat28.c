@@ -1,7 +1,8 @@
 /* SPDX-License-Identifier: GPL-3.0-only */
 /* 0.29: the genres are 22 (0.28: 25), the progressions of a genre 8 (0.28: 6). A project goes 0.29 -> 0.28 -> 0.29 and
  * comes back the same, but for BALANI, which 0.28 keeps as AFRO HOUSE and 0.29 reads back as GQOM (an image saved by 0.28
- * has no chunk 5), and a genre's 7th or 8th progression, which comes back as its 1st; and 0.28's own projects, each of
+ * has no chunk 5), a genre's 7th or 8th progression, which comes back as its 1st, and the BALAFON, which comes back a
+ * LEAD (and a BEAT part past the sixteenth: 0.28 makes it the KICK); and 0.28's own projects, each of
  * its 25 genres in every place a genre is kept, open in 0.29 with the genre that took it in (GRIME as DUBSTEP, BASSLINE
  * as UK GARAGE, AFRO HOUSE as GQOM, AMAPIANO as REGGAETON), each of its 11 progressions as the same one (the player's
  * and the Pi's two places on). Built twice by tests/sagga_compat28.sh: against this core ("write", "check") and against
@@ -87,6 +88,7 @@ int main(int argc, char **argv)
             for (i = 0; i < sizeof a; i++) if (rnd() % (every * 4u) == 0u) q[i] = (uint8_t)rnd();
             for (t = 0; t < SQ_TRACKS; t++) for (i = 0; i < SQ_PATTERNS * SQ_STEPS; i++) a.step[t][i / SQ_STEPS][i % SQ_STEPS].flags &= (uint8_t)~SQ_STEP_GHOST;
             if (k % 2u) { a.gen.genre = (uint8_t)(k % 22u); a.track[k % SQ_TRACKS].src_genre = 14u; a.viaggio.set_genre = 14u; }   /* (BALANI in half of them) */
+            if (k % 3u == 0u) { a.track[(k + 1u) % SQ_TRACKS].role = SQ_ROLE_BALAFON; a.track[(k + 1u) % SQ_TRACKS].src_func = 26u; a.gen.func = 26u; }   /* (and the balafon) */
             a.gen.harm_prog = (uint8_t)(k % SQ_PROGS_ALL);                  /* (every progression, the 7th and 8th too) */
             for (s = 0; s < SQ_SNAPS; s++) a.snap[s].harm_prog = (uint8_t)((k + 3u * s) % SQ_PROGS_ALL);
             sq_project_sanitize(&a);
@@ -94,21 +96,27 @@ int main(int argc, char **argv)
             if (!n || put(argv[2], "c29", k, img, n)) return 1;
             /* what comes back: BALANI as GQOM wherever a genre is kept */
 #define VO(x) ((x) = sq_genre_from28(sq_genre_to28(x), 0u))
+#define BR(x) ((x) = (x) == SQ_ROLE_BALAFON ? (uint8_t)SQ_ROLE_LEAD : (x))     /* (the balafon: a LEAD after 0.28) */
+#define BF(x) ((x) = (x) == 26u ? (uint8_t)24u : (x))
             VO(a.gen.genre); VO(a.gen.harm_genre); VO(a.viaggio.set_genre);
+            if (a.gen.func >= 16u) a.gen.func = 0u;                      /* (0.28 takes a BEAT part past the sixteenth to the KICK) */
             a.gen.harm_prog = sq_prog_from28(sq_prog_to28(a.gen.harm_prog));
             for (t = 0; t < SQ_TRACKS; t++) {
-                VO(a.track[t].src_genre);
+                VO(a.track[t].src_genre); BR(a.track[t].role); BF(a.track[t].src_func);
                 for (i = 0; i < SQ_PATTERNS; i++) {
                     sq_thpat_t *mm = &a.th.pat[t][i];
+                    if (mm->style) BF(mm->func);
                     if (mm->style & 31u) mm->style = (uint8_t)((mm->style & ~31u) | ((sq_genre_from28(sq_genre_to28((uint8_t)((mm->style & 31u) - 1u)), 0u) + 1u) & 31u));
                 }
             }
             for (s = 0; s < SQ_SNAPS; s++) if (a.snap[s].used) {
                 VO(a.snap[s].genre); VO(a.snap[s].harm_genre);
                 a.snap[s].harm_prog = sq_prog_from28(sq_prog_to28(a.snap[s].harm_prog));
-                for (t = 0; t < SQ_TRACKS; t++) VO(a.snap[s].track[t].src_genre);
+                for (t = 0; t < SQ_TRACKS; t++) { VO(a.snap[s].track[t].src_genre); BR(a.snap[s].track[t].role); BF(a.snap[s].track[t].src_func); }
             }
 #undef VO
+#undef BR
+#undef BF
             n = sq_serialize(&a, img, sizeof img);
             if (!n || put(argv[2], "e29", k, img, n)) return 1;
         }

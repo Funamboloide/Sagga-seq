@@ -30,18 +30,18 @@ import zlib
 # the parts, in SQ_FUNC_* order: 0..6 as 0.10, 7 PROG and 8 KIT (no patterns of their own), then 0.11's
 PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
          'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL',
-         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX']
+         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX', 'BALAFON']   # (0.29: the balafon)
 SHOWN = dict(OHAT='OPEN HAT', LOGDRUM='LOG DRUM')
 DRUM = {'KICK', 'SNARE', 'HAT', 'PERC', 'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL'}
-MONO = {'BASS', 'ARP', 'RUMBLE', 'SUB', 'LOGDRUM', 'LEAD', 'VOX'}
+MONO = {'BASS', 'ARP', 'RUMBLE', 'SUB', 'LOGDRUM', 'LEAD', 'VOX', 'BALAFON'}
 CHORDS = {'CHORD', 'STAB', 'PAD', 'PIANO'}
 FAMILY = dict(KICK='KICK', SNARE='SNARE', HAT='HAT', PERC='PERC', BASS='BASS', CHORD='CHORD', ARP='ARP',
               CLAP='SNARE', OHAT='HAT', RIDE='HAT', SHAKER='HAT', CONGA='PERC', TOM='PERC', RIM='SNARE', CRASH='PERC',
               COWBELL='PERC', RUMBLE='BASS', SUB='BASS', LOGDRUM='BASS', STAB='CHORD', PAD='CHORD', PIANO='CHORD',
-              LEAD='ARP', VOX='ARP')
+              LEAD='ARP', VOX='ARP', BALAFON='ARP')
 # the note a drum part plays (General MIDI) unless the genre's KIT says (KICK SNARE HAT PERC), the register of the others
 NOTE = dict(CLAP=39, OHAT=46, RIDE=51, SHAKER=70, CONGA=63, TOM=45, RIM=37, CRASH=49, COWBELL=56,
-            BASS=36, RUMBLE=36, SUB=36, LOGDRUM=43, CHORD=55, STAB=60, PAD=60, PIANO=60, ARP=67, LEAD=72, VOX=72)
+            BASS=36, RUMBLE=36, SUB=36, LOGDRUM=43, CHORD=55, STAB=60, PAD=60, PIANO=60, ARP=67, LEAD=72, VOX=72, BALAFON=72)
 
 # BAND: the parts in order ('*': a main part, 12 variations); MAP: where a part's seeds come from in the 0.10 library;
 # EXTRA: 0.10 parts kept to browse
@@ -60,8 +60,8 @@ BANDS = {
     'EXPERIMENTAL': ('KICK* SNARE* HAT* PERC* CRASH TOM BASS* PAD* ARP*', dict(PAD='CHORD'), ''),
     'ELECTRO':      ('KICK* SNARE* CLAP HAT* OHAT COWBELL BASS* STAB ARP*', dict(STAB='CHORD'), 'PERC'),
     'DNB':          ('KICK* SNARE* HAT* RIDE SHAKER PERC* SUB* BASS* PAD* LEAD', dict(PAD='CHORD', LEAD='ARP'), ''),
-    # 0.29: the djembe as the low CONGA and the PERC, the balafon as the LEAD (its ostinatos are the genre's ARP)
-    'BALANI':       ('KICK* CLAP* HAT* SHAKER PERC* CONGA TOM BASS* LEAD* VOX', dict(CLAP='SNARE', LEAD='ARP'), 'CHORD'),
+    # 0.29: the djembe as the low CONGA and the PERC, the BALAFON its own part (its ostinatos are the genre's ARP)
+    'BALANI':       ('KICK* CLAP* HAT* SHAKER PERC* CONGA TOM BASS* BALAFON* VOX', dict(CLAP='SNARE', BALAFON='ARP'), 'CHORD'),
     'FOOTWORK':     ('KICK* SNARE* CLAP HAT* PERC* TOM SUB* CHORD* VOX*', dict(SUB='BASS', VOX='ARP'), ''),
     'TRANCE':       ('KICK* CLAP* HAT* OHAT* RIDE CRASH PERC BASS* PAD* ARP* LEAD*', dict(CLAP='SNARE', PAD='CHORD'), ''),
     'UKDRILL':      ('KICK* SNARE* HAT* PERC RIM SUB* PAD* LEAD VOX', dict(SUB='BASS', PAD='CHORD', LEAD='ARP'), ''),
@@ -139,12 +139,12 @@ OWN = {
     ('BALANI', 'CONGA'): ["x..x..x...x..x..", "..x..x.x..x..x.x", "x.xx..x.x.xx..x."],
     ('BALANI', 'TOM'): ["......x.......x.", "x..x..x...x...x.", "............xxxx"],
     ('BALANI', 'VOX'): [("x...............", "0..............."), ("....x.......x...", "....7.......c...")],
-    ('BALANI', 'LEAD'): [("xxxxxxxxxxxxxxxx", "c7c9c7c4c7c9c742"), ("x.xxx.xxx.xxx.xx", "0.479.c97.424.79"),
+    ('BALANI', 'BALAFON'): [("xxxxxxxxxxxxxxxx", "c7c9c7c4c7c9c742"), ("x.xxx.xxx.xxx.xx", "0.479.c97.424.79"),
                          ("xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx", "479c479c9742974247979c9c7c947420")],
 }
 
 # 0.29: parts that take none of the common seeds (their own are many and of another kind: the balafon is not a lead)
-PURE = {('BALANI', 'LEAD')}
+PURE = {('BALANI', 'BALAFON')}
 
 # 0.29: four genres left the library (the user's choice): AMAPIANO went into REGGAETON, BASSLINE into UK GARAGE (speed
 # garage with the bass in front), GRIME into DUBSTEP, AFRO HOUSE into GQOM and BATIDA. Their best patterns - the ones

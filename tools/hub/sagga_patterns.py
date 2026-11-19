@@ -20,7 +20,7 @@ RETIRED = {'AMAPIANO': 'REGGAETON', 'BASSLINE': 'UKGARAGE', 'GRIME': 'DUBSTEP', 
 # the parts in SQ_FUNC_* order (PROG and KIT have no patterns of their own)
 PARTS = ['KICK', 'SNARE', 'HAT', 'PERC', 'BASS', 'CHORD', 'ARP', 'PROG', 'KIT',
          'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL',
-         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX']
+         'RUMBLE', 'SUB', 'LOGDRUM', 'STAB', 'PAD', 'PIANO', 'LEAD', 'VOX', 'BALAFON']   # (0.29: the balafon)
 DRUM = {'KICK', 'SNARE', 'HAT', 'PERC', 'CLAP', 'OHAT', 'RIDE', 'SHAKER', 'CONGA', 'TOM', 'RIM', 'CRASH', 'COWBELL'}
 CHORDS = {'CHORD', 'STAB', 'PAD', 'PIANO'}
 HITS = set('xXog234')
@@ -28,7 +28,7 @@ HITS = set('xXog234')
 FAMILY = dict(KICK='KICK', SNARE='SNARE', HAT='HAT', PERC='PERC', BASS='BASS', CHORD='CHORD', ARP='ARP',
               CLAP='SNARE', OHAT='HAT', RIDE='HAT', SHAKER='HAT', CONGA='PERC', TOM='PERC', RIM='SNARE', CRASH='PERC',
               COWBELL='PERC', RUMBLE='BASS', SUB='BASS', LOGDRUM='BASS', STAB='CHORD', PAD='CHORD', PIANO='CHORD',
-              LEAD='ARP', VOX='ARP')
+              LEAD='ARP', VOX='ARP', BALAFON='ARP')
 MAX_STEPS = 64
 STOCK = os.path.join(os.path.dirname(os.path.abspath(__file__)), 'patterns')
 RETIRED_MARK = '# 0.29: the patterns you kept in %s (a genre that left the library) are here, after these'

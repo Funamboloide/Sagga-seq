@@ -50,7 +50,7 @@ METRIC = [1.0, 0.2, 0.4, 0.2, 0.7, 0.2, 0.4, 0.2, 0.9, 0.2, 0.4, 0.2, 0.7, 0.2, 
 F_KICK, F_SNARE, F_HAT, F_PERC, F_BASS, F_CHORD, F_ARP = range(7)
 FUNC = {"KICK": 0, "SNARE": 1, "HAT": 2, "PERC": 3, "BASS": 4, "CHORD": 5, "ARP": 6, "CLAP": 9, "OPEN HAT": 10, "RIDE": 11,
         "SHAKER": 12, "CONGA": 13, "TOM": 14, "RIM": 15, "CRASH": 16, "COWBELL": 17, "RUMBLE": 18, "SUB": 19, "LOG DRUM": 20,
-        "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25}
+        "STAB": 21, "PAD": 22, "PIANO": 23, "LEAD": 24, "VOX": 25, "BALAFON": 26}
 FILL = {"KICK": "TH_F_PICK", "SNARE": "TH_F_ROLL", "CLAP": "TH_F_ROLL", "HAT": "TH_F_HAT", "PERC": "TH_F_BUSY",
         "CONGA": "TH_F_BUSY", "TOM": "TH_F_BUSY"}
 
@@ -269,7 +269,7 @@ def part_rules(g, G_all, func, part, kick_common, stats, doc):
                 if i + 1 < len(v.hits) and v.hits[i + 1] in ON:
                     adj += 1
     per_bar = on_n / sum(len(v.hits) / 16.0 for v in vs)
-    apart = (not drum) and adj == 0 and per_bar <= 4.0 and part["name"] not in ("ARP", "LEAD", "VOX")
+    apart = (not drum) and adj == 0 and per_bar <= 4.0 and part["name"] not in ("ARP", "LEAD", "VOX", "BALAFON")
     if part["name"] == "RUMBLE" and kick_common and on_k <= 0.08 * on_n:
         kick.append("TH_K_AVOID")
     elif part["name"] == "SUB" and kick_common and on_k * 16.0 >= 1.5 * on_n * len(kick_common):
@@ -624,7 +624,7 @@ def generate(lines):
                 c, say = chord_rule(g, func, part)
                 chords.append(c)
                 says.append(say)
-            elif part["name"] in ("LEAD", "VOX"):
+            elif part["name"] in ("LEAD", "VOX", "BALAFON"):
                 c, say = lead_rule(g, func, part, major)
                 leads.append(c)
                 says.append(say)

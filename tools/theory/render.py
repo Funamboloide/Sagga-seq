@@ -57,7 +57,7 @@ GM_DRUM = {"KICK": 36, "SNARE": 38, "CLAP": 39, "HAT": 42, "OPEN HAT": 46, "RIDE
 DRUMS = {"KICK", "SNARE", "HAT", "PERC", "CLAP", "OPEN HAT", "RIDE", "SHAKER", "CONGA", "TOM", "RIM", "CRASH", "COWBELL"}
 # General MIDI programs (0-based) for the melodic parts
 PROGRAM = {"BASS": 38, "RUMBLE": 39, "SUB": 39, "LOG DRUM": 12, "CHORD": 4, "STAB": 62, "PAD": 89, "PIANO": 1,
-           "ARP": 81, "LEAD": 80, "VOX": 54}
+           "ARP": 81, "LEAD": 80, "VOX": 54, "BALAFON": 13}   # (0.29: the balafon as General MIDI's xylophone)
 
 
 def theory_tool():

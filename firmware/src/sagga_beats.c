@@ -9,19 +9,20 @@ typedef struct { uint8_t kit[4], swing; uint16_t bpm_lo, bpm_hi; uint8_t scale[3
 
 _Static_assert(SQ_GENRE_MERENGUE + 1 == SQ_GENRES, "the SQ_GENRE_* enum names every genre of the library");
 _Static_assert(SQ_SET_GENRES == SQ_GENRES, "VIAGGIO has a set genre for every genre of the library (sagga_setgenre_data.h)");
-_Static_assert(SQ_FUNC_VOX + 1 == SQ_FUNCS, "SQ_FUNCS counts the parts");
-_Static_assert(SQ_FUNC_VOX - SQ_FUNC_CLAP == SQ_ROLE_VOX - SQ_ROLE_CLAP, "a role for every new part, in the same order");
+_Static_assert(SQ_FUNC_BALAFON + 1 == SQ_FUNCS, "SQ_FUNCS counts the parts");
+_Static_assert(SQ_FUNC_BALAFON - SQ_FUNC_CLAP == SQ_ROLE_BALAFON - SQ_ROLE_CLAP, "a role for every new part, in the same order");
 
 static const char *const FUNC_NAME[SQ_FUNCS] = {"KICK", "SNARE", "HAT", "PERC", "BASS", "CHORD", "ARP", "PROG", "KIT",
     "CLAP", "OPEN HAT", "RIDE", "SHAKER", "CONGA", "TOM", "RIM", "CRASH", "COWBELL", "RUMBLE", "SUB", "LOG DRUM", "STAB",
-    "PAD", "PIANO", "LEAD", "VOX"};
+    "PAD", "PIANO", "LEAD", "VOX", "BALAFON"};
 static const uint8_t KIND[SQ_FUNCS] = {SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_MONO, SQ_KIND_CHORD,
     SQ_KIND_MONO, SQ_KIND_CHORD, SQ_KIND_DRUM,
     SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM, SQ_KIND_DRUM,
-    SQ_KIND_MONO, SQ_KIND_MONO, SQ_KIND_MONO, SQ_KIND_CHORD, SQ_KIND_CHORD, SQ_KIND_CHORD, SQ_KIND_MONO, SQ_KIND_MONO};
-/* the gate of a hit, in % of a step (a held note: its steps) */
+    SQ_KIND_MONO, SQ_KIND_MONO, SQ_KIND_MONO, SQ_KIND_CHORD, SQ_KIND_CHORD, SQ_KIND_CHORD, SQ_KIND_MONO, SQ_KIND_MONO,
+    SQ_KIND_MONO};
+/* the gate of a hit, in % of a step (a held note: its steps; the balafon's: struck, short) */
 static const uint8_t GATE[SQ_FUNCS] = {55u, 55u, 35u, 45u, 85u, 90u, 55u, 90u, 55u,
-    50u, 90u, 60u, 30u, 45u, 60u, 35u, 100u, 40u, 70u, 95u, 70u, 35u, 100u, 70u, 80u, 70u};
+    50u, 90u, 60u, 30u, 45u, 60u, 35u, 100u, 40u, 70u, 95u, 70u, 35u, 100u, 70u, 80u, 70u, 40u};
 
 const char *sq_genre_name(uint8_t genre) { return GENRE_NAME[genre < SQ_GENRES ? genre : 0u]; }
 const char *sq_func_name(uint8_t func) { return FUNC_NAME[func < SQ_FUNCS ? func : 0u]; }
@@ -34,6 +35,7 @@ uint8_t sq_func_role(uint8_t func)
     if (func < SQ_FUNCS) return (uint8_t)(SQ_ROLE_CLAP + (func - SQ_FUNC_CLAP));
     return SQ_ROLE_NONE;
 }
+uint8_t sq_func_tune(uint8_t func) { return (uint8_t)(func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX || func == SQ_FUNC_BALAFON); }
 uint8_t sq_role_func(uint8_t role)
 {
     if (role >= SQ_ROLE_KICK && role <= SQ_ROLE_ARP) return (uint8_t)(role - 1u);
@@ -128,7 +130,7 @@ uint8_t sq_genre_swing(uint8_t genre) { return GENRE[genre < SQ_GENRES ? genre :
 enum { GG_KICK, GG_SNARE, GG_HAT, GG_OHAT, GG_SHAKE, GG_PERC, GG_BASS, GG_CHORD, GG_TOP, GG_N };
 static const uint8_t FUNC_GG[SQ_FUNCS] = {GG_KICK, GG_SNARE, GG_HAT, GG_PERC, GG_BASS, GG_CHORD, GG_TOP, GG_CHORD, GG_KICK,
     GG_SNARE, GG_OHAT, GG_HAT, GG_SHAKE, GG_PERC, GG_PERC, GG_PERC, GG_KICK, GG_PERC, GG_BASS, GG_BASS, GG_BASS, GG_CHORD,
-    GG_CHORD, GG_CHORD, GG_TOP, GG_TOP};
+    GG_CHORD, GG_CHORD, GG_TOP, GG_TOP, GG_TOP};
 typedef struct { uint8_t tpl, amt, swing; } genre_groove_t;      /* swing 0: the genre's */
 #define O_ {SQ_GROOVE_OFF, 0, 0}
 #define HO(a) {SQ_GROOVE_HOUSE, a, 0}
@@ -214,7 +216,7 @@ static uint8_t root_for(uint8_t func, uint8_t note)
     int32_t r = note > 127u ? 60 : (int32_t)note, lo = 48, hi = 72;
     uint8_t fam = sq_func_family(func);
     if (fam == SQ_FUNC_BASS) { lo = 24; hi = 48; }        /* a bass lives low: under C3 */
-    else if (func == SQ_FUNC_LEAD || func == SQ_FUNC_VOX) { lo = 60; hi = 84; }   /* a lead from middle C */
+    else if (sq_func_tune(func)) { lo = 60; hi = 84; }   /* a lead from middle C (0.29: the balafon too) */
     while (r >= hi) r -= 12;                              /* chords and arpeggios around middle C */
     while (r < lo) r += 12;
     return (uint8_t)r;
