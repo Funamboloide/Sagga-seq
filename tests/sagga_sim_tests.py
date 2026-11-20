@@ -13100,6 +13100,7 @@ def t032_grid3():
     s.raw(t, "sx 7D 53 47 54 01 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00"); t += 50   # a regista on the Pi
     t = view(s, t, GC_VPERF)                                               # REGIA
     pad(12, 3, "rb8"); s.at(t, "dump", 0); t += 20; mark("regia")          # its row 4 pad 13: a phrase of 8
+    s.at(t, "pad", 1, 1, 100); t += 700; P("rdice"); s.at(t, "pad", 1, 1, 0); t += 100   # row 2 pad 2 held: T2's dice
     pad(0, 0, "rule")
     log = run(s, t + 100)
     pr = probes(log)
@@ -13122,8 +13123,8 @@ def t032_grid3():
           and L("harm", 13, 6) == GL_ON and L("harm", 14, 6) == GL_ORANGE,
           "row 7 pad 14: HARMONY on / off; 15 LOCK; 16 its bars a chord (%s)" % [(g(k, "harm"), g(k, "hlock"), g(k, "hbars")) for k in ("h1", "lock", "bars")])
     check(g("rb8") == "PHRASE: BARS 8" and v[3]["bars"] == 8 and L("regia", 12, 3) == GL_WHITE and L("regia", 0, 0) == GL_ON and L("regia", 1, 0) == GL_DIM
-          and L("regia", 2, 0) == GL_PLAY and g("rule") == "REGIA RULE 1",
-          "REGIA rows 2-8 are the MOSSE's (0.9-0.31: dark); row 1 the regista's rules (%s %s %s)" % (g("rb8"), v[3]["bars"], g("rule")))
+          and L("regia", 2, 0) == GL_PLAY and g("rule") == "REGIA RULE 1" and (g("rdice") or "").startswith("T2 ") and " DICE" in (g("rdice") or ""),
+          "REGIA rows 2-8 are the MOSSE's (0.9-0.31: dark), a track pad held its dice too; row 1 the regista's rules (%s %s %s %s)" % (g("rb8"), v[3]["bars"], g("rdice"), g("rule")))
     # FOLLOW, a knob that is no track's: ARP 5 (USER PROG) K4 its shape, ARP 6 K3 the chord's length - the pads past the black keys
     s = Script()
     s.raw(100, "attach")

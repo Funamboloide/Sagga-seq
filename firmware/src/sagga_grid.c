@@ -2575,7 +2575,7 @@ static void grid_service(void)
 
     gr_follow_tick();                                   /* 0.18 FOLLOW */
     if (g_view == GV_DRUM) gr_drum_service();
-    if (g_view == GV_VIAGGIO) gr_vg_service();
+    if (g_view == GV_VIAGGIO || g_view == GV_REGIA) gr_vg_service();   /* (0.32: REGIA has the MOSSE's rows too) */
 
     if (!time_due(fm1_ms, g_next_frame)) return;
     g_next_frame = fm1_ms + GR_FRAME_MS;
