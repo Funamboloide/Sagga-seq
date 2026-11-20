@@ -5130,7 +5130,7 @@ static void update_leds(void)
             for (t = 0; t < SQ_TRACKS; t++) if (track_audible(t)) aud |= (uint16_t)(1u << t);
             fm1_led_key(KEY_LED(white_key[SQ_TRACKS + i]),
                         perf_solo_mode ? (i == SQ_TG_ALL ? solo_mask != 0u : (m && (solo_mask & m) == m))
-                                       : (i == SQ_TG_ALL ? (aud == (uint16_t)SQ_TRACK_BITS && !pending_mute) : (pending_mute & m) ? blink : (aud & m) != 0u));
+                                       : (pending_mute & m) ? blink : (i == SQ_TG_ALL ? aud == (uint16_t)SQ_TRACK_BITS : (aud & m) != 0u));
         }
         if (perf_page == 2u) for (i = 0; i < 11u; i++) fm1_led_key(KEY_LED(black_key[i]), vg_move_lit((int)i, blink));   /* 0.17 the MOSSE: what waits */
         else for (i = 0; i < 8u; i++) { uint32_t sc = SCENE_BANK + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }

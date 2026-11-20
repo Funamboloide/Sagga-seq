@@ -1618,10 +1618,13 @@ static void gr_render_perf(void)
             gr_put(x, 6, snap_pend == x ? GL_PEND : snap_cur == x && project.snap[x].used ? GL_PLAY : project.snap[x].used ? GL_CYAN : sh ? GL_ORANGE : GL_FAINT);
             if (x < SQ_TRACKS)
                 gr_put(x, 7, ((pending_mute >> x) & 1u) ? GL_PEND : ((solo_mask >> x) & 1u) ? GL_YELLOW : ((mute_mask >> x) & 1u) ? GL_MUTED : GL_ON);
-            else {
+            else {                                      /* (as PERF's whites 13-16 on the FM-1: lit while some of the group plays, ALL
+                                                         *  while every track does; blinking: a mute waits; SHIFT: the solos) */
                 uint32_t g = x - SQ_TRACKS;
+                uint16_t m = g == SQ_TG_ALL ? (uint16_t)SQ_TRACK_BITS : tgroup_mask((uint8_t)g);
                 gr_put(x, 7, sh ? gr_gpad(g, g == SQ_TG_ALL ? solo_mask != 0u : gr_gall(solo_mask, g))
-                                : gr_gpad(g, g == SQ_TG_ALL ? (mute_mask || solo_mask || pending_mute) : (aud & tgroup_mask((uint8_t)g)) != 0u));
+                           : (pending_mute & m) && m ? GL_PEND
+                           : gr_gpad(g, g == SQ_TG_ALL ? aud == (uint16_t)SQ_TRACK_BITS : (aud & m) != 0u));
             }
         }
     }

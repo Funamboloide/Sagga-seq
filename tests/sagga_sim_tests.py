@@ -12397,6 +12397,8 @@ def t031_grid():
     t_perf = t
     s.pad(t, 15, 7); t += 100; P("mall")                                   # pad 16: ALL
     shift(s, t, 1); s.pad(t + 10, 13, 7); shift(s, t + 90, 0); t += 120; P("sbs")   # SHIFT + pad 14: the bass's solo
+    shift(s, t, 1); s.pad(t + 10, 14, 7); shift(s, t + 90, 0); t += 120; P("sml")   # SHIFT + pad 15: the melodic ones' too
+    shift(s, t, 1); s.pad(t + 10, 13, 7); shift(s, t + 90, 0); t += 120; P("sbo")   # SHIFT + pad 14 again: the bass's off
     shift(s, t, 1); s.pad(t + 10, 15, 7); shift(s, t + 90, 0); t += 120; P("nos")   # SHIFT + pad 16: no solo
     t = view(s, t, GC_VSTEP); t = view(s, t, GC_VSTEP)                     # DRUM
     s.pad(t, 0, 6); t += 100; P("f11")                                     # row 7 pad 1: T11 step 1 (off): on, ACCENT
@@ -12461,8 +12463,10 @@ def t031_grid():
           "row 7 pad 10 with SHIFT: snapshot 10 stored; the pad: snapshot 10 back (%s %s)" % (g("ss10", "msg"), g("sn10", "msg")))
     check(g("m3", "mute", "msg") == ("0004", "T3 MUTED") and g("mdr", "mute", "msg") == ("003F", "DRUMS MUTED") and g("mall", "mute") == "0000",
           "row 8: pad 3 T3's mute, 13 the drums, 16 ALL (%s %s %s)" % (g("m3", "mute", "msg"), g("mdr", "mute", "msg"), g("mall", "mute")))
-    check(g("sbs", "solo", "msg") == ("00C0", "SOLO: BASS") and g("nos", "solo", "msg") == ("0000", "NO SOLO"),
-          "SHIFT + pad 14: the bass's solo; SHIFT + 16: no solo (%s %s)" % (g("sbs", "solo", "msg"), g("nos", "solo", "msg")))
+    check(g("sbs", "solo", "msg") == ("00C0", "SOLO: BASS") and g("sml", "solo", "msg") == ("0FC0", "SOLO: MELODIC")
+          and g("sbo", "solo", "msg") == ("0F00", "SOLO OFF: BASS") and g("nos", "solo", "msg") == ("0000", "NO SOLO"),
+          "SHIFT + pad 14: the bass's solo; 15: the melodic ones' too; 14 again: the bass's off; 16: no solo (%s %s %s %s)" % (
+              g("sbs", "solo", "msg"), g("sml", "solo", "msg"), g("sbo", "solo", "msg"), g("nos", "solo", "msg")))
     p, _ = log.leds(until=t_perf)
     check(p.get(7 * 16 + 12) == GL_FAINT and p.get(7 * 16 + 13) == GL_BLUE and p.get(7 * 16 + 2) == GL_MUTED and p.get(5 * 16 + 1) == GL_ON
           and p.get(4 * 16 + 1) in (GL_FAINT, GL_DIM) and p.get(6 * 16 + 9) in (GL_PLAY, GL_CYAN),
