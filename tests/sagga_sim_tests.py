@@ -12633,13 +12633,15 @@ def t032_panel():
     lit(LFO, "lfo")
     hold(LFO, wk(0)); P("l1")                            # LFO 1 on
     t = pg(s, t, LFO, 1, [(K1, 1), (K2, 3)]); P("l1set")   # LFO 1: VEL on T4
+    t = pg(s, t, LFO, 4, [(K1, 2)])                      # ... its ENV's attack
     hold(LFO, bk(6)); P("copy")                          # black 7: COPY
     hold(LFO, wk(1)); P("l2")                            # LFO 2 on (selected)
     hold(LFO, bk(7)); P("paste"); X("paste")             # black 8: PASTE onto LFO 2
     hold(LFO, bk(8)); P("off"); X("off")                 # black 9: all off
     hold(LFO, bk(8)); P("on"); X("on")                   # again: back on, the ones that were
     hold(LFO, bk(9)); P("free")                          # black 10: the next free one (LFO 3)
-    t = pg(s, t, LFO, 1, [(K1, 2), (K2, 5)]); P("l3set")   # (LFO 3: something to reset)
+    t = pg(s, t, LFO, 1, [(K1, 2), (K2, 5)]); P("l3set")   # (LFO 3: something to reset - its RATE SEQ too)
+    t = pg(s, t, LFO, 3, [(K1, 2)])
     hold(LFO, bk(10)); P("rst1")                         # black 11: asks
     hold(LFO, bk(10)); P("rst2"); X("rst")               # again: LFO 3 as a new project has it
     s.press(t, SAVE); s.enc(t + 30, K1, 3); s.release(t + 100, SAVE); t += 160; P("mk")   # SAVE + K1: MASTER KNOB ENERGY
@@ -12698,9 +12700,10 @@ def t032_panel():
           "black 11 CLEARs the lane (again: nothing there); black 10 a ramp down (%s %s %s)" % (g("clr"), g("clr2"), dn))
     check(g("lpage") == "LFO 1: PAGE 3" and kl("lfo")[BLACK[2]] == "X" and kl("lfo")[BLACK[0]] == "g",
           "LFO + black 3: the LFO's page 3, its key lit (%s %s)" % (g("lpage"), kl("lfo")))
-    pl = e("paste")["lfo"]
-    check(g("copy") == "LFO COPIED 1" and g("paste") == "LFO PASTED 2" and (g("paste", "lfod"), g("paste", "lfot")) == ("1", "3") and pl[1] == pl[0],
-          "black 7 COPY, black 8 PASTE: LFO 2 is LFO 1 (VEL on T4) (%s %s %s)" % (g("copy"), g("paste"), pl[1]))
+    pl, pe = e("paste")["lfo"], e("paste")["lfoe"]
+    check(g("copy") == "LFO COPIED 1" and g("paste") == "LFO PASTED 2" and (g("paste", "lfod"), g("paste", "lfot")) == ("1", "3") and pl[1] == pl[0]
+          and pe[1] == pe[0] != pe[2],
+          "black 7 COPY, black 8 PASTE: LFO 2 is LFO 1 (VEL on T4, its ENV too) (%s %s %s %s)" % (g("copy"), g("paste"), pl[1], pe[:3]))
     check(g("off") == "ALL LFOS OFF (AGAIN: BACK ON)" and [x["enabled"] for x in e("off")["lfo"]] == [0] * 16
           and g("on") == "THE LFOS BACK ON" and [x["enabled"] for x in e("on")["lfo"]] == [1, 1] + [0] * 14,
           "black 9: every LFO off; again: the two that were on, on (%s %s)" % (g("off"), g("on")))
@@ -13089,6 +13092,7 @@ def t032_grid3():
     pad(13, 3, "b16"); s.at(t, "dump", 0); t += 20
     pad(9, 5, "qbar"); pad(10, 5, "qbeat"); pad(8, 5, "qph"); mark("q")   # row 6 pads 9-11: MOVES AT
     pad(12, 5, "gen"); pad(14, 5, "key")                                  # 13 the genre +, 15 the key +: stopped, at once
+    pad(11, 5, "gen0"); pad(13, 5, "key0")                                # 12 the genre -, 14 the key -: back
     s.tap_btn(t, PLAY); t += 300
     pad(12, 5); pad(14, 5); s.at(t, "dump", 0); t += 20; mark("gk")       # playing: in the queue
     s.tap_btn(t, PLAY); t += 200
@@ -13111,6 +13115,7 @@ def t032_grid3():
           "row 6 pads 9-11: MOVES AT every bar, every beat, the phrase (%s)" % [g(k) for k in ("qbar", "qbeat", "qph")])
     q = v[2]["queue"]
     check(g("gen").startswith("GENRE ") and g("gen", "genre") != G[marks["gen"] - 1]["genre"] and g("key", "root") == "1"
+          and g("gen0", "genre") == G[marks["gen"] - 1]["genre"] and g("key0", "root") == "0"
           and len(q) == 2 and L("gk", 11, 5) == GL_PEND and L("gk", 13, 5) == GL_PEND,
           "pads 12-13: the genre - / +, 14-15: the key - / + - stopped at once, playing in the queue, the pads blink (%s %s %s)" % (g("gen"), g("key"), q))
     check(g("h1", "harm") != G[marks["h1"] - 1]["harm"] and g("lock", "hlock") == "1" and g("lock", "harm") == "1" and g("bars", "hbars") != g("lock", "hbars")
@@ -13130,9 +13135,11 @@ def t032_grid3():
     t = view(s, t, GC_VSTEP, alt=True); t = view(s, t, GC_VSTEP, alt=True)   # FOLLOW
     marks, n, at = {}, [0], {}
     t += 200; mark("sh0"); P("sh0")
-    pad(11, 7, "shape"); mark("shape")                                     # row 8 pad 12: shape 28
+    pad(10, 7); s.at(t, "ui"); t += 40                                     # row 8 pad 11: shape 27
+    pad(11, 7, "shape"); s.at(t, "ui"); t += 40; mark("shape")             # pad 12: shape 28
     s.tap_btn(t, OCT_UP); t += 300                                         # ARP 6
-    pad(11, 6, "len"); mark("len")                                         # row 7 pad 12: the chord's length 18
+    pad(11, 6, "len"); s.at(t, "ui"); t += 40; mark("len")                 # row 7 pad 12: the chord's length 18
+    pad(13, 6); s.at(t, "ui"); t += 40                                     # pad 14: 21
     pad(11, 7, "push")                                                     # row 8 pad 12: PUSH (0-4): no such value
     log = run(s, t + 100)
     pr = probes(log)
@@ -13141,11 +13148,35 @@ def t032_grid3():
     check(ok, "FOLLOW: %d probes (%d)" % (n[0], len(G)))
     if not ok:
         return
-    check(L("sh0", 11, 7) not in (GL_OFF, GL_WHITE, None) and L("shape", 11, 7) == GL_WHITE and g("sh0", "uprog#") != g("shape", "uprog#")
-          and g("shape", "uprog#") != g("len", "uprog#"),
-          "ARP 5 K4, the shape: row 8 pads 11-16 its items 27-32 (0.12-0.31: dark); pad 12 taken (%s %s %s)" % (L("sh0", 11, 7), L("shape", 11, 7), g("shape")))
-    check(L("len", 11, 6) == GL_WHITE and L("len", 12, 6) not in (GL_OFF, GL_WHITE, None) and g("push").endswith(": NOT A VALUE OF IT"),
-          "ARP 6 K3, the chord's length: row 7 pads 11-16 the lengths 17 18 19 21 22 23; a list of five has no item 28 (%s %s)" % (g("len"), g("push")))
+    cells = [x["cells"][2:4] for x in log.screens()][-4:]
+    check(L("sh0", 11, 7) not in (GL_OFF, GL_WHITE, None) and L("shape", 11, 7) == GL_WHITE and L("shape", 10, 7) != GL_WHITE and L("shape", 9, 7) != GL_WHITE
+          and g("sh0", "uprog#") != g("shape", "uprog#") and g("shape", "uprog#") != g("len", "uprog#")
+          and len(cells) == 4 and cells[0][1][1] == "DOM9" and cells[1][1][1] == "MIN9",
+          "ARP 5 K4, the shape: row 8 pads 11-16 its items 27-32 (0.12-0.31: dark) - 27 DOM9, 28 MIN9 (%s %s %s)" % (L("sh0", 11, 7), L("shape", 11, 7), cells[:2]))
+    check(L("len", 11, 6) == GL_WHITE and L("len", 12, 6) not in (GL_OFF, GL_WHITE, None) and len(cells) == 4 and cells[2][0][1] == "18 16TH"
+          and cells[3][0][1] == "21 16TH" and g("push").endswith(": NOT A VALUE OF IT"),
+          "ARP 6 K3, the chord's length: row 7 pads 11-16 the lengths 17 18 19 21 22 23; a list of five has no item 28 (%s %s)" % (cells[2:], g("push")))
+
+
+def t032_maps():
+    group("0.32 the map of the keys (a button held half a second): EDIT, ENV and LFO say their new black keys on line 2 "
+          "(with SEL: what PICK does, as before), SAVE its whites 11-15")
+    s = Script()
+    t = pg(s, 3500, SAVE, 1) + 3200                      # (after the power-on's name; SAVE on its page 2: page 1 shows the slots)
+    for btns in ((EDIT,), (EDIT, SEL), (ENV,), (LFO,), (SAVE,)):
+        for k, b in enumerate(btns):
+            s.press(t + 20 * k, b)
+        s.at(t + 700, "ui")
+        for b in btns:
+            s.release(t + 760, b)
+        t += 900
+    log = run(s, t + 100)
+    sc = [x["lines"][3:5] for x in log.screens()]
+    want = [["B LCK CPY PST CLR PLN TIE SLD", "B8 FORCE 9/10 MOVE 11 EXTRAS"], None, ["W CURSOR  B1-8 THE LANE", "B9 RAMP UP 10 DOWN 11 CLEAR"],
+            ["W LFO ON/OFF  B1-6 THE PAGE", "B7CPY 8PST 9OFF 10FREE 11RST"], ["W SLOT 9/10SNP 11-15 PI 16SET", "B SNAP SEL+B STORE 9CAP 10SND"]]
+    ok = len(sc) == 5 and all(w is None or [x.strip() for x in sc[k]] == w for k, w in enumerate(want))
+    check(ok and sc[1][0].strip() == want[0][0] and sc[1][1].strip().startswith("SEL+"),
+          "EDIT, ENV, LFO, SAVE held: the new keys in the map; EDIT + SEL: PICK's line as before (%s)" % sc)
 
 
 
@@ -13171,7 +13202,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
     t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig,
-    t032_panel, t032_grid, t032_grid2, t032_grid3]
+    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

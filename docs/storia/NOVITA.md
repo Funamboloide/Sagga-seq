@@ -5,6 +5,51 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.31
+
+**The keys that did nothing have a job.** Since 0.28 the tracks are twelve, and what was there for tracks 13-16 - on the
+panel, on the grid, on the remote - did nothing. Now:
+
+* **THE GROUPS.** Where a row of keys or pads is the twelve tracks, the four after them are **the groups**: **DRUMS**
+  (the DRUM tracks, as the scope DRUMS), **BASS** (the others whose role is BASS, SUB, RUMBLE or LOG DRUM), **MELODIC**
+  (all the rest) and **ALL** (every track). A group is looked at when you use it: a track that becomes a drum is with
+  the drums. A group with no track says so (`NO DRUM TRACK`, `NO BASS TRACK (A BASS OR SUB ROLE)`, `NO MELODIC TRACK`)
+  and its pad is dark. On the grid their colours are orange, blue, cyan and white.
+* **PERF's white keys 13-16** (GLO held, the PERF mode, the MOSSE's page): a tap and the group **goes quiet** if any of
+  it plays, else **it comes back** (`DRUMS MUTED`, `DRUMS PLAY`; with MUTE QUEUE: at the QUANTISE); **white 16: ALL ON**,
+  every track audible, no mute, no solo (`ALL TRACKS AUDIBLE`). With solo (SEL held, or SEL + OCT+): **the group's
+  solo** - on for all of it, or off if all of it had it (`SOLO: BASS`, `SOLO OFF: BASS`); white 16 takes every solo away
+  (`NO SOLO`). Lit while some of the group plays (white 16: while every track plays); blinking while a mute waits.
+* **The bank of 9-12** (black 9): **black 5-8 are the mutes of tracks 9-12** (`T9 MUTED`, `T9 PLAYS`; lit: muted;
+  blinking: waiting for the QUANTISE). Black 1-4 still pick tracks 9-12.
+* **HOME + white 13-16: the page of steps** 1-16, 17-32, 33-48, 49-64 (`STEPS 17-32`; the cursor on its first step;
+  lit: the page shown) - what OCT- / OCT+ do one at a time.
+* **An LFO on a group**: LFO page 2 K2 (TRACK) goes on after T12 to **DRUMS, BASS, MELODIC, ALL** (any destination but
+  CC, whose target is a channel): the LFO moves that parameter on every track of the group. The cell says the group's
+  name; PICK (LFO + SEL): whites 13-16.
+* **The remote** (channel 14), on the CCs of tracks 13-16: **CC 60-63 the groups' mutes** (63: ALL ON), **CC 76-79 KILL
+  a group** while held (79: **every track but the tablet's**, the TRACK of SAGGA Live and Motori), **CC 102-105 RETRIG a
+  group** (each of its tracks from its first step at its next one; stopped: `PLAY FIRST`).
+* **The grid** (SAGGA-GRID.md has every pad): the track buttons 5-8 in the bank of 9-12 are the mutes of 9-12 (SHIFT:
+  solo); in that bank **PERF's rows 5-8** are the 32 scenes, the 16 snapshots and the twelve mutes with the groups,
+  **DRUM's rows 5-8** the force of each step (NORMAL, ACCENT, GHOST: velocity 100, 124, 45), **EUCLID's rows 5-8** the
+  rotation and the family (EUCLID, TRESILLO, NUMERIC); pads 13-16 are the groups on FX (LOOP / REPEAT with or without a
+  group; KILL a group), MOSSE (the dice and IN / OUT for a group), FOLLOW (a knob's value to a group), BEAT (a group in
+  the CUSTOM scope) and LFO (the LFO on a group); **PROJ row 4 pads 13-16 the channels** (each track on its own, T1 on 1
+  ... T12 on 12; the drums on channel 10; the selected track's channel - / +); **BEAT page 2 pad 11: a genre at random,
+  pad 12: the SOURCE** (LIBRARY, THEORY, FREE: SEQ 8 K1).
+* **Fixed** (found while doing this): the grid's BEAT row 3 took eight progressions since 0.29 (eight a genre), so its
+  pads 7 and 8 - **HARMONY on / off and its bars a chord** - were gone; they are back, and 1-6 are the progressions (7
+  and 8 are on the MOSSE view and SEQ 4 K2). The CC view drew the pads of lanes 7 and 8 dark since 0.28, as with six
+  lanes: they worked, unseen; now they are lit like the others.
+* **The projects.** Nothing new in the image but an LFO's target (16-19: a group). A 0.30 opens a project of 0.31 as it
+  is, with an LFO on a group switched off, on T1 (MOD ONLY stays on, as it does).
+
+On the Pi: the SAGGA Mutes page has a row of the four groups under its mutes, its kills and its RETRIG (MUTE DRUMS,
+BASS, MELODIC, ALL ON; KILL DRUMS, BASS, MELODIC, ALL BUT T; RETRIG DRUMS, BASS, MELODIC, ALL); the editor's LFO
+target is "traccia o gruppo". Install the FM-1 and the Pi together. **0.30** (32 scenes, 16 snapshots, a song of 128
+entries, tapes of 3072 events, UNDO 32 rows; MOSSE for VIAGGIO): [storia/NOVITA.md](storia/NOVITA.md).
+
 ## What is new in 0.30
 
 **32 scenes** (16 until 0.29), **sixteen snapshots** (8), a song of **128 entries** (64), the tapes **3072

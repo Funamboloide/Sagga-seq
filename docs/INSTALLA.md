@@ -8,7 +8,7 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.31 — Il manuale"; il riferimento
+I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.32 — Il manuale"; il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
 in `tools/hub/LEGGIMI.md` (nello zip: `LEGGIMI.md`).
 
@@ -26,7 +26,7 @@ Pi, porta 8090). Non mentre suoni: l'FM-1 si riavvia, e si riavvia anche RaspiMI
    pagine dopo il riavvio (RaspiMIDIHub 6 li perde quando un dispositivo manca mentre salva: il Pi li rimette da solo).
 
 I progetti negli slot dell'FM-1 e nella libreria del Pi restano. Il formato dei progetti è `SGQB` dalla 0.10. Si
-possono saltare le versioni (dalla 0.27 alla 0.31 in un colpo, per esempio): valgono tutte le note qui sotto.
+possono saltare le versioni (dalla 0.27 alla 0.32 in un colpo, per esempio): valgono tutte le note qui sotto.
 **Dalla 0.28** le tracce sono dodici: un progetto di prima si apre con le sue prime dodici tracce. Se torni alla 0.27,
 apre i progetti della 0.28, senza le note 5-6 e le lane 7-8.
 **Dalla 0.29** i generi sono 22: un progetto di prima si apre con ogni genere dove è andato (AMAPIANO come REGGAETON,
@@ -41,6 +41,9 @@ faceva).
 **Dalla 0.31** i tasti che erano delle tracce 13-16 sono i quattro gruppi (batteria, bassi, melodiche, tutte) e un LFO
 può muovere un gruppo: i progetti di prima si aprono come erano. Se torni alla 0.30, apre i progetti della 0.31; un LFO
 messo su un gruppo lo trova spento, sulla traccia 1.
+**Dalla 0.32** i tasti e i pad che non facevano niente hanno un lavoro, e la manopola MASTER può muovere l'ENERGIA: i
+progetti di prima si aprono come erano. Se torni alla 0.31, apre i progetti della 0.32; la manopola messa sull'ENERGIA
+la trova sul TEMPO. La libreria del Pi mostra sul grid fino a 112 file (erano 64): aggiorna il Pi insieme all'FM-1.
 
 ## La prima volta sul Pi
 

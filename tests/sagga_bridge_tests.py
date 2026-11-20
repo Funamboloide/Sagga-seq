@@ -1674,10 +1674,28 @@ def t_progressions():
           "the stock: a file a genre, 30 or more for TECHNO, EPIC ones for TRANCE (%s)" % summ["TRANCE"])
 
 
+
+def t032_library_112():
+    """0.32: the FM-1's LIB view shows 112 files (rows 1-7): the list the bridge gives goes to 112 (0.5-0.31: 64)"""
+    import tempfile
+    d = tempfile.mkdtemp()
+    for k in range(1, 121):
+        open(os.path.join(d, "%d-set.sgq" % k), "wb").write(B.PROJECT_MAGIC + bytes(10))
+    names = B.library_files(d)
+    check(B.LIB_MAX == 112 and len(names) == 112 and names[0] == "1-set.sgq" and names[-1] == "112-set.sgq",
+          "120 files: the first 112 by their names (%d, %s .. %s)" % (len(names), names[:1], names[-1:]))
+    sent = []
+    lib = B.Library(d, sent.append, writer=B.BootWriter(d, run=lambda c: None, mounts=lambda: [("/", ["rw"])]), log=lambda x: None)
+    for i in (0, 111, 112):                                       # (the FM-1 asks from 0: the list is read then)
+        lib.fm1_sysex(B.SX_HEAD + [B.SX_LIB_LIST, i, 0, 0xF7])
+    check(len(sent) == 2 and sent[0][5:7] == [0, 112] and sent[1][5:7] == [111, 112] and bytes(sent[1][7:-1]) == b"112-set",
+          "the list: 112 files; entry 112 (its index 111) is there, one past it is not answered (%s)" % [x[5:7] for x in sent])
+
 TESTS = [t_roles_match_firmware, t_start_stop, t_pads_in, t_buttons_in, t_leds_out, t_batching, t_pump, t_blink,
          t_swap_and_guard, t_mk2, t_mini, t_heal, t_ports, t_portwatch, t_main, t_quiet_wait, t_synth_ports, t_end_to_end,
          t_dump_codec, t_dump_receiver, t_dump_sender, t_dump_files, t_dump_cli, t_dump_firmware, t_bootwriter, t_library,
-         t_library_firmware, t_fm1_port, t_patch_keeper, t_patch_firmware, t_regista, t_regista_firmware, t_patterns, t_progressions]
+         t_library_firmware, t_fm1_port, t_patch_keeper, t_patch_firmware, t_regista, t_regista_firmware, t_patterns, t_progressions,
+         t032_library_112]
 
 if __name__ == "__main__":
     for t in TESTS:

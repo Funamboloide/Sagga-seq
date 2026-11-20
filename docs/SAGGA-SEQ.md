@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.31
+# SAGGA SEQ 0.32
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Twelve
@@ -11,56 +11,75 @@ its pedal and wheels recorded, and **the journey**: every set is cut into phrase
 queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.31` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.32` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.30.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.31.
 
-## What is new in 0.31
+## What is new in 0.32
 
-**The keys that did nothing have a job.** Since 0.28 the tracks are twelve, and what was there for tracks 13-16 - on the
-panel, on the grid, on the remote - did nothing. Now:
+**The keys and pads that did nothing since before have a job** - not the ones the twelve tracks freed (0.31 gave them
+one), the ones that never had any. Every key with a button held, and every pad of the grid, now does what fits where
+it is:
 
-* **THE GROUPS.** Where a row of keys or pads is the twelve tracks, the four after them are **the groups**: **DRUMS**
-  (the DRUM tracks, as the scope DRUMS), **BASS** (the others whose role is BASS, SUB, RUMBLE or LOG DRUM), **MELODIC**
-  (all the rest) and **ALL** (every track). A group is looked at when you use it: a track that becomes a drum is with
-  the drums. A group with no track says so (`NO DRUM TRACK`, `NO BASS TRACK (A BASS OR SUB ROLE)`, `NO MELODIC TRACK`)
-  and its pad is dark. On the grid their colours are orange, blue, cyan and white.
-* **PERF's white keys 13-16** (GLO held, the PERF mode, the MOSSE's page): a tap and the group **goes quiet** if any of
-  it plays, else **it comes back** (`DRUMS MUTED`, `DRUMS PLAY`; with MUTE QUEUE: at the QUANTISE); **white 16: ALL ON**,
-  every track audible, no mute, no solo (`ALL TRACKS AUDIBLE`). With solo (SEL held, or SEL + OCT+): **the group's
-  solo** - on for all of it, or off if all of it had it (`SOLO: BASS`, `SOLO OFF: BASS`); white 16 takes every solo away
-  (`NO SOLO`). Lit while some of the group plays (white 16: while every track plays); blinking while a mute waits.
-* **The bank of 9-12** (black 9): **black 5-8 are the mutes of tracks 9-12** (`T9 MUTED`, `T9 PLAYS`; lit: muted;
-  blinking: waiting for the QUANTISE). Black 1-4 still pick tracks 9-12.
-* **HOME + white 13-16: the page of steps** 1-16, 17-32, 33-48, 49-64 (`STEPS 17-32`; the cursor on its first step;
-  lit: the page shown) - what OCT- / OCT+ do one at a time.
-* **An LFO on a group**: LFO page 2 K2 (TRACK) goes on after T12 to **DRUMS, BASS, MELODIC, ALL** (any destination but
-  CC, whose target is a channel): the LFO moves that parameter on every track of the group. The cell says the group's
-  name; PICK (LFO + SEL): whites 13-16.
-* **The remote** (channel 14), on the CCs of tracks 13-16: **CC 60-63 the groups' mutes** (63: ALL ON), **CC 76-79 KILL
-  a group** while held (79: **every track but the tablet's**, the TRACK of SAGGA Live and Motori), **CC 102-105 RETRIG a
-  group** (each of its tracks from its first step at its next one; stopped: `PLAY FIRST`).
-* **The grid** (SAGGA-GRID.md has every pad): the track buttons 5-8 in the bank of 9-12 are the mutes of 9-12 (SHIFT:
-  solo); in that bank **PERF's rows 5-8** are the 32 scenes, the 16 snapshots and the twelve mutes with the groups,
-  **DRUM's rows 5-8** the force of each step (NORMAL, ACCENT, GHOST: velocity 100, 124, 45), **EUCLID's rows 5-8** the
-  rotation and the family (EUCLID, TRESILLO, NUMERIC); pads 13-16 are the groups on FX (LOOP / REPEAT with or without a
-  group; KILL a group), MOSSE (the dice and IN / OUT for a group), FOLLOW (a knob's value to a group), BEAT (a group in
-  the CUSTOM scope) and LFO (the LFO on a group); **PROJ row 4 pads 13-16 the channels** (each track on its own, T1 on 1
-  ... T12 on 12; the drums on channel 10; the selected track's channel - / +); **BEAT page 2 pad 11: a genre at random,
-  pad 12: the SOURCE** (LIBRARY, THEORY, FREE: SEQ 8 K1).
-* **Fixed** (found while doing this): the grid's BEAT row 3 took eight progressions since 0.29 (eight a genre), so its
-  pads 7 and 8 - **HARMONY on / off and its bars a chord** - were gone; they are back, and 1-6 are the progressions (7
-  and 8 are on the MOSSE view and SEQ 4 K2). The CC view drew the pads of lanes 7 and 8 dark since 0.28, as with six
-  lanes: they worked, unseen; now they are lit like the others.
-* **The projects.** Nothing new in the image but an LFO's target (16-19: a group). A 0.30 opens a project of 0.31 as it
-  is, with an LFO on a group switched off, on T1 (MOD ONLY stays on, as it does).
+* **EDIT + black 8-11**, on the cursor step: **8 FORCE** - NORMAL (velocity 100) -> ACCENT (124) -> GHOST (45) ->
+  NORMAL; a step that is off comes on as an ACCENT (`STEP 2: ACCENT`; lit on an accent). **9 / 10 the step a place
+  earlier / later** in the loop: it changes place with its neighbour (on the loop's first step 9 goes round to the
+  last), the cursor goes with it, UNDO takes it back (`STEP 1 TO 16`). **11 PLAIN EXTRAS**: the step's chance back to
+  100, its condition ALL, no nudge, one ratchet, no ramp - the notes, the velocity and the gate stay (lit while the
+  step has one of them).
+* **ENV + black 1-8: the lane** of the page (as OCT- / OCT+; lit: the lane shown, dim: the lanes with a CC). **Black 9
+  RAMP UP, 10 RAMP DOWN**: the lane's locks rise from 0 to 127 (fall from 127 to 0) over the pattern's loop; **11 CLEAR
+  the lane** in the loop (`LANE 3 CLEARED`; nothing there: `LANE 3: NO LOCK IN THE LOOP`). UNDO takes them back.
+* **LFO + black 1-6: the LFO's page** (as OCT- / OCT+). **7 COPY** the LFO selected (with its RATE SEQ, TRIG and ENV),
+  **8 PASTE** it onto the selected one (`LFO PASTED 2`; lit: one is copied); **9 ALL LFOS OFF - again: back on, the
+  ones that were**; **10 THE NEXT FREE LFO** (the next one that is off: to set up a new one); **11 RESET the LFO**,
+  twice within 3 s (as a new project has it; blinking: asked).
+* **SAVE + white 11 EXPORT** (the project to the Pi, as PROJ's pad 12), **12 the track's pattern to the Pi** (as SEQ +
+  SAVE), **13 the progression** (as ARP + SAVE), **14 / 15 the Pi's setlist: the file before / after** the one loaded -
+  the first press names it (`NEXT, AGAIN TO LOAD: 2 TWO`, the key blinking), the second within 3 s loads it (playing:
+  at STOP). Dim while SAVE is held.
+* **The MASTER knob's fourth job: ENERGY** (SAVE + K1, or the grid's PROJ row 5 pad 4): the knob sets the MOSSE's
+  energy 0-100 (`ENERGY 50: THE WHOLE SET`), as GLO 3 K1 does - playing it glides there. A 0.31 opens such a project
+  with the knob on the TEMPO.
+* **The grid** (SAGGA-GRID.md has every pad):
+  * **TRACK** row 7 pad 16: every track's VEL OFFSET back to 0; row 8 pad 16: every step of the pattern back on the
+    grid, no nudge (UNDO). Orange while there is one.
+  * **CC** row 5 pads 13-15: **COPY the lane** (its locks in the pattern), **PASTE** it onto the lane shown, **the lane
+    in every pattern** of the track; row 8 pads 3-6 **the lane's mode** (NORMAL, SLIDE, TRIGLESS, NRPN - as ENV K4), pads
+    7-16 **its tools** over the loop: RAMP UP, RAMP DOWN, UP AND DOWN, AT RANDOM, UPSIDE DOWN, A STEP EARLIER, A STEP
+    LATER (round the loop), SMOOTHED (each lock with its neighbours), HALFWAY TO THE BASE, the page CLEARED. UNDO takes
+    each back.
+  * **BEAT** row 4 pad 8: **DICE PROG** (SEQ + black 1 held).
+  * **SONG** row 4: 5 / 6 the entry a place earlier / later, 7 its tempo = the tempo now, 8 no tempo of its own, 9 SONG
+    TEMPO, 10 / 11 its bars halved / doubled, 12 SAVE THE SET, 15 the free entry after the last, 16 the song from its
+    first entry (SHIFT + 16 still clears it).
+  * **FX** row 2 pads 13 / 15: LOOP / REPEAT **1/16 dotted** and **1/8 dotted**.
+  * **PROJ**: row 1 pads 13-16 the key **a fifth down, a fifth up, its RELATIVE** (A minor <-> C major), **its
+    PARALLEL** (A minor <-> A major); row 3 pad 16 **THE KEY BEFORE** (back and forth); row 5 pad 4 the MASTER knob's
+    ENERGY, pads 6-13 **SONG TEMPO, MIDI IN PLAYS, LONG PATTERNS, CLICK, COUNT IN, MUTE QUEUE, SCENE METRE, the
+    PROFILE**; row 6 pad 11 CLEAR the slot (twice), 13 / 14 the setlist's file before / after, 15 SAVE OVER the file
+    loaded from the Pi (twice), 16 a **NEW PROJECT** (twice); row 7 pad 8 the tempo halved, 10 doubled, **11-16 the tempo
+    90 100 120 128 140 174**.
+  * **TRACK 2** row 5 pads 9-12 the **bank of scenes** of pads 1-8 (1-8 ... 25-32), 13 the scene's programs **in every
+    scene**, 14 the scene **without programs**, 15 this channel's program in every scene; rows 6-8: **a tap moves that
+    loop's playhead** to the step (`NOTE LOOP FROM STEP 3`).
+  * **LIB**: **112 files**, rows 1-7 (64 until 0.31); row 8 pad 3 the **FIRST** file, 5 the file loaded **AS SAVED**
+    (twice), 6 / 7 the pattern and the progression to the Pi, **10-15 the files loaded last** (10 the one loaded, 11-15
+    the five before it; by name).
+  * **MOSSE** row 4 pads 12-14 the **phrase** of 4 / 8 / 16 bars; row 6 pads 9-11 **MOVES AT** the phrase / every bar /
+    every beat, 12 / 13 the genre - / +, 14 / 15 the key - / + (playing: queued); row 7 pads 14-16 **HARMONY** on / off,
+    **LOCK**, its bars a chord.
+  * **REGIA** rows 2-8: the MOSSE's (the regista's rules stay on row 1).
+  * **FOLLOW** rows 5-8 pads 11-16, on a knob that is no track's: past the FM-1's black keys - items 27-32 of a list or
+    a count (a USER PROG chord's shapes), the lengths 17 18 19 21 22 23 (a chord's length).
+* **The projects.** Nothing new in the image but the MASTER knob's fourth job (live.master_fn 3); a 0.31 opens it with
+  the knob on the TEMPO, the rest as it is.
 
-On the Pi: the SAGGA Mutes page has a row of the four groups under its mutes, its kills and its RETRIG (MUTE DRUMS,
-BASS, MELODIC, ALL ON; KILL DRUMS, BASS, MELODIC, ALL BUT T; RETRIG DRUMS, BASS, MELODIC, ALL); the editor's LFO
-target is "traccia o gruppo". Install the FM-1 and the Pi together. **0.30** (32 scenes, 16 snapshots, a song of 128
-entries, tapes of 3072 events, UNDO 32 rows; MOSSE for VIAGGIO): [storia/NOVITA.md](storia/NOVITA.md).
+On the Pi: the bridge gives the FM-1 up to 112 files (64 until 0.31); the editor's MASTER knob has ENERGY, and its
+MORPH TO goes to all 32 scenes (1-8 until 0.31: **fixed**). Install the FM-1 and the Pi together. **0.31** (the groups
+of tracks, the bank of 9-12's mutes, the page of steps): [storia/NOVITA.md](storia/NOVITA.md).
 
 ## The FM-1 panel
 
@@ -75,18 +94,20 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | SEL | the keys are notes for the cursor step (within 0.45 s: a chord of up to 6 - 0.28; 4 until 0.27) | (notes) | velocity offset, humanise timing, humanise velocity, **pen note** |
 | **a group + SEL** (0.12) | **PICK**: the key is the value of the knob in focus (lists, lengths, roots, semitones, percentages: see PICK) | 1-10 items 17-26; **11: the focus to the next knob** | |
 | HOME | **track 1-12** (0.28); **whites 13-16 (0.31): the page of steps** 1-16, 17-32, 33-48, 49-64 | as with nothing held; in PERF: the song (1-8 add a scene of the cursor's bank, 9 loop, 10 take the last away, 11 clear) | see HOME pages (8) |
-| EDIT | the cursor to that step (not switched) | **1 STEP LOCK**, 2 COPY, 3 PASTE, 4 CLEAR the step, **5 PLAIN** (no EXPO from this step), **6 TIE** (legato into the next step), **7 SLIDE** (0.13: TIE, and the next note glides: CC 65) | gate (1 % .. 100 %, 1.5 .. 64 STEP), condition (16), nudge, ramp; **SEL + K1-K4 (0.12): the step's notes 1-4** (a knob below the first: the note taken away; 0.28: the line shows notes 5 and 6, written by playing - SEL + keys, MIDI REC, the grid, the Pi's editor) |
-| ENV | the cursor to that step | | **one lane a page (OCT- / OCT+: lanes 1-8; 0.28, six until 0.27)**: K1 the lock on the step, K2 the CC number (SEL + K2: the NRPN MSB), K3 the base, K4 the mode NORMAL / SLIDE / TRIGLESS / NRPN |
-| LFO | that LFO on / off | | page 1 shape (**0.20: + ENV**), rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination (**0.20: + MOD ONLY**), target (**0.31: after T12 the groups DRUMS, BASS, MELODIC, ALL**), CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T12, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate; **0.20: page 5 ENV** attack, decay, sustain, release; **page 6 MOD** slot, source (SEL: which), destination (SEL: which), amount |
+| EDIT | the cursor to that step (not switched) | **1 STEP LOCK**, 2 COPY, 3 PASTE, 4 CLEAR the step, **5 PLAIN** (no EXPO from this step), **6 TIE** (legato into the next step), **7 SLIDE** (0.13: TIE, and the next note glides: CC 65); **0.32: 8 FORCE** (NORMAL 100, ACCENT 124, GHOST 45; an off step comes on, ACCENT), **9 / 10 the step a place earlier / later** in the loop (it changes place with its neighbour; UNDO), **11 PLAIN EXTRAS** (chance 100, condition ALL, no nudge, one ratchet, no ramp) | gate (1 % .. 100 %, 1.5 .. 64 STEP), condition (16), nudge, ramp; **SEL + K1-K4 (0.12): the step's notes 1-4** (a knob below the first: the note taken away; 0.28: the line shows notes 5 and 6, written by playing - SEL + keys, MIDI REC, the grid, the Pi's editor) |
+| ENV | the cursor to that step | **0.32: 1-8 the lane** (the page); **9 RAMP UP, 10 RAMP DOWN** over the loop, **11 CLEAR the lane** in the loop (UNDO) | **one lane a page (OCT- / OCT+: lanes 1-8; 0.28, six until 0.27)**: K1 the lock on the step, K2 the CC number (SEL + K2: the NRPN MSB), K3 the base, K4 the mode NORMAL / SLIDE / TRIGLESS / NRPN |
+| LFO | that LFO on / off | **0.32: 1-6 the page**; **7 COPY** the LFO, **8 PASTE** it on the selected one; **9 ALL OFF** (again: back on); **10 the next free LFO**; **11 RESET** it (twice) | page 1 shape (**0.20: + ENV**), rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination (**0.20: + MOD ONLY**), target (**0.31: after T12 the groups DRUMS, BASS, MELODIC, ALL**), CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T12, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate; **0.20: page 5 ENV** attack, decay, sustain, release; **page 6 MOD** slot, source (SEL: which), destination (SEL: which), amount |
 | SEQ | the 16 tools (WHEN / EVERY: when they happen; **0.12: UNDO held 0.6 s = REDO, COOK held = the random COOK**; **0.17: BEAT held = a PROPOSAL** in a free pattern; the tap acts when the key is let go) | dice SEQ CC LFO GROOVE ALL (**0.12: black 1 held = DICE PROG**), SCOPE, KIT (**held: BAND**), DRIFT, EVOLVE, FREEZE, REVERT | see SEQ pages (7) |
 | FX | the 16 effects while held | 1-8 LOOP (tap) / REPEAT (hold) 1/32 .. 4 bars, 9 RESTART, 10 STOP at the bar, 11 EXIT (a DJ loop, or the step loop of the selected track; SEL also held: the selected track only) | INTENSITY, GATE, SWING, FILTER (the macros, saved); **SEL + K1-K4 (0.12): the THROWS** (the same four, gliding back to 0 over a bar); FX + OCT-: to 0; FX + OCT+: ECHO ALL; **FX + ARP twice: BAKE**; **FX + HOME: PANIC** |
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
-| SAVE | slot 1-8; **white 9 / 10 (0.30): the snapshots 1-8 / 9-16**; **white 16: the set played becomes scenes and the song** (SAVE THE SET; SALVA VIAGGIO until 0.29) | **1-8 SNAPSHOT of the bank** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (5); PRESETS: the slot |
+| SAVE | slot 1-8; **white 9 / 10 (0.30): the snapshots 1-8 / 9-16**; **0.32: white 11 EXPORT, 12 the track's pattern and 13 the progression to the Pi, 14 / 15 the Pi's setlist - the file before / after (the first press names it, the second loads it)**; **white 16: the set played becomes scenes and the song** (SAVE THE SET; SALVA VIAGGIO until 0.29) | **1-8 SNAPSHOT of the bank** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (5); PRESETS: the slot |
 | GLO (PERF) | **0.12: mute 1-12 in any mode** (0.28: twelve tracks) (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute); **13-16 (0.31): the groups** DRUMS, BASS, MELODIC (quiet / back; solo: their solo), ALL (ALL ON; solo: no solo) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (4); PRESETS: the scene cursor 1-32 (0.30; the black keys are its bank: 1-8, 9-16, 17-24, 25-32); **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
 | **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo), and the groups on 13-16 (0.31) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE (0.24, with SEL: SHORTER, LONGER - every track's length), THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
 
 A group **held half a second** with nothing else shows the map of its keys on the screen's message lines, and what
 SEL + a key does for the knob in focus (in a window the map stays four seconds, then the key and genre lines come back).
+0.32: EDIT, ENV and LFO name their new black keys on the second line (`B8 FORCE 9/10 MOVE 11 EXTRAS`) - with SEL held
+too, that line says what PICK does, as before; SAVE (on its pages 2-5: page 1 shows the slots) says `11-15 PI`.
 
 ### HOME pages (OCT- / OCT+ with HOME held)
 
@@ -193,7 +214,7 @@ pattern's own seed; the machine's ENERGY fills and empties it ([THEORY](#theory-
 | **FX + HOME** | **PANIC**: sustain up, All Notes Off, All Sound Off on every channel; again within 2 s: the transport stops too |
 | HOME + EDIT | the button lights: OFF, LOW, MID, HIGH, MAX (SAVE 3 K2 too) |
 | SAVE 3 SYSTEM | K1 one or two USB ports; **SEL + K1 twice: reconnect** (and the ports change); K2 the button lights |
-| MASTER knob | TEMPO 30 .. 300 BPM (the default), MORPH or FILTER (SAVE + K1). It takes over only after you move it; FILTER has a dead zone in the middle (0) |
+| MASTER knob | TEMPO 30 .. 300 BPM (the default), MORPH, FILTER or (0.32) **ENERGY**, the MOSSE's 0-100 (SAVE + K1). It takes over only after you move it; FILTER has a dead zone in the middle (0) |
 
 Conditions: ALL, 1:2, 2:2, 1:4, 2:4, 3:4, 4:4 (which loop of the track), FILL, !FILL, 1:3, 2:3, 3:3, 1:8, FIRST (the
 first loop after PLAY only), PRE (only after a step of the track that played), !PRE. Chance is per step. A step that
@@ -235,13 +256,13 @@ the bar's steps (white 1 = 3 steps), or the ways it divides.
 
 | page | K1 | K2 | K3 | K4 |
 |---|---|---|---|---|
-| 1 | MASTER knob function | the remote OFF / CH 14 / 13 + 14 | snapshots bring their tempo | the PROFILE: FULL, SEMPLICE, PALCO |
+| 1 | MASTER knob function (TEMPO, MORPH, FILTER, **ENERGY**: 0.32) | the remote OFF / CH 14 / 13 + 14 | snapshots bring their tempo | the PROFILE: FULL, SEMPLICE, PALCO |
 | 2 | **CC LEAD** 0-30 ms | **SONG TEMPO** | **DEVICE** of the track's channel (GENERIC, ELEKTRON) | **LONG PATTERNS** (0.24; LIBRARY LEN until 0.23): COPY (a library pattern of one bar repeats in a longer track) / PHRASE (the long form: the next variation in the last bar, the genre's fill) |
 | 3 SYSTEM (0.12) | **USB PORTS** 1 / 2 (SEL + K1 twice: reconnect) | the button lights | | |
 | **4 LIVE IN** (0.13) | **MOTION** OFF / 1 / 2 / 4 BARS (REC + FX K: written) | **KEYBOARD** OFF / TRANSPOSE / TRANS <C3 (the MIDI IN transposes), **0.26: CHORDS / CHORD <C3** (its chords are the harmony) | **KEYB CH** ANY / 1-16 | **MIDI IN** REC ONLY / ALWAYS |
 | **5 THE CLICK** (0.26) | **CLICK** OFF / REC / PLAY | **COUNT IN** OFF / 1 BAR / 2 BARS | **CLICK OUT** FM-1 / CH 1-16 | **LEVEL** 1-10 (SEL + K4: the MIDI note) |
 
-SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot, **whites 9 / 10 the snapshots 1-8 / 9-16** (0.30); SAVE tapped twice saves; HOME + SAVE twice loads;
+SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot, **whites 9 / 10 the snapshots 1-8 / 9-16** (0.30), **0.32: white 11 EXPORT, 12 / 13 the pattern / the progression to the Pi, 14 / 15 the Pi's setlist**; SAVE tapped twice saves; HOME + SAVE twice loads;
 **SAVE + REC twice clears the slot** (0.15). Page 1 shows the slot's project name and the one in the FM-1 (0.15).
 
 ### PICK: the keys set the knobs

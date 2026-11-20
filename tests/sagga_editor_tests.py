@@ -1469,10 +1469,61 @@ def t031_lfo_groups():
     check(j2['lfo'][9]['target'] == 18 and j2['lfo'][5]['target'] == 17, 'in the file: LFO 10 on the melodic ones, chosen on the page; LFO 6 still on the bass (%s %s)' % (j2['lfo'][9], j2['lfo'][5]))
 
 
+
+def t032_master_energy():
+    group("0.32 the MASTER knob's fourth job, ENERGY (live.master_fn 3): kept in the files, past it put right; on the page; MORPH to any of the 32 scenes")
+    d = tempfile.mkdtemp()
+    a, b = os.path.join(d, 'a.sgq'), os.path.join(d, 'b.sgq')
+    r = apply('new', ['live - master_fn - 3', 'live - morph_b - 20'], a)
+    r2 = apply('new', ['live - master_fn - 4'], b)
+    j = read(a) if r.returncode == 0 else {}
+    j2 = read(b) if r2.returncode == 0 else {}
+    check(j and j['live']['master_fn'] == 3 and j['live']['morph_b'] == 20 and j2 and j2['live']['master_fn'] == 0,
+          'ENERGY kept, MORPH to scene 21 kept; a fifth job (none) put back to TEMPO as the FM-1 does (%s %s %s)' % (
+              j and j['live']['master_fn'], j and j['live']['morph_b'], j2 and j2['live']['master_fn']))
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (skipped: no playwright)')
+        return
+    import sagga_fw as FW
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    shutil.copy(a, os.path.join(pr, 'energia.sgq'))
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            br = p.chromium.launch()
+            pg = br.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/edit/energia.sgq' % port)
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.tab='progetto';render()")
+            q = 'select[data-g="live"][data-f="%s"]'
+            shown = pg.evaluate("['master_fn', 'morph_b'].map(f => { const s = document.querySelector('%s'.replace('%%s', f)); return [s.options.length, s.options[s.selectedIndex].text]; })" % q)
+            check(shown == [[4, 'ENERGY'], [32, '21']] and not errs, 'the page: TEMPO MORPH FILTER ENERGY, ENERGY chosen; MORPH to scene 21 of 32 (0.30-0.31: 1-8) (%s %s)' % (shown, errs))
+            pg.select_option(q % 'master_fn', '2')
+            pg.wait_for_timeout(200)
+            pg.click('#bsave')
+            pg.wait_for_timeout(1200)
+            check((pg.text_content('#status') or '').startswith('salvato'), 'Save (%s)' % pg.text_content('#status'))
+            br.close()
+    finally:
+        srv.shutdown()
+    j3 = read(os.path.join(pr, 'energia.sgq'))
+    check(j3['live']['master_fn'] == 2 and j3['live']['morph_b'] == 20, 'in the file: FILTER, chosen on the page; MORPH still to scene 21 (%s)' % j3['live'])
+
 def main():
     build()
     for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
-              t025_metre, t025_melody, t026_files, t027_files, t028_files_page, t031_lfo_groups):
+              t025_metre, t025_melody, t026_files, t027_files, t028_files_page, t031_lfo_groups, t032_master_energy):
         try:
             t()
         except Exception as e:

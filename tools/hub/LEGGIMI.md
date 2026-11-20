@@ -195,6 +195,10 @@ svuotare il resto (non in un RUMBLE o in un SUB che segue la cassa: quelli, quan
 interi). Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
 **Copia in...** su un altro pattern della stessa traccia porta con sé il seme; su un'altra traccia no.
 
+0.32: nella scheda Progetto la **manopola MASTER** ha anche **ENERGY** (l'energia delle MOSSE, come sull'FM-1), e
+**MORPH verso la scena** va su tutte le 32 scene (fino alla 0.31 l'editor ne offriva solo 8). La libreria del Pi arriva
+all'FM-1 fino a 112 file (le righe 1-7 della vista LIB del grid; erano 64).
+
 **0.24, le copie.** Sull'FM-1 la lunghezza è della traccia: quando una traccia è più lunga del suo pattern, negli step
 in più il pattern gira di nuovo. Quegli step sono le sue **copie**, e l'editor le mostra in **verde-azzurro** (gli step
 scritti da te restano verdi). Se ne selezioni una, sotto leggi di quale step è la copia.

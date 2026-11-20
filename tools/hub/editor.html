@@ -101,7 +101,7 @@ document.addEventListener('click', ev => {                  // 0.20: an arrow of
 });
 const VOICE = ['CLOSE','INV 1','INV 2','DROP 2','OPEN'];
 const FOLLOW = ['HOLD','RETRIG','LEGATO','MELODY','SMOOTH'];   // 0.25 MELODY: a tune - it stays where it is written, its strong notes go to the chord
-const MASTERF = ['TEMPO','MORPH','FILTER'];
+const MASTERF = ['TEMPO','MORPH','FILTER','ENERGY'];   // (0.32: ENERGY, the MOSSE's)
 const REMOTE = ['OFF','CH 14','13 + 14'];
 const KB = ['OFF','TRANSPOSE','TRANS <C3','CHORDS','CHORD <C3'];   // 0.26: its chords are the harmony (all the keys, or the ones below C3)
 const CLOCK = ['MASTER','SLAVE'];
@@ -649,7 +649,7 @@ function rProgetto() {
     '<table><tr><th>slot</th><th>fondamentale</th><th>scala</th><th>shift</th></tr>';
   for (let s = 0; s < 16; s++) o += '<tr><td>' + (s + 1) + (s === k ? ' ◀' : '') + '</td><td>' + sel('key', s, 'root', '-', N.root || []) + '</td><td>' + sel('key', s, 'scale', '-', N.scale || []) + '</td><td>' + num('key', s, 'shift', '-', -24, 24, 'w2') + '</td></tr>';
   o += '</table><h3>LIVE</h3><div class="grid">' + L('QUANTISE', sel('live', '-', 'quant', '-', QUANT)) + L('mute al QUANTISE', bit('live', '-', 'mute_q', '-', 1)) +
-    L('MORPH verso la scena', sel('live', '-', 'morph_b', '-', range(1, 8))) + L('manopola MASTER', sel('live', '-', 'master_fn', '-', MASTERF)) +
+    L('MORPH verso la scena', sel('live', '-', 'morph_b', '-', range(1, 32))) + L('manopola MASTER', sel('live', '-', 'master_fn', '-', MASTERF)) +
     L('gli snapshot portano il tempo', bit('live', '-', 'snap_tempo', '-', 1)) + L('REMOTE', sel('live', '-', 'remote_mode', '-', REMOTE)) +
     L('CC LEAD ms', num('live', '-', 'cc_lead_ms', '-', 0, 30)) + L('SONG TEMPO', bit('live', '-', 'song_tempo', '-', 1));
   for (let m = 0; m < 4; m++) o += L('macro ' + MACROS[m], num('live', '-', 'mac', m, [-63, -90, -25, -64][m], [63, 100, 25, 63][m]));
