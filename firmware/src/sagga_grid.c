@@ -821,12 +821,19 @@ static uint8_t gr_song_entry_at(uint32_t bar)   /* the entry playing at bar `bar
     return 255u;
 }
 
+static uint32_t gr_song_page_bar(void)          /* 0.30: the bar the page's first entry starts on - rows 5-8 show 64 bars from there */
+{
+    uint32_t i, b = 0u, first = g_song_sel & ~15u;
+    for (i = 0; i < first && i < project.song.len; i++) b += project.song.e[i].bars;
+    return b;
+}
+
 static void gr_pad_song(uint8_t x, uint8_t y)
 {
     sq_song_t *sg = &project.song;
     if (g_song_sel > sg->len) g_song_sel = sg->len;
     switch (y) {
-    case 0: {                                             /* (0.9: 64 entries, 16 a page: the page of the one chosen) */
+    case 0: {                                             /* (16 entries a page: the page of the one chosen; 0.30: 128 entries, 8 pages) */
         uint8_t e = (uint8_t)((g_song_sel & ~15u) + x);
         if (e > sg->len || e >= SQ_SONG_LEN) break;
         if (gr_shift() && e < sg->len) { if (song_on) { song_wait = 0u; song_play_entry(e); song_status(); } else status_msg("SONG IS OFF"); }
@@ -846,7 +853,7 @@ static void gr_pad_song(uint8_t x, uint8_t y)
         else if (x == 1u) song_loop_toggle();
         else if (x == 2u) song_insert(g_song_sel);
         else if (x == 3u) song_delete(g_song_sel);
-        else if (x == 12u || x == 13u) {                  /* the page of entries: 1-16, 17-32, 33-48, 49-64 */
+        else if (x == 12u || x == 13u) {                  /* the page of entries: 1-16, 17-32 ... 113-128 (0.30) */
             int32_t base = (int32_t)(g_song_sel & ~15u) + (x == 12u ? -16 : 16);
             if (base < 0 || base > (int32_t)sg->len || base >= (int32_t)SQ_SONG_LEN) break;
             g_song_sel = (uint8_t)base;
@@ -855,7 +862,7 @@ static void gr_pad_song(uint8_t x, uint8_t y)
         else if (x == 15u && gr_shift()) { song_clear(); g_song_sel = 0u; }
         break;
     default: {
-        uint8_t e = gr_song_entry_at((uint32_t)(y - 4u) * 16u + x);
+        uint8_t e = gr_song_entry_at(gr_song_page_bar() + (uint32_t)(y - 4u) * 16u + x);   /* (0.30: from the page's first entry) */
         if (e == 255u) break;
         g_song_sel = e;
         if (song_on) { song_wait = 0u; song_play_entry(e); song_status(); }
@@ -1758,8 +1765,9 @@ static void gr_render_song(void)
     gr_put(12, 3, g_song_sel >= 16u ? GL_BLUE : GL_FAINT);
     gr_put(13, 3, (g_song_sel & ~15u) + 16u <= sg->len && (g_song_sel & ~15u) + 16u < SQ_SONG_LEN ? GL_BLUE : GL_FAINT);
     gr_put(15, 3, gr_shift() ? GL_PLAY : GL_FAINT);
+    bar = gr_song_page_bar();                                         /* (0.30: 64 bars from the page's first entry) */
     for (y = 0; y < 4u; y++) for (x = 0; x < 16u; x++) {
-        uint32_t b = y * 16u + x;
+        uint32_t b = bar + y * 16u + x;
         uint8_t e = gr_song_entry_at(b), role = e == 255u ? GL_OFF : ECOL[e & 3u];
         if (e != 255u && e == g_song_sel) role = GL_DIM;
         if (b == playbar) role = GL_PLAY;

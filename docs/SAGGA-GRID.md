@@ -273,14 +273,14 @@ view on its last line (`G:STEP`, `G:CC`, ...).
 | 2 | FILL (hold) | the other bank of tracks (1-8 / 9-12: 0.28, twelve tracks) |
 | 3 | UNDO / REDO of the last tool (a dice waiting: BACK) | the **FX** view |
 | 4 | the **STEP** view; in STEP: the **DRUM** view | the **CC** view; in CC: **FOLLOW** (0.18; PICK until 0.17) |
-| 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **VIAGGIO**; in VIAGGIO: **REGIA** (once a regista has spoken), then PERF. (0.9-0.16: with VIAGGIO on, the button opened VIAGGIO first; 0.17: PERF first, always) | the **LFO** view |
+| 5 | the **PERF** view; in PERF: the **SONG** view; in SONG: **MOSSE** (0.30; VIAGGIO until 0.29: only the name changed); in MOSSE: **REGIA** (once a regista has spoken), then PERF. (0.9-0.16: with VIAGGIO on, the button opened VIAGGIO first; 0.17: PERF first, always) | the **LFO** view |
 | 6 | the **TRACK** view; again: **TRACK 2**, again: **TRACK 3** | the **BEAT** view; again: the **EUCLID** view |
 | 7 | SHIFT (0.18: cyan while the grid FOLLOWs the FM-1) | |
 | 8-15 | select track 1-8 of the bank (blue: bank 2; 0.28: it has four, 9-12 - buttons 12-15 dark) | solo that track |
 | 16-23 | pattern 1-8 of the selected track, queued to the end of its loop | copy the playing pattern there (UNDO takes it back) |
-| 24-31 | scene 1-8 of the bank the scene cursor is in (1-8 / 9-16), queued to the next bar | store the scene |
+| 24-31 | scene 1-8 of the bank the scene cursor is in (1-8, 9-16, 17-24, 25-32: 0.30), queued to the next bar | store the scene |
 
-A view button is amber when its view is shown, violet when its SHIFT view is, cyan for DRUM and SONG, accent for VIAGGIO, white for REGIA. While stopped, pattern and scene
+A view button is amber when its view is shown, violet when its SHIFT view is, cyan for DRUM and SONG, accent for MOSSE, white for REGIA. While stopped, pattern and scene
 changes apply at once.
 
 ### STEP (the selected track)
@@ -347,7 +347,7 @@ after the page changes (a button tapped in passing moves nothing):
 | the FM-1 | the grid |
 |---|---|
 | the steps (no group held, no window) | STEP |
-| PERF (GLO tapped, or held) | PERF; on page 3 (the MOSSE): VIAGGIO |
+| PERF (GLO tapped, or held) | PERF; on page 3: the MOSSE view |
 | LFO held or its window | LFO |
 | FX held or its window | FX |
 | ENV held or its window | CC (the lanes) |
@@ -396,7 +396,7 @@ more: CC again (and FOLLOW stops).
 |---|---|
 | 1 | genre 1-12. **0.29**: page 1: techno, hard techno, dub techno, house, UK garage, UK funky, dubstep, jungle, reggaeton, batida, gqom, experimental; page 2: electro, drum+bass, balani, footwork, trance, UK drill, hardcore, phonk, baile funk, merengue (22 genres: grime, bassline, afro house and amapiano went into others; until 0.28 25, on three pages); **PAGE** (13: blue page 1, cyan page 2); **LOAD** (14: BEAT on the scope; again: the next variation); **KIT** (15; SHIFT: **BAND**); **DICE ALL** (16) |
 | 2 | the genre's **parts** (0.11: its band, violet, then PROG and KIT; more than nine: pads 1-8 a page, pad 9 the next page); **scope**: this track, bank, all, drums, melodic, CUSTOM (10-15); **WRITE LIVE** (16, orange while the track has a live layer) |
-| 3 | the genre's **progressions** 1-6 (cyan: playing; 0.29: 7 and 8 are on the VIAGGIO view and SEQ 4 K2); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16). **0.23, SOURCE THEORY or FREE** (SEQ 8 K1): the **seeds** in their place - 11-16 six seeds (white: the next one), 10 the six after them; SHIFT shows on rows 5-6 what the engines would make of the seed |
+| 3 | the genre's **progressions** 1-6 (cyan: playing; 0.29: 7 and 8 are on the MOSSE view and SEQ 4 K2); **HARMONY** on / off (7); bars a chord (8: the progression's own, 1, 2, 4, 8); **FOLLOW** this track (9); **variations 1-6 / 7-12** (10: the page; 11-16). **0.23, SOURCE THEORY or FREE** (SEQ 8 K1): the **seeds** in their place - 11-16 six seeds (white: the next one), 10 the six after them; SHIFT shows on rows 5-6 what the engines would make of the seed |
 | 4 | **DICE** SEQ, CC, LFO, GROOVE, ALL (1-5); **KEEP** (6); **BACK** (7); targets RHYTHM, +NOTES, +CC, +NOTES+CC, +CC+LFO, ALL (9-14); **the roll before / after** (15 / 16, yellow when there is one) |
 | 5 | **EUCLID pulses** 1 .. 16 of this track, heard at once if EUCLID LIVE is on (cyan: live; 0.16: off, set up for EUCLID LIVE to start it); with scope CUSTOM, track membership 1-12. **SHIFT: rows 5-6 show the pattern LOAD would bring** |
 | 6 | EUCLID rotation 0 .. 15 |
@@ -417,16 +417,16 @@ Eight tracks of Euclidean rhythms, each its own, played over what is written. WR
 
 | row | pads |
 |---|---|
-| 1 | 16 entries of the song (0.9: of 64, the page of the one chosen): tap one to edit it (the one after the last: a new one). SHIFT + tap: the song jumps there |
-| 2 | the scene of the entry, 1-16 (on the new one: it is added, for 4 bars) |
+| 1 | 16 entries of the song (of 128 - 0.30; 64 until 0.29 -, the page of the one chosen): tap one to edit it (the one after the last: a new one). SHIFT + tap: the song jumps there |
+| 2 | the scene of the entry, 1-16; **SHIFT: 17-32** (0.30; the entry's scene in the half not shown is blue). On the new one: it is added, for 4 bars |
 | 3 | its length: 1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 16, 20, 24, 32, 48, 64 bars |
-| 4 | SONG on / off (1); LOOP (2); INSERT a copy after it (3); DELETE it (4); the entries' page back / forward (13 / 14); SHIFT + 16: clear the song |
-| 5-8 | the song bar by bar (64 bars), a colour per entry, red the bar playing; tap: the song jumps to that entry |
+| 4 | SONG on / off (1); LOOP (2); INSERT a copy after it (3); DELETE it (4); the entries' page back / forward (13 / 14: eight pages of 16); SHIFT + 16: clear the song |
+| 5-8 | the song bar by bar, 64 bars **from the first entry of the page** (0.30; until 0.29 the song's first 64), a colour per entry, red the bar playing; tap: the song jumps to that entry (off: the entry is chosen) |
 
 The song starts with PLAY from its first entry, and changes scene on the bar line. Turned on while playing, it
 starts on the next bar.
 
-### VIAGGIO (SONG again, 0.9): the journey
+### MOSSE (SONG again; 0.9, VIAGGIO until 0.29): the journey
 
 The journey always runs (0.17: this view switches nothing on; until 0.16 a tap switched VIAGGIO on). See "The journey
 and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF's page 3 (SEL + GLO).
@@ -442,7 +442,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 7 | the progressions: **0.29**: 1-8 the genre's, 9-12 yours (violet; ARP 5 writes them), 13 DICE/PI, queued (0.17: with the HARMONY off, READY); 14-16 the chord playing, in turn (white: the progression's first). Until 0.28: 1-6 the genre's, 7-10 yours |
 | 8 | the trail: 16 = this phrase, 15 = one back ... (queues INDIETRO that far) |
 
-### REGIA (VIAGGIO again, 0.9; only when a regista on the Pi has spoken)
+### REGIA (MOSSE again, 0.9; only when a regista on the Pi has spoken)
 
 | row | pads |
 |---|---|
@@ -458,8 +458,8 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 4 | which tracks LOOP and REPEAT take, 1-12 (none lit: all) |
 | 5 | **MORPH**: from the scene playing (1) to MORPH TO (16) |
 | 6 | **kill** track 1-12 while held (SHIFT: latched); its notes stop at once, long ones too |
-| 7 | **MORPH TO** scene 1-8 (1-8); **QUANTISE** AUTO, NOW, BEAT, BAR, 2, 4, 8 BARS (9-15); **MUTE QUEUE** (16) |
-| 8 | **TEMP** (1, held; SHIFT: latched); **RELOAD** (2); **RESTART** (3); **STOP at the end of the bar** (4); **SNAPSHOT 1-8** (5-12: tap recalls at the QUANTISE moment, SHIFT + tap stores; green the one playing, blinking the one waiting); **CC CAPTURE** (13); **SEND** the snapshot's sound (14); **PATCHES** (15, the Pi); PANIC (16) |
+| 7 | **MORPH TO** scene 1-8 of the cursor's bank (1-8; 0.30: 17-24 with the cursor on 20); **QUANTISE** AUTO, NOW, BEAT, BAR, 2, 4, 8 BARS (9-15); **MUTE QUEUE** (16) |
+| 8 | **TEMP** (1, held; SHIFT: latched); **RELOAD** (2); **RESTART** (3); **STOP at the end of the bar** (4); **SNAPSHOT 1-8 or 9-16** (5-12: the bank's eight; tap recalls at the QUANTISE moment, SHIFT + tap stores; green the one playing, blinking the one waiting); **CC CAPTURE** (13; **SHIFT + 13: the other eight snapshots** - 0.30; with SHIFT held pad 13 is yellow for 1-8, blue for 9-16); **SEND** the snapshot's sound (14); **PATCHES** (15, the Pi); PANIC (16) |
 
 ### PROJ (SHIFT + REC): the key, the slots, the tempo, the song
 
@@ -482,7 +482,7 @@ and the MOSSE" in SAGGA-SEQ.md for what the moves do; on the FM-1 they are PERF'
 | 2 | the loop of the **velocities** |
 | 3 | the loop of the **gates** |
 | 4 | the **Program Change** of the track's channel in the scene of row 5: 1-16 (SHIFT: 17-32; the rest: HOME page 4); again: none. Sent at once |
-| 5 | which scene's program row 4 sets, 1-8; 16: send that scene's programs now |
+| 5 | which scene's program row 4 sets: 1-8 of the cursor's bank (0.30: 25-32 with the cursor on 30); 16: send that scene's programs now |
 | 6-8 | the three loops: red the step they play, dim how long they are (dark: they follow the track) |
 
 The colour of a bar is its page: green 1-16, cyan 17-32, blue 33-48, violet 49-64.

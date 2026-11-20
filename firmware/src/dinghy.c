@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.29"
+#define SQ_VERSION "0.30"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -5359,6 +5359,10 @@ static void app_main(void)
         store_boot();
     }
     project_sanitize();
+    mute_mask = (uint16_t)(project.live.mute_lo | ((uint16_t)project.live.mute_hi << 8));   /* 0.30: the mutes and the scene cursor as saved, */
+    scene_cursor = project.live.scene_cursor < SQ_SCENES ? project.live.scene_cursor : 0u;  /* as a LOAD brings them (0.9-0.29: a power-on left
+                                                                                             * them out - every track audible, scene 1); before
+                                                                                             * the reset: the MOSSE's states come from them */
     project_runtime_reset(1u);
     vg_profile_boot();                                 /* 0.9: PALCO starts in VIAGGIO */
     pipat_init();                                      /* 0.11: the Pi's patterns: none known yet */

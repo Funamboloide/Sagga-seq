@@ -5,6 +5,56 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.29
+
+**The genres are 22** (25 until 0.28), with **eight progressions** each, **BALANI** new, the **BALAFON** a part of its
+own, REGGAETON and BALANI's THEORY rules **written by hand**, and more to play with: **ROLL** and **ACCENT** among the
+MIDI FX, **five scales**, **three grooves**, **four chord shapes**. The projects of before open as they were, each
+genre where it went; a 0.28 opens a project of 0.29, without what it has no room for.
+
+* **The genres.** AMAPIANO went into REGGAETON (its log drum, shakers, rims, piano chords: REGGAETON's tempo is 90-112
+  now), BASSLINE into UK GARAGE (its sub and stabs: speed garage with the bass in front), GRIME into DUBSTEP, AFRO HOUSE
+  is gone (its percussion went into GQOM and BATIDA), and **BALANI** came - the balafon's music at the street parties
+  of Bamako, fast (160-180 BPM): the kick in four, the djembe's 3-3-2 on the conga and the perc, the shaker's 16ths, the
+  toms rolling, the MC's shouts, and the **BALAFON**. The genres' order: TECHNO, HARDTECHNO, DUB TECHNO, HOUSE, UK
+  GARAGE, UK FUNKY, DUBSTEP, JUNGLE, REGGAETON, BATIDA, GQOM, EXPERIMENT, ELECTRO, DRUM+BASS, BALANI, FOOTWORK, TRANCE,
+  UK DRILL, HARDCORE, PHONK, BAILE FUNK, MERENGUE. The grid's BEAT view has two pages of genres again (12 + 10).
+* **A project of before** opens with each of its genres where it went: GRIME as DUBSTEP, BASSLINE as UK GARAGE, AFRO
+  HOUSE as GQOM, AMAPIANO as REGGAETON - wherever a genre is kept (the project's, the harmony's, the journey's, a track's
+  pattern, a pattern the engines made, a snapshot). On the Pi, the patterns and progressions **you** kept in those four
+  genres move to the genre that took them in (the stock ones stay behind), the first time the hub starts.
+* **Eight progressions a genre** (six until 0.28): the six of before where they were - a project keeps its progression
+  by its number - and two more (the bassline's in UK GARAGE, the grime's in DUBSTEP, the amapiano's in REGGAETON, the
+  afro house's in GQOM and BATIDA, the genre's own elsewhere). SEQ 4 (ARP 3) K2: PROG 1-8, USER 1-4, DICE/PI. The
+  VIAGGIO view of the grid, row 7: pads 1-8 the genre's, 9-12 yours, 13 DICE/PI, 14-16 the chord playing in turn
+  (white: the progression's first). The BEAT view's row 3 keeps PROG 1-6. SAGGA Mod's PROGRESSION: PROG 1-8, USER 1-4,
+  DICE/PI (channel 13, CC 117, 0-12).
+* **The BALAFON**: a part (and a role) of its own - a tune, struck: its notes are short, from middle C, and with the
+  harmony it follows the chords as a MELODY (as a LEAD or a VOX). BALANI's band has it where it had a LEAD.
+* **THEORY**: REGGAETON and BALANI have rules written by hand now (TECHNO, HOUSE, DUBSTEP and DRUM+BASS had them; the
+  other sixteen are counted from the library). REGGAETON: the dembow at every energy (the snare's `...x..x....x..x.`),
+  the rest coming in with the energy, the log drum's slides, four chords a bar each. BALANI: the clap on 2 and 4, the djembe's
+  3-3-2, the balafon's ostinato in 16ths on the pentatonic, one or two chords. The seventeen genres that did not change
+  (and FREE) make what they made, bit for bit; UK GARAGE, BATIDA and GQOM's counted rules changed with their libraries.
+* **ROLL** (MIDI FX): each note 2-6 hits in its step - LEVEL, RISING or FALLING - with a chance (K2, K3, K4). The trap
+  hats. **ACCENT**: every 2-8 steps (K3), from a step of its own (K4), louder (K2 up to +60; below 0, softer): three
+  over four. In the chain's ORDER, ACCENT comes after VEL CURVE and ROLL before ECHO. On the grid: SHIFT + pads 7 and 8
+  of the TRACK 3 view's second row.
+* **Scales**: HUNGARIAN MINOR, DOUBLE HARMONIC, LYDIAN DOMINANT, MAJOR BLUES, IN SEN (21 in all). On the grid's PROJ
+  view: SHIFT + row 2, pads 1-5.
+* **Grooves**: MALI (the djembe's 16ths, leaning towards three a beat), DEMBOW (the snare's two on the 'a', late and
+  loud), BROKEN (broken beat: the 'e' early, the 'a' late).
+* **Chord shapes**: 7#9, 7B9, MAJ7#11, QUARTAL (36 in all) - for a track's CHORD and in your progressions.
+* **Fixed**: the BEAT part chosen past the sixteenth of the list (a LEAD, a VOX, a LOG DRUM ...) came back as the KICK
+  after a power cycle; now it stays. The dice's progression in the VIAGGIO (DICE/PI: the grid's row 7 pad 13, or
+  PRESETS) took the first user slot's name on the screen (`USER PROG ...`); now it says `DICE/PI` and its chords.
+* **The projects.** A project of 0.29 is saved as 0.28 saves, plus one chunk for what 0.28 has no room for: BALANI, the
+  7th and 8th progressions, the balafon, ROLL and ACCENT. A 0.28 opens it: BALANI as AFRO HOUSE, PROG 7 and 8 as PROG 1,
+  the balafon as a LEAD, the new effects, scales, grooves and shapes left out (their default).
+
+On the Pi: the pattern and progression pages have the 22 genres, SAGGA Live the new grooves, shapes and effects, SAGGA
+Mod the 22 genres and the eight progressions, the editor ROLL and ACCENT. Install the FM-1 and the Pi together.
+
 ## What is new in 0.28
 
 **Twelve tracks** instead of sixteen, and with the memory they leave **chords of six notes** and **eight CC lanes** a

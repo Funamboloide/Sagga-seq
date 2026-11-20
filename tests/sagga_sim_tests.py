@@ -12089,7 +12089,7 @@ def t030_banks():
     for i in range(8):
         s.pad(t, 13, 3); t += 100
     s.at(t, "dump", 0); t += 40                                            # [4]
-    s.pad(t, 15, 0); t += 100                                              # entry 128
+    s.pad(t, 4, 4); t += 100                                               # row 5 pad 5: the bars from entry 113 on - bar 5 is entry 114's
     s.at(t, "dump", 0); t += 40                                            # [5]
     t_song = t
     s.tap_btn(t, GLO); t += 100                                            # out of PERF
@@ -12111,6 +12111,7 @@ def t030_banks():
     # the remote's MORPH TO (channel 14 CC 2): 31 is scene 32
     remote(s, t, 2, 31); t += 60
     s.at(t, "dump", 0); t += 40                                            # [11]
+    s.tap_btn(t, GLO); s.tap_key(t + 100, wk(1)); s.tap_btn(t + 200, GLO); t += 300   # PERF white 2: track 2 muted
     s.tap_btn(t + 100, SAVE); s.tap_btn(t + 400, SAVE); t += 1200          # SAVE: slot 1
     log = run(s, t + 100, flash=flash)
     x, st, dp = log.x30, states(log), log.dumps
@@ -12129,9 +12130,10 @@ def t030_banks():
           "HOME + black 1 / black 8 in the bank 25-32: 128 entries of scenes 25 and 32, the 129th: SONG FULL (128) (%d %s %s)" % (
               x[3]["song"], x[3]["songsc"][:4], st[3]["msg"]))
     check(st[4]["msg"] == "SONG ENTRIES FROM 113", "the grid's SONG view: seven pages on, entries 113-128; the eighth press finds no more (%s)" % st[4]["msg"])
-    check(st[5]["msg"] == "SONG ENTRY 128", "row 1 pad 16 on the last page: entry 128 (%s)" % st[5]["msg"])
+    check(st[5]["msg"] == "SONG ENTRY 114", "rows 5-8 show the bars from the page's first entry (0.30; until 0.29 the song's first 64 bars): on entries 113-128, bar 5 is entry 114 (%s)" % st[5]["msg"])
     pads, _ = log.leds(until=t_song)
-    check(pads.get(16 + 15) == GL_BLUE and pads.get(16 + 8) == GL_DIM, "row 2 shows scenes 1-16: entry 128 is scene 32, blue on pad 16 - the other half (%s)" % pads.get(16 + 15))
+    check(pads.get(16 + 15) == GL_BLUE and pads.get(16 + 8) == GL_DIM, "row 2 shows scenes 1-16: entry 114 is scene 32, blue on pad 16 - the other half (%s)" % pads.get(16 + 15))
+    check(pads.get(4 * 16 + 4) == GL_DIM and pads.get(4 * 16 + 0) == GL_ON, "row 5: entry 114's bars dim (the one chosen), entry 113's in its colour (%s %s)" % (pads.get(4 * 16 + 4), pads.get(4 * 16)))
     check(leds and len(leds) >= 2 and leds[1][WHITE[9]] == "X" and leds[1][WHITE[8]] == ".", "SAVE + white 10: the white 10 lit, the 9 dark (%s)" % (leds[1:2],))
     check(x[6]["snaps"] == "." * 8 + "x" + "." * 7 and x[6]["snapbank"] == 8 and st[6]["msg"] == "SNAPSHOT STORED 9",
           "SAVE + white 10, SAVE + SEL + black 1: snapshot 9 (%s bank %d %s)" % (x[6]["snaps"], x[6]["snapbank"], st[6]["msg"]))
@@ -12140,10 +12142,11 @@ def t030_banks():
     check(x[9]["undo"] == 32 and st[10]["msg"] == "UNDO  31 MORE", "34 edits: the UNDO keeps the last 32 - UNDO, 31 more (%d %s)" % (x[9]["undo"], st[10]["msg"]))
     check(st[11]["msg"] == "MORPH TO SCENE 32", "the remote's CC 2 = 31: MORPH TO SCENE 32 (%s)" % st[11]["msg"])
     check(len(log.saves) == 1, "SAVE, SAVE: the slot is written (%s)" % log.saves)
-    # a power cycle: the scenes, the snapshots, the song of 128 are there (the cursor on scene 1, as every power-up)
+    # a power cycle: the scenes, the snapshots, the song of 128 are there; the cursor on 32 and track 2 muted, as saved
+    # (0.30: as a LOAD has them - until 0.29 a power-up left the cursor on scene 1 and every track audible)
     s = Script()
     s.at(300, "dump", 0)
-    s.tap_btn(400, GLO); s.enc(450, E_PRE, 31); s.tap_key(500, bk(0)); s.at(560, "dump", 0)   # PRESETS to 32, black 1: scene 25 (empty)
+    s.tap_btn(400, GLO); s.tap_key(500, bk(0)); s.at(560, "dump", 0)       # black 1: scene 25 (empty: pattern 1)
     s.tap_key(600, bk(7)); s.at(660, "dump", 0)                            # black 8: scene 32, pattern 2
     log2 = run(s, 800, flash=flash)
     y, dp2 = log2.x30, log2.dumps
@@ -12151,7 +12154,10 @@ def t030_banks():
           and y[0]["songsc"] == [24, 31] * 64 and y[0]["undo"] == 0,
           "after a power cycle: scenes 17 and 32, snapshot 9, the 128 entries (%s)" % (
               {k: y[0][k] for k in ("cursor", "scenes", "snaps", "song", "undo")} if y else None))
-    check(len(dp2) == 3 and dp2[1]["pat"] == 1 and dp2[2]["pat"] == 2, "... PRESETS to 32 and PERF black 8 brings scene 32 back, black 1 the empty 25 (%s)" % [d_["pat"] for d_ in dp2])
+    check(len(y) == 3 and y[0]["cursor"] == 31 and log2.viaggio and log2.viaggio[0]["mute"] == 0x0002,
+          "... the scene cursor on 32 and track 2 muted, as saved - as a LOAD (until 0.29 a power-up forgot both) (%s %s)" % (
+              y[0]["cursor"] if y else None, "%04X" % log2.viaggio[0]["mute"] if log2.viaggio else None))
+    check(len(dp2) == 3 and dp2[1]["pat"] == 1 and dp2[2]["pat"] == 2, "... PERF black 8 brings scene 32 back, black 1 the empty 25 (%s)" % [d_["pat"] for d_ in dp2])
     # the grid: FX view - SHIFT + row 8 pad 13 the snapshots 9-16; SHIFT + pad 5 stores 9, pad 5 brings it back; row 7 MORPH TO
     # the cursor's bank; SONG row 2 with SHIFT: scenes 17-32; TRACK 2 row 5: the programs of the bank's scenes
     s = Script()
@@ -12198,6 +12204,32 @@ def t030_banks():
     check(pa.get(16 + 15) == GL_BLUE and pb.get(16 + 15) == GL_WHITE, "entry 1's scene on row 2: blue on pad 16 (in 17-32), white with SHIFT held (%s %s)" % (pa.get(16 + 15), pb.get(16 + 15)))
     check(st[5]["msg"] == "PROGRAMS OF SCENE 16", "TRACK 2 row 5 pad 8 with the cursor in 9-16: the programs of scene 16 (%s)" % st[5]["msg"])
 
+
+def t030_tape():
+    group("0.30 THE TAPES HOLD 3072 EVENTS (1536 until 0.29): 1600 notes played in on a TAPE track of 16 bars are all kept; "
+          "past 3072, TAPE FULL")
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])                                          # HOME 4 K1: FREE -> IN KEY -> DRUM -> TAPE
+    t = home_page(s, t, 6, [(K3, 12)], cur=2)                          # HOME 7 K3: TAPE BARS 4 -> 16
+    s.tap_btn(t, REC); t += 100
+    t0 = t
+    s.tap_btn(t0, PLAY); t = t0 + 50
+    for i in range(1600):                                              # 1600 notes, 8 ms apart
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 100" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.at(t + 40, "dump", 0); t += 80
+    for i in range(1500):                                              # 1500 more: 3100 in all
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 90" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.at(t + 40, "dump", 0)
+    log = run(s, t + 200)
+    tp = [x for x in log.tapes if x["track"] == 1]
+    st = states(log)
+    check(len(tp) == 2 and tp[0]["n"] == 1600 and tp[0]["bars"] == 16, "1600 notes on a TAPE of 16 bars: all 1600 kept (%s)" % [(x["n"], x["bars"]) for x in tp])
+    check(len(tp) == 2 and tp[1]["n"] == 3072 and st and st[-1]["msg"] == "TAPE FULL", "3100 played: 3072 kept, TAPE FULL (%s %s)" % (
+        [x["n"] for x in tp], st[-1]["msg"] if st else None))
+    check(log.x30 and log.x30[-1]["tape"] == 3072, "the project's tape: 3072 events (%s)" % (log.x30[-1]["tape"] if log.x30 else None))
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -12219,7 +12251,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
-    t029_viaggio_progs, t030_banks]
+    t029_viaggio_progs, t030_banks, t030_tape]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

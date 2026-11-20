@@ -90,7 +90,7 @@ class SaggaMod(ControllerBase):
     NAME = "SAGGA Mod"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, the MOSSE's energy, genre, key, harmony"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.29"
+    VERSION = "0.30"
     HELP = """\
 LFO picks one of the sixteen (the one the FM-1 shows under LFO); LFO ON, SHAPE (ENV: the envelope), RATE, DEPTH, DEST
 (MOD ONLY: a source for the MOD MATRIX, it sends nothing) set it.
