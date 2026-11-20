@@ -181,6 +181,10 @@ class Log:
                           fb=[int(x) for x in m.group(7).split()], modfx=int(m.group(8)))   # 0.20: the new five [effect - 5], the order
                      for m in re.finditer(r"^\s*(\d+) ms  mfxd T(\d+) on (\d+) order((?: \d+)+) amt((?: -?\d+)+) time((?: \d+)+) fb((?: \d+)+) modfx (-?\d+)$",
                                           text, re.M)]
+        self.x30 = [dict(t=int(m.group(1)), cursor=int(m.group(2)), snapbank=int(m.group(3)), scenes=m.group(4), snaps=m.group(5),
+                         undo=int(m.group(6)), tape=int(m.group(7)), song=int(m.group(8)), songsc=[int(x) for x in m.group(9).split()])   # 0.30
+                    for m in re.finditer(r"^\s*(\d+) ms  x30 cursor (\d+) snapbank (\d+) scenes ([.x]+) snaps ([.x]+) undo (\d+) tape (\d+) song (\d+):((?: \d+)*)$",
+                                         text, re.M)]
         self.viaggio = [dict(t=int(m.group(1)), on=int(m.group(2)), bar=int(m.group(3)), bars=int(m.group(4)), energy=int(m.group(5)),
                              target=int(m.group(6)), genre=int(m.group(7)), mute=int(m.group(8), 16), speed=int(m.group(9)), rec=int(m.group(10)),
                              states=m.group(11), queue=m.group(12).split(), trail=int(m.group(13)), patterns=m.group(14), song=int(m.group(15)))
@@ -4082,7 +4086,7 @@ def t09_viaggio_moves():
     check(v[1]["queue"] == ["BACK/1/0"] and log.states[1]["msg"] == "QUEUED: BACK 1 PHRASE" and v[2]["queue"] == ["BACK/1/0"],
           "black 9: BACK 1 queued; again: still 1, the trail has no more (%s)" % v[2]["queue"])
     check(v[3]["states"][:2] == "IO" and v[3]["mute"] == 2 and v[3]["trail"] == 1, "at the boundary the first phrase is back: track 2 out (%s, trail %d)" % (v[3]["states"][:2], v[3]["trail"]))
-    check(v[4]["song"] == 1 and log.states[4]["msg"].startswith("JOURNEY SAVED: 1 SCENES"), "SAVE + white 16: the trail becomes scenes and the song (%s)" % log.states[4]["msg"])
+    check(v[4]["song"] == 1 and log.states[4]["msg"].startswith("SET SAVED: 1 SCENES"), "SAVE + white 16: the trail becomes scenes and the song (%s)" % log.states[4]["msg"])
 
 
 def t09_viaggio_loop_genre_remote():
@@ -6067,7 +6071,7 @@ def t012_break():
 
 
 def remote13_on(s, t):
-    """SAVE + K2 once: REMOTE ON CH 14 + VIAGGIO ON CH 13 (0.12: the Pi's new pages speak on 13, CC 33 and up, and notes)"""
+    """SAVE + K2 once: REMOTE ON CH 14 + PAGES ON CH 13 (0.30: was VIAGGIO ON CH 13; 0.12: the Pi's new pages speak on 13, CC 33 and up, and notes)"""
     s.press(t, SAVE); s.enc(t + 30, K2, 1); s.release(t + 100, SAVE)
     return t + 160
 
@@ -7653,7 +7657,7 @@ def t017_mosse():
     check(v[2]["mute"] == 0x0FFD and not log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10), "bar 5: track 2 alone (%04X)" % v[2]["mute"])
     check(v[3]["mute"] == 0 and log.notes(ch=0, after=t0 + 5 * BAR_MS + 10), "bar 6: both again (%04X)" % v[3]["mute"])
-    check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("JOURNEY SAVED"),
+    check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("SET SAVED"),
           "SAVE + white 16 with the MOSSE never opened: the phrases played are scenes and the song (%s)" % log.states[4]["msg"])
     # SEL + GLO: PERF on page 3; the black keys are the moves there (black 10 cancels the last), the scenes on pages 1-2;
     # SEL + GLO from another page: the MOSSE again; on them: the studio

@@ -13,7 +13,7 @@ Wire this plugin's OUT to the FM-1 (with USB PORTS 2: to its port 2) and set SAV
 from raspimidihub.controller_base import ControllerBase
 from raspimidihub.plugin_api import Button, Knob, LayoutCell, LayoutGrid, Radio
 
-CH13 = 12                                 # MIDI channel 13 (0-based): VIAGGIO and the 0.12 commands
+CH13 = 12                                 # MIDI channel 13 (0-based): the MOSSE (VIAGGIO until 0.29) and the 0.12 commands
 CH14 = 13                                 # MIDI channel 14: SAGGA REMOTE
 
 PATTERN_LABELS = ["P%d" % (i + 1) for i in range(8)]

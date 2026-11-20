@@ -67,7 +67,7 @@ static void tst_sysex_in(const uint8_t *p, uint32_t n);
 #define C_CYAN   RGB(110, 200, 235)
 
 static sq_project_t project __attribute__((section(".pool")));
-#define U_ROWS 16u                                   /* 0.10: undo is a ring of 16 pattern rows shared by the last edits */
+#define U_ROWS 32u                                   /* 0.10: undo is a ring of 16 pattern rows shared by the last edits (0.30: 32) */
 static sq_step_t undo_row[U_ROWS][SQ_STEPS] __attribute__((section(".pool")));
 static sq_step_t clip_row[SQ_STEPS] __attribute__((section(".pool")));      /* COPY / PASTE */
 static uint8_t clip_len, clip_valid;
@@ -134,6 +134,7 @@ static uint8_t rec_quant = 1u;             /* 1 quantised: the nearest step; 0 f
 static uint16_t mute_mask, solo_mask;
 static uint8_t pending_scene = SQ_NO_PENDING;
 static uint8_t scene_cursor;
+#define SCENE_BANK ((uint8_t)(scene_cursor & ~7u))   /* 0.30: the eight scenes the black keys reach (1-8, 9-16, 17-24, 25-32) */
 static uint8_t selected_track;
 static uint8_t cursor_step;
 static uint8_t page;
@@ -344,6 +345,7 @@ static sq_algo_t algo_mem[SQ_TRACKS][SQ_ALGO_SLOTS][SQ_ALGOS];   /* 0.16: the va
 static uint8_t live_ghost[SQ_TRACKS];       /* DENSITY: the step playing is a hit it added */
 /* SNAPSHOTS (sagga_live.c) */
 static uint8_t snap_cur = 255u;             /* the snapshot playing, or stored last (255: none) */
+static uint8_t snap_bank;                   /* 0.30: the eight snapshots the keys and pads reach: 0 = 1-8, 8 = 9-16 */
 static uint8_t snap_pend = 255u;            /* recalled, waiting for the QUANTISE moment */
 static uint8_t snap_capture;                /* CC CAPTURE on: the CCs that come in go into snapshot snap_cur */
 static uint8_t snap_tx_on;                  /* a snapshot's sound is being sent */
@@ -3791,12 +3793,12 @@ static void perf_black(int bi, uint8_t sel_held, uint8_t home_held)
 {
     if (!home_held && perf_page == 2u) { vg_move_black(bi, sel_held); ui_dirty = grid_dirty = 1u; return; }
     if (home_held) {
-        if (bi < 8) song_append((uint8_t)((scene_cursor & 8u) + (uint8_t)bi));
+        if (bi < 8) song_append((uint8_t)(SCENE_BANK + (uint8_t)bi));
         else if (bi == 8) song_loop_toggle();
         else if (bi == 9) song_drop_last();
         else song_clear();
-    } else if (bi < 8) {                                   /* 0.9: scenes of the bank the cursor is in (1-8 or 9-16) */
-        uint8_t sc = (uint8_t)((scene_cursor & 8u) + (uint8_t)bi);
+    } else if (bi < 8) {                                   /* 0.9: scenes of the bank the cursor is in (0.30: 1-8 .. 25-32) */
+        uint8_t sc = (uint8_t)(SCENE_BANK + (uint8_t)bi);
         if (sel_held) capture_scene(sc); else scene_recall(sc);
     }
     else if (bi == 8) { mute_mask = 0u; solo_mask = 0u; pending_mute = 0u; vg_states_sync_all(); }
@@ -3901,11 +3903,12 @@ static void win_buttons(uint32_t b, uint32_t rel, uint32_t held)
  *                                                                 10 STOP at the end of the bar, 11 EXIT the loop
  *   LFO          white: that LFO on / off
  *   PERF (GLO)   white: mutes (SEL: solo)                         black: scenes (SEL: store), all on, only this, invert
- *   SAVE         white 1-8: the slot                              black 1-8: SNAPSHOT (SEL: store), 9 CC CAPTURE,
+ *   SAVE         white 1-8: the slot; 9, 10: SNAPSHOTS 1-8, 9-16   black 1-8: SNAPSHOT (SEL: store), 9 CC CAPTURE,
  *                                                                 10 SEND the snapshot's sound, 11 the synths' PATCHES (Pi) */
 static void slot_pick(uint8_t s);                 /* sagga_store.c */
 static void snap_recall(uint8_t n);               /* sagga_live.c: SNAPSHOTS */
 static void snap_store(uint8_t n);
+static void snap_bank_set(uint8_t b);           /* 0.30 */
 static void snap_capture_toggle(void);
 static void snap_send(void);
 static void snap_patches(void);
@@ -3996,7 +3999,8 @@ static void handle_keys(uint32_t keys)
             save_knob = 1u;                                    /* (letting SAVE go is not a save then) */
             if (wi >= 0 && wi < (int)8) { slot_pick((uint8_t)wi); status_num("SLOT ", (uint32_t)wi + 1u); }
             else if (wi == 15) vg_save_journey();                 /* 0.9: SAVE + white 16 = SALVA VIAGGIO */
-            else if (bi >= 0 && bi < 8) { if (sel_held) snap_store((uint8_t)bi); else snap_recall((uint8_t)bi); }
+            else if (wi == 8 || wi == 9) snap_bank_set((uint8_t)(wi == 9 ? 8u : 0u));   /* 0.30: the snapshots 1-8 or 9-16 */
+            else if (bi >= 0 && bi < 8) { if (sel_held) snap_store((uint8_t)(snap_bank + bi)); else snap_recall((uint8_t)(snap_bank + bi)); }
             else if (bi == 8) snap_capture_toggle();
             else if (bi == 9) snap_send();
             else if (bi == 10) snap_patches();
@@ -4329,7 +4333,7 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             project.live.remote_mode = change_u8(project.live.remote_mode, d2, 0u, SQ_RMS - 1u);
             project.live.remote_ch = project.live.remote_mode == SQ_RM_OFF ? (uint8_t)SQ_REMOTE_OFF : 13u;
             status_msg(project.live.remote_mode == SQ_RM_OFF ? "REMOTE OFF: CH 13 AND 14 ARE TRACK CHANNELS" :
-                       project.live.remote_mode == SQ_RM_14 ? "REMOTE ON CH 14" : "REMOTE ON CH 14 + VIAGGIO ON CH 13");
+                       project.live.remote_mode == SQ_RM_14 ? "REMOTE ON CH 14" : "REMOTE ON CH 14 + PAGES ON CH 13");
             save_knob = 1u;
             ui_dirty = 1u;
         }
@@ -4964,7 +4968,12 @@ static void update_leds(void)
         pick_leds(pick_group(held), blink);
     } else if (held & (1u << BTN_SAVE)) {                      /* the slots on the whites; the snapshots on the blacks */
         for (i = 0; i < 8u; i++) fm1_led_key(KEY_LED(white_key[i]), i == slot_cur ? 1 : 0);
-        for (i = 0; i < SQ_SNAPS; i++) fm1_led_key(KEY_LED(black_key[i]), snap_pend == i ? blink : (snap_cur == i && project.snap[i].used) ? 1 : 0);
+        for (i = 0; i < 8u; i++) {                         /* (0.30: the bank's eight; whites 9 / 10: which bank) */
+            uint32_t n = snap_bank + i;
+            fm1_led_key(KEY_LED(black_key[i]), snap_pend == n ? blink : (snap_cur == n && project.snap[n].used) ? 1 : 0);
+        }
+        fm1_led_key(KEY_LED(white_key[8]), snap_bank == 0u);
+        fm1_led_key(KEY_LED(white_key[9]), snap_bank != 0u);
         fm1_led_key(KEY_LED(black_key[8]), snap_capture ? blink : 0);
     } else if (held & (1u << BTN_FX)) {
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), (fx_now() >> i) & 1u);
@@ -4976,7 +4985,7 @@ static void update_leds(void)
         for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), i == selected_track);   /* (0.28: whites 13-16 dark) */
         if (perf_mode) {
             for (i = 0; i < project.song.len; i++)                 /* (0.9: the scenes of the cursor's bank) */
-                if ((project.song.e[i].scene & 8u) == (scene_cursor & 8u)) fm1_led_key(KEY_LED(black_key[project.song.e[i].scene & 7u]), 1);
+                if ((project.song.e[i].scene & ~7u) == SCENE_BANK) fm1_led_key(KEY_LED(black_key[project.song.e[i].scene & 7u]), 1);
             fm1_led_key(KEY_LED(black_key[8]), project.song.loop);
         }
     } else if (held & ((1u << BTN_EDIT) | (1u << BTN_ENV))) {  /* the steps, the cursor blinks; EDIT: black 2-4 COPY, PASTE, CLEAR */
@@ -5018,7 +5027,7 @@ static void update_leds(void)
     } else if (perf_mode || (held & (1u << BTN_GLO))) {        /* (0.12: GLO held shows the PERF keys in any mode) */
         for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), perf_solo_mode ? ((solo_mask >> i) & 1u) : (((pending_mute >> i) & 1u) ? blink : track_audible(i)));
         if (perf_page == 2u) for (i = 0; i < 11u; i++) fm1_led_key(KEY_LED(black_key[i]), vg_move_lit((int)i, blink));   /* 0.17 the MOSSE: what waits */
-        else for (i = 0; i < 8u; i++) { uint32_t sc = (scene_cursor & 8u) + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
+        else for (i = 0; i < 8u; i++) { uint32_t sc = SCENE_BANK + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
     } else if (record_arm) {
         if (track_drum(selected_track))                        /* the drum keys */
             for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), drum_track_n((uint8_t)i) < SQ_TRACKS);
@@ -5197,6 +5206,18 @@ static void app_host_dump(int t)
         printf("%6u ms  tape T%d bars %u quant %u n %u:", fm1_ms, t + 1, (unsigned)project.track[t].tape.bars, (unsigned)project.track[t].tape.quant, (unsigned)tn);
         for (k = 0; k < tn && k < 32u; k++) printf(" %u/%u/%u/%u", (unsigned)project.tape_ev[tf + k].on, (unsigned)project.tape_ev[tf + k].dur,
                                                    (unsigned)project.tape_ev[tf + k].note, (unsigned)project.tape_ev[tf + k].vel);
+        putchar('\n');
+    }
+    {   /* 0.30: the scenes (a mark each: '.' empty, 'x' not), the cursor and its bank, the snapshots' bank and the used
+         * ones, the song's length and its entries' scenes, the undo rows that hold something */
+        uint32_t k, urows = 0u;
+        printf("%6u ms  x30 cursor %u snapbank %u scenes ", fm1_ms, (unsigned)scene_cursor, (unsigned)snap_bank);
+        for (k = 0; k < SQ_SCENES; k++) putchar(sq_scene_empty(&project.scene[k]) ? '.' : 'x');
+        printf(" snaps ");
+        for (k = 0; k < SQ_SNAPS; k++) putchar(project.snap[k].used ? 'x' : '.');
+        for (k = 0; k < U_ROWS; k++) urows += undo_txn[k] ? 1u : 0u;
+        printf(" undo %u tape %u song %u:", (unsigned)urows, (unsigned)project.tape_n, (unsigned)project.song.len);
+        for (k = 0; k < project.song.len; k++) printf(" %u", (unsigned)project.song.e[k].scene);
         putchar('\n');
     }
     {   /* 0.8: what the tests need to see beside the steps: the live layer, the harmony, the snapshots, the message */

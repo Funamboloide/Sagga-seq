@@ -859,7 +859,7 @@ static void vg_save_journey(void)
     }
     project.song.len = n;
     project.song.loop = 0u;
-    p = put_s(p, "JOURNEY SAVED: "); p = put_u(p, n); p = put_s(p, " SCENES AND THE SONG (NOW SAVE THE PROJECT)");
+    p = put_s(p, "SET SAVED: "); p = put_u(p, n); p = put_s(p, " SCENES AND THE SONG (NOW SAVE THE PROJECT)");   /* (0.30: was JOURNEY) */
     finish(p);
     status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;

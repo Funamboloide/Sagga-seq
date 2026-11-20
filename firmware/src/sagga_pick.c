@@ -481,7 +481,7 @@ static uint8_t pick_map_any(uint32_t held, char *l1, char *l2)
     int g = pick_group(held);
     const char *a = 0, *b = 0;
     if (g >= 0 && !(held & (1u << BTN_SAVE))) { pick_map_lines(g, l1, l2); return 1u; }
-    if (held & (1u << BTN_SAVE)) { a = "W1-8 SLOT W16 JOURNEY REC CLR"; b = "B SNAP SEL+B STORE 9CAP 10SND"; }
+    if (held & (1u << BTN_SAVE)) { a = "W1-8 SLOT W9/10 SNAPS W16 SET"; b = "B SNAP SEL+B STORE 9CAP 10SND"; }   /* (0.30: the bank; the set, was JOURNEY) */
     else if (held & (1u << BTN_FX)) { a = "W: FX  B: LOOPS RESTART STOP"; b = "B11 EXIT  SEL+K: THROWS"; }
     else if (held & (1u << BTN_SEL)) { a = "KEYS: STEP NOTE  OCT: OCTAVE"; b = "SEL+GLO: MOSSE  SEL+PLAY: GO"; }
     if (!a) return 0u;

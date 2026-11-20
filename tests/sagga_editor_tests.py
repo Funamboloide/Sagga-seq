@@ -70,8 +70,8 @@ def t_converter():
     group('the converter (the firmware\'s core): read, a patch, sanitize, errors')
     d = tempfile.mkdtemp()
     j = read(HW)
-    check(j['version'] == 1 and len(j['track']) == 12 and len(j['scene']) == 16 and len(j['lfo']) == 16 and len(j['song_e']) == 64,
-          'read: the groups with their sizes (0.28: twelve tracks)')
+    check(j['version'] == 1 and len(j['track']) == 12 and len(j['scene']) == 32 and len(j['lfo']) == 16 and len(j['song_e']) == 128 and len(j['snaps']) == 16,
+          'read: the groups with their sizes (0.28: twelve tracks; 0.30: 32 scenes, a song of 128, 16 snapshots)')
     check(j['schema']['step']['dims'] == [12, 8, 64] and ['note', 1, 0, 6] in j['schema']['step']['fields'] and ['lane', 1, 0, 8] in j['schema']['step']['fields']
           and ['lane_cc', 1, 0, 8] in j['schema']['track']['fields'], 'the schema: the steps 12 x 8 x 64, note[6], lane[8]; a track\'s lane_cc[8] (%s)' % j['schema']['step'])
     on = [s for s in j['steps'] if s[3]['flags'] & 1]
@@ -493,8 +493,8 @@ def t015_converter():
         o3 = os.path.join(d, 'bad.sgq')
         r = apply(out, ['project - bpm - 99'] + bad, o3)
         check(r.returncode == 4 and not os.path.exists(o3) and 'line 2' in r.stderr, 'refused: %s (%s)' % (why, r.stderr.strip()))
-    # full: 1536 events in all
-    lines = ['tape 0,%d,10,60 add - 100' % (i % 6000) for i in range(1537)]
+    # full: 3072 events in all (0.30; 1536 until 0.29)
+    lines = ['tape 0,%d,10,60 add - 100' % (i % 6000) for i in range(3073)]
     r = apply('new', ['track 0 tape_bars - 16'] + lines, os.path.join(d, 'full.sgq'))
     check(r.returncode == 4 and 'full' in r.stderr, 'more than the tape holds: refused (%s)' % r.stderr.strip())
 
@@ -1295,7 +1295,7 @@ def t026_files():
     j = read(a) if r.returncode == 0 else {}
     e = j.get('ext', {})
     check(r.returncode == 0 and [e.get(k) for k in ('click', 'count_in', 'click_out', 'click_note', 'click_level', 'scene_metre_on', 'kb_mode')] == [2, 2, 10, 76, 9, 1, 4]
-          and e.get('scene_metre', [])[3] == 10 and len(e.get('scene_metre', [])) == 16, 'the click, the count, the scenes\' metres, CHORDS <C3 come back (%s %s)' % (e, r.stderr))
+          and e.get('scene_metre', [])[3] == 10 and len(e.get('scene_metre', [])) == 32, 'the click, the count, the scenes\' metres, CHORDS <C3 come back (%s %s)' % (e, r.stderr))
     check(j.get('thp', [{}] * 20)[19] == {'seed': 7, 'style': 11 | 0x40 | 0x80, 'func': 4, 'var': 0, 'vary': 40 | 0x80, 'energy': 0, 'metre': 9},
           'a pattern made in its bar, its answers with notes: kept as it is (%s)' % j.get('thp', [{}] * 20)[19])
     check(j.get('thp', [{}] * 21)[20]['vary'] == 100 and j['thp'][20]['style'] == 11, 'the notes\' bit on a pattern of 0.25 is no bit: a variation too large, put right (%s)' % j.get('thp', [{}] * 21)[20])

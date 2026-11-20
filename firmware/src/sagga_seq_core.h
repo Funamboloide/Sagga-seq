@@ -1466,6 +1466,8 @@ int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len);
 int sq_image_ok(const uint8_t *in, uint32_t len);
 /* 0.30: where chunk `id` of an image starts (its id byte), 0 when the image has none (for the tests and the Pi's tools) */
 uint32_t sq_image_chunk_at(const uint8_t *in, uint32_t len, uint8_t id);
+/* 0.30: 1 if a scene is as a new project has it (nothing stored in it) */
+uint8_t sq_scene_empty(const sq_scene_t *sc);
 /* 0.29: a genre (or a THEORY style) of 0.28's numbering as 0.29 numbers it (v29: the image is 0.29's - its AFRO HOUSE is
  * BALANI), and back (BALANI: AFRO HOUSE) */
 uint8_t sq_genre_from28(uint8_t g, uint8_t v29);

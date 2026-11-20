@@ -4524,6 +4524,13 @@ int sq_image_ok(const uint8_t *in, uint32_t len)
     return sq_parse(in, len, &q);
 }
 
+uint8_t sq_scene_empty(const sq_scene_t *sc)
+{
+    sq_scene_t d;
+    scene_default(&d);
+    return (uint8_t)!bdiff_(sc, &d, sizeof d);
+}
+
 uint32_t sq_image_chunk_at(const uint8_t *in, uint32_t len, uint8_t id)
 {
     parse_t q;

@@ -241,7 +241,7 @@ GRID_VIEWS = {                                             # from STEP: the view
     "TRACK2": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0)], "TRACK3": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0), (S.GC_VTRACK, 0)],
     "BEAT": [(S.GC_VTRACK, 1)], "EUCLID": [(S.GC_VTRACK, 1), (S.GC_VTRACK, 1)], "PROJ": [(S.GC_REC, 1)],
     "FX": [(S.GC_UNDO, 1)],
-    "VIAGGIO": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, VIAGGIO; no test tapped its pads)
+    "MOSSE": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, then the VIAGGIO view - 0.30: MOSSE)
 }
 
 

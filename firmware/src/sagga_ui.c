@@ -309,7 +309,7 @@ static void ui_build(void)
         p = b; p = put_s(p, "SLOT "); p = put_u(p, (uint32_t)slot_cur + 1u); p = put_s(p, " ");
         p = put_s(p, slot_info[slot_cur].ok ? (slot_info[slot_cur].seq == store_seq ? "NEWEST" : "USED") : "EMPTY");
         if (slot_info[slot_cur].ok) { p = put_s(p, " "); p = put_u(p, (slot_info[slot_cur].len + 512u) / 1024u); p = put_s(p, "K"); }
-        p = put_s(p, "  W16: SAVE JOURNEY"); finish(p);
+        p = put_s(p, "  W16: SAVE THE SET"); finish(p);   /* (0.30: was JOURNEY - the name VIAGGIO is gone) */
         ui_line(2, b, C_WARN);
         break;
     case UM_HOME:

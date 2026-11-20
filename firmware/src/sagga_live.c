@@ -272,7 +272,7 @@ static void remote_cc(uint8_t cc, uint8_t v)
     uint8_t on = v >= 64u ? 1u : 0u;
     switch (cc) {
     case 1u: morph_set(v); return;
-    case 2u: morph_target(v < SQ_SCENES ? v : (uint8_t)(v / 8u)); return;   /* (0.9: 16 scenes: 0-15, or 0-127 / 8) */
+    case 2u: morph_target(v < SQ_SCENES ? v : (uint8_t)(v / 4u)); return;   /* (0.9: 16 scenes: 0-15, or 0-127 / 8; 0.30: 32, 0-31 or 0-127 / 4) */
     case 3u: vg_energy_set((uint8_t)(((uint32_t)v * 100u + 63u) / 127u)); return;   /* 0.9: the energy */
     case 4u: project.gen.evo_amount = (uint8_t)(1u + (uint32_t)v * 99u / 127u); ui_dirty = 1u; return;
     case 5u: project.gen.heat = (uint8_t)(1u + (uint32_t)v * 99u / 127u); ui_dirty = 1u; return;
@@ -360,11 +360,21 @@ static void snap_status(const char *what, uint8_t n)
     ui_dirty = grid_dirty = 1u;
 }
 
+/* 0.30: the eight snapshots SAVE + black 1-8 and the grid's pads reach - 1-8 (SAVE + white 9) or 9-16 (white 10); a
+ * snapshot stored or brought back takes its bank there */
+static void snap_bank_set(uint8_t b)
+{
+    snap_bank = b ? 8u : 0u;
+    status_msg(snap_bank ? "SNAPSHOTS 9-16: SAVE + BLACK 1-8" : "SNAPSHOTS 1-8: SAVE + BLACK 1-8");
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void snap_store(uint8_t n)
 {
     sq_snap_t *sn = &project.snap[n];
     uint32_t t;
     if (n >= SQ_SNAPS) return;
+    snap_bank = (uint8_t)(n & 8u);
     if (!sn->used) sn->ccn = 0u;                     /* (a snapshot stored again keeps the synth CC values it took) */
     sn->used = 1u;
     sn->bpm = project.bpm;
@@ -437,6 +447,7 @@ static void snap_apply(uint8_t n)
 static void snap_recall(uint8_t n)
 {
     if (n >= SQ_SNAPS) return;
+    snap_bank = (uint8_t)(n & 8u);
     if (!project.snap[n].used) { snap_status("EMPTY: SAVE+SEL+BLACK STORES SNAPSHOT ", n); return; }
     if (playing && project.live.quant != SQ_Q_NOW) {
         snap_pend = snap_pend == n ? (uint8_t)255u : n;   /* (the same again before its moment: taken back) */

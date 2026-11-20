@@ -124,7 +124,7 @@ EUCLID and algorithms play goes into the patterns). TAKE (0.12, channel 13): wha
 in the last loop of the tablet's track (TRACK on SAGGA Live, Motori or Mod) goes into its pattern.
 
 The tracks' mutes, kills and RETRIG are in the SAGGA Mutes plugin; 0.12 adds SAGGA Motori (the tracks as engines),
-SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, VIAGGIO)."""
+SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, the MOSSE)."""
 
     params = [
         Radio("bg", "Background", ControllerBase.BG_OPTIONS, default="Slate", config_only=True),
