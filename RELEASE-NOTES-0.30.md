@@ -140,4 +140,9 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.30` per tre secondi.
 3. **Una song lunga**: in PERF tieni HOME e premi i neri a turno: ogni pressione è un'entrata. Sul grid, vista SONG
    (PERF due volte), le pagine con i pad 13 e 14 della riga 4.
 
-DIMENSIONE
+## La dimensione
+
+Il firmware cresce di 3.612 byte: 478.124 su 581.564 (la 0.29: 474.512). La RAM fissa sale di 17.120 byte: 84.704
+su 98.304 (la 0.29: 67.584). Ci è passata soprattutto la memoria dei dadi (quello che OCT- rimette a posto), per
+lasciare il posto grande al progetto: 341.164 su 344.064 byte (la 0.29: 311.308), con le 32 scene, la song da 128, le
+16 snapshot, le TAPE doppie e le 32 righe di UNDO. Restano 2.900 byte liberi.
