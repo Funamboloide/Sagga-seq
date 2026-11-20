@@ -180,4 +180,9 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.32` per tre secondi.
    (incolla).
 4. **La scaletta senza grid**: con il Pi acceso, tieni SAVE e tocca due volte il **bianco 15**: il file dopo.
 
-DIMENSIONE
+## La dimensione
+
+Il firmware cresce di 12.080 byte: 498.464 su 581.564 (la 0.31: 486.384), per i lavori nuovi dei tasti. La RAM fissa
+sale di 256 byte: 84.992 su 98.304 byte (la 0.31: 84.736; le copie di una lane e di un LFO, gli ultimi file caricati).
+Lo spazio grande, dove stanno il progetto e i nomi dei file del Pi (112 invece di 64): 341.980 su 344.064 byte (la
+0.31: 341.164): restano 2.084 byte liberi.
