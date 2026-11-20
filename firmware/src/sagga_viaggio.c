@@ -784,11 +784,24 @@ static void vg_beat_tick(void)
     vg_run_queue(0u);
     ui_dirty = grid_dirty = 1u;
 }
+static const char *const VG_QN[SQ_VQS] = {"AT THE PHRASE BOUNDARY", "AT EVERY BAR", "AT EVERY BEAT"};
 static void vg_quant_turn(int32_t d)
 {
-    static const char *const N[SQ_VQS] = {"AT THE PHRASE BOUNDARY", "AT EVERY BAR", "AT EVERY BEAT"};
     project.viaggio.quant = change_u8(project.viaggio.quant, d, 0u, SQ_VQS - 1u);
-    vg_msg2("MOVES ", N[project.viaggio.quant]);
+    vg_msg2("MOVES ", VG_QN[project.viaggio.quant]);
+}
+static void vg_quant_set(uint8_t q)                     /* 0.32: the grid's MOSSE row 6, pads 9-11 */
+{
+    project.viaggio.quant = q < SQ_VQS ? q : 0u;
+    vg_msg2("MOVES ", VG_QN[project.viaggio.quant]);
+    ui_dirty = grid_dirty = 1u;
+}
+static void vg_bars_set(uint8_t b)                      /* 0.32: the grid's MOSSE row 4, pads 12-14: a phrase of 4, 8, 16 bars */
+{
+    project.viaggio.phrase_bars = b;
+    if (vg_bar >= b) vg_bar = (uint8_t)(b - 1u);
+    status_num("PHRASE: BARS ", b);
+    ui_dirty = grid_dirty = 1u;
 }
 
 /* the transport starts: the phrase starts with it */

@@ -242,6 +242,7 @@ GRID_VIEWS = {                                             # from STEP: the view
     "BEAT": [(S.GC_VTRACK, 1)], "EUCLID": [(S.GC_VTRACK, 1), (S.GC_VTRACK, 1)], "PROJ": [(S.GC_REC, 1)],
     "FX": [(S.GC_UNDO, 1)],
     "MOSSE": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, then the VIAGGIO view - 0.30: MOSSE)
+    "LIB": [(S.GC_REC, 1), (S.GC_REC, 1)],                         # (0.32: PROJ, then LIB - no Pi here: it asks, it says so)
 }
 
 
@@ -813,6 +814,28 @@ def sit_031(s):
     return _play(s, t + 100)
 
 
+def sit_032(s):
+    """0.32: the keys and pads that did nothing since before. REMOTE 13 + 14 (SAVE + K2): the tablet too; the MASTER knob
+    on the ENERGY (SAVE + K1); a TECHNO band; LFO 1 on, VEL (LFO 2 K1), copied (LFO + black 7) and pasted on LFO 2 (LFO
+    + white 2, LFO + black 8); the grid: CC lane 2 a ramp up (row 8 pad 7), its mode SLIDE (pad 4), copied (row 5 pad
+    13); MOSSE: a phrase of 8 bars (row 4 pad 13), MOVES AT EVERY BAR (row 6 pad 10); PROJ: the tempo 140 (row 7 pad
+    15), MUTE QUEUE on (row 5 pad 11); the grid back on STEP; in play"""
+    s.press(100, S.SAVE); s.enc(130, S.K2, 1); s.enc(160, S.K1, 3); s.release(200, S.SAVE)
+    s.raw(240, "attach")
+    t = _band(s, 300)
+    s.press(t, S.LFO); s.tap_key(t + 30, S.wk(0)); s.release(t + 100, S.LFO); t += 160     # LFO 1 on
+    t = S.pg(s, t, S.LFO, 1, [(S.K1, 1)])                                                    # ... VEL
+    s.press(t, S.LFO); s.tap_key(t + 30, S.bk(6)); s.tap_key(t + 110, S.wk(1)); s.tap_key(t + 190, S.bk(7))
+    s.release(t + 260, S.LFO); t += 320                                                      # COPY, LFO 2 on, PASTE
+    t = S.pg(s, t, S.LFO, 0)
+    for view, pads in (("CC", ((1, 4), (6, 7), (3, 7), (12, 4))), ("MOSSE", ((12, 3), (9, 5))), ("PROJ", ((14, 6), (10, 4)))):
+        t = _grid_view(s, t, view)
+        for x, y in pads:
+            s.pad(t, x, y, hold=40); t += 80
+        s.ctl(t, S.GC_VSTEP, hold=20); t += 60                                               # (STEP)
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -889,6 +912,8 @@ SITUAZIONI = [
                grid=True, tablet=True, want={"G": {"scene": 31, "sbank": 8, "son": 1, "spos": 64, "slen": 70}}),
     Situazione("0.31 i gruppi e la banca 9-12: la traccia 10, la T9 muta dal bottone 12, un LFO VEL sul gruppo BASS, il LOOP senza la batteria, tablet e grid, band in play", sit_031,
                grid=True, tablet=True, want={"G": {"sel": 10, "mute": "0100", "lfot": 17, "lfod": 1, "lmask": "0FC0"}}),
+    Situazione("0.32 i tasti che non facevano niente: la manopola MASTER sull'ENERGIA, l'LFO 1 copiato sul 2, la lane 2 in rampa e SLIDE, la frase di 8, le MOSSE alla battuta, tempo 140, tablet e grid, band in play", sit_032,
+               grid=True, tablet=True, want={"G": {"bpm": 140, "lfosel": 1, "lfod": 1}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -1099,9 +1124,13 @@ def is_music(field):
 #  USER slot, which plays from then on; 0.17: PRESETS on the MOSSE (GLO 3) is the progression, a move of the set)
 HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
-                     r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
+                     r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid (VIAGGIO|MOSSE|REGIA)|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
                      r"HOME\+SAVE|SAVE, SAVE|tablet (DICE|BEAT)$)")      # (0.18: the tablet's DICE and BEAT are SEQ's)
-HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
+#   (0.32: the view is MOSSE since 0.30 - "grid VIAGGIO" matched nothing since, unseen while a progression's pad there
+#    waited for the phrase's end; the 0.32 situation moves at the bar. Its row 6 pads 12-13 are the genre - / + (as GLO 3
+#    K3), row 7 pads 1-13 the progressions (PRESETS), 14-16 HARMONY on / off, LOCK, the bars (ARP 3 K1, K3): by hand)
+HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] |"
+                          r"grid (MOSSE|REGIA) pad 1[456],7$)")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
                    r"grid PICK pad \d+,1$|grid PROJ (SHIFT\+)?pad 1[3-6],4$)")

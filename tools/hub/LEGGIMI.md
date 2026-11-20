@@ -76,7 +76,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
   Non cambia niente.
-* **Avvia la prova** (tutte le sessioni - 31 dalla 0.31, circa ventisei minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+* **Avvia la prova** (tutte le sessioni - 32 dalla 0.32, circa ventisette minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
@@ -88,7 +88,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
   la prova si interrompe la pagina offre **Rimetti le celle** (la prova dopo le rimette anche da sola). Alla fine il
   progetto che l'FM-1 aveva in memoria torna dov'era (`IMPORTED`: SAVE per tenerlo).
-* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 36 sessioni dalla 0.31 - con le cose della 0.28, della 0.29, della 0.30 e della 0.31 -, mezz'ora abbondante): le sessioni
+* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 37 sessioni dalla 0.32 - con le cose della 0.28, della 0.29, della 0.30, della 0.31 e della 0.32 -, mezz'ora abbondante): le sessioni
   dell'esploratore dal PC (ogni situazione dell'FM-1, 60 gesti, il tablet e il grid come eventi del test), dal Pi,
   senza PC. Il resto uguale: SEL, le celle dei synth staccate, il progetto che torna in memoria.
 * **I conti** (0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1): l'FM-1 conta quello che manda sull'USB, porta per porta e
@@ -194,6 +194,10 @@ pattern (da quale seme, a che variazione): un passo che cambi resta, e l'ENERGIA
 svuotare il resto (non in un RUMBLE o in un SUB che segue la cassa: quelli, quando l'energia cambia, vengono rifatti
 interi). Se **svuoti** o **sposti** un pattern, i motori lo dimenticano: è un pattern scritto a mano.
 **Copia in...** su un altro pattern della stessa traccia porta con sé il seme; su un'altra traccia no.
+
+0.32: nella scheda Progetto la **manopola MASTER** ha anche **ENERGY** (l'energia delle MOSSE, come sull'FM-1), e
+**MORPH verso la scena** va su tutte le 32 scene (fino alla 0.31 l'editor ne offriva solo 8). La libreria del Pi arriva
+all'FM-1 fino a 112 file (le righe 1-7 della vista LIB del grid; erano 64).
 
 **0.24, le copie.** Sull'FM-1 la lunghezza è della traccia: quando una traccia è più lunga del suo pattern, negli step
 in più il pattern gira di nuovo. Quegli step sono le sue **copie**, e l'editor le mostra in **verde-azzurro** (gli step

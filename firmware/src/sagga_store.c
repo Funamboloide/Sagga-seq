@@ -72,7 +72,7 @@ static void rl_img_used(void) { if (rl_src == RL_IMPORT) rl_src = 255u; }     /*
 static void reload_step(void);
 
 static uint8_t save_down, save_turned;              /* the SAVE button is held / the slot was turned while it was */
-static uint8_t ask_kind;                            /* 0 nothing asked, 1 save, 2 load, 3 clear (0.15) */
+static uint8_t ask_kind;                            /* 0 nothing asked, 1 save, 2 load, 3 clear (0.15), 4 a new project (0.32) */
 static uint8_t ask_slot;
 static uint32_t ask_until;
 
@@ -439,6 +439,29 @@ static void store_tap_load(void)
     } else ask_for(2u);                             /* (0.14: an empty slot too: the second time, a new project) */
 }
 
+/* 0.32: a NEW PROJECT, twice (the grid's PROJ row 6 pad 16): every setting at its default, as LOAD on an empty slot; the
+ * slots stay as they are (SAVE puts it in the slot chosen) */
+static void store_tap_new(void)
+{
+    if (tst_booted) { status_msg(TST_SLOTS_OFF); return; }
+    if (imp_on) { status_msg("IMPORT IN PROGRESS"); return; }
+    if (save_state != ST_IDLE) { status_msg(save_state == ST_WAIT ? "A SAVE WAITS FOR STOP" : "SAVING, WAIT"); ask_kind = 0u; return; }
+    if (!(ask_kind == 4u && !time_due(fm1_ms, ask_until))) {
+        ask_kind = 4u; ask_slot = slot_cur; ask_until = fm1_ms + SQ_ASK_MS;
+        status_msg("NEW PROJECT? AGAIN: WHAT IS NOT SAVED GOES");
+        ui_dirty = grid_dirty = 1u;
+        return;
+    }
+    ask_kind = 0u;
+    if (playing) transport_stop();
+    panic_all();
+    sq_project_init(&project);
+    project.id = 0u;
+    store_loaded();
+    rl_src = 255u;
+    status_num("NEW PROJECT: SAVE PUTS IT IN SLOT ", (uint32_t)slot_cur + 1u);
+}
+
 static void pipat_save(void);                     /* sagga_pipat.c */
 static void pipat_in(uint8_t cmd, const uint8_t *p, uint32_t n);
 static void piprog_save(void);
@@ -497,10 +520,13 @@ static uint8_t sx_out[9u + (SX_CHUNK * 8u + 6u) / 7u + 2u];
 
 /* the library (below) */
 enum { SX_LIB_LIST = 0x20, SX_LIB_ENTRY = 0x21, SX_LIB_LOAD = 0x22, SX_LIB_SAVE = 0x23, SX_LIB_ANSWER = 0x24 };
-#define LIB_MAX  64u
+#define LIB_MAX  112u                       /* 0.32: the grid's LIB view, rows 1-7 (0.5-0.31: 64, rows 1-4) */
 #define LIB_NAME 17u
 #define LIB_NONE 255u
+#define LIB_RECENT 6u                       /* 0.32: the files loaded last (LIB row 8, pads 10-15), the newest first */
 static char lib_name[LIB_MAX][LIB_NAME] __attribute__((section(".pool")));
+static char lib_recent[LIB_RECENT][LIB_NAME];      /* (in .bss: empty at power-on) */
+static void lib_recent_push(const char *nm);
 static uint8_t lib_n, lib_have, lib_sel, lib_cur = LIB_NONE, lib_wait = LIB_NONE, lib_loading = LIB_NONE, lib_ask_over;
 static uint32_t lib_ask_until;
 static void lib_toast(const char *what, uint8_t i);
@@ -642,6 +668,7 @@ static void sx_import_end(const uint8_t *p, uint32_t n)
             for (; k < SQ_NAME_LEN; k++) project.ext.name[k] = 0;
             sq_name_sanitize(project.ext.name, SQ_NAME_LEN);
         }
+        if (lib_cur < lib_n) lib_recent_push(lib_name[lib_cur]);   /* 0.32 */
         lib_toast("LOADED ", lib_cur);
     } else status_msg("IMPORTED: SAVE TO KEEP IT");
     SQ_STORE_LOG("%6u ms  imported %u B\n", fm1_ms, (unsigned)len);
@@ -656,6 +683,29 @@ static void sx_import_end(const uint8_t *p, uint32_t n)
  *   22 IDX IDX               load file IDX: the Pi sends it as an import (02 ... 03)      (to the Pi)
  *   23 IDX IDX               the export that follows goes over file IDX (16383: a new file)   (to the Pi)
  *   24 CODE IDX IDX          the Pi's answer: 0 saved, 1 could not save, 2 no such file, 3 could not read it (from the Pi) */
+
+/* 0.32: the files loaded last, by name (the list's order can change when the Pi's folder does), the newest first */
+static uint8_t lib_name_eq(const char *a, const char *b)
+{
+    uint32_t k;
+    for (k = 0; k < LIB_NAME; k++) { if (a[k] != b[k]) return 0u; if (!a[k]) return 1u; }
+    return 1u;
+}
+static void lib_recent_push(const char *nm)
+{
+    uint32_t i, k, at = LIB_RECENT - 1u;
+    if (!nm[0]) return;
+    for (i = 0; i < LIB_RECENT; i++) if (lib_name_eq(lib_recent[i], nm)) { at = i; break; }   /* (already there: it moves to the front) */
+    for (i = at; i > 0u; i--) for (k = 0; k < LIB_NAME; k++) lib_recent[i][k] = lib_recent[i - 1u][k];
+    for (k = 0; k < LIB_NAME; k++) lib_recent[0][k] = nm[k];
+}
+static int32_t lib_find(const char *nm)            /* the file of that name in the list, or -1 */
+{
+    uint32_t i;
+    if (!nm[0]) return -1;
+    for (i = 0; i < lib_n; i++) if (lib_name_eq(lib_name[i], nm)) return (int32_t)i;
+    return -1;
+}
 
 static void lib_send(uint8_t cmd, int32_t idx)
 {
@@ -727,6 +777,25 @@ static void lib_next(int32_t d)                     /* the setlist: the file aft
     if (!lib_n) { status_msg("LIBRARY EMPTY"); return; }
     if (lib_cur == LIB_NONE && d > 0) i = lib_sel;
     if (i < 0 || i >= (int32_t)lib_n) { status_msg(d > 0 ? "END OF THE LIST" : "START OF THE LIST"); return; }
+    lib_load((uint8_t)i);
+}
+
+/* 0.32 SAVE + white 14 / 15: the setlist's file before / after the one loaded - the first press names it, the second
+ * (within 3 s) loads it (while playing: at STOP); the grid's LIB and PROJ pads load at once, as LIB's have since 0.5 */
+static int8_t lib_ask_dir;
+static uint32_t lib_dir_until;
+static void lib_next_ask(int32_t d)
+{
+    int32_t i = (int32_t)(lib_cur != LIB_NONE ? lib_cur : lib_sel) + d;
+    if (!lib_n) { if (!lib_have) lib_ask_list(); else status_msg("LIBRARY EMPTY"); return; }
+    if (lib_cur == LIB_NONE && d > 0) i = lib_sel;
+    if (i < 0 || i >= (int32_t)lib_n) { status_msg(d > 0 ? "END OF THE LIST" : "START OF THE LIST"); return; }
+    if (lib_ask_dir != (int8_t)d || time_due(fm1_ms, lib_dir_until)) {
+        lib_ask_dir = (int8_t)d; lib_dir_until = fm1_ms + SQ_ASK_MS;
+        lib_toast(d > 0 ? "NEXT, AGAIN TO LOAD: " : "BEFORE, AGAIN TO LOAD: ", (uint8_t)i);
+        return;
+    }
+    lib_ask_dir = 0;
     lib_load((uint8_t)i);
 }
 

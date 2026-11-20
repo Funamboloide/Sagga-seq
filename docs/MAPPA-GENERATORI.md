@@ -45,6 +45,7 @@ La confusione nasceva perché ogni domanda ha più risposte, messe in posti dive
 | **MIDI FX** (CHANCE, RANDOM NOTE, GLITCH...) | pagina HOME 6 | cambiano le note mentre escono. CHANCE, sullo schermo: `THIS TRACK ONLY` | no | li spegni |
 | **ENERGIA** | GLO 3 K1, le mosse | muove tutto il set, e riempie e svuota i pattern fatti dai motori. Lo schermo: `THE WHOLE SET + 4 ENGINE PARTS` | sì, solo i passi che cambiano | riabbassi l'energia |
 | **MOSSE** (FILL, BREAK, RISER, DROP, THIN, SWELL...) | PERF pagina 3 | muovono tutto il set a fine frase. THIN e SWELL, sullo schermo: `THE WHOLE SET` | alcune sì | INDIETRO |
+| **gli attrezzi delle lane** (0.32: RAMPA SU e GIÙ, SU E GIÙ, A CASO, A TESTA IN GIÙ, UN PASSO PRIMA / DOPO, AMMORBIDITA, A METÀ VERSO LA BASE, SVUOTA) | ENV + neri 9-11; il grid, vista CC, riga 8 | riscrivono in un colpo i lock di una lane lungo il loop del pattern | sì, quella lane | UNDO |
 
 ## Dove due strade fanno la stessa cosa
 
@@ -134,6 +135,7 @@ scritto resta com'è.
 | che cambi da sola e vada lontano | **EVOLVE** con RETURN a 0 (o il tasto **DRIFT**) | non torna indietro: REVERT se vuoi tornare |
 | un ritmo "matematico" sopra il mio | **EUCLID LIVE** (SEQ 1, poi SEQ + bianco 6) | non tocca il pattern finché non lo scrivi |
 | più pieno o più vuoto, dal vivo | **ENERGIA** (GLO 3 K1) con i motori; altrimenti **THIN / SWELL** | lavorano su tutto il set, a tempo |
+| un filtro che si apre lungo il pattern | **ENV + nero 9** (RAMPA SU; 0.32), o la riga 8 della vista CC del grid | una rampa intera in un tocco, sulla lane della pagina ENV |
 | una chiusura a fine frase | **FILL** (le MOSSE) | arriva a fine frase da sola |
 | tornare a com'era | **UNDO** (SEQ + bianco 8), o **REVERT** dopo EVOLVE | |
 | meno pagine sul pannello | il profilo **SEMPLICE** (SAVE + K4) | le pagine da laboratorio spariscono finché non le usi |

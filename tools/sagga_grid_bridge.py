@@ -449,7 +449,7 @@ SX_TEXT = {0: "ok", 1: "the FM-1 is busy: stop it (and let a save finish) first"
 PROJECT_MAGIC = b"SGQB"                     # SAGGA SEQ 0.11 project image
 PROJECT_MAGICS = (PROJECT_MAGIC, b"SGQA")   # ... and 0.10's, which 0.11 reads; nothing older (0.10 started the format over: SGQ3..SGQ9 are refused)
 SX_LIB_LIST, SX_LIB_ENTRY, SX_LIB_LOAD, SX_LIB_SAVE, SX_LIB_ANSWER = 0x20, 0x21, 0x22, 0x23, 0x24
-LIB_MAX = 64                                # the files the FM-1 shows
+LIB_MAX = 112                               # the files the FM-1 shows (0.32: rows 1-7 of the LIB view; 0.5-0.31: 64)
 LIB_NAME = 16                               # ... and the characters of a name
 LIB_NEW = 0x3FFF                            # SX_LIB_SAVE: a new file
 

@@ -4411,6 +4411,27 @@ static void test_v031_lfo_group(void)
     CHECK(b.lfo[0].target == 16u && b.lfo[0].enabled == 1u && b.snap[3].lfo[6].target == 17u);
 }
 
+/* 0.32: the MASTER knob's fourth job, ENERGY (SQ_MK_ENERGY 3): kept by the sanitizer and in the image; past it, TEMPO */
+static void test_v032_master_energy(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    uint32_t n;
+    sq_project_init(&a);
+    CHECK(SQ_MK_ENERGY == 3 && SQ_MKS == 4 && a.live.master_fn == SQ_MK_TEMPO);
+    a.live.master_fn = SQ_MK_ENERGY;
+    a.live.morph_b = 31u;
+    sq_project_sanitize(&a);
+    CHECK(a.live.master_fn == SQ_MK_ENERGY && a.live.morph_b == 31u);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_image_ok(img, n) == 0);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a) && b.live.master_fn == SQ_MK_ENERGY);
+    a.live.master_fn = SQ_MKS;
+    sq_project_sanitize(&a);
+    CHECK(a.live.master_fn == SQ_MK_TEMPO);
+}
+
 int main(void)
 {
     test_v012_break();
@@ -4460,6 +4481,7 @@ int main(void)
     test_v029_more();
     test_v030_image();
     test_v031_lfo_group();
+    test_v032_master_energy();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

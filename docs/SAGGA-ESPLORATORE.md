@@ -68,7 +68,16 @@ cosa cambia) e `build/explore/rapporto.json`.
    il mute di T10) con e senza SHIFT, SHIFT + le righe 5-8 della vista DRUM (nella banca 9-12 la forza degli step) e
    SHIFT + la riga 6 della vista FX (il KILL di un gruppo che resta). La regola CANALE sa che la riga 4 di PROJ, pad
    13-16, cambia i canali.
-2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069; 0.31: 5723 con il grid e il tablet): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
+   0.32: **una, con i tasti che non facevano niente**: la manopola MASTER sull'ENERGIA (SAVE + K1), una band TECHNO,
+   l'LFO 1 su VEL copiato (LFO + nero 7) e incollato sull'LFO 2 (LFO + bianco 2, LFO + nero 8), la lane 2 della vista
+   CC in rampa (riga 8 pad 7), su SLIDE (pad 4) e copiata (riga 5 pad 13), la frase di 8 battute (MOSSE, riga 4 pad 13)
+   e le mosse a ogni battuta (riga 6 pad 10), il tempo 140 (PROJ, riga 7 pad 15) e MUTE QUEUE (riga 5 pad 11), il
+   tablet e il grid, in play. Prima di cominciare la sonda controlla il tempo e l'LFO. Nei gesti sono entrati i 128 pad
+   della **vista LIB** (senza un Pi: chiedono, e lo dicono). La regola ARMONIA conosceva la vista MOSSE con il nome di
+   prima (VIAGGIO, fino alla 0.29): con le mosse alla battuta i suoi pad delle progressioni, del genere e della chiave
+   cambiano l'armonia dentro le due battute che la sonda guarda - a mano, come PRESETS e GLO 3 K3; i pad 14-16 della
+   riga 7 (HARMONY, LOCK, le battute) sono ARP 3 K1 e K3, anche sotto LOCK.
+2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069; 0.31: 5723 con il grid e il tablet; 0.32: 5851 e 3069): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
@@ -276,6 +285,22 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   di un gruppo che non si spegneva mai, solo dopo aver aggiunto il controllo che mancava). Il piano del banco: 31
   sessioni; l'FM-1 completo: 36.
 
+* **Sulla 0.32** (i tasti e i pad che non facevano niente da sempre: con EDIT, ENV, LFO e SAVE tenuti i neri e i bianchi
+  che restavano, la manopola MASTER sull'ENERGIA, e i pad spenti di quasi ogni vista del grid): una situazione nuova
+  (sopra) e i pad della vista LIB nei gesti. Il primo giro completo ha segnato **26 volte ARMONIA, tutte sulla vista
+  MOSSE**: la regola la conosceva come VIAGGIO, il suo nome fino alla 0.29, e con le mosse alla battuta della
+  situazione nuova i pad delle progressioni, del genere e della chiave cambiano l'armonia dentro le due battute che la
+  sonda guarda; i pad nuovi HARMONY e LOCK la cambiano subito. È a mano: la regola ora lo sa. Rileggendo i pad è venuto
+  fuori anche un errore della 0.32 prima di uscire: su REGIA, che ha le righe delle MOSSE, un pad di traccia tenuto non
+  tirava i dadi (il servizio guardava solo la vista MOSSE). Corretto; lo guarda `t032_grid3`. Il giro completo:
+  **123.748 gesti da soli in 34 situazioni, 13.594 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
+  guardare** (13 minuti con due processori). Le prove fisse della 0.32 (`t032_panel`, `t032_grid`, `t032_grid2`,
+  `t032_grid3` e `t032_maps` nel simulatore, l'ENERGIA nel cuore, la 0.31 vera presa da git in
+  `tests/sagga_compat31.sh`, l'ENERGIA e le 32 scene nell'editor, i 112 file nel bridge) sono state provate rompendo il
+  firmware, l'editor e il bridge in settantanove punti, uno alla volta: le prove le hanno trovate tutte. Il piano del
+  banco: 32 sessioni; l'FM-1 completo: 37 (con una sessione per ogni situazione della 0.28, della 0.29, della 0.30,
+  della 0.31 e della 0.32).
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
@@ -355,7 +380,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 31 dalla 0.31, 30 nella 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 32 dalla 0.32, 31 nella 0.31, 30 nella 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
@@ -379,8 +404,8 @@ configurato, quanto è rimasto fermo il suo giro principale), per capire da che 
 (`prima-del-banco-<data>.sgq`). Nel confronto una sonda letta un tick di clock prima o dopo, sul confine di uno step, è
 TEMPO anche quando quelle dopo cadono sul confine come lei (le sonde vengono ogni 700 ms, sei step).
 
-Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`: ogni situazione una volta, 32
-sessioni dalla 0.31, più 4 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
+Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`: ogni situazione una volta, 33
+sessioni dalla 0.32, più 4 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
 programma, senza Windows. La raccolta si confronta con `--banco` come quella del banco.
 
 `--banco-prova` fa tutto con il simulatore al posto dell'FM-1 (il bridge vero, i ritardi del Pi a caso) e deve dire

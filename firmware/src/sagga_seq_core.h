@@ -410,7 +410,7 @@ typedef struct __attribute__((packed)) {
     uint8_t song_tempo;          /* 0.10: 1: a song entry with a tempo sets it */
     uint8_t reserved[3];
 } sq_live_t;                     /* 20 bytes */
-enum { SQ_MK_TEMPO = 0, SQ_MK_MORPH, SQ_MK_FILTER, SQ_MKS };
+enum { SQ_MK_TEMPO = 0, SQ_MK_MORPH, SQ_MK_FILTER, SQ_MK_ENERGY, SQ_MKS };   /* 0.32: ENERGY (the MOSSE's), the grid's PROJ row 5 pad 4 */
 enum { SQ_RM_OFF = 0, SQ_RM_14, SQ_RM_13_14, SQ_RMS };
 #define SQ_KTRANS_MAX 12
 #define SQ_CC_LEAD_MAX 30u
