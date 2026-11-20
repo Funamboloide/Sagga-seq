@@ -427,6 +427,13 @@ enum { SQ_LD_CC = 0, SQ_LD_VEL, SQ_LD_GATE, SQ_LD_CHANCE, SQ_LD_TIMING, SQ_LD_SW
 #define SQ_LFO_RATES_STRAIGHT 16u
 #define SQ_LF_RETRIG 0x01u      /* start the cycle again when the transport starts */
 #define SQ_LF_INVERT 0x02u
+/* 0.31: THE GROUPS of tracks - the drums, the bass, the melodic ones, all of them (the grid's pads 13-16 where a row is the
+ * tracks, the FM-1's whites 13-16 in PERF, the remote's CC 60-63, 76-79, 102-105). An LFO on a track's parameter may aim
+ * at one: its target is SQ_LFO_TG0 + the group (16-19: past the sixteen tracks a 0.27 image may name, so no older image
+ * means a group by it; a 0.30 firmware stops such an LFO, as one aimed at a track it does not keep) */
+enum { SQ_TG_DRUMS = 0, SQ_TG_BASS, SQ_TG_MELODIC, SQ_TG_ALL, SQ_TGROUPS };
+#define SQ_LFO_TG0 16u
+#define SQ_LFO_TGROUP(t) ((uint8_t)((t) >= SQ_LFO_TG0 && (t) < SQ_LFO_TG0 + SQ_TGROUPS))
 
 typedef struct __attribute__((packed)) {
     uint8_t enabled;             /* 0 / 1 */
@@ -436,7 +443,7 @@ typedef struct __attribute__((packed)) {
     uint8_t center;              /* 0..127: CC value in the middle of the swing */
     uint8_t phase;               /* 0..127: where in the cycle it starts */
     uint8_t dest;                /* SQ_LD_* */
-    uint8_t target;              /* CC: the MIDI channel 0..15; the others: the track 0..11 */
+    uint8_t target;              /* CC: the MIDI channel 0..15; the others: the track 0..11, or (0.31) a group SQ_LFO_TG0.. */
     uint8_t param;               /* CC: the controller number 0..127 */
     uint8_t flags;               /* SQ_LF_* */
 } sq_lfo_t;

@@ -755,7 +755,7 @@ def t_tracks16():
     s.tap_key(100, wk(0))                                  # track 1: step 1
     s.tap_key(200, bk(8)); s.tap_key(300, bk(3))           # bank 2 (9-12), track 12 (index 11)
     s.tap_key(400, wk(1))                                  # track 12: step 2
-    s.tap_key(500, bk(7))                                  # black 8 in the bank of 9-12: no track 16, nothing changes
+    s.tap_key(500, bk(7)); s.tap_key(560, bk(7))           # black 8 in the bank of 9-12: 0.31 the mute of track 12 - twice, back
     s.tap_btn(600, PLAY)
     log = run(s, 3400)
     n0 = log.notes(ch=0, after=600)
@@ -6488,8 +6488,8 @@ def t012_grid_pick():
           "row 1 CHANNEL: 1 is white, 14 lit, 15 off (the grid takes 15 and 16) (%s)" % [pads.get(i) for i in (0, 13, 14)])
     check(pads[1 * 16 + 3] == GL_WHITE and pads[1 * 16 + 15] == GL_BLUE, "row 2 LENGTH: 16 white (pad 4), 64 blue (%s)" % [pads.get(i) for i in (19, 31)])
     check(pads[4 * 16 + 0] == GL_OFF and pads[4 * 16 + 9] == GL_OFF, "row 5: CHANNEL is not copied across (a synth's): the black keys, items 17+ off (%s)" % [pads.get(i) for i in (64, 73)])
-    check(pads[5 * 16 + 0] == GL_WHITE and all(pads[5 * 16 + x] == GL_BLUE for x in range(1, 12)) and all(pads.get(5 * 16 + x, GL_OFF) == GL_OFF for x in range(12, 16)),
-          "row 6: every track 16 steps long, as track 1: lit; 13-16 dark (0.28: twelve tracks) (%s)" % [pads.get(80 + x) for x in (0, 1, 11, 12)])
+    check(pads[5 * 16 + 0] == GL_WHITE and all(pads[5 * 16 + x] == GL_BLUE for x in range(1, 12)) and [pads.get(5 * 16 + x, GL_OFF) for x in range(12, 16)] == [GL_OFF, GL_OFF, GL_CYAN, GL_WHITE],
+          "row 6: every track 16 steps long, as track 1: lit; 13-16 the groups (0.31): no drum, no bass track - dark -, the melodic ones and all of them lit (%s)" % [pads.get(80 + x) for x in (0, 1, 11, 12, 13, 14, 15)])
     check(ctls.get(GC_SHIFT) == GL_CYAN and ctls.get(GC_VSTEP) == GL_YELLOW, "FOLLOW: SHIFT cyan, STEP yellow (%s %s)" % (ctls.get(GC_SHIFT), ctls.get(GC_VSTEP)))
     d = log.dumps
     check(len(d) == 4 and d[0]["length"] == 32 and d[1]["track"] == 3 and d[1]["length"] == 32, "row 2 pad 8: LENGTH 32; row 6 pad 3: track 3 too (%s)" % [(x["track"], x["length"]) for x in d])
@@ -12021,15 +12021,15 @@ def t0281_mod_page():
     s.raw(100, "attach")
     t = view(s, 200, GC_VPERF, alt=True)                              # LFO view
     s.pad(t, 9, 1); t += 100                                          # DEST VEL (row 2, pad 10)
-    s.pad(t, 13, 6); t += 100                                         # pad 14: nothing
+    s.pad(t, 13, 6); t += 100                                         # pad 14: 0.31 the group BASS (0.28.1-0.30: nothing)
     t3 = t
     s.pad(t + 50, 11, 6); t += 200                                    # pad 12: track 12
     log = run(s, t + 200)
     pads, _ = log.leds(until=t3 + 40)
     pads2, _ = log.leds(until=t + 150)
     row = [pads[6 * 16 + x] for x in range(16)]
-    check(row[0] == GL_WHITE and all(v == GL_OFF for v in row[12:]) and all(v == GL_DIM for v in row[1:12]),
-          "grid, DEST VEL: the track row lights 1-12, 13-16 dark; pad 14 left the target on track 1 (%s)" % row)
+    check(row[13] == GL_WHITE and row[12:16] == [GL_ORANGE, GL_WHITE, GL_CYAN, GL_DIM] and all(v == GL_DIM for v in row[0:12]),
+          "grid, DEST VEL: the track row lights 1-12; 0.31: 13-16 the groups, pad 14 the bass - white, the LFO moves it (%s)" % row)
     check(pads2[6 * 16 + 11] == GL_WHITE and pads2[6 * 16] == GL_DIM, "... pad 12: track 12 (%s %s)" % (pads2[6 * 16 + 11], pads2[6 * 16]))
 
 
@@ -12247,6 +12247,308 @@ def t030_tape():
     check(tp and tp[-1]["n"] == 2000 and tp[-1]["bars"] == 16 and states(log)[-1]["msg"] == "TAPE DOUBLED: BARS 16",
           "DOUBLE on 8 bars and 1000 notes: 16 bars, 2000 notes (%s %s)" % ([(x["n"], x["bars"]) for x in tp], states(log)[-1]["msg"] if states(log) else None))
 
+def t031_panel():
+    group("0.31 THE KEYS THAT DID NOTHING (since 0.28 the tracks are twelve), ON THE PANEL: in the bank of 9-12 black 5-8 are "
+          "the mutes of tracks 9-12; HOME + white 13-16 the page of steps; PERF's white 13-16 the GROUPS - the drums, the bass, "
+          "the melodic ones, ALL (SEL: their solo), on the MOSSE's page too; the remote's CC 60-63, 76-79, 102-105 the groups' "
+          "mutes, KILLs and RETRIG; LFO 2 K2 past T12: an LFO on a group")
+    s = Script()
+    t = band_hold(s, 100)                                   # a TECHNO band: T1-T6 the drums, T7-T8 the bass (RUMBLE, BASS), T9-T12 the rest
+    s.at(t, "probe"); t += 50                               # [0]
+    s.tap_key(t, bk(8)); t += 80                            # black 9: the bank 9-12 (track 9)
+    s.tap_key(t, bk(4)); t += 80; s.at(t, "probe"); t += 40       # [1] black 5: T9 muted
+    t_led1 = t; s.at(t, "leds"); t += 40
+    s.tap_key(t, bk(4)); t += 80; s.at(t, "probe"); t += 40       # [2] again: T9 plays
+    s.tap_key(t, bk(7)); t += 80; s.at(t, "probe"); t += 40       # [3] black 8: T12 muted
+    s.tap_key(t, bk(7)); t += 80                                  # (back)
+    s.press(t, HOME); s.tap_key(t + 30, wk(13)); s.at(t + 90, "leds"); s.release(t + 120, HOME); t += 180
+    s.at(t, "probe"); t += 40                                     # [4] HOME + white 14: steps 17-32
+    s.press(t, HOME); s.tap_key(t + 30, wk(15)); s.release(t + 100, HOME); t += 160
+    s.at(t, "probe"); t += 40                                     # [5] HOME + white 16: steps 49-64
+    s.press(t, HOME); s.tap_key(t + 30, wk(12)); s.release(t + 100, HOME); t += 160   # (steps 1-16)
+    s.tap_btn(t, GLO); t += 80                                    # PERF
+    s.tap_key(t, wk(12)); t += 80; s.at(t, "probe"); t += 40      # [6] white 13: the drums
+    s.at(t, "leds"); t += 40
+    s.tap_key(t, wk(13)); t += 80; s.at(t, "probe"); t += 40      # [7] white 14: the bass too
+    s.tap_key(t, wk(12)); t += 80; s.at(t, "probe"); t += 40      # [8] white 13: the drums back
+    s.tap_key(t, wk(15)); t += 80; s.at(t, "probe"); t += 40      # [9] white 16: ALL
+    s.press(t, SEL); s.tap_key(t + 30, wk(14)); s.release(t + 100, SEL); t += 160; s.at(t, "probe"); t += 40   # [10] SEL + 15: the melodic ones' solo
+    s.press(t, SEL); s.tap_key(t + 30, wk(15)); s.release(t + 100, SEL); t += 160; s.at(t, "probe"); t += 40   # [11] SEL + 16: no solo
+    s.tap_btn(t, GLO); t += 80
+    s.press(t, SEL); s.tap_btn(t + 30, GLO); s.release(t + 100, SEL); t += 160   # the MOSSE's page
+    s.tap_key(t, wk(13)); t += 80; s.at(t, "probe"); t += 40      # [12] white 14: the bass
+    s.tap_key(t, wk(15)); t += 80                                 # (ALL)
+    s.press(t, SEL); s.tap_btn(t + 30, GLO); s.release(t + 100, SEL); t += 160
+    remote(s, t, 60); t += 60; s.at(t, "probe"); t += 40          # [13] CC 60: the drums
+    remote(s, t, 63); t += 60; s.at(t, "probe"); t += 40          # [14] CC 63: ALL ON
+    remote(s, t, 77, 127); t += 60; s.at(t, "probe"); t += 40     # [15] CC 77 held: KILL the bass
+    remote(s, t, 79, 127); t += 60; s.at(t, "probe"); t += 40     # [16] CC 79 too: all but the selected track (T9)
+    remote(s, t, 77, 0); remote(s, t + 10, 79, 0); t += 60; s.at(t, "probe"); t += 40   # [17] both let go
+    remote(s, t, 102); t += 60; s.at(t, "probe"); t += 40         # [18] CC 102, stopped
+    t = pg(s, t, LFO, 1, [(K1, 1), (K2, 12)]); s.at(t, "probe"); t += 40   # [19] LFO 2: VEL, K2 +12: DRUMS
+    s.press(t, LFO); s.at(t + 40, "ui"); s.release(t + 80, LFO); t += 140    # (LFO held: its page 2 on the screen)
+    t = pg(s, t, LFO, 1, [(K2, 3)]); s.at(t, "probe"); t += 40    # [20] +3: ALL
+    t = pg(s, t, LFO, 1, [(K2, 5)]); s.at(t, "probe"); t += 40    # [21] +5: still ALL
+    t = pg(s, t, LFO, 1, [(K2, -4)]); s.at(t, "probe"); t += 40   # [22] -4: T12
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    ok = len(G) == 23
+    check(ok, "23 probes (%d)" % len(G))
+    if not ok:
+        return
+    for g in G:
+        g["msg"] = re.sub(r"^TAB (T\d+: )?", "", g.get("msg", ""))       # (what the remote does is the tablet's: its mark aside)
+    def gm(i): return (G[i].get("mute"), G[i].get("msg"))
+    check(G[0]["mute"] == "0000" and [pr[0]["T%d" % k]["mode"] for k in range(1, 13)] == list("DDDDDDKKKKFF") and
+          [int(pr[0]["T%d" % k]["role"]) for k in (7, 8)] == [17, 5],
+          "a TECHNO band: T1-T6 DRUM tracks, T7 the RUMBLE, T8 the BASS (%s %s)" % ([pr[0]["T%d" % k]["mode"] for k in range(1, 13)], [pr[0]["T%d" % k]["role"] for k in (7, 8)]))
+    check(gm(1) == ("0100", "T9 MUTED") and gm(2) == ("0000", "T9 PLAYS") and gm(3) == ("0800", "T12 MUTED"),
+          "in the bank of 9-12 black 5 is the mute of T9, black 8 of T12 (0.28-0.30: nothing) (%s %s %s)" % (gm(1), gm(2), gm(3)))
+    leds = [l for _, l in log.key_leds()]
+    check(len(leds) >= 3 and leds[0][BLACK[4]] == "X" and leds[0][BLACK[0]] == "X" and leds[0][BLACK[5]] == ".",
+          "... its light: black 5 lit (T9 muted), black 1 (T9 selected), black 6 dark (%s)" % (leds[:1],))
+    check(G[4]["spage"] == "1" and G[4]["msg"] == "STEPS 17-32" and G[5]["spage"] == "3" and G[5]["msg"] == "STEPS 49-64",
+          "HOME + white 14 / 16: the page of steps 2 / 4 (%s %s)" % ((G[4]["spage"], G[4]["msg"]), (G[5]["spage"], G[5]["msg"])))
+    check(len(leds) >= 3 and leds[1][WHITE[13]] == "X" and leds[1][WHITE[8]] == "X" and leds[1][WHITE[12]] == ".",
+          "... HOME held: white 14 lit (the page), white 9 (track 9) (%s)" % (leds[1:2],))
+    check(gm(6) == ("003F", "DRUMS MUTED") and gm(7) == ("00FF", "BASS MUTED") and gm(8) == ("00C0", "DRUMS PLAY") and gm(9) == ("0000", "ALL TRACKS AUDIBLE"),
+          "PERF white 13: the drums quiet; 14 the bass; 13 again the drums back; 16 every track (%s)" % [gm(i) for i in (6, 7, 8, 9)])
+    check(len(leds) >= 3 and leds[2][WHITE[12]] == "." and leds[2][WHITE[13]] == "X" and leds[2][WHITE[15]] == "." and leds[2][WHITE[0]] == ".",
+          "... white 13 dark (the drums quiet), 14 lit, 16 dark (not every track plays) (%s)" % (leds[2:3],))
+    check((G[10]["solo"], G[10]["msg"]) == ("0F00", "SOLO: MELODIC") and (G[11]["solo"], G[11]["msg"]) == ("0000", "NO SOLO"),
+          "PERF SEL + white 15: the melodic ones (T9-T12) in solo; SEL + 16: no solo (%s %s)" % ((G[10]["solo"], G[10]["msg"]), (G[11]["solo"], G[11]["msg"])))
+    check(gm(12) == ("00C0", "BASS MUTED"), "on the MOSSE's page the whites are PERF's: white 14, the bass (%s)" % (gm(12),))
+    check(gm(13) == ("003F", "DRUMS MUTED") and gm(14) == ("0000", "ALL TRACKS AUDIBLE"), "the remote's CC 60: the drums; 63: ALL ON (%s %s)" % (gm(13), gm(14)))
+    check([G[i]["rkill"] for i in (15, 16, 17)] == ["00C0", "0FFE", "0000"],
+          "CC 77 held: KILL the bass; with CC 79: all but the tablet's track (T1) too; let go: nothing (%s)" % [G[i]["rkill"] for i in (15, 16, 17)])
+    check(G[18]["msg"] == "PLAY FIRST", "CC 102 (RETRIG the drums) stopped: PLAY FIRST (%s)" % G[18]["msg"])
+    sc = log.screens()
+    check([(G[i]["lfod"], G[i]["lfot"]) for i in (19, 20, 21, 22)] == [("1", "16"), ("1", "19"), ("1", "19"), ("1", "11")],
+          "LFO 2: K1 VEL, K2 past T12 - the groups (16 the drums ... 19 ALL), the end there; back to T12 (%s)" % [(G[i]["lfod"], G[i]["lfot"]) for i in (19, 20, 21, 22)])
+    check(bool(sc) and sc[0]["cells"][1] is not None and sc[0]["cells"][1][0].lstrip("> ") == "TRACK" and sc[0]["cells"][1][1] == "DRUMS",
+          "... the screen says TRACK DRUMS (%s)" % (sc[0]["cells"] if sc else None))
+
+
+def t031_lfo_group():
+    group("0.31 AN LFO ON A GROUP (LFO 2 K2 past T12, the grid's LFO row 7 pads 13-16): VEL on the drums moves the velocities of "
+          "the six drum tracks of a TECHNO band and of no other; saved, and there after a power cycle")
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    runs = []
+    for on in (True, False):
+        s = Script()
+        t = band_hold(s, 100)
+        t = pg(s, t, LFO, 0, [(K3, 127)])                         # LFO 1: DEPTH 127
+        t = pg(s, t, LFO, 1, [(K1, 1), (K2, 12)])                 # VEL, on the drums
+        s.press(t, LFO); s.tap_key(t + 30, wk(0)); s.release(t + 100, LFO); t += 160    # LFO + white 1: LFO 1 on
+        if not on:
+            s.press(t, LFO); s.tap_key(t + 30, wk(0)); s.release(t + 100, LFO)            # (... and off again: the same time)
+        t += 160
+        s.tap_btn(t, PLAY); t0 = t; t += 4000
+        s.tap_btn(t, PLAY); t += 200
+        if on:
+            s.tap_btn(t, SAVE); s.tap_btn(t + 300, SAVE)
+        t += 1200
+        log = run(s, t, flash=flash if on else None)
+        runs.append((log, t0))
+    vel = [{ch: [v for _, n, v in lg.notes(ch=ch, after=t0)] for ch in range(12)} for lg, t0 in runs]
+    differ = [ch for ch in range(12) if vel[0][ch] != vel[1][ch]]
+    heard = [ch for ch in range(12) if vel[0][ch]]
+    check(differ == [ch for ch in range(6) if ch in heard] and len(differ) >= 3 and all(len(vel[0][ch]) == len(vel[1][ch]) for ch in range(12)),
+          "the LFO on the drums: the velocities of channels 1-6 (the drum tracks that play) move, of no other channel; the same notes (%s; %s)" % (
+              differ, heard))
+    check(len(runs[0][0].saves) == 1, "saved (%s)" % runs[0][0].saves)
+    s = Script()
+    s.at(300, "probe")
+    log = run(s, 400, flash=flash)
+    pr = probes(log)
+    check(len(pr) == 1 and pr[0]["G"]["lfot"] == "16" and pr[0]["G"]["lfod"] == "1",
+          "after a power cycle LFO 1 is still VEL on the drums (target 16) (%s)" % (((pr[0]["G"]["lfot"], pr[0]["G"]["lfod"]) if pr else None),))
+
+
+def t031_grid():
+    group("0.31 THE GRID'S PADS THAT DID NOTHING: the bank of 9-12 - buttons 12-15 the mutes of 9-12, PERF rows 5-8 the 32 scenes, "
+          "the 16 snapshots and the twelve mutes with the GROUPS, DRUM rows 5-8 the force of the steps, EUCLID rows 5-8 the "
+          "rotation and the family; the rows of the tracks' pads 13-16 the groups (FX LOOP and KILL, MOSSE dice and in / out, "
+          "BEAT's CUSTOM scope, the LFO's target, FOLLOW); PROJ row 4 the channels; BEAT page 2 pads 11-12 a genre at random and "
+          "the SOURCE; and two fixes: CC's lanes 7-8 lit, BEAT row 3's HARMONY and bars back")
+    s = Script()
+    t = band_hold(s, 100)                                                  # TECHNO: T1-T6 drums, T7-T8 bass, T9-T12 melodic
+    s.raw(t, "attach"); t += 50
+    s.tap_key(t, bk(8)); t += 80                                           # the bank 9-12 (track 9)
+    marks, n = {}, [0]
+    def P(name):                                                           # a probe, and where it is in the list
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    s.ctl(t, GC_TRK0 + 4); t += 80; P("b12")                               # button 12 (bank 2): T9 muted
+    t_b12 = t
+    shift(s, t, 1); s.ctl(t + 10, GC_TRK0 + 5); shift(s, t + 60, 0); t += 100; P("sb13")   # SHIFT + 13: T10 solo
+    shift(s, t, 1); s.ctl(t + 10, GC_TRK0 + 5); shift(s, t + 60, 0); t += 100
+    s.ctl(t, GC_TRK0 + 4); t += 80                                         # (T9 back)
+    t = view(s, t, GC_VPERF)                                               # PERF, the bank 9-12
+    s.pad(t, 1, 4); t += 100; P("sc2")                                     # row 5 pad 2: scene 2
+    shift(s, t, 1); s.pad(t + 10, 1, 5); shift(s, t + 90, 0); t += 120; P("st18")   # SHIFT + row 6 pad 2: store scene 18
+    s.pad(t, 1, 5); t += 100; P("sc18")                                    # row 6 pad 2: scene 18
+    shift(s, t, 1); s.pad(t + 10, 9, 6); shift(s, t + 90, 0); t += 120; P("ss10")   # SHIFT + row 7 pad 10: snapshot 10
+    s.pad(t, 9, 6); t += 100; P("sn10")
+    s.pad(t, 2, 7); t += 100; P("m3")                                      # row 8 pad 3: T3 muted
+    s.pad(t, 12, 7); t += 100; P("mdr")                                    # pad 13: the drums
+    t_perf = t
+    s.pad(t, 15, 7); t += 100; P("mall")                                   # pad 16: ALL
+    shift(s, t, 1); s.pad(t + 10, 13, 7); shift(s, t + 90, 0); t += 120; P("sbs")   # SHIFT + pad 14: the bass's solo
+    shift(s, t, 1); s.pad(t + 10, 14, 7); shift(s, t + 90, 0); t += 120; P("sml")   # SHIFT + pad 15: the melodic ones' too
+    shift(s, t, 1); s.pad(t + 10, 13, 7); shift(s, t + 90, 0); t += 120; P("sbo")   # SHIFT + pad 14 again: the bass's off
+    shift(s, t, 1); s.pad(t + 10, 15, 7); shift(s, t + 90, 0); t += 120; P("nos")   # SHIFT + pad 16: no solo
+    t = view(s, t, GC_VSTEP); t = view(s, t, GC_VSTEP)                     # DRUM
+    s.pad(t, 0, 6); t += 100; P("f11")                                     # row 7 pad 1: T11 step 1 (off): on, ACCENT
+    t_drum = t
+    s.pad(t, 0, 6); t += 100; P("f11b")                                    # again: GHOST
+    s.pad(t, 0, 6); t += 100; P("f11c")                                    # again: NORMAL
+    shift(s, t, 1); s.pad(t + 10, 3, 5); shift(s, t + 90, 0); t += 120; P("s10")    # SHIFT + row 6: T10 selected
+    t = view(s, t, GC_VTRACK, alt=True); t = view(s, t, GC_VTRACK, alt=True)   # EUCLID
+    s.pad(t, 5, 4); t += 100; P("rot")                                     # row 5 pad 6: T9 rotation 4
+    s.pad(t, 0, 5); t += 100; P("fam")                                     # row 6 pad 1: T10's family TRESILLO
+    t_euc = t
+    t = view(s, t, GC_UNDO, alt=True)                                      # FX
+    s.pad(t, 12, 3); t += 100; P("l1")                                     # row 4 pad 13: without the drums
+    s.pad(t, 12, 3); t += 100; P("l2")                                     # again: with
+    s.pad(t, 13, 3); t += 100; P("l3")                                     # pad 14: without the bass
+    s.pad(t, 15, 3); t += 100; P("l4")                                     # pad 16: every track
+    s.at(t, "pad", 12, 5, 100); t += 80; P("k1")                           # row 6 pad 13 held: KILL the drums
+    s.at(t, "pad", 12, 5, 0); t += 60; P("k2")
+    shift(s, t, 1); s.pad(t + 10, 13, 5); shift(s, t + 90, 0); t += 120; P("k3")    # SHIFT + 14: the bass, latched
+    t_fx = t
+    shift(s, t, 1); s.pad(t + 10, 13, 5); shift(s, t + 90, 0); t += 120; P("k4")    # again: off
+    s.at(t, "pad", 15, 5, 100); t += 80; P("k5")                           # pad 16 held: all but T10
+    s.at(t, "pad", 15, 5, 0); t += 60
+    t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)   # PERF, SONG, MOSSE
+    s.pad(t, 12, 2); t += 100; P("q1"); s.at(t, "dump", 0); t += 40       # row 3 pad 13: the drums in / out
+    s.pad(t, 14, 1); t += 100; P("dice")                                   # row 2 pad 15: the dice for the melodic ones
+    t = view(s, t, GC_VTRACK, alt=True)                                    # BEAT
+    s.pad(t, 14, 1); t += 100                                              # row 2 pad 15: the scope CUSTOM
+    s.pad(t, 12, 4); t += 100; P("cu1")                                    # row 5 pad 13: + the drums
+    s.pad(t, 12, 4); t += 100; P("cu2")                                    # - the drums
+    s.pad(t, 6, 2); t += 100; P("harm")                                    # row 3 pad 7: HARMONY on / off (0.29-0.30: progression 7)
+    s.pad(t, 7, 2); t += 100; P("hb")                                      # pad 8: its bars (0.29-0.30: progression 8)
+    s.pad(t, 12, 0); t += 100                                              # row 1 pad 13: the genres' page 2
+    s.pad(t, 11, 0); t += 100; P("src")                                    # pad 12: the SOURCE
+    t_beat = t
+    s.pad(t, 10, 0); t += 100; P("rnd")                                    # pad 11: a genre at random
+    t = view(s, t, GC_VPERF, alt=True)                                     # LFO
+    s.pad(t, 9, 1); t += 100                                               # DEST VEL
+    s.pad(t, 14, 6); t += 100; P("lfo")                                    # row 7 pad 15: the melodic ones
+    t = view(s, t, GC_REC, alt=True)                                       # PROJ
+    s.pad(t, 13, 3); t += 100; P("ch10")                                   # row 4 pad 14: the drums on channel 10
+    s.pad(t, 12, 3); t += 100; P("chown")                                  # pad 13: each on its own
+    s.pad(t, 15, 3); t += 100; P("chp")                                    # pad 16: T10 channel +
+    t_proj = t
+    t = view(s, t, GC_VSTEP, alt=True)                                     # CC
+    t_cc = t + 80; t += 100
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    ok = len(G) == n[0]
+    check(ok, "%d probes (%d)" % (n[0], len(G)))
+    if not ok:
+        return
+    def g(name, *k): return tuple(G[marks[name]].get(x) for x in k) if len(k) > 1 else G[marks[name]].get(k[0])
+    check(g("b12", "mute", "msg") == ("0100", "T9 MUTED"), "bank 9-12: button 12 is T9's mute (%s)" % (g("b12", "mute", "msg"),))
+    check(g("sb13", "solo") == "0200", "SHIFT + button 13: T10's solo (%s)" % g("sb13", "solo"))
+    _, c = log.leds(until=t_b12)
+    check(c.get(GC_TRK0 + 4) == GL_MUTED and c.get(GC_TRK0 + 5) == GL_ON, "... button 12 red (muted), 13 green (%s %s)" % (c.get(GC_TRK0 + 4), c.get(GC_TRK0 + 5)))
+    check(g("sc2", "scene") == "1" and g("st18", "msg") == "SCENE STORED 18" and g("sc18", "scene") == "17",
+          "PERF (bank 9-12) row 5 pad 2: scene 2; SHIFT + row 6 pad 2 stores 18, the pad brings it (%s %s %s)" % (g("sc2", "scene"), g("st18", "msg"), g("sc18", "scene")))
+    check(g("ss10", "msg") == "SNAPSHOT STORED 10" and g("sn10", "msg") == "SNAPSHOT 10" and g("sn10", "sbank") == "8",
+          "row 7 pad 10 with SHIFT: snapshot 10 stored; the pad: snapshot 10 back (%s %s)" % (g("ss10", "msg"), g("sn10", "msg")))
+    check(g("m3", "mute", "msg") == ("0004", "T3 MUTED") and g("mdr", "mute", "msg") == ("003F", "DRUMS MUTED") and g("mall", "mute") == "0000",
+          "row 8: pad 3 T3's mute, 13 the drums, 16 ALL (%s %s %s)" % (g("m3", "mute", "msg"), g("mdr", "mute", "msg"), g("mall", "mute")))
+    check(g("sbs", "solo", "msg") == ("00C0", "SOLO: BASS") and g("sml", "solo", "msg") == ("0FC0", "SOLO: MELODIC")
+          and g("sbo", "solo", "msg") == ("0F00", "SOLO OFF: BASS") and g("nos", "solo", "msg") == ("0000", "NO SOLO"),
+          "SHIFT + pad 14: the bass's solo; 15: the melodic ones' too; 14 again: the bass's off; 16: no solo (%s %s %s %s)" % (
+              g("sbs", "solo", "msg"), g("sml", "solo", "msg"), g("sbo", "solo", "msg"), g("nos", "solo", "msg")))
+    p, _ = log.leds(until=t_perf)
+    check(p.get(7 * 16 + 12) == GL_FAINT and p.get(7 * 16 + 13) == GL_BLUE and p.get(7 * 16 + 2) == GL_MUTED and p.get(5 * 16 + 1) == GL_ON
+          and p.get(4 * 16 + 1) in (GL_FAINT, GL_DIM) and p.get(6 * 16 + 9) in (GL_PLAY, GL_CYAN),
+          "... the lights: the drums faint (quiet), the bass blue, T3 red; scene 18 the cursor's (lit), 2 not; snapshot 10 there (%s)" % (
+              [p.get(i) for i in (7 * 16 + 12, 7 * 16 + 13, 7 * 16 + 2, 4 * 16 + 1, 5 * 16 + 1, 6 * 16 + 9)],))
+    check(g("f11", "msg") == "T11 STEP 1: ACCENT" and g("f11b", "msg") == "T11 STEP 1: GHOST" and g("f11c", "msg") == "T11 STEP 1: NORMAL",
+          "DRUM (bank 9-12) row 7: T11's step 1, off - on, ACCENT; GHOST; NORMAL (%s %s %s)" % (g("f11", "msg"), g("f11b", "msg"), g("f11c", "msg")))
+    p, _ = log.leds(until=t_drum)
+    check(p.get(6 * 16) == GL_ACCENT and p.get(2 * 16) not in (GL_OFF, None), "... the force pad bright (ACCENT), the step lit above (%s %s)" % (p.get(6 * 16), p.get(2 * 16)))
+    check(g("s10", "sel") == "10", "SHIFT + a pad of row 6: T10 selected (%s)" % g("s10", "sel"))
+    check(g("rot", "msg") == "T9 ROTATION 4" and pr[marks["rot"]]["T9"]["euc"].endswith("/4") and g("fam", "msg") == "T10 FAMILY TRESILLO",
+          "EUCLID (bank 9-12) row 5 pad 6: T9's rotation 4; row 6 pad 1: T10's family (%s %s %s)" % (g("rot", "msg"), pr[marks["rot"]]["T9"]["euc"], g("fam", "msg")))
+    p, _ = log.leds(until=t_euc)
+    check(p.get(4 * 16 + 5) == GL_YELLOW and p.get(5 * 16) == GL_ORANGE, "... the rotation yellow, TRESILLO orange (%s %s)" % (p.get(4 * 16 + 5), p.get(5 * 16)))
+    check([g(k, "lmask") for k in ("l1", "l2", "l3", "l4")] == ["0FC0", "0FFF", "0F3F", "0FFF"] and g("l1", "msg") == "LOOP / REPEAT WITHOUT DRUMS",
+          "FX row 4 pad 13: LOOP / REPEAT without the drums, again with; 14 without the bass; 16 every track (%s %s)" % ([g(k, "lmask") for k in ("l1", "l2", "l3", "l4")], g("l1", "msg")))
+    check([g(k, "gkill") for k in ("k1", "k2", "k3", "k4", "k5")] == ["003F", "0000", "00C0", "0000", "0DFF"] and g("k3", "msg") == "KILL BASS (STAYS)",
+          "FX row 6 pad 13 held: KILL the drums; SHIFT + 14: the bass latched, again off; 16 held: all but T10 (%s %s)" % ([g(k, "gkill") for k in ("k1", "k2", "k3", "k4", "k5")], g("k3", "msg")))
+    p, _ = log.leds(until=t_fx)
+    check(p.get(5 * 16 + 13) == GL_PLAY and p.get(5 * 16 + 12) == GL_ORANGE and p.get(3 * 16 + 15) == GL_WHITE,
+          "... the bass's KILL lit (PLAY), the drums' pad orange; row 4 pad 16 white (every track) (%s)" % ([p.get(i) for i in (5 * 16 + 13, 5 * 16 + 12, 3 * 16 + 15)],))
+    q = log.viaggio[-1]["queue"] if log.viaggio else []
+    check(re.match(r"^QUEUED: DRUMS (OUT|IN), 6 TRACKS$", g("q1", "msg") or "") is not None and len(q) == 6,
+          "MOSSE row 3 pad 13: the six drum tracks in the queue, out or in (%s %s)" % (g("q1", "msg"), q))
+    check(g("dice", "msg") == "THE DICE: MELODIC, 4 TRACKS", "row 2 pad 15: the dice for the melodic ones (%s)" % g("dice", "msg"))
+    check(g("cu1", "cmask", "msg") == ("023F", "SCOPE + DRUMS") and g("cu2", "cmask", "msg") == ("0200", "SCOPE - DRUMS"),
+          "BEAT, scope CUSTOM, row 5 pad 13: the drums in the scope (with T10), again out (%s %s)" % (g("cu1", "cmask", "msg"), g("cu2", "cmask", "msg")))
+    check(g("harm", "harm") != G[marks["harm"] - 1]["harm"] and g("hb", "hbars") != g("harm", "hbars"),
+          "row 3 pad 7: HARMONY on / off again, pad 8 its bars (0.29-0.30: progressions 7 and 8) (%s -> %s, %s -> %s)" % (
+              G[marks["harm"] - 1]["harm"], g("harm", "harm"), g("harm", "hbars"), g("hb", "hbars")))
+    check(g("src", "thsrc") == "1" and g("src", "msg") == "SOURCE THEORY: MADE BY THE GENRE'S RULES" and g("rnd", "genre") != g("src", "genre"),
+          "BEAT page 2: pad 12 the SOURCE (THEORY), pad 11 another genre (%s %s %s -> %s)" % (g("src", "thsrc"), g("src", "msg"), g("src", "genre"), g("rnd", "genre")))
+    p, _ = log.leds(until=t_beat)
+    check(p.get(10) == GL_YELLOW and p.get(11) == GL_CYAN, "... pad 11 yellow, pad 12 cyan (THEORY) (%s %s)" % (p.get(10), p.get(11)))
+    check(g("lfo", "lfot", "lfod", "msg") == ("18", "1", "LFO ON MELODIC"), "LFO row 7 pad 15: VEL on the melodic ones (%s)" % (g("lfo", "lfot", "lfod", "msg"),))
+    check(g("ch10", "chs") == "9999996789AB" and g("chown", "chs") == "0123456789AB" and g("chp", "chs") == "012345678AAB" and g("chp", "msg") == "T10 CHANNEL 11",
+          "PROJ row 4 pad 14: the drums on channel 10; 13: each on its own; 16: T10 on 11 (%s %s %s)" % (g("ch10", "chs"), g("chown", "chs"), g("chp", "chs")))
+    p, _ = log.leds(until=t_proj)
+    check(p.get(3 * 16 + 12) == GL_DIM and p.get(3 * 16 + 14) == GL_VIOLET, "... pad 13 dim (T10 not on its own any more), 15 violet (%s %s)" % (p.get(3 * 16 + 12), p.get(3 * 16 + 14)))
+    p, _ = log.leds(until=t_cc)
+    check(p.get(4 * 16 + 6) not in (GL_OFF, None) and p.get(4 * 16 + 7) not in (GL_OFF, None),
+          "CC row 5: the lanes 7 and 8 lit like the others (0.28-0.30: dark, as with six lanes) (%s %s)" % (p.get(4 * 16 + 6), p.get(4 * 16 + 7)))
+    # FOLLOW: a track's knob across the tracks - pad 15, the melodic ones (every track of an empty project), take T1's LENGTH
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 150, GC_VSTEP, alt=True); t = view(s, t, GC_VSTEP, alt=True)   # FOLLOW
+    s.tap_btn(t, HOME); t += 80                                            # the HOME window: page 1 (CHANNEL, LENGTH ...)
+    s.enc(t, K2, 16); t += 60                                              # T1 LENGTH 32
+    s.pad(t, 14, 5); t += 100                                              # row 6 pad 15: the melodic ones
+    s.at(t, "probe"); t += 40
+    s.tap_btn(t, HOME); t += 80
+    log = run(s, t + 100)
+    pr = probes(log)
+    check(len(pr) == 1 and [pr[0]["T%d" % k]["len"] for k in range(1, 13)] == ["32"] * 12 and re.sub(r"^TAB (T\d+: )?", "", pr[0]["G"]["msg"]) == "MELODIC: LENGTH AS T1",
+          "FOLLOW row 6 pad 15: every melodic track (here all twelve) gets T1's LENGTH 32 (%s %s)" % (
+              [pr[0]["T%d" % k]["len"] for k in range(1, 13)] if pr else None, pr[0]["G"]["msg"] if pr else None))
+
+
+def t031_group_retrig():
+    group("0.31: the remote's RETRIG of a group (channel 14 CC 102-105: the drums, the bass, the melodic ones, all) - each "
+          "track of it from its first step at its next one; a group with no track says so and nothing moves")
+    res, msg = {}, {}
+    for cc in (None, 104, 105, 102):
+        s = Script()
+        t = program(s, 100, [60, 61, 62, 63, 64, 65, 66, 67])          # steps 1-8 of T1 (an empty project: every track melodic)
+        p = t + 100
+        s.tap_btn(p, PLAY)
+        if cc:
+            remote(s, int(p + 5.5 * STEP_MS), cc)                      # in the 6th step
+            s.at(int(p + 5.5 * STEP_MS) + 15, "probe")
+        log = run(s, p + int(9 * STEP_MS))
+        res[cc] = [d1 for _, d1, _ in log.notes(ch=0, after=p)][:9]
+        pr = probes(log)
+        msg[cc] = re.sub(r"^TAB (T\d+: )?", "", pr[0]["G"]["msg"]) if pr else None
+    check(res[None][:8] == [60, 61, 62, 63, 64, 65, 66, 67], "without: the eight steps in a row (%s)" % res[None])
+    check(res[104] == [60, 61, 62, 63, 64, 65, 60, 61, 62] and msg[104] == "RETRIG MELODIC",
+          "CC 104 (the melodic ones) in the 6th step: T1 from its first step at the next one (%s %s)" % (res[104], msg[104]))
+    check(res[105] == [60, 61, 62, 63, 64, 65, 60, 61, 62] and msg[105] == "RETRIG ALL", "CC 105 (all): the same (%s %s)" % (res[105], msg[105]))
+    check(res[102][:8] == [60, 61, 62, 63, 64, 65, 66, 67] and msg[102] == "NO DRUM TRACK",
+          "CC 102 (the drums) with no drum track: NO DRUM TRACK, T1 goes on (%s %s)" % (res[102], msg[102]))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -12268,7 +12570,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
-    t029_viaggio_progs, t030_banks, t030_tape]
+    t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

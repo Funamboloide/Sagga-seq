@@ -4381,6 +4381,36 @@ static void test_v029_more(void)
     (void)n;
 }
 
+/* 0.31: an LFO on a group of tracks - target 16-19 (DRUMS, BASS, MELODIC, ALL) for every destination but CC (where the target
+ * is a MIDI channel): kept by the sanitize and by the image, in the snapshots too; a number past the groups, or between the
+ * twelve tracks and the groups, put right as before */
+static void test_v031_lfo_group(void)
+{
+    static sq_project_t a, b;
+    static uint8_t img[600000];
+    uint32_t n, t;
+    sq_project_init(&a);
+    a.lfo[0].dest = SQ_LD_VEL;    a.lfo[0].target = (uint8_t)(SQ_LFO_TG0 + SQ_TG_DRUMS); a.lfo[0].enabled = 1u;
+    a.lfo[1].dest = SQ_LD_GATE;   a.lfo[1].target = (uint8_t)(SQ_LFO_TG0 + SQ_TG_ALL);
+    a.lfo[2].dest = SQ_LD_VEL;    a.lfo[2].target = (uint8_t)(SQ_LFO_TG0 + SQ_TGROUPS);   /* (past the groups) */
+    a.lfo[3].dest = SQ_LD_CHANCE; a.lfo[3].target = 13u;                                   /* (between the tracks and the groups) */
+    a.lfo[4].dest = SQ_LD_CC;     a.lfo[4].target = (uint8_t)(SQ_LFO_TG0 + SQ_TG_BASS);    /* (CC: a channel of sixteen - 17 is none) */
+    a.lfo[5].dest = SQ_LD_TIMING; a.lfo[5].target = (uint8_t)(SQ_LFO_TG0 + SQ_TG_MELODIC);
+    a.snap[3].used = 1u;
+    for (t = 0; t < SQ_TRACKS; t++) a.snap[3].track[t] = a.track[t];
+    memcpy(a.snap[3].lfo, a.lfo, sizeof a.lfo);
+    a.snap[3].lfo[6].dest = SQ_LD_SWING; a.snap[3].lfo[6].target = (uint8_t)(SQ_LFO_TG0 + SQ_TG_BASS);
+    sq_project_sanitize(&a);
+    CHECK(a.lfo[0].target == 16u && a.lfo[1].target == 19u && a.lfo[2].target == 0u && a.lfo[3].target == 0u && a.lfo[4].target == 0u &&
+          a.lfo[5].target == 18u && a.snap[3].lfo[0].target == 16u && a.snap[3].lfo[6].target == 17u && a.lfo[0].enabled == 1u);
+    CHECK(SQ_LFO_TGROUP(16u) && SQ_LFO_TGROUP(19u) && !SQ_LFO_TGROUP(15u) && !SQ_LFO_TGROUP(20u) && !SQ_LFO_TGROUP(SQ_TRACKS - 1u));
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_image_ok(img, n) == 0);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(b.lfo[0].target == 16u && b.lfo[0].enabled == 1u && b.snap[3].lfo[6].target == 17u);
+}
+
 int main(void)
 {
     test_v012_break();
@@ -4429,6 +4459,7 @@ int main(void)
     test_v029_balafon();
     test_v029_more();
     test_v030_image();
+    test_v031_lfo_group();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

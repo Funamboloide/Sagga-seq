@@ -184,7 +184,7 @@ def structural():
                                                                         or (c.channel == 11 and c.cc in MOD_CH12 and name == "sagga_mod")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29", "0.30") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29", "0.30", "0.31") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -262,15 +262,38 @@ def structural():
     p.on_param_change("m1", True)
     check(p.ccs == [(12, 36, 5), (12, 49, 32), (13, 49, 127), (13, 49, 0)], "SAGGA Motori: track 4 pattern 6 (ch 13 CC 36), track 1 length 32, MUTE 2 on ch 14 (%s)" % p.ccs)
     # 0.28: twelve tracks - Motori's rows, Live's TRACK and mutes, the Mutes page: tracks 1-12, nothing for 13-16
+    # (0.31: on the Mutes page the CCs of 13-16 are the four GROUPS, below)
     for name, want in (("sagga_motori", 12), ("sagga_live", 12), ("sagga_mutes", 12)):
         m2, cls2 = load_plugin(name)
         cells2 = [c for p2 in cls2.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells]
-        mutes = [c for c in cells2 if c.param.label.startswith("MUTE ")]
+        mutes = [c for c in cells2 if re.match(r"^MUTE \d+$", c.param.label)]
         tk = [c for c in cells2 if c.param.label == "TRACK"]
-        far = [(c.channel, c.cc) for c in cells2 if (c.channel == 13 and (60 <= c.cc <= 63 or 76 <= c.cc <= 79 or 102 <= c.cc <= 105))
-               or (c.channel == 12 and (45 <= c.cc <= 48 or 61 <= c.cc <= 64)) or (c.channel == 11 and 52 <= c.cc <= 55)]
+        far = [(c.channel, c.cc) for c in cells2 if ((c.channel == 13 and (60 <= c.cc <= 63 or 76 <= c.cc <= 79 or 102 <= c.cc <= 105))
+               or (c.channel == 12 and (45 <= c.cc <= 48 or 61 <= c.cc <= 64)) or (c.channel == 11 and 52 <= c.cc <= 55))
+               and not (name == "sagga_mutes" and c.param.name[:2] in ("mg", "kg", "rg"))]
         check(len(mutes) == want and all(t.param.max == 11 and len(t.param.labels) == 12 for t in tk) and not far,
               "0.28 %s: twelve MUTES, TRACK 1-12, nothing for tracks 13-16 (%d %s %s)" % (name, len(mutes), [(t.param.max, len(t.param.labels)) for t in tk], far))
+    # 0.31: the Mutes page's GROUPS - MUTE, KILL, RETRIG of the drums, the bass, the melodic ones, all: the CCs of tracks 13-16
+    m2, cls2 = load_plugin("sagga_mutes")
+    cg = {c.param.name: c for p2 in cls2.params if p2.__class__.__name__ == "LayoutGrid" for c in p2.cells}
+    want = {}
+    for g in range(4):
+        want["mg%d" % g] = (13, 60 + g, True)
+        want["kg%d" % g] = (13, 76 + g, False)
+        want["rg%d" % g] = (13, 102 + g, True)
+    got = {k: (cg[k].channel, cg[k].cc, cg[k].param.trigger) for k in want if k in cg}
+    labels = [cg[k].param.label for k in ("mg0", "mg1", "mg2", "mg3", "kg0", "kg3", "rg1")] if all(k in cg for k in want) else None
+    check(got == want and labels == ["MUTE DRUMS", "MUTE BASS", "MUTE MELODIC", "ALL ON", "KILL DRUMS", "KILL ALL BUT T", "RETRIG BASS"]
+          and [cg["mg%d" % g].row for g in range(4)] == [4] * 4 and [cg["kg%d" % g].row for g in range(4)] == [8] * 4 and [cg["rg%d" % g].row for g in range(4)] == [12] * 4,
+          "0.31 SAGGA Mutes: under each twelve, a row of the four GROUPS - MUTE (CC 60-63, the fourth ALL ON), KILL held (76-79, the fourth "
+          "all but the tablet's track), RETRIG (102-105) (%s %s)" % (sorted(set(want.items()) ^ set(got.items()))[:4], labels))
+    p = cls2()
+    p.on_param_change("mg0", True)
+    p.on_param_change("kg1", True)
+    p.on_param_change("rg2", True)
+    p.panic()
+    check(p.ccs == [(13, 60, 127), (13, 60, 0), (13, 77, 127), (13, 104, 127), (13, 104, 0), (13, 77, 0)],
+          "0.31 SAGGA Mutes: MUTE DRUMS tapped, KILL BASS held, RETRIG MELODIC tapped, PANIC lets the KILL go (%s)" % p.ccs)
     m, cls = load_plugin("sagga_live")
     p = cls()
     p.on_param_change("track", 4); p.on_param_change("pattern", 2); p.on_param_change("m3", True); p.on_param_change("cook", True)

@@ -968,7 +968,7 @@ static void sanitize_lfo(sq_lfo_t *l)
     if (l->center > 127u) l->center = 127u;
     if (l->phase > 127u) l->phase = 127u;
     if (l->dest >= SQ_LD_ALL) l->dest = SQ_LD_CC;
-    if (l->target >= (l->dest == SQ_LD_CC ? SQ_CHANNELS : SQ_TRACKS)) l->target = 0u;
+    if (l->target >= (l->dest == SQ_LD_CC ? SQ_CHANNELS : SQ_TRACKS) && !(l->dest != SQ_LD_CC && SQ_LFO_TGROUP(l->target))) l->target = 0u;   /* (0.31: or a group) */
     if (l->param > SQ_CC_MAX) l->param = SQ_CC_MAX;
     l->flags &= (uint8_t)(SQ_LF_RETRIG | SQ_LF_INVERT);
 }
@@ -3764,7 +3764,7 @@ static void ext27_in(const uint8_t *src, uint32_t k, sq_ext_t *x, const uint8_t 
 static void lfo_refs_in(sq_lfo_t *l, const uint8_t *map)
 {
     uint8_t nt;
-    if (l->dest == SQ_LD_CC) return;
+    if (l->dest == SQ_LD_CC || SQ_LFO_TGROUP(l->target)) return;   /* (0.31: a group is no track of the image) */
     nt = map_track(l->target, map);
     if (nt < SQ_TRACKS) { l->target = nt; return; }
     l->target = 0u;

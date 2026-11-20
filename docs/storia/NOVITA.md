@@ -5,6 +5,41 @@ are beside this file (`RELEASE-NOTES-X.md`), with the installation sheets of the
 today's, [../INSTALLA.md](../INSTALLA.md)). These are the "What is new" chapters the reference had, newest first, as they
 were written.
 
+## What is new in 0.30
+
+**32 scenes** (16 until 0.29), **sixteen snapshots** (8), a song of **128 entries** (64), the tapes **3072
+events** in all (1536) and **UNDO** 32 rows back (16) - the room you chose. The name VIAGGIO is gone from the screen,
+the grid and the pages: its view is **MOSSE**, as the page of the FM-1. A power-on brings back the mutes and the scene
+cursor saved with the project, as a LOAD does.
+
+* **The scenes: 32.** In PERF, PRESETS moves the scene cursor over 1-32, and the **black keys 1-8 are the eight scenes
+  of its bank**: 1-8, 9-16, 17-24, 25-32 (`PERF SCENE 17`: black 1 is scene 17). SEL + black stores, the black recalls,
+  HOME + black adds that scene to the song - as before, in the bank the cursor is in. The grid's scene buttons follow
+  the same bank; the **SONG view's row 2** is scenes 1-16, **with SHIFT 17-32** (the entry's scene in the other half
+  shows blue); **TRACK 2 row 5** pads 1-8 the bank's scenes (pad 16 sends the programs of the one chosen, as before);
+  the **FX view's row 7** MORPH TO the bank's scenes. The remote: CC 28 / 29 the scene before / after (all 32), CC
+  40-47 scenes 1-8, **CC 2 MORPH TO: 0-31 that scene** (32-127: the value / 4).
+* **The snapshots: 16.** **SAVE + white 9 / white 10**: the snapshots 1-8 / 9-16 (the white of the bank is lit while
+  SAVE is held); SAVE + black 1-8 recall the bank's eight, SAVE + SEL + black 1-8 store them. A snapshot stored or
+  recalled takes its bank there. The grid's FX view, row 8: pads 5-12 the bank's eight, **SHIFT + pad 13 the other
+  eight** (pad 13 with SHIFT held: yellow 1-8, blue 9-16). The remote's CC 106-113 and 12-19 stay on snapshots 1-8.
+* **The song: 128 entries** (`SONG FULL (128)` past them). The grid's SONG view: eight pages of 16 (row 4 pads 13 / 14).
+* **The tapes: 3072 events** among the twelve tracks (`TAPE FULL` past them). **UNDO**: the last 32 pattern rows an
+  edit changed (an edit of one row: 32 edits back).
+* **MOSSE** for VIAGGIO: the grid's view (PERF, SONG, MOSSE), SAVE + white 16 `SAVE THE SET` (`SET SAVED: 5 SCENES
+  AND THE SONG`), SAVE + K2 `REMOTE ON CH 14 + PAGES ON CH 13`, the pages SAGGA Mod and Remote (0.30). Nothing moved:
+  only the name.
+* **Fixed**: a power-on loaded the last slot but left out its mutes and its scene cursor (every track audible, scene
+  1), which a LOAD (HOME + SAVE twice) brought back; now a power-on brings them too. So it was since 0.9.
+* **The projects.** A project of 0.30 is saved as 0.29 saves, plus one chunk for what 0.29 has no room for: scenes
+  17-32 (and their metres), entries 65-128, snapshots 9-16, the tapes' events past 1536. A 0.29 opens it with the
+  first 16 scenes, 8 snapshots, 64 entries and 1536 events. The slots are 32 KB as before: a project very full of
+  everything (long tapes, sixteen snapshots, 32 scenes) may not fit - the FM-1 says `TOO BIG FOR A SLOT` and keeps
+  the slot as it was.
+
+On the Pi: the editor has the 32 scenes, the 128 entries and the 16 snapshots; SAGGA Mod and Remote say MOSSE. Install
+the FM-1 and the Pi together.
+
 ## What is new in 0.29
 
 **The genres are 22** (25 until 0.28), with **eight progressions** each, **BALANI** new, the **BALAFON** a part of its

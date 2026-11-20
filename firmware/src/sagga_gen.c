@@ -91,6 +91,34 @@ static uint16_t scope_mask_of(uint8_t scope)
     }
     return m ? m : (uint16_t)(1u << selected_track);   /* (no drum track, say: the selected one) */
 }
+/* 0.31: THE GROUPS (sagga_seq_core.h SQ_TG_*): the drums are the DRUM tracks (as the scope DRUMS); the bass the others
+ * whose role is of the BASS family (BASS, SUB, RUMBLE, LOG DRUM); the melodic ones what is left; ALL every track. An
+ * empty group is 0. */
+static uint16_t tgroup_mask(uint8_t g)
+{
+    uint32_t t;
+    uint16_t m = 0u;
+    if (g >= SQ_TG_ALL) return (uint16_t)SQ_TRACK_BITS;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        uint8_t k = track_drum(t) ? (uint8_t)SQ_TG_DRUMS
+                  : sq_role_family(project.track[t].role) == SQ_ROLE_BASS ? (uint8_t)SQ_TG_BASS : (uint8_t)SQ_TG_MELODIC;
+        if (k == g) m |= (uint16_t)(1u << t);
+    }
+    return m;
+}
+static const char *tgroup_name(uint8_t g)
+{
+    static const char *const N[SQ_TGROUPS] = {"DRUMS", "BASS", "MELODIC", "ALL"};
+    return N[g < SQ_TGROUPS ? g : SQ_TG_ALL];
+}
+static uint8_t tgroup_none(uint8_t g)                     /* the group has no track: the screen says so (1) */
+{
+    static const char *const N[SQ_TGROUPS] = {"NO DRUM TRACK", "NO BASS TRACK (A BASS OR SUB ROLE)", "NO MELODIC TRACK", ""};
+    if (g >= SQ_TG_ALL || tgroup_mask(g)) return 0u;
+    status_msg(N[g]);
+    ui_dirty = grid_dirty = 1u;
+    return 1u;
+}
 static uint16_t gen_mask(void) { return scope_mask_of(project.gen.scope); }
 static void gen_custom_toggle(uint8_t t)
 {
