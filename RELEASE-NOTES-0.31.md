@@ -171,4 +171,8 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.31` per tre secondi.
 3. **Un LFO sui bassi**: tieni LFO, OCT+ fino alla pagina 2, K1 su VEL, **K2 oltre T12 fino a BASS**; pagina 3, K1 ON.
    Il basso e il rumble respirano insieme.
 
-DIMENSIONE
+## La dimensione
+
+Il firmware cresce di 8.260 byte, per i lavori nuovi dei tasti: 486.384 su 581.564 (la 0.30: 478.124). La RAM fissa
+sale di 32 byte (i KILL dei gruppi, dal grid e dal remoto): 84.736 su 98.304 (la 0.30: 84.704). Il posto del progetto
+non cambia: 341.164 su 344.064 byte, restano 2.900 byte liberi.
