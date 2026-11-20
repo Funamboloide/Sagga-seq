@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.31"
+#define SQ_VERSION "0.32"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -450,6 +450,11 @@ static void regia_key_send(uint8_t rule);
 static uint8_t g_regia_led[16];
 static void rg_frase_apply(void);
 static void vg_save_journey(void);
+static int sx_export(int32_t slot);                        /* sagga_store.c (0.32: SAVE + white 11) */
+static void lib_next(int32_t d);
+static void lib_next_ask(int32_t d);                       /* 0.32: SAVE + white 14 / 15, the setlist asked twice */
+static void pipat_save(void);                              /* sagga_pipat.c */
+static void piprog_save(void);
 static uint8_t vg_edit_keys(void);
 static uint16_t vg_mutes_to_keep(void);                    /* the mutes without a BREAK's silence (a save, a snapshot) */
 static uint8_t vg_allows_home(uint8_t page);
@@ -2500,6 +2505,8 @@ static const char *loop_name(uint16_t ticks)
     case 16:  return "1/4T";
     case 24:  return "1/4";
     case 48:  return "1/2";
+    case 9:   return "1/16 DOTTED";                     /* 0.32: the grid's FX row 2, pads 13 and 15 */
+    case 18:  return "1/8 DOTTED";
     default: {
         char *p = b;
         p = put_u(p, ticks / bar_ticks());              /* (0.25: the metre's bar) */
@@ -3379,9 +3386,10 @@ static void mfx_knob34(sq_track_cfg_t *c, uint8_t knob, int32_t d, int32_t f)
     if (c->mfx == SQ_MFX_FILTER && c->mfx_time < (uint8_t)c->mfx_amt) c->mfx_time = (uint8_t)c->mfx_amt;
 }
 
-/* ---- the MASTER knob: TEMPO (the default), MORPH or FILTER (SAVE + K1; the grid's PROJ view). It takes over only
+static void vg_energy_say(void);                         /* sagga_viaggio.c */
+/* ---- the MASTER knob: TEMPO (the default), MORPH, FILTER or (0.32) ENERGY (SAVE + K1; the grid's PROJ view). It takes over only
  * after you move it, so a loaded project, a changed function or a new scene never jumps. */
-static const char *const MK_NAME[SQ_MKS] = {"TEMPO", "MORPH", "FILTER"};
+static const char *const MK_NAME[SQ_MKS] = {"TEMPO", "MORPH", "FILTER", "ENERGY"};   /* (0.32: ENERGY, the MOSSE's target) */
 static void morph_set(uint8_t pos);
 static void master_fn_set(uint8_t fn)
 {
@@ -3406,6 +3414,10 @@ static void knob_service(void)
     knob_ref = (uint32_t)k;
     k = clamp_i32(k, 0, 1023);
     if (fn == SQ_MK_MORPH) morph_set((uint8_t)((k * 127 + 511) / 1023));
+    else if (fn == SQ_MK_ENERGY) {                       /* 0.32: the MOSSE's energy, 0-100 (it glides there as K1 on GLO 3) */
+        uint8_t e = (uint8_t)((k * 100 + 511) / 1023);
+        if (e != project.viaggio.energy) { vg_energy_set(e); vg_energy_say(); }
+    }
     else if (fn == SQ_MK_FILTER) {
         v = (k * 127 + 511) / 1023 - 64;
         if (v >= -2 && v <= 2) v = 0;                  /* 0.8: a little dead zone in the middle: 0 is easy to find */
@@ -3443,6 +3455,167 @@ static void rec_close_note(uint8_t src);
 #include "sagga_expr.c"                               /* 0.26: the keyboard's pedal, wheels and aftertouch go where its notes go, and are recorded */
 
 /* EDIT + black 2 / 3 / 4: COPY, PASTE, CLEAR the cursor step (UNDO takes PASTE and CLEAR back); 5 PLAIN, 6 TIE, 7 SLIDE */
+/* 0.32: EDIT + black 8 FORCE (NORMAL 100 -> ACCENT 124 -> GHOST 45, the library's three; a step that is off comes on,
+ * ACCENT), 9 / 10 the step one place earlier / later in the loop (it changes place with its neighbour, the cursor goes
+ * with it), 11 the step's extras back to plain (chance 100, condition ALL, no nudge, one ratchet, no ramp: the notes,
+ * the velocity and the gate stay). 0.10-0.31: nothing. */
+static void step_tool_032(int bi)
+{
+    uint8_t t = selected_track, pat = tr[t].pattern, v;
+    sq_track_cfg_t *c = &project.track[t];
+    sq_step_t *row = project.step[t][pat], *s = &row[cursor_step];
+    char *p = msg_buf;
+    if (bi == 7) {
+        if (!(s->flags & SQ_STEP_ON)) { v = 124u; step_activate(t, s); }
+        else v = s->velocity >= 110u ? 45u : s->velocity < 70u ? 100u : 124u;
+        s->velocity = v;
+        s->flags |= SQ_STEP_SET;
+        regia_touched(t);
+        p = put_s(p, "STEP "); p = put_u(p, (uint32_t)cursor_step + 1u);
+        p = put_s(p, v == 124u ? ": ACCENT" : v == 45u ? ": GHOST" : ": NORMAL"); finish(p);
+        status_msg(msg_buf);
+    } else if (bi == 8 || bi == 9) {
+        uint32_t lo = c->start < c->length ? c->start : 0u, hi = c->length ? c->length : SQ_STEPS, n;
+        sq_step_t keep;
+        if (cursor_step < lo || cursor_step >= hi) { status_msg("THE CURSOR IS OUT OF THE LOOP"); return; }
+        if (hi - lo < 2u) { status_msg("A LOOP OF ONE STEP"); return; }
+        n = bi == 8 ? (cursor_step > lo ? cursor_step - 1u : hi - 1u) : (cursor_step + 1u < hi ? cursor_step + 1u : lo);
+        undo_begin();
+        undo_add(t, pat);
+        keep = row[n]; row[n] = *s; *s = keep;
+        p = put_s(p, "STEP "); p = put_u(p, (uint32_t)cursor_step + 1u); p = put_s(p, " TO "); p = put_u(p, n + 1u); finish(p);
+        cursor_to((uint8_t)n);
+        regia_touched(t);
+        status_msg(msg_buf);
+    } else if (bi == 10) {
+        undo_begin();
+        undo_add(t, pat);
+        s->chance = 100u; s->condition = SQ_COND_ALWAYS; s->nudge = 0; s->ratchet = 1u; s->ramp = 0;
+        s->flags |= SQ_STEP_SET;
+        p = put_s(p, "STEP "); p = put_u(p, (uint32_t)cursor_step + 1u); p = put_s(p, ": PLAIN - CHANCE 100, ALL, NO NUDGE, 1 RATCHET"); finish(p);
+        status_msg(msg_buf);
+    }
+    ui_dirty = grid_dirty = 1u;
+}
+static uint8_t step_extras(const sq_step_t *s)          /* (the light of EDIT + black 11) */
+{
+    return (uint8_t)(s->chance < 100u || s->condition != SQ_COND_ALWAYS || s->nudge || s->ratchet > 1u || s->ramp);
+}
+
+/* 0.32 the lane's tools - ENV + black 9-11, the grid's CC view (rows 5 and 8). Over the pattern's loop (start .. length):
+ * a ramp up / down, up and down, chance values, the locks turned upside down, a step earlier / later, smoothed, halfway
+ * to the base; the lane cleared (in the loop: CLEAR; on the page shown: PAGE). The locks are written on every step of
+ * the loop (a step that does not play sends its lock only with TRIGLESS) and UNDO takes them back. */
+enum { LT_UP = 0, LT_DOWN, LT_UPDOWN, LT_RANDOM, LT_INVERT, LT_EARLIER, LT_LATER, LT_SMOOTH, LT_HALF, LT_CLEAR, LT_PAGE, LT_COUNT };
+static const char *const LT_NAME[LT_COUNT] = {"RAMP UP", "RAMP DOWN", "UP AND DOWN", "AT RANDOM", "UPSIDE DOWN", "A STEP EARLIER",
+                                              "A STEP LATER", "SMOOTHED", "HALFWAY TO THE BASE", "CLEARED", "CLEARED ON THE PAGE"};
+static uint32_t lane_rs = 0x5A6B11u;
+static void lane_tool(uint8_t t, uint8_t l, uint8_t kind)
+{
+    sq_track_cfg_t *c = &project.track[t];
+    sq_step_t *row = project.step[t][tr[t].pattern];
+    uint32_t lo = c->start < c->length ? c->start : 0u, hi = c->length ? c->length : SQ_STEPS, n = hi - lo, i, locks = 0u;
+    uint8_t keep[SQ_STEPS];
+    char *p = msg_buf;
+    if (l >= SQ_LANES || kind >= LT_COUNT) return;
+    for (i = lo; i < hi; i++) if (row[i].lane[l] != SQ_LANE_NONE) locks++;
+    if (!locks && (kind == LT_INVERT || kind == LT_EARLIER || kind == LT_LATER || kind == LT_SMOOTH || kind == LT_HALF || kind == LT_CLEAR)) {
+        p = put_s(p, "LANE "); p = put_u(p, (uint32_t)l + 1u); p = put_s(p, ": NO LOCK IN THE LOOP"); finish(p);
+        status_msg(msg_buf);
+        return;
+    }
+    undo_begin();
+    undo_add(t, tr[t].pattern);
+    for (i = 0; i < SQ_STEPS; i++) keep[i] = row[i].lane[l];
+    for (i = lo; i < hi; i++) {
+        uint32_t k = i - lo, v;
+        uint8_t *x = &row[i].lane[l];
+        switch (kind) {
+        case LT_UP:     *x = (uint8_t)(n > 1u ? k * 127u / (n - 1u) : 127u); break;
+        case LT_DOWN:   *x = (uint8_t)(n > 1u ? 127u - k * 127u / (n - 1u) : 0u); break;
+        case LT_UPDOWN: v = n > 1u ? k * 254u / (n - 1u) : 0u; *x = (uint8_t)(v > 127u ? 254u - v : v); break;
+        case LT_RANDOM: lane_rs = lane_rs * 1103515245u + 12345u + fm1_ms; *x = (uint8_t)((lane_rs >> 9) % 128u); break;
+        case LT_INVERT: if (*x != SQ_LANE_NONE) *x = (uint8_t)(127u - *x); break;
+        case LT_EARLIER: *x = keep[lo + (k + 1u) % n]; break;
+        case LT_LATER:  *x = keep[lo + (k + n - 1u) % n]; break;
+        case LT_SMOOTH:
+            if (*x != SQ_LANE_NONE) {
+                uint8_t a = keep[lo + (k + n - 1u) % n], b = keep[lo + (k + 1u) % n];
+                uint32_t sum = (uint32_t)*x * 2u, w = 2u;
+                if (a != SQ_LANE_NONE) { sum += a; w++; }
+                if (b != SQ_LANE_NONE) { sum += b; w++; }
+                *x = (uint8_t)((sum + w / 2u) / w);
+            }
+            break;
+        case LT_HALF:
+            if (*x != SQ_LANE_NONE) {
+                uint32_t base = c->lane_base[l] != SQ_LANE_NONE ? c->lane_base[l] : 64u;
+                *x = (uint8_t)(((uint32_t)*x + base + 1u) / 2u);
+            }
+            break;
+        case LT_CLEAR:  *x = SQ_LANE_NONE; break;
+        default:        if (i / 16u == page) *x = SQ_LANE_NONE; break;
+        }
+    }
+    if (kind == LT_PAGE) for (i = 0; i < SQ_STEPS; i++) if (i / 16u == page && (i < lo || i >= hi)) row[i].lane[l] = SQ_LANE_NONE;   /* (the page, all of it) */
+    for (i = 0; i < SQ_STEPS; i++) if (row[i].lane[l] != keep[i]) row[i].flags |= SQ_STEP_SET;
+    regia_touched(t);
+    p = put_s(p, "LANE "); p = put_u(p, (uint32_t)l + 1u); p = put_s(p, " "); p = put_s(p, LT_NAME[kind]); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
+/* 0.32: LFO + black 1-6 the LFO's page; 7 COPY the LFO selected (with its RATE SEQ, TRIG and ENV), 8 PASTE onto the
+ * selected one, 9 ALL LFOS OFF - and again: back on, the ones that were (the set is kept until the next 9), 10 the next
+ * LFO that is off (to set up a new one), 11 the LFO back to its first settings (twice within 3 s). 0.13-0.31: nothing. */
+static sq_lfo_t lfo_clip;
+static sq_lfox_t lfox_clip;
+static sq_lfoe_t lfoe_clip;
+static uint8_t lfo_clip_ok, lfo_reset_ask;
+static uint16_t lfos_were_on;
+static uint32_t lfo_reset_until;
+static void lfo_black(int bi)
+{
+    uint32_t i;
+    char *p = msg_buf;
+    if (bi < 6) { lfo_page = (uint8_t)bi; p = put_s(p, "LFO "); p = put_u(p, (uint32_t)lfo_sel + 1u); p = put_s(p, ": PAGE "); p = put_u(p, (uint32_t)bi + 1u); finish(p); status_msg(msg_buf); }
+    else if (bi == 6) {
+        lfo_clip = project.lfo[lfo_sel]; lfox_clip = project.ext.lfo[lfo_sel]; lfoe_clip = project.ext.lfoe[lfo_sel]; lfo_clip_ok = 1u;
+        status_num("LFO COPIED ", (uint32_t)lfo_sel + 1u);
+    } else if (bi == 7) {
+        if (!lfo_clip_ok) { status_msg("NO LFO COPIED (LFO + BLACK 7)"); return; }
+        project.lfo[lfo_sel] = lfo_clip; project.ext.lfo[lfo_sel] = lfox_clip; project.ext.lfoe[lfo_sel] = lfoe_clip;
+        lfo_last_valid[lfo_sel] = 0u;
+        status_num("LFO PASTED ", (uint32_t)lfo_sel + 1u);
+    } else if (bi == 8) {
+        uint16_t on = 0u;
+        for (i = 0; i < SQ_LFOS; i++) if (project.lfo[i].enabled) on |= (uint16_t)(1u << i);
+        if (on) { lfos_were_on = on; for (i = 0; i < SQ_LFOS; i++) { project.lfo[i].enabled = 0u; lfo_last_valid[i] = 0u; } status_msg("ALL LFOS OFF (AGAIN: BACK ON)"); }
+        else if (lfos_were_on) { for (i = 0; i < SQ_LFOS; i++) if ((lfos_were_on >> i) & 1u) { project.lfo[i].enabled = 1u; lfo_last_valid[i] = 0u; } status_msg("THE LFOS BACK ON"); }
+        else status_msg("NO LFO IS ON");
+    } else if (bi == 9) {
+        for (i = 1; i <= SQ_LFOS; i++) {
+            uint32_t k = (lfo_sel + i) % SQ_LFOS;
+            if (!project.lfo[k].enabled) { lfo_sel = (uint8_t)k; status_num("THE NEXT FREE LFO: ", k + 1u); break; }
+        }
+        if (i > SQ_LFOS) status_msg("ALL 16 LFOS ARE ON");
+    } else if (bi == 10) {
+        if (!(lfo_reset_ask && !time_due(fm1_ms, lfo_reset_until))) {
+            lfo_reset_ask = 1u; lfo_reset_until = fm1_ms + 3000u;   /* (as SQ_ASK_MS) */
+            status_num("RESET LFO? AGAIN: ", (uint32_t)lfo_sel + 1u);
+            return;
+        }
+        lfo_reset_ask = 0u;
+        sq_lfo_default(&project.lfo[lfo_sel]);
+        { sq_lfox_t *x = &project.ext.lfo[lfo_sel]; uint8_t *b = (uint8_t *)x; for (i = 0; i < sizeof *x; i++) b[i] = 0u;
+          x->seq_every = SQ_RE_BEAT; for (i = 0; i < SQ_RSEQ_MAX; i++) x->seq_rate[i] = SQ_RSEQ_OWN; }
+        project.ext.lfoe[lfo_sel].a = 1u; project.ext.lfoe[lfo_sel].d = 7u; project.ext.lfoe[lfo_sel].s = 0u; project.ext.lfoe[lfo_sel].r = 5u;
+        lfo_last_valid[lfo_sel] = 0u;
+        status_num("LFO RESET ", (uint32_t)lfo_sel + 1u);
+    }
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void step_tool(int bi)
 {
     uint8_t t = selected_track, pat = tr[t].pattern;
@@ -3460,6 +3633,7 @@ static void step_tool(int bi)
     }
     if (bi == 1) { step_clip = *s; step_clip_ok = 1u; status_num("STEP COPIED ", (uint32_t)cursor_step + 1u); return; }
     if (bi == 2 && !step_clip_ok) { status_msg("NO STEP COPIED"); return; }
+    if (bi >= 7) { step_tool_032(bi); return; }                          /* 0.32: black 8-11 */
     if (bi != 2 && bi != 3) return;
     undo_begin();
     undo_add(t, pat);
@@ -4096,6 +4270,10 @@ static void handle_keys(uint32_t keys)
             if (wi >= 0 && wi < (int)8) { slot_pick((uint8_t)wi); status_num("SLOT ", (uint32_t)wi + 1u); }
             else if (wi == 15) vg_save_journey();                 /* 0.9: SAVE + white 16 = SALVA VIAGGIO */
             else if (wi == 8 || wi == 9) snap_bank_set((uint8_t)(wi == 9 ? 8u : 0u));   /* 0.30: the snapshots 1-8 or 9-16 */
+            else if (wi == 10) { if (!sx_export(-1)) status_msg("EXPORT: THE PROJECT TO THE PI"); }   /* 0.32: white 11-15 (0.10-0.31: nothing) */
+            else if (wi == 11) pipat_save();                  /* (as SEQ + SAVE: the track's pattern, kept by the Pi) */
+            else if (wi == 12) piprog_save();                 /* (as ARP + SAVE: the progression) */
+            else if (wi == 13 || wi == 14) lib_next_ask(wi == 13 ? -1 : 1);   /* the Pi's setlist: asked twice */
             else if (bi >= 0 && bi < 8) { if (sel_held) snap_store((uint8_t)(snap_bank + bi)); else snap_recall((uint8_t)(snap_bank + bi)); }
             else if (bi == 8) snap_capture_toggle();
             else if (bi == 9) snap_send();
@@ -4130,7 +4308,7 @@ static void handle_keys(uint32_t keys)
                 lfo_last_valid[wi] = 0u;
                 status_msg(project.lfo[wi].enabled ? "LFO ON" : "LFO OFF");
                 ui_dirty = 1u;
-            }
+            } else if (bi >= 0) lfo_black(bi);               /* 0.32: the pages, COPY, PASTE, all off, the next free one, RESET */
             continue;
         }
         if (held & (1u << BTN_HOME)) {                         /* HOME + a white key: that track, 1-12 (0.31: 13-16 the page of steps) */
@@ -4142,6 +4320,11 @@ static void handle_keys(uint32_t keys)
         if (held & ((1u << BTN_EDIT) | (1u << BTN_ENV))) {     /* EDIT / ENV + a white key: the cursor, the step untouched */
             if (wi >= 0) { cursor_to((uint8_t)(page * 16u + (uint8_t)wi)); status_num("STEP ", (uint32_t)cursor_step + 1u); }
             else if (bi >= 0 && (held & (1u << BTN_EDIT))) step_tool(bi);
+            else if (bi >= 0 && bi < (int)SQ_LANES) {            /* 0.32 ENV + black 1-8: the lane's page; 9-11 RAMP UP, DOWN, CLEAR */
+                env_lane = (uint8_t)bi;
+                { char *p = msg_buf; p = put_s(p, "ENV LANE "); p = put_u(p, (uint32_t)bi + 1u); finish(p); status_msg(msg_buf); }
+                ui_dirty = grid_dirty = 1u;
+            } else if (bi >= 0) lane_tool(selected_track, env_lane < SQ_LANES ? env_lane : 0u, (uint8_t)(bi == 8 ? LT_UP : bi == 9 ? LT_DOWN : LT_CLEAR));
             continue;
         }
         if (held & (1u << BTN_GLO)) {                          /* 0.12: GLO held: the PERF keys, in any mode (mutes, scenes) */
@@ -5072,6 +5255,11 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(white_key[8]), snap_bank == 0u);
         fm1_led_key(KEY_LED(white_key[9]), snap_bank != 0u);
         fm1_led_key(KEY_LED(black_key[8]), snap_capture ? blink : 0);
+        for (i = 10u; i < 13u; i++) fm1_led_key_dim(KEY_LED(white_key[i]), 1);      /* 0.32: EXPORT, the pattern, the progression to the Pi */
+        for (i = 13u; i < 15u; i++) {                                                /* ... the setlist (blinking: asked once) */
+            if (lib_ask_dir == (i == 13u ? -1 : 1) && !time_due(fm1_ms, lib_dir_until)) fm1_led_key(KEY_LED(white_key[i]), blink);
+            else if (lib_n) fm1_led_key_dim(KEY_LED(white_key[i]), 1);
+        }
     } else if (held & (1u << BTN_FX)) {
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), (fx_now() >> i) & 1u);
         for (i = 0; i < 8u; i++) fm1_led_key(KEY_LED(black_key[i]), loop_on && loop_len == loop_ticks(i));
@@ -5104,9 +5292,29 @@ static void update_leds(void)
                 fm1_led_key(KEY_LED(black_key[5]), (f & SQ_STEP_TIE) != 0u);
                 fm1_led_key(KEY_LED(black_key[6]), (f & SQ_STEP_SLIDE) != 0u);
             }
+            {   /* 0.32: FORCE (lit: an accent, dim: a step that plays), the step earlier / later, its extras (lit: it has some) */
+                const sq_step_t *cs = &project.step[selected_track][tr[selected_track].pattern][cursor_step];
+                if ((cs->flags & SQ_STEP_ON) && cs->velocity >= 110u) fm1_led_key(KEY_LED(black_key[7]), 1); else fm1_led_key_dim(KEY_LED(black_key[7]), 1);
+                fm1_led_key_dim(KEY_LED(black_key[8]), 1);
+                fm1_led_key_dim(KEY_LED(black_key[9]), 1);
+                fm1_led_key(KEY_LED(black_key[10]), step_extras(cs));
+            }
+        } else {                                               /* 0.32 ENV: the lane of the page lit, the lanes with a CC dim; RAMP UP, DOWN, CLEAR */
+            const sq_track_cfg_t *c = &project.track[selected_track];
+            for (i = 0; i < SQ_LANES; i++) {
+                if (i == env_lane) fm1_led_key(KEY_LED(black_key[i]), 1);
+                else if (c->lane_cc[i] != SQ_LANE_NONE) fm1_led_key_dim(KEY_LED(black_key[i]), 1);
+            }
+            for (i = SQ_LANES; i < 11u; i++) fm1_led_key_dim(KEY_LED(black_key[i]), 1);
         }
     } else if (held & (1u << BTN_LFO)) {
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), project.lfo[i].enabled || i == lfo_sel);
+        for (i = 0; i < 6u; i++) { if (i == lfo_page) fm1_led_key(KEY_LED(black_key[i]), 1); else fm1_led_key_dim(KEY_LED(black_key[i]), 1); }   /* 0.32: the pages */
+        fm1_led_key_dim(KEY_LED(black_key[6]), 1);
+        if (lfo_clip_ok) fm1_led_key(KEY_LED(black_key[7]), 1);
+        fm1_led_key_dim(KEY_LED(black_key[8]), 1);
+        fm1_led_key_dim(KEY_LED(black_key[9]), 1);
+        if (lfo_reset_ask && !time_due(fm1_ms, lfo_reset_until)) fm1_led_key(KEY_LED(black_key[10]), blink); else fm1_led_key_dim(KEY_LED(black_key[10]), 1);
     } else if ((held & (1u << BTN_ARP)) && track_break(selected_track)) {   /* 0.12: the chops on the whites (the pattern's blinks), the moves */
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), i == project.track[selected_track].brk_chop ? blink : (brk_live_key == white_key[i]));
         fm1_led_key(KEY_LED(black_key[0]), brk_roll_held == 1u);

@@ -7015,18 +7015,52 @@ def v15s(log):
 _SGQJSON = [None]
 
 
-def sgq_image(lines):
-    """a project image made by the editor's converter (the firmware's core) from a patch over a new project"""
+def sgq_tool():
+    """the editor's converter (tools/sgqmid/sagga_sgqjson.c, the firmware's core), built once"""
     if _SGQJSON[0] is None:
         out = os.path.join(tempfile.mkdtemp(), "sagga_sgqjson")
         subprocess.run(["cc", "-std=c11", "-O2", "-I" + ROOT + "/firmware/src", ROOT + "/tools/sgqmid/sagga_sgqjson.c",
                         ROOT + "/firmware/src/sagga_seq_core.c", ROOT + "/firmware/src/sagga_beats.c", "-o", out], check=True)
         _SGQJSON[0] = out
+    return _SGQJSON[0]
+
+
+def sgq_image(lines):
+    """a project image made by the editor's converter (the firmware's core) from a patch over a new project"""
     d = tempfile.mkdtemp()
     with open(os.path.join(d, "p.txt"), "w") as f:
         f.write("\n".join(lines) + "\n")
-    subprocess.run([_SGQJSON[0], "apply", "new", os.path.join(d, "p.txt"), os.path.join(d, "o.sgq")], check=True)
+    subprocess.run([sgq_tool(), "apply", "new", os.path.join(d, "p.txt"), os.path.join(d, "o.sgq")], check=True)
     return open(os.path.join(d, "o.sgq"), "rb").read()
+
+
+def sgq_read(image):
+    """0.32: a project image as the editor's converter reads it (a dict: track, lfo, scene, song_e, live, ext, steps ...)"""
+    d = tempfile.mkdtemp()
+    with open(os.path.join(d, "p.sgq"), "wb") as f:
+        f.write(image)
+    return json.loads(subprocess.run([sgq_tool(), "read", os.path.join(d, "p.sgq")], check=True, capture_output=True, text=True).stdout)
+
+
+def exports(log):
+    """0.32: every project the FM-1 sent out in the run (an EXPORT: the PC's 7D 53 47 01, SAVE + white 11, PROJ row 6
+    pad 12), read by the converter, in order"""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import sagga_grid_bridge as B
+    rx, out = B.DumpReceiver(), []
+    for _, m in log.sysex:
+        r = rx.feed(m)
+        if r and r[0] == "image":
+            out.append(sgq_read(r[1]))
+    return out
+
+
+def step_of(js, t, pat, i):
+    """0.32: step i of pattern pat of track t (0-based) in an exported project: the converter lists the ones that differ"""
+    for e in js["steps"]:
+        if e[:3] == [t, pat, i]:
+            return e[3]
+    return js["step_default"]
 
 
 def name_lines(text):
@@ -12549,6 +12583,572 @@ def t031_group_retrig():
           "CC 102 (the drums) with no drum track: NO DRUM TRACK, T1 goes on (%s %s)" % (res[102], msg[102]))
 
 
+
+# ------------------------------------------------------------------------------------------------ 0.32
+def t032_panel():
+    group("0.32 THE KEYS THAT DID NOTHING SINCE BEFORE, ON THE PANEL: EDIT + black 8 FORCE (ACCENT, GHOST, NORMAL), 9 / 10 "
+          "the step a place earlier / later, 11 its extras back to plain; ENV + black 1-8 the lane, 9 RAMP UP, 10 RAMP DOWN, "
+          "11 CLEAR; LFO + black 1-6 the page, 7 COPY, 8 PASTE, 9 ALL OFF / BACK ON, 10 the next free LFO, 11 RESET (twice); "
+          "SAVE + white 11 EXPORT, 14 / 15 the Pi's setlist (twice); the MASTER knob's fourth job, the ENERGY")
+    img = sgq_image(["step 0,0,0 flags - 3", "step 0,0,0 velocity - 90", "step 0,0,0 chance - 50", "step 0,0,0 condition - 2",
+                     "step 0,0,0 nudge - 3", "step 0,0,0 ratchet - 3", "step 0,0,0 ramp - 2", "step 0,0,0 note 0 64"])
+    s = Script()
+    t = sx_import(s, 100, img)                           # T1 step 1: velocity 90, chance 50, a condition, nudge, 3 ratchets, a ramp
+    marks, n, ex, leds = {}, [0], {}, {}
+    def P(name):
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    def X(name):                                         # an export: the project as it is now
+        nonlocal t
+        s.raw(t, "sx 7D 53 47 01"); ex[name] = len(ex); t += 30
+    def hold(btn, key, name=None):
+        nonlocal t
+        s.press(t, btn); s.tap_key(t + 30, key)
+        if name:
+            leds[name] = t + 75; s.at(t + 75, "leds")
+        s.release(t + 100, btn); t += 160
+    def lit(btn, name):                                  # the keys' lights while btn is held
+        nonlocal t
+        s.press(t, btn); leds[name] = t + 50; s.at(t + 50, "leds"); s.release(t + 100, btn); t += 160
+    lit(EDIT, "ex1")                                     # black 11 lit: the step has extras
+    hold(EDIT, bk(10)); P("plain"); X("plain")           # EDIT + black 11: back to plain
+    lit(EDIT, "ex2")
+    hold(EDIT, wk(1))                                    # the cursor on step 2 (off)
+    hold(EDIT, bk(7)); P("f1")                           # black 8: on, ACCENT
+    hold(EDIT, bk(7)); P("f2")                           # GHOST
+    hold(EDIT, bk(7)); P("f3")                           # NORMAL
+    hold(EDIT, bk(7), "acc"); P("f4")                    # ACCENT again (black 8 lit)
+    hold(EDIT, bk(9)); P("later"); X("later")            # black 10: step 2 to 3
+    hold(EDIT, bk(8)); P("earlier")                      # black 9: back to 2
+    hold(EDIT, wk(0))                                    # the cursor on step 1
+    hold(EDIT, bk(8)); P("wrap"); X("wrap")              # black 9 on the first step: to the last of the loop (16)
+    hold(ENV, bk(2)); P("lane3")                         # ENV + black 3: lane 3
+    hold(ENV, bk(8)); P("rup"); X("rup")                 # black 9: RAMP UP over the loop
+    lit(ENV, "env")
+    hold(ENV, bk(10)); P("clr"); X("clr")                # black 11: CLEAR
+    hold(ENV, bk(10)); P("clr2")                         # again: nothing to clear
+    hold(ENV, bk(9)); P("rdn"); X("rdn")                 # black 10: RAMP DOWN
+    hold(LFO, bk(2)); P("lpage")                         # LFO + black 3: the LFO's page 3
+    s.pages[LFO] = 2
+    lit(LFO, "lfo")
+    hold(LFO, wk(0)); P("l1")                            # LFO 1 on
+    t = pg(s, t, LFO, 1, [(K1, 1), (K2, 3)]); P("l1set")   # LFO 1: VEL on T4
+    hold(LFO, bk(6)); P("copy")                          # black 7: COPY
+    hold(LFO, wk(1)); P("l2")                            # LFO 2 on (selected)
+    hold(LFO, bk(7)); P("paste"); X("paste")             # black 8: PASTE onto LFO 2
+    hold(LFO, bk(8)); P("off"); X("off")                 # black 9: all off
+    hold(LFO, bk(8)); P("on"); X("on")                   # again: back on, the ones that were
+    hold(LFO, bk(9)); P("free")                          # black 10: the next free one (LFO 3)
+    t = pg(s, t, LFO, 1, [(K1, 2), (K2, 5)]); P("l3set")   # (LFO 3: something to reset)
+    hold(LFO, bk(10)); P("rst1")                         # black 11: asks
+    hold(LFO, bk(10)); P("rst2"); X("rst")               # again: LFO 3 as a new project has it
+    s.press(t, SAVE); s.enc(t + 30, K1, 3); s.release(t + 100, SAVE); t += 160; P("mk")   # SAVE + K1: MASTER KNOB ENERGY
+    s.knob(t, 0); t += 60; s.knob(t, 512); t += 60; P("e50")
+    s.knob(t, 1023); t += 60; P("e100")
+    hold(SAVE, wk(10)); P("exp")                         # SAVE + white 11: EXPORT
+    for i, nm in enumerate(("ONE", "TWO", "TRE")):       # the Pi's setlist, as the bridge sends it
+        s.raw(t, "sx 7D 53 47 21 %02X 03 %s" % (i, " ".join("%02X" % ord(c) for c in nm))); t += 30
+    t += 60
+    hold(SAVE, wk(14), "nx"); P("nx1")                   # SAVE + white 15: names the next
+    hold(SAVE, wk(14)); P("nx2")                         # again: loads it (asks the Pi)
+    t_load = t
+    hold(SAVE, wk(13)); P("pv0")                         # white 14: the one before - none
+    t = sx_import(s, t, img); P("loaded")                # the Pi sends file 1
+    hold(SAVE, wk(14)); P("nx3")                         # white 15: names file 2
+    t += 3200
+    hold(SAVE, wk(14)); P("nx4")                         # 3 s later: names it again
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    ok = len(G) == n[0]
+    check(ok, "%d probes (%d)" % (n[0], len(G)))
+    if not ok:
+        return
+    def g(name, k="msg"): return G[marks[name]].get(k)
+    E = exports(log)
+    check(len(E) == len(ex) + 1, "%d exports, and SAVE + white 11's (%d)" % (len(ex) + 1, len(E)))
+    if len(E) != len(ex) + 1:
+        return
+    def e(name): return E[ex[name]]
+    def kl(name): return dict(log.key_leds()).get(leds[name], "")
+    st = step_of(e("plain"), 0, 0, 0)
+    check(g("plain") == "STEP 1: PLAIN - CHANCE 100, ALL, NO NUDGE, 1 RATCHET" and (st["chance"], st["condition"], st["nudge"], st["ratchet"], st["ramp"]) == (100, 0, 0, 1, 0)
+          and (st["velocity"], st["note"][0], st["flags"] & 1) == (90, 64, 1),
+          "EDIT + black 11: chance 100, every time, no nudge, one hit, no ramp - the note and the velocity stay (%s %s)" % (g("plain"), st))
+    check(kl("ex1")[BLACK[10]] == "X" and kl("ex2")[BLACK[10]] == ".", "... black 11 lit while the step has extras, dark after (%s %s)" % (kl("ex1")[BLACK[10]:BLACK[10] + 1], kl("ex2")[BLACK[10]:BLACK[10] + 1]))
+    check([g(k) for k in ("f1", "f2", "f3", "f4")] == ["STEP 2: ACCENT", "STEP 2: GHOST", "STEP 2: NORMAL", "STEP 2: ACCENT"],
+          "EDIT + black 8 FORCE on a step that is off: on, ACCENT; then GHOST, NORMAL, ACCENT (%s)" % [g(k) for k in ("f1", "f2", "f3", "f4")])
+    check(kl("acc")[BLACK[7]] == "X", "... black 8 lit on an accent (%s)" % kl("acc"))
+    a, b = step_of(e("later"), 0, 0, 1), step_of(e("later"), 0, 0, 2)
+    check(g("later") == "STEP 2 TO 3" and b["velocity"] == 124 and b["flags"] & 1 and not a["flags"] & 1,
+          "EDIT + black 10: the step a place later - it changes place with step 3 (%s %s %s)" % (g("later"), a["flags"], b))
+    w = e("wrap")
+    check(g("earlier") == "STEP 3 TO 2" and g("wrap") == "STEP 1 TO 16" and step_of(w, 0, 0, 15)["velocity"] == 90 and step_of(w, 0, 0, 1)["velocity"] == 124
+          and not step_of(w, 0, 0, 0)["flags"] & 1,
+          "EDIT + black 9: a place earlier; on the loop's first step it goes round to the last (%s %s %s)" % (g("earlier"), g("wrap"), step_of(w, 0, 0, 15)))
+    up = [step_of(e("rup"), 0, 0, i)["lane"][2] for i in range(16)]
+    check(g("lane3") == "ENV LANE 3" and g("rup") == "LANE 3 RAMP UP" and up == [k * 127 // 15 for k in range(16)],
+          "ENV + black 3: lane 3; + black 9: a ramp up over the 16 steps of the loop, 0 to 127 (%s %s)" % (g("rup"), up))
+    el = kl("env")
+    check(el[BLACK[2]] == "X" and el[BLACK[0]] == "g" and el[BLACK[8]] == "g" and el[BLACK[10]] == "g",
+          "... ENV held: black 3 lit (the lane), the other lanes dim (a CC each), 9-11 dim (%s)" % el)
+    cl = [step_of(e("clr"), 0, 0, i)["lane"][2] for i in range(16)]
+    dn = [step_of(e("rdn"), 0, 0, i)["lane"][2] for i in range(16)]
+    check(g("clr") == "LANE 3 CLEARED" and cl == [255] * 16 and g("clr2") == "LANE 3: NO LOCK IN THE LOOP" and dn == [127 - k * 127 // 15 for k in range(16)],
+          "black 11 CLEARs the lane (again: nothing there); black 10 a ramp down (%s %s %s)" % (g("clr"), g("clr2"), dn))
+    check(g("lpage") == "LFO 1: PAGE 3" and kl("lfo")[BLACK[2]] == "X" and kl("lfo")[BLACK[0]] == "g",
+          "LFO + black 3: the LFO's page 3, its key lit (%s %s)" % (g("lpage"), kl("lfo")))
+    pl = e("paste")["lfo"]
+    check(g("copy") == "LFO COPIED 1" and g("paste") == "LFO PASTED 2" and (g("paste", "lfod"), g("paste", "lfot")) == ("1", "3") and pl[1] == pl[0],
+          "black 7 COPY, black 8 PASTE: LFO 2 is LFO 1 (VEL on T4) (%s %s %s)" % (g("copy"), g("paste"), pl[1]))
+    check(g("off") == "ALL LFOS OFF (AGAIN: BACK ON)" and [x["enabled"] for x in e("off")["lfo"]] == [0] * 16
+          and g("on") == "THE LFOS BACK ON" and [x["enabled"] for x in e("on")["lfo"]] == [1, 1] + [0] * 14,
+          "black 9: every LFO off; again: the two that were on, on (%s %s)" % (g("off"), g("on")))
+    new = sgq_read(sgq_image([]))
+    r = e("rst")
+    check(g("free") == "THE NEXT FREE LFO: 3" and g("free", "lfosel") == "2" and g("rst1") == "RESET LFO? AGAIN: 3" and g("rst2") == "LFO RESET 3"
+          and g("l3set", "lfod") != g("rst2", "lfod") and r["lfo"][2] == new["lfo"][2]
+          and r["lfox"][2] == new["lfox"][2] and r["lfoe"][2] == new["lfoe"][2] and r["lfo"][0]["dest"] == 1,
+          "black 10: the next LFO that is off; black 11 twice: that LFO as a new project has it, the others as they were (%s %s %s)" % (g("free"), g("rst1"), g("rst2")))
+    check(g("mk") == "MASTER KNOB: ENERGY" and g("e50") == "ENERGY 50: THE WHOLE SET" and g("e50", "en") == "50" and g("e100", "en") == "100",
+          "the MASTER knob's fourth job: the ENERGY of the MOSSE, 0-100 (%s %s %s)" % (g("mk"), g("e50"), g("e100", "en")))
+    check(g("exp") == "EXPORT: THE PROJECT TO THE PI" and E[-1]["live"]["master_fn"] == 3,
+          "SAVE + white 11: the project to the Pi, an EXPORT (%s)" % g("exp"))
+    loads = [(tm, m[5:7]) for tm, m in log.sysex if m[4] == 0x22]
+    check(g("nx1") == "NEXT, AGAIN TO LOAD: 1 ONE" and g("nx2") == "LOADING 1 ONE" and [l for _, l in loads] == [[0, 0]] and loads[0][0] < t_load,
+          "SAVE + white 15: the setlist's next file named; again: the FM-1 asks the Pi for it (%s %s %s)" % (g("nx1"), g("nx2"), loads))
+    check(kl("nx")[WHITE[14]] in "Xg" and kl("nx")[WHITE[10]] == "g", "... SAVE held: white 11-15 lit (%s)" % kl("nx"))
+    check(g("pv0") == "START OF THE LIST" and g("loaded") == "LOADED 1 ONE" and g("nx3") == "NEXT, AGAIN TO LOAD: 2 TWO" and g("nx4") == "NEXT, AGAIN TO LOAD: 2 TWO",
+          "white 14 on the first: nothing before; file 1 in; white 15 names file 2 - and again after 3 s, not loading (%s %s %s)" % (g("pv0"), g("loaded"), g("nx4")))
+    # SAVE + white 12 / 13: the track's pattern and the progression to the Pi (as SEQ + SAVE and ARP + SAVE)
+    s = Script()
+    t = band_hold(s, 100)
+    s.press(t, SAVE); s.tap_key(t + 30, wk(11)); s.release(t + 100, SAVE); t += 160; s.at(t, "probe"); t += 40
+    s.press(t, SAVE); s.tap_key(t + 30, wk(12)); s.release(t + 100, SAVE); t += 160; s.at(t, "probe"); t += 40
+    log = run(s, t + 100)
+    pr = probes(log)
+    m = [p["G"].get("msg") for p in pr]
+    cmds = [x[4] for _, x in log.sysex]
+    check(len(m) == 2 and m[0] == "TO THE PI: TECHNO KICK" and (m[1] or "").startswith("TO THE PI: TECHNO ") and 0x64 in cmds and 0x6A in cmds,
+          "SAVE + white 12: the track's pattern to the Pi; white 13: the progression (%s %s)" % (m, [hex(c) for c in cmds]))
+
+def t032_grid():
+    group("0.32 THE GRID'S PADS THAT DID NOTHING SINCE BEFORE: TRACK row 7 / 8 pad 16 (every VEL OFFSET 0, every nudge 0); CC "
+          "row 5 COPY / PASTE / the lane in every pattern, row 8 the lane's mode and its tools (ramps, random, upside down, a "
+          "step earlier / later, smoothed, halfway, the page cleared); BEAT row 4 pad 8 DICE PROG; FX row 2 pads 13 / 15 the "
+          "dotted lengths")
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 200, GC_VTRACK)                                            # TRACK
+    marks, n, ex, at = {}, [0], {}, {}
+    def P(name):
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    def X(name):
+        nonlocal t
+        s.raw(t, "sx 7D 53 47 01"); ex[name] = len(ex); t += 30
+    def pad(x, y, name=None, wait=100):
+        nonlocal t
+        s.pad(t, x, y); t += wait
+        if name:
+            P(name)
+    def mark(name):                                                        # the lights, a little after
+        nonlocal t
+        t += 150; at[name] = t
+    pad(0, 6, "v1")                                                        # row 7 pad 1: T1's VEL OFFSET
+    s.ctl(t, GC_TRK0 + 1); t += 80                                         # T2
+    pad(14, 6, "v2"); mark("vo")                                           # row 7 pad 15: T2's
+    pad(15, 6, "v0"); X("v0"); mark("vo0")                                 # pad 16: every track's to 0
+    pad(0, 7, "nu"); mark("nu")                                            # row 8 pad 1: T2 step 1's nudge (it comes on)
+    pad(15, 7, "nu0"); X("nu0"); mark("nu0")                               # pad 16: every step of the pattern on the grid
+    t = view(s, t, GC_VSTEP, alt=True)                                     # CC (T2, lane 1)
+    pad(6, 7, "up")                                                        # row 8 pad 7: RAMP UP
+    pad(12, 4, "copy")                                                     # row 5 pad 13: COPY
+    pad(1, 4)                                                              # lane 2
+    pad(13, 4, "paste"); X("paste"); mark("clip")                          # pad 14: PASTE
+    pad(10, 7, "inv"); X("inv")                                            # row 8 pad 11: upside down
+    pad(11, 7, "early"); X("early")                                        # pad 12: a step earlier
+    pad(12, 7, "late"); X("late")                                          # pad 13: a step later
+    pad(13, 7, "smooth"); X("smooth")                                      # pad 14: smoothed
+    pad(14, 7, "half"); X("half")                                          # pad 15: halfway to the base
+    pad(8, 7, "updn"); X("updn")                                           # pad 9: up and down
+    pad(9, 7, "rnd"); X("rnd")                                             # pad 10: at random
+    pad(14, 4, "every"); X("every")                                        # row 5 pad 15: the lane in every pattern of T2
+    pad(15, 7, "page"); X("page")                                          # row 8 pad 16: the page cleared
+    s.ctl(t, GC_UNDO); t += 100; X("undo")                                 # UNDO: back
+    pad(3, 7, "slide")                                                     # pad 4: SLIDE
+    pad(4, 7, "trig")                                                      # pad 5: TRIGLESS too
+    pad(2, 7, "norm")                                                      # pad 3: NORMAL
+    pad(5, 7, "nrpn"); X("nrpn"); mark("mode")                             # pad 6: NRPN
+    t = view(s, t, GC_VTRACK, alt=True)                                    # BEAT
+    pad(7, 3, "dice"); mark("dice")                                        # row 4 pad 8: DICE PROG
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    E = exports(log)
+    ok = len(G) == n[0] and len(E) == len(ex)
+    check(ok, "%d probes, %d exports (%d %d)" % (n[0], len(ex), len(G), len(E)))
+    if not ok:
+        return
+    def g(name, k="msg"): return G[marks[name]].get(k)
+    def e(name): return E[ex[name]]
+    def L(name, x, y): return log.leds(until=at[name])[0].get(y * 16 + x)
+    def lane(name, l=1, pat=0): return [step_of(e(name), 1, pat, i)["lane"][l] for i in range(16)]
+    check(g("v1").startswith("VEL -") and g("v2").startswith("VEL ") and L("vo", 15, 6) == GL_ORANGE,
+          "TRACK row 7: T1's and T2's VEL OFFSET; pad 16 orange - some track has one (%s %s %s)" % (g("v1"), g("v2"), L("vo", 15, 6)))
+    check(g("v0") == "EVERY TRACK: VEL OFFSET 0" and [x["vel_offset"] for x in e("v0")["track"]] == [0] * 12 and L("vo0", 15, 6) == GL_FAINT,
+          "row 7 pad 16: every track's VEL OFFSET back to 0, the pad faint (%s %s)" % (g("v0"), [x["vel_offset"] for x in e("v0")["track"]]))
+    st = step_of(e("nu0"), 1, 0, 0)
+    check(g("nu").startswith("NUDGE -") and L("nu", 15, 7) == GL_ORANGE and g("nu0") == "EVERY STEP ON THE GRID: NO NUDGE" and st["nudge"] == 0
+          and st["flags"] & 1 and L("nu0", 15, 7) == GL_FAINT,
+          "row 8: a step nudged, pad 16 orange; pad 16: every step of the pattern on the grid again (%s %s %s)" % (g("nu"), g("nu0"), st))
+    ramp = [k * 127 // 15 for k in range(16)]
+    check(g("up") == "LANE 1 RAMP UP" and g("copy") == "LANE 1 COPIED" and g("paste") == "LANE 2 PASTED" and lane("paste", 1) == ramp == lane("paste", 0),
+          "CC row 8 pad 7: a ramp up; row 5 pad 13 COPY, pad 14 PASTE onto lane 2 (%s %s)" % (g("paste"), lane("paste", 1)))
+    check(L("clip", 13, 4) == GL_CYAN and L("clip", 12, 4) == GL_ORANGE and L("clip", 14, 4) == GL_VIOLET,
+          "... pad 14 cyan: a lane is copied; 13 orange, 15 violet (%s %s %s)" % (L("clip", 12, 4), L("clip", 13, 4), L("clip", 14, 4)))
+    inv = [127 - v for v in ramp]
+    ear = inv[1:] + inv[:1]
+    def smooth(v):
+        return [(v[k] * 2 + v[(k - 1) % 16] + v[(k + 1) % 16] + 2) // 4 for k in range(16)]
+    sm = smooth(inv)
+    hf = [(v + 64 + 1) // 2 for v in sm]
+    ud = [(k * 254 // 15) if k * 254 // 15 <= 127 else 254 - k * 254 // 15 for k in range(16)]
+    check((g("inv"), lane("inv")) == ("LANE 2 UPSIDE DOWN", inv), "pad 11: upside down (%s %s)" % (g("inv"), lane("inv")))
+    check((g("early"), lane("early")) == ("LANE 2 A STEP EARLIER", ear) and (g("late"), lane("late")) == ("LANE 2 A STEP LATER", inv),
+          "pad 12: the locks a step earlier, pad 13 a step later - round the loop (%s %s)" % (lane("early"), lane("late")))
+    check((g("smooth"), lane("smooth")) == ("LANE 2 SMOOTHED", sm) and (g("half"), lane("half")) == ("LANE 2 HALFWAY TO THE BASE", hf),
+          "pad 14: smoothed with the neighbours; pad 15 halfway to the base (none: 64) (%s %s)" % (lane("smooth"), lane("half")))
+    rn = lane("rnd")
+    check((g("updn"), lane("updn")) == ("LANE 2 UP AND DOWN", ud) and g("rnd") == "LANE 2 AT RANDOM" and all(0 <= v <= 127 for v in rn) and len(set(rn)) > 8,
+          "pad 9: up and down; pad 10 at random, a lock on every step (%s %s)" % (lane("updn"), rn))
+    check(g("every") == "LANE 2 IN EVERY PATTERN OF T2" and all(lane("every", 1, k) == rn for k in range(8)) and lane("every", 0, 3) == [255] * 16,
+          "row 5 pad 15: the lane in all eight patterns of the track, the other lanes as they were (%s)" % g("every"))
+    check(g("page") == "LANE 2 CLEARED ON THE PAGE" and lane("page") == [255] * 16 and lane("page", 1, 1) == rn and lane("undo") == rn,
+          "row 8 pad 16: the lane cleared on the page shown (the other patterns keep it); UNDO: back (%s %s)" % (g("page"), lane("undo")))
+    fl = e("nrpn")["track"][1]["lane_flags"]
+    check(g("slide") == "SLIDE: THE VALUE GLIDES TO THE NEXT LOCK" and g("trig") == "SLIDE + TRIGLESS" and g("norm") == "LANE NORMAL"
+          and g("nrpn") == "NRPN: K2 THE LSB, LANE HI (SEL+K2) THE MSB" and fl[1] == 4 and fl[0] == 0,
+          "row 8 pads 3-6: the lane's mode - NORMAL, SLIDE, TRIGLESS, NRPN (as ENV K4) (%s %s %s %s %s)" % (g("slide"), g("trig"), g("norm"), g("nrpn"), fl))
+    check(L("mode", 5, 7) == GL_WHITE and L("mode", 2, 7) == GL_DIM and L("mode", 6, 7) == GL_CYAN and L("mode", 15, 7) == GL_ORANGE,
+          "... NRPN white, NORMAL dim; the tools cyan, blue, the page orange (%s %s %s %s)" % (L("mode", 5, 7), L("mode", 2, 7), L("mode", 6, 7), L("mode", 15, 7)))
+    check((g("dice") or "").startswith("DICE PROG") and L("dice", 7, 3) == GL_VIOLET, "BEAT row 4 pad 8: DICE PROG (%s %s)" % (g("dice"), L("dice", 7, 3)))
+    # FX row 2 pads 13 and 15: LOOP 1/16 dotted, 1/8 dotted - the loop repeats every 9 / 18 ticks (T1: a step on every 16th)
+    for x, ticks, name in ((12, 9, "1/16 DOTTED"), (14, 18, "1/8 DOTTED")):
+        s = Script()
+        t = s.steps(100, list(range(16)))
+        s.raw(t, "attach"); t += 50
+        t = view(s, t, GC_UNDO, alt=True)                                  # FX
+        s.tap_btn(t, PLAY)
+        t += int(BAR_MS)
+        s.pad(t, x, 1, hold=40); t_in = t; t += 120
+        s.at(t, "probe"); t += 40
+        t += int(BAR_MS)
+        s.pad(t, 15, 1, hold=40); t_out = t; t += 200
+        s.tap_btn(t, PLAY)
+        for k in range(1100, t, 900):                                      # (the bridge's keep-alive)
+            s.raw(k, "hb")
+        log = run(s, t + 100)
+        pr = probes(log)
+        G1 = pr[0]["G"] if pr else {}
+        tick = 60000.0 / int(G1.get("bpm", "128")) / 24
+        on = [tm for tm, _, _ in log.notes(ch=0, after=t_in + 2 * ticks * tick, before=t_out)]
+        per = [any(abs(tm - ticks * tick - u) <= 2.5 for u in on) for tm in on if tm > t_in + 3 * ticks * tick]
+        gaps = sorted(set(round((b - a) / tick) for a, b in zip(on, on[1:])))
+        p, _ = log.leds(until=t_in + 300)
+        check(G1.get("msg") == name and G1.get("loop") == "1" and len(per) >= 8 and all(per) and p.get(16 + x) in (GL_ACCENT, GL_PLAY),
+              "FX row 2 pad %d: LOOP %s - what plays repeats every %d ticks (%s, %d notes, %d in time, gaps %s ticks, the pad %s)" % (
+                  x + 1, name, ticks, G1.get("msg"), len(per), per.count(True), gaps, p.get(16 + x)))
+
+
+def t032_grid2():
+    group("0.32 THE GRID'S PADS THAT DID NOTHING SINCE BEFORE: SONG row 4 (the entry earlier / later, its tempo, SONG TEMPO, "
+          "its bars / 2 and x 2, SAVE THE SET, the end, the song from its first entry); PROJ rows 1, 3, 5, 6, 7 (a fifth down / "
+          "up, RELATIVE, PARALLEL, THE KEY BEFORE; the MASTER knob's ENERGY and the project's switches; CLEAR, the setlist, SAVE "
+          "OVER, NEW PROJECT; the tempo halved, doubled, 90 100 120 128 140 174)")
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 200, GC_VPERF); t = view(s, t, GC_VPERF)                  # SONG
+    marks, n, ex, at = {}, [0], {}, {}
+    def P(name):
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    def X(name):
+        nonlocal t
+        s.raw(t, "sx 7D 53 47 01"); ex[name] = len(ex); t += 30
+    def pad(x, y, name=None, wait=100):
+        nonlocal t
+        s.pad(t, x, y); t += wait
+        if name:
+            P(name)
+    def mark(name):
+        nonlocal t
+        t += 150; at[name] = t
+    for k in range(3):                                                     # three entries: scenes 1, 2, 3
+        pad(k, 0, wait=80); pad(k, 1)
+    pad(1, 0)                                                              # entry 2
+    pad(5, 3, "later"); X("later")                                         # row 4 pad 6: a place later
+    pad(4, 3, "earlier"); X("earlier")                                     # pad 5: back
+    pad(6, 3, "bpm1")                                                      # pad 7: its tempo, the tempo now
+    pad(8, 3, "stempo")                                                    # pad 9: SONG TEMPO
+    pad(6, 3, "bpm2"); X("bpm"); mark("bpm")
+    pad(7, 3, "nobpm")                                                     # pad 8: none of its own
+    pad(10, 3, "x2"); X("x2")                                              # pad 11: its bars x 2
+    pad(9, 3, "d2"); pad(9, 3); pad(9, 3, "d4"); X("d4")                   # pad 10: / 2 (4, 2, 1)
+    pad(11, 3, "set")                                                      # pad 12: SAVE THE SET
+    pad(14, 3, "end"); mark("end")                                         # pad 15: the end
+    pad(0, 0); pad(9, 3); pad(9, 3)                                        # entry 1: a bar
+    pad(15, 3, "first0")                                                   # pad 16: the song is off
+    pad(0, 3)                                                              # pad 1: the song on
+    s.tap_btn(t, PLAY); t += int(BAR_MS + 6 * STEP_MS)                     # entry 2 plays (entry 1 is a bar now)
+    P("song2")
+    pad(15, 3, "first")                                                    # pad 16: from the first entry
+    s.tap_btn(t, PLAY); t += 200
+    t = view(s, t, GC_REC, alt=True)                                       # PROJ
+    pad(15, 2, "kb0")                                                      # row 3 pad 16: nothing changed yet
+    pad(12, 0, "f4"); pad(13, 0, "f5")                                     # row 1 pad 13: a fifth down; 14 up
+    pad(14, 0, "rel0")                                                     # 15 RELATIVE: of no major or minor
+    pad(1, 1, "maj")                                                       # row 2 pad 2: MAJOR
+    pad(14, 0, "rel"); pad(15, 0, "par"); mark("key")                      # RELATIVE (A minor), PARALLEL (A major)
+    pad(15, 2, "kb1"); pad(15, 2, "kb2")                                   # THE KEY BEFORE, and back
+    for x, name in ((3, "mk"), (5, "st"), (6, "thru"), (7, "long"), (8, "click"), (9, "cin"), (10, "mq"), (11, "sm"), (12, "prof")):
+        pad(x, 4, name)
+    X("sw"); mark("sw")
+    pad(8, 4, "click2"); pad(9, 4, "cin2"); pad(12, 4, "prof2"); X("sw2")
+    pad(8, 4, "click0"); pad(9, 4, "cin0"); pad(12, 4, "prof0")
+    pad(7, 6, "h"); pad(9, 6, "d")                                         # row 7 pad 8: half (64); pad 10 double
+    pad(15, 6, "b174"); mark("b174")
+    pad(9, 6, "dmax"); pad(10, 6, "b90"); pad(7, 6, "h45"); pad(7, 6, "hmin")
+    pad(10, 5, "clr")                                                      # row 6 pad 11: CLEAR an empty slot
+    pad(12, 5, "pv"); pad(14, 5, "over")                                   # 13 the setlist, 15 SAVE OVER: no library
+    pad(15, 5, "new1"); mark("new1"); pad(15, 5, "new2"); X("new")         # 16 a NEW PROJECT, twice
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    E = exports(log)
+    ok = len(G) == n[0] and len(E) == len(ex)
+    check(ok, "%d probes, %d exports (%d %d)" % (n[0], len(ex), len(G), len(E)))
+    if not ok:
+        return
+    def g(name, k="msg"): return G[marks[name]].get(k)
+    def e(name): return E[ex[name]]
+    def L(name, x, y): return log.leds(until=at[name])[0].get(y * 16 + x)
+    def sc(name): return [x["scene"] for x in e(name)["song_e"][:3]]
+    check(g("later") == "SONG 2 TO 3" and sc("later") == [0, 2, 1] and g("earlier") == "SONG 3 TO 2" and sc("earlier") == [0, 1, 2],
+          "SONG row 4 pad 6: the entry a place later, pad 5 earlier (%s %s %s %s)" % (g("later"), sc("later"), g("earlier"), sc("earlier")))
+    se = e("bpm")["song_e"][1]
+    check(g("bpm1") == "SONG 2: 128 BPM (SONG TEMPO: PAD 9)" and g("stempo") == "THE SONG SETS THE TEMPO" and g("bpm2") == "SONG 2: 128 BPM"
+          and se["bpm"] == 128 and e("bpm")["live"]["song_tempo"] == 1 and L("bpm", 6, 3) == GL_CYAN and L("bpm", 8, 3) == GL_ON,
+          "pad 7: the entry's tempo is the tempo now; pad 9 SONG TEMPO (%s %s %s %s)" % (g("bpm1"), g("stempo"), g("bpm2"), se))
+    check(g("nobpm") == "SONG 2: NO TEMPO OF ITS OWN" and e("x2")["song_e"][1] == {"scene": 1, "bars": 8, "bpm": 0} and e("d4")["song_e"][1]["bars"] == 1,
+          "pad 8: no tempo of its own; pad 11 its bars x 2 (8); pad 10 / 2 down to 1 (%s %s)" % (e("x2")["song_e"][1], e("d4")["song_e"][1]))
+    check(g("set") == "NOTHING IN THE TRAIL YET" and g("end") == "SONG: THE NEW ENTRY 4" and L("end", 14, 3) == GL_WHITE,
+          "pad 12: SAVE THE SET (no trail yet: it says so); pad 15: the free entry after the last (%s %s)" % (g("set"), g("end")))
+    check(g("first0") == "SONG IS OFF (PAD 1)" and g("song2", "spos") == "1" and g("first", "spos") == "0" and g("first", "son") == "1",
+          "pad 16: the song from its first entry (off: it says so) (%s %s %s)" % (g("first0"), g("song2", "spos"), g("first", "spos")))
+    check(g("kb0") == "NO KEY BEFORE: CHANGE IT HERE FIRST" and (g("f4", "root"), g("f5", "root")) == ("5", "0") and g("rel0") == "RELATIVE: OF A MAJOR OR A MINOR KEY",
+          "PROJ row 1 pad 13: a fifth down (C to F), 14 a fifth up (back to C); RELATIVE of a scale that is neither (%s %s %s)" % (g("kb0"), g("f4", "root"), g("rel0")))
+    check((g("rel", "root"), g("rel", "scale")) == ("9", "2") and (g("par", "root"), g("par", "scale")) == ("9", "1")
+          and (g("kb1", "root"), g("kb1", "scale")) == ("9", "2") and (g("kb2", "root"), g("kb2", "scale")) == ("9", "1"),
+          "C MAJOR: RELATIVE A MINOR, PARALLEL A MAJOR; row 3 pad 16: the key before, and back (%s)" % [(g(k, "root"), g(k, "scale")) for k in ("rel", "par", "kb1", "kb2")])
+    check(L("key", 14, 0) == GL_VIOLET and L("key", 12, 0) == GL_BLUE and L("key", 15, 2) == GL_YELLOW, "... the pads' lights (%s %s %s)" % (L("key", 14, 0), L("key", 12, 0), L("key", 15, 2)))
+    w = e("sw")
+    check(g("mk") == "MASTER KNOB: ENERGY" and w["live"]["master_fn"] == 3 and g("st") == "THE SONG KEEPS THE TEMPO" and w["live"]["song_tempo"] == 0
+          and g("thru") == "MIDI IN PLAYS THE TRACK, REC OR NOT" and w["ext"]["in_thru"] == 1 and g("long") == "LONG PATTERNS: A PHRASE (THE NEXT ONE, A FILL)"
+          and g("click") == "CLICK WHILE REC IS ON" and g("cin") == "COUNT IN 1 BAR: REC, THEN PLAY" and (w["ext"]["click"], w["ext"]["count_in"]) == (1, 1)
+          and g("mq") == "MUTES WAIT FOR THE QUANTISE" and w["live"]["mute_q"] == 1 and g("sm") == "SCENE METRE: A SCENE STORED KEEPS THE METRE"
+          and w["ext"]["scene_metre_on"] == 1 and g("prof", "prof") != G[marks["prof"] - 1]["prof"],
+          "PROJ row 5: 4 the MASTER knob's ENERGY; 6-13 SONG TEMPO, MIDI IN PLAYS, LONG PATTERNS, CLICK, COUNT IN, MUTE QUEUE, SCENE METRE, the PROFILE (%s)" % (
+              [g(k) for k in ("mk", "st", "thru", "long", "click", "cin", "mq", "sm", "prof")],))
+    check(all(L("sw", x, 4) in (GL_ON, GL_ACCENT) for x in (6, 7, 8, 9, 10, 11, 12)) and L("sw", 5, 4) == GL_DIM and L("sw", 3, 4) == GL_WHITE,
+          "... the switches lit when on (SONG TEMPO off again: dim), ENERGY white (%s)" % [L("sw", x, 4) for x in range(3, 13)])
+    w2 = e("sw2")
+    check((w2["ext"]["click"], w2["ext"]["count_in"]) == (2, 2) and g("click0") == "CLICK OFF" and g("cin0") == "NO COUNT IN"
+          and len({g("prof", "prof"), g("prof2", "prof"), g("prof0", "prof")}) == 3 and g("prof0", "prof") == G[marks["prof"] - 1]["prof"],
+          "the CLICK and the COUNT IN go round (off, 1, 2); the PROFILE round its three (%s %s)" % ([g(k) for k in ("click2", "cin2", "click0", "cin0")], [g(k, "prof") for k in ("prof", "prof2", "prof0")]))
+    check([g(k, "bpm") for k in ("h", "d", "b174", "b90", "h45")] == ["64", "128", "174", "90", "45"] and g("dmax") == "TEMPO: 300 IS THE FASTEST"
+          and g("hmin") == "TEMPO: 30 IS THE SLOWEST" and L("b174", 15, 6) == GL_WHITE and L("b174", 10, 6) == GL_VIOLET,
+          "PROJ row 7 pad 8: the tempo halved, 10 doubled (30 to 300), 11-16 90 ... 174 (%s %s %s)" % ([g(k, "bpm") for k in ("h", "d", "b174", "b90", "h45")], g("dmax"), g("hmin")))
+    nw = e("new")
+    check(g("clr") == "NOTHING TO CLEAR: EMPTY SLOT 1" and g("pv") in ("LIBRARY EMPTY", "LIBRARY: ASKING THE PI") and g("over") == "NO FILE LOADED FROM THE PI"
+          and g("new1") == "NEW PROJECT? AGAIN: WHAT IS NOT SAVED GOES" and L("new1", 15, 5) == GL_PEND and g("new2") == "NEW PROJECT: SAVE PUTS IT IN SLOT 1"
+          and (nw["project"]["key_root"], nw["project"]["key_scale"], nw["project"]["bpm"], nw["live"]["master_fn"], nw["ext"]["in_thru"]) == (0, 0, 128, 0, 0),
+          "PROJ row 6 pad 11 CLEAR (an empty slot: nothing), 13 / 15 the Pi's (no library), 16 a NEW PROJECT, twice (%s %s %s %s %s)" % (
+              g("clr"), g("pv"), g("over"), g("new1"), g("new2")))
+    # TRACK 2: row 5 the scenes' banks and programs, rows 6-8 a loop's playhead moved (T1: 16 steps, a note loop of 4)
+    img = sgq_image(["step 0,0,%d flags - 3" % i for i in range(16)] + ["step 0,0,%d note 0 %d" % (i, v) for i, v in ((0, 60), (1, 62), (2, 64), (3, 65))]
+                    + ["track 0 plen 0 4"])
+    s = Script()
+    t = sx_import(s, 100, img)
+    s.raw(t, "attach"); t += 50
+    t = view(s, t, GC_VTRACK); t = view(s, t, GC_VTRACK)                   # TRACK 2
+    marks, n, ex, at = {}, [0], {}, {}
+    pad(9, 4, "bank"); pad(0, 4, "s9")                                     # row 5 pad 10: scenes 9-16; pad 1: scene 9
+    pad(4, 3); mark("pc")                                                  # row 4 pad 5: scene 9's program 5 (channel 1)
+    pad(12, 4, "all"); X("all")                                            # pad 13: these programs in every scene
+    pad(13, 4, "none"); X("none")                                          # pad 14: this scene's none
+    pad(6, 3); pad(14, 4, "ch"); X("ch")                                   # program 7; pad 15: channel 1's in every scene
+    pad(5, 5, "far"); pad(0, 6, "nov")                                     # row 6 pad 6: past the loop of 4; row 7: no velocity loop
+    for k in range(1100, t + 3000, 900):
+        s.raw(k, "hb")
+    s.tap_btn(t, PLAY); p0 = t
+    tap = p0 + int(2.5 * STEP_MS)
+    s.pad(tap, 2, 5, hold=30)                                              # row 6 pad 3, between steps 3 and 4: the note loop from its step 3
+    s.at(tap + 50, "probe"); marks["jump"] = n[0]; n[0] += 1
+    t = p0 + int(9 * STEP_MS)
+    s.tap_btn(t, PLAY)
+    log = run(s, t + 200)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    E = exports(log)
+    ok = len(G) == n[0] and len(E) == len(ex)
+    check(ok, "TRACK 2: %d probes, %d exports (%d %d)" % (n[0], len(ex), len(G), len(E)))
+    if not ok:
+        return
+    pcs = lambda name: [x["pc"][0] for x in e(name)["scene"]]
+    check(g("bank") == "PROGRAMS: SCENES 9-16" and g("s9") == "PROGRAMS OF SCENE 9" and L("pc", 9, 4) == GL_WHITE and L("pc", 0, 4) == GL_WHITE,
+          "TRACK 2 row 5 pads 9-12: the bank of scenes pads 1-8 are; pad 1 now scene 9 (%s %s)" % (g("bank"), g("s9")))
+    check(g("all") == "THE PROGRAMS OF SCENE 9 IN EVERY SCENE" and pcs("all") == [4] * 32 and g("none") == "SCENE 9: NO PROGRAM"
+          and pcs("none") == [4] * 8 + [255] + [4] * 23 and g("ch") == "CHANNEL 1'S PROGRAM IN EVERY SCENE" and pcs("ch") == [6] * 32,
+          "pad 13: scene 9's programs in all 32 scenes; 14: scene 9 without; 15: channel 1's program everywhere (%s %s %s)" % (pcs("all")[:10], pcs("none")[:10], pcs("ch")[:10]))
+    nt = [d1 for _, d1, _ in log.notes(ch=0, after=p0 - 2)]
+    check(g("far") == "NOTE LOOP 4 STEPS" and g("nov") == "VELOCITY LOOP = THE TRACK'S (ROW 2 GIVES IT ONE)" and g("jump") == "NOTE LOOP FROM STEP 3"
+          and nt[:7] == [60, 62, 64, 64, 65, 60, 62],
+          "rows 6-8: a tap moves the loop's playhead - the note loop of 4 goes on from its step 3 (without: 65 60 62 64) (%s %s)" % (g("jump"), nt[:8]))
+
+
+def t032_grid3():
+    group("0.32 THE GRID'S PADS THAT DID NOTHING SINCE BEFORE: LIB rows 5-7 (112 files, 0.5-0.31: 64) and row 8 (FIRST, AS "
+          "SAVED, the pattern and the progression to the Pi, the files loaded last); MOSSE row 4 the phrase, row 6 MOVES AT, the "
+          "genre and the key, row 7 HARMONY, LOCK, its bars; REGIA rows 2-8 the MOSSE's; FOLLOW's pads 11-16 of rows 5-8")
+    img = sgq_image([])
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 200, GC_REC, alt=True); t = view(s, t, GC_REC, alt=True)  # LIB
+    marks, n, at = {}, [0], {}
+    def P(name):
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    def pad(x, y, name=None, wait=100):
+        nonlocal t
+        s.pad(t, x, y); t += wait
+        if name:
+            P(name)
+    def mark(name):
+        nonlocal t
+        t += 150; at[name] = t
+    def entries(names):
+        nonlocal t
+        for k, nm in enumerate(names):
+            s.raw(t, "sx 7D 53 47 21 %02X %02X %s" % (k, len(names), " ".join("%02X" % ord(c) for c in nm))); t += 12
+        t += 100
+    entries(["F%03d" % (k + 1) for k in range(100)])                       # the Pi's 100 files
+    mark("list")
+    pad(3, 6, "f100"); pad(3, 6, "f100l")                                  # row 7 pad 4: file 100; again: LOAD
+    t = sx_import(s, t, img); P("in100")                                    # (the Pi sends it)
+    pad(2, 7, "first"); t = sx_import(s, t, img); P("in1")                  # row 8 pad 3: the FIRST file
+    mark("rec")
+    pad(10, 7, "r2"); pad(10, 7, "r2l")                                    # pad 11: the one loaded before (file 100); again: LOAD
+    pad(9, 7, "r1")                                                        # pad 10: the one loaded (file 1)
+    pad(11, 7, "r3")                                                       # pad 12: nothing there yet
+    pad(4, 7, "as1"); mark("as"); pad(4, 7, "as2")                         # pad 5: AS SAVED, twice
+    pad(5, 7, "pat"); pad(6, 7, "prog")                                    # pads 6, 7: the pattern, the progression to the Pi
+    entries(["G1", "G2"])                                                  # the Pi's folder changed
+    pad(9, 7, "gone")
+    for k in range(1000, t + 200, 900):
+        s.raw(k, "hb")
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    ok = len(G) == n[0]
+    check(ok, "LIB: %d probes (%d)" % (n[0], len(G)))
+    if not ok:
+        return
+    def g(name, k="msg"): return G[marks[name]].get(k)
+    def L(name, x, y): return log.leds(until=at[name])[0].get(y * 16 + x)
+    loads = [m[5] + 128 * m[6] for _, m in log.sysex if m[4] == 0x22]
+    check(L("list", 3, 6) == GL_DIM and L("list", 4, 6) == GL_OFF and L("list", 15, 4) == GL_DIM and g("f100") == "FILE 100 F100" and g("f100l") == "LOADING 100 F100",
+          "LIB rows 5-7: files 65-112 (here 100 of them); file 100 chosen, again: the FM-1 asks the Pi for it (%s %s)" % (g("f100"), g("f100l")))
+    check(g("in100") == "LOADED 100 F100" and g("first") == "LOADING 1 F001" and g("in1") == "LOADED 1 F001" and loads[:2] == [99, 0],
+          "row 8 pad 3: the FIRST file of the setlist (%s %s %s)" % (g("first"), g("in1"), loads))
+    check(L("rec", 9, 7) in (GL_ON, GL_CURSOR) and L("rec", 10, 7) == GL_DIM and L("rec", 11, 7) == GL_OFF,
+          "row 8 pads 10-15: the files loaded last - 10 the one loaded (lit), 11 the one before (%s %s %s)" % (L("rec", 9, 7), L("rec", 10, 7), L("rec", 11, 7)))
+    check(g("r2") == "FILE 100 F100" and g("r2l") == "LOADING 100 F100" and g("r1") == "FILE 1 F001" and g("r3") == "NO FILE LOADED THERE YET",
+          "... a tap chooses that file, again loads it (by its name) (%s %s %s %s)" % (g("r2"), g("r2l"), g("r1"), g("r3")))
+    check(g("as1") == "AS SAVED? AGAIN: 1 F001" and L("as", 4, 7) == GL_PEND and g("as2") == "LOADING 1 F001" and loads[-1] == 0,
+          "row 8 pad 5: the file loaded as it is on the Pi - twice (%s %s)" % (g("as1"), g("as2")))
+    check(all(g(k).startswith("TO THE PI: ") or g(k) in ("NOTHING WRITTEN TO SAVE", "NO PART: GIVE THE TRACK A ROLE (HOME 4 K2)") for k in ("pat", "prog")),
+          "pads 6 / 7: the track's pattern and the progression to the Pi, as SEQ + SAVE, ARP + SAVE (%s %s)" % (g("pat"), g("prog")))
+    check(g("gone") == "NOT ON THE PI NOW: F001", "a file loaded before that the Pi has no more: said so (%s)" % g("gone"))
+    # MOSSE: the phrase, MOVES AT, the genre and the key; HARMONY, LOCK, its bars. REGIA: the same rows
+    s = Script()
+    s.raw(100, "attach")
+    t = view(s, 200, GC_VPERF); t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)   # MOSSE
+    marks, n, at = {}, [0], {}
+    pad(11, 3, "b4"); s.at(t, "dump", 0); t += 20; mark("b4")              # row 4 pad 12: a phrase of 4 bars
+    pad(13, 3, "b16"); s.at(t, "dump", 0); t += 20
+    pad(9, 5, "qbar"); pad(10, 5, "qbeat"); pad(8, 5, "qph"); mark("q")   # row 6 pads 9-11: MOVES AT
+    pad(12, 5, "gen"); pad(14, 5, "key")                                  # 13 the genre +, 15 the key +: stopped, at once
+    s.tap_btn(t, PLAY); t += 300
+    pad(12, 5); pad(14, 5); s.at(t, "dump", 0); t += 20; mark("gk")       # playing: in the queue
+    s.tap_btn(t, PLAY); t += 200
+    pad(13, 6, "h1"); pad(14, 6, "lock"); pad(15, 6, "bars"); mark("harm") # row 7 pads 14-16: HARMONY, LOCK, the bars
+    s.raw(t, "sx 7D 53 47 54 01 00 02 00 00 00 00 00 00 00 00 00 00 00 00 00"); t += 50   # a regista on the Pi
+    t = view(s, t, GC_VPERF)                                               # REGIA
+    pad(12, 3, "rb8"); s.at(t, "dump", 0); t += 20; mark("regia")          # its row 4 pad 13: a phrase of 8
+    pad(0, 0, "rule")
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    v = log.viaggio
+    ok = len(G) == n[0] and len(v) == 4
+    check(ok, "MOSSE: %d probes, 4 dumps (%d %d)" % (n[0], len(G), len(v)))
+    if not ok:
+        return
+    check((g("b4"), v[0]["bars"], g("b16"), v[1]["bars"]) == ("PHRASE: BARS 4", 4, "PHRASE: BARS 16", 16) and L("b4", 11, 3) == GL_WHITE and L("b4", 12, 3) == GL_BLUE,
+          "MOSSE row 4 pads 12-14: the phrase of 4, 8, 16 bars (as GLO 3 K2) (%s %s %s)" % (g("b4"), g("b16"), [v[0]["bars"], v[1]["bars"]]))
+    check([g(k) for k in ("qbar", "qbeat", "qph")] == ["MOVES AT EVERY BAR", "MOVES AT EVERY BEAT", "MOVES AT THE PHRASE BOUNDARY"] and L("q", 8, 5) == GL_WHITE and L("q", 9, 5) == GL_DIM,
+          "row 6 pads 9-11: MOVES AT every bar, every beat, the phrase (%s)" % [g(k) for k in ("qbar", "qbeat", "qph")])
+    q = v[2]["queue"]
+    check(g("gen").startswith("GENRE ") and g("gen", "genre") != G[marks["gen"] - 1]["genre"] and g("key", "root") == "1"
+          and len(q) == 2 and L("gk", 11, 5) == GL_PEND and L("gk", 13, 5) == GL_PEND,
+          "pads 12-13: the genre - / +, 14-15: the key - / + - stopped at once, playing in the queue, the pads blink (%s %s %s)" % (g("gen"), g("key"), q))
+    check(g("h1", "harm") != G[marks["h1"] - 1]["harm"] and g("lock", "hlock") == "1" and g("lock", "harm") == "1" and g("bars", "hbars") != g("lock", "hbars")
+          and L("harm", 13, 6) == GL_ON and L("harm", 14, 6) == GL_ORANGE,
+          "row 7 pad 14: HARMONY on / off; 15 LOCK; 16 its bars a chord (%s)" % [(g(k, "harm"), g(k, "hlock"), g(k, "hbars")) for k in ("h1", "lock", "bars")])
+    check(g("rb8") == "PHRASE: BARS 8" and v[3]["bars"] == 8 and L("regia", 12, 3) == GL_WHITE and L("regia", 0, 0) == GL_ON and L("regia", 1, 0) == GL_DIM
+          and L("regia", 2, 0) == GL_PLAY and g("rule") == "REGIA RULE 1",
+          "REGIA rows 2-8 are the MOSSE's (0.9-0.31: dark); row 1 the regista's rules (%s %s %s)" % (g("rb8"), v[3]["bars"], g("rule")))
+    # FOLLOW, a knob that is no track's: ARP 5 (USER PROG) K4 its shape, ARP 6 K3 the chord's length - the pads past the black keys
+    s = Script()
+    s.raw(100, "attach")
+    t = 200
+    s.tap_btn(t, ARP); t += 100
+    for _ in range(4):
+        s.tap_btn(t, OCT_UP); t += 80                                      # ARP 5: USER PROG
+    s.enc(t, K3, 1); t += 60                                               # a chord on its first place (I)
+    t = view(s, t, GC_VSTEP, alt=True); t = view(s, t, GC_VSTEP, alt=True)   # FOLLOW
+    marks, n, at = {}, [0], {}
+    t += 200; mark("sh0"); P("sh0")
+    pad(11, 7, "shape"); mark("shape")                                     # row 8 pad 12: shape 28
+    s.tap_btn(t, OCT_UP); t += 300                                         # ARP 6
+    pad(11, 6, "len"); mark("len")                                         # row 7 pad 12: the chord's length 18
+    pad(11, 7, "push")                                                     # row 8 pad 12: PUSH (0-4): no such value
+    log = run(s, t + 100)
+    pr = probes(log)
+    G = [p["G"] for p in pr]
+    ok = len(G) == n[0]
+    check(ok, "FOLLOW: %d probes (%d)" % (n[0], len(G)))
+    if not ok:
+        return
+    check(L("sh0", 11, 7) not in (GL_OFF, GL_WHITE, None) and L("shape", 11, 7) == GL_WHITE and g("sh0", "uprog#") != g("shape", "uprog#")
+          and g("shape", "uprog#") != g("len", "uprog#"),
+          "ARP 5 K4, the shape: row 8 pads 11-16 its items 27-32 (0.12-0.31: dark); pad 12 taken (%s %s %s)" % (L("sh0", 11, 7), L("shape", 11, 7), g("shape")))
+    check(L("len", 11, 6) == GL_WHITE and L("len", 12, 6) not in (GL_OFF, GL_WHITE, None) and g("push").endswith(": NOT A VALUE OF IT"),
+          "ARP 6 K3, the chord's length: row 7 pads 11-16 the lengths 17 18 19 21 22 23; a list of five has no item 28 (%s %s)" % (g("len"), g("push")))
+
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -12570,7 +13170,8 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
-    t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig]
+    t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig,
+    t032_panel, t032_grid, t032_grid2, t032_grid3]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 
