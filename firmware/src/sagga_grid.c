@@ -35,7 +35,7 @@
 enum { GV_STEP = 0, GV_PERF, GV_TRACK, GV_CC, GV_LFO, GV_BEAT, GV_FX, GV_PROJ, GV_DRUM, GV_SONG, GV_TRACK2, GV_LIB,
        GV_EUCLID, GV_TRACK3, GV_VIAGGIO, GV_REGIA, GV_PICK, GV_COUNT };
 static const char *const GV_NAME[GV_COUNT] = {"STEP", "PERF", "TRACK", "CC", "LFO", "BEAT", "FX", "PROJ", "DRUM", "SONG",
-                                              "TRACK2", "LIB", "EUCLID", "TRACK3", "VIAGGIO", "REGIA", "FOLLOW"};   /* (0.18: PICK is FOLLOW) */
+                                              "TRACK2", "LIB", "EUCLID", "TRACK3", "MOSSE", "REGIA", "FOLLOW"};   /* (0.18: PICK is FOLLOW; 0.30: the VIAGGIO view is MOSSE) */
 
 /* LED roles: the bridge decides the colours (tools/sagga_grid_bridge.py, ROLE_RGB) */
 enum { GL_OFF = 0, GL_FAINT, GL_DIM, GL_ON, GL_ACCENT, GL_PLAY, GL_CURSOR, GL_BLUE,
@@ -306,8 +306,8 @@ static void gr_ctl(uint8_t id, uint8_t down)
     } else if (id >= GC_PAT0 && id < GC_PAT0 + 8u) {
         if (shift) gr_copy_pattern((uint8_t)(id - GC_PAT0));
         else queue_pattern(selected_track, (uint8_t)(id - GC_PAT0));
-    } else if (id >= GC_SCN0) {                            /* the scenes of the cursor's bank (0.9: 1-8 or 9-16) */
-        uint8_t sc = (uint8_t)((scene_cursor & 8u) + (id - GC_SCN0));
+    } else if (id >= GC_SCN0) {                            /* the scenes of the cursor's bank (0.9: 1-8 or 9-16; 0.30: .. 25-32) */
+        uint8_t sc = (uint8_t)(SCENE_BANK + (id - GC_SCN0));
         if (shift) capture_scene(sc);
         else scene_recall(sc);
     }
@@ -821,30 +821,39 @@ static uint8_t gr_song_entry_at(uint32_t bar)   /* the entry playing at bar `bar
     return 255u;
 }
 
+static uint32_t gr_song_page_bar(void)          /* 0.30: the bar the page's first entry starts on - rows 5-8 show 64 bars from there */
+{
+    uint32_t i, b = 0u, first = g_song_sel & ~15u;
+    for (i = 0; i < first && i < project.song.len; i++) b += project.song.e[i].bars;
+    return b;
+}
+
 static void gr_pad_song(uint8_t x, uint8_t y)
 {
     sq_song_t *sg = &project.song;
     if (g_song_sel > sg->len) g_song_sel = sg->len;
     switch (y) {
-    case 0: {                                             /* (0.9: 64 entries, 16 a page: the page of the one chosen) */
+    case 0: {                                             /* (16 entries a page: the page of the one chosen; 0.30: 128 entries, 8 pages) */
         uint8_t e = (uint8_t)((g_song_sel & ~15u) + x);
         if (e > sg->len || e >= SQ_SONG_LEN) break;
         if (gr_shift() && e < sg->len) { if (song_on) { song_wait = 0u; song_play_entry(e); song_status(); } else status_msg("SONG IS OFF"); }
         else { g_song_sel = e; status_num("SONG ENTRY ", (uint32_t)e + 1u); }
         break;
     }
-    case 1:
-        if (x >= SQ_SCENES) break;
-        if (g_song_sel >= sg->len) { song_append(x); g_song_sel = (uint8_t)(sg->len - 1u); }
-        else { sg->e[g_song_sel].scene = x; status_num("ENTRY SCENE ", (uint32_t)x + 1u); }
+    case 1: {                                             /* (0.30: SHIFT: the scenes 17-32) */
+        uint8_t sc = (uint8_t)(x + (gr_shift() ? 16u : 0u));
+        if (sc >= SQ_SCENES) break;
+        if (g_song_sel >= sg->len) { song_append(sc); g_song_sel = (uint8_t)(sg->len - 1u); }
+        else { sg->e[g_song_sel].scene = sc; status_num("ENTRY SCENE ", (uint32_t)sc + 1u); }
         break;
+    }
     case 2: song_set_bars(g_song_sel, GR_BARS[x]); break;
     case 3:
         if (x == 0u) song_toggle();
         else if (x == 1u) song_loop_toggle();
         else if (x == 2u) song_insert(g_song_sel);
         else if (x == 3u) song_delete(g_song_sel);
-        else if (x == 12u || x == 13u) {                  /* the page of entries: 1-16, 17-32, 33-48, 49-64 */
+        else if (x == 12u || x == 13u) {                  /* the page of entries: 1-16, 17-32 ... 113-128 (0.30) */
             int32_t base = (int32_t)(g_song_sel & ~15u) + (x == 12u ? -16 : 16);
             if (base < 0 || base > (int32_t)sg->len || base >= (int32_t)SQ_SONG_LEN) break;
             g_song_sel = (uint8_t)base;
@@ -853,7 +862,7 @@ static void gr_pad_song(uint8_t x, uint8_t y)
         else if (x == 15u && gr_shift()) { song_clear(); g_song_sel = 0u; }
         break;
     default: {
-        uint8_t e = gr_song_entry_at((uint32_t)(y - 4u) * 16u + x);
+        uint8_t e = gr_song_entry_at(gr_song_page_bar() + (uint32_t)(y - 4u) * 16u + x);   /* (0.30: from the page's first entry) */
         if (e == 255u) break;
         g_song_sel = e;
         if (song_on) { song_wait = 0u; song_play_entry(e); song_status(); }
@@ -925,14 +934,15 @@ static void gr_pad_fx(uint8_t x, uint8_t y, uint8_t down)
     } else if (y == 4u) {                               /* MORPH, from the scene playing (pad 1) to the target (16) */
         morph_set((uint8_t)((x * 127u + 7u) / 15u));
     } else if (y == 6u) {
-        if (x < 8u) morph_target(x);                    /* MORPH to scene 1-8 */
+        if (x < 8u) morph_target((uint8_t)(SCENE_BANK + x));   /* MORPH to a scene of the cursor's bank (0.30) */
         else if (x < 15u) quant_set((uint8_t)(x - 8u)); /* QUANTISE: AUTO NOW BEAT BAR 2 4 8 BARS */
         else mute_q_toggle();                           /* MUTE QUEUE */
     } else if (y == 7u) {
         if (x == 1u) reload_request();                  /* RELOAD the patterns playing on the scope */
         else if (x == 2u) restart_all();
         else if (x == 3u) stop_bar_toggle();
-        else if (x >= 4u && x < 12u) { if (gr_shift()) snap_store((uint8_t)(x - 4u)); else snap_recall((uint8_t)(x - 4u)); }   /* 0.8 */
+        else if (x >= 4u && x < 12u) { if (gr_shift()) snap_store((uint8_t)(snap_bank + x - 4u)); else snap_recall((uint8_t)(snap_bank + x - 4u)); }   /* 0.8 (0.30: the bank) */
+        else if (x == 12u && gr_shift()) snap_bank_set(snap_bank ? 0u : 8u);   /* 0.30: SHIFT + 13, the other eight snapshots */
         else if (x == 12u) snap_capture_toggle();
         else if (x == 13u) snap_send();
         else if (x == 14u) snap_patches();
@@ -969,7 +979,7 @@ static void gr_pad_proj(uint8_t x, uint8_t y)
             project.live.remote_mode = (uint8_t)((project.live.remote_mode + 1u) % SQ_RMS);
             project.live.remote_ch = project.live.remote_mode == SQ_RM_OFF ? (uint8_t)SQ_REMOTE_OFF : 13u;
             status_msg(project.live.remote_mode == SQ_RM_OFF ? "REMOTE OFF: CH 13 AND 14 ARE TRACK CHANNELS" :
-                       project.live.remote_mode == SQ_RM_14 ? "REMOTE ON CH 14" : "REMOTE ON CH 14 + VIAGGIO ON CH 13");
+                       project.live.remote_mode == SQ_RM_14 ? "REMOTE ON CH 14" : "REMOTE ON CH 14 + PAGES ON CH 13");
         }
         else if (x == 13u) key_bake();
         else if (x == 14u) {                            /* every track but the drum tracks follows the key */
@@ -1021,7 +1031,8 @@ static void gr_pad_track2(uint8_t x, uint8_t y)
         uint8_t pc = (uint8_t)(v - 1u);
         scene_pc_set(g_pc_scene, ch, project.scene[g_pc_scene].pc[ch] == pc ? -1 : (int32_t)pc);
     } else if (y == 4u) {
-        if (x < SQ_SCENES) { g_pc_scene = x; status_num("PROGRAMS OF SCENE ", (uint32_t)x + 1u); }
+        if (x < 8u) { g_pc_scene = (uint8_t)(SCENE_BANK + x); status_num("PROGRAMS OF SCENE ", (uint32_t)g_pc_scene + 1u); }   /* (0.30: the cursor's bank;
+                                                          * pad 16 sends again - with 16 scenes it was the 16th) */
         else if (x == 15u) {
             memset(pc_last, 255, sizeof pc_last);       /* (sent again even where it is) */
             scene_send_pc(g_pc_scene);
@@ -1742,8 +1753,10 @@ static void gr_render_song(void)
         if (e == g_song_sel) role = GL_CURSOR;
         gr_put(x, 0, role);
     }
-    for (x = 0; x < SQ_SCENES; x++)
-        gr_put(x, 1, g_song_sel < sg->len && sg->e[g_song_sel].scene == x ? GL_WHITE : GL_DIM);
+    {   /* the entry's scene: 1-16, SHIFT 17-32 (0.30); in the other half, blue where it is */
+        uint32_t half = gr_shift() ? 16u : 0u, sc = g_song_sel < sg->len ? sg->e[g_song_sel].scene : 255u;
+        for (x = 0; x < 16u; x++) gr_put(x, 1, sc == half + x ? GL_WHITE : sc == (half ^ 16u) + x ? GL_BLUE : GL_DIM);
+    }
     if (g_song_sel < sg->len) gr_bar(2, 0, 16, gr_nearest_u(GR_BARS, 16u, sg->e[g_song_sel].bars), GL_ON, GL_WHITE);
     gr_put(0, 3, song_on ? GL_PLAY : GL_DIM);
     gr_put(1, 3, sg->loop ? GL_ON : GL_FAINT);
@@ -1752,8 +1765,9 @@ static void gr_render_song(void)
     gr_put(12, 3, g_song_sel >= 16u ? GL_BLUE : GL_FAINT);
     gr_put(13, 3, (g_song_sel & ~15u) + 16u <= sg->len && (g_song_sel & ~15u) + 16u < SQ_SONG_LEN ? GL_BLUE : GL_FAINT);
     gr_put(15, 3, gr_shift() ? GL_PLAY : GL_FAINT);
+    bar = gr_song_page_bar();                                         /* (0.30: 64 bars from the page's first entry) */
     for (y = 0; y < 4u; y++) for (x = 0; x < 16u; x++) {
-        uint32_t b = y * 16u + x;
+        uint32_t b = bar + y * 16u + x;
         uint8_t e = gr_song_entry_at(b), role = e == 255u ? GL_OFF : ECOL[e & 3u];
         if (e != 255u && e == g_song_sel) role = GL_DIM;
         if (b == playbar) role = GL_PLAY;
@@ -1781,7 +1795,7 @@ static void gr_render_fx(void)
     gr_put(15, 1, loop_on ? GL_PLAY : GL_FAINT);                                          /* EXIT */
     gr_put(13, 1, echo_global ? GL_PLAY : GL_BLUE);                                       /* 0.8: ECHO */
     for (x = 0; x < 8u; x++) {
-        gr_put(x, 6, project.live.morph_b == x ? GL_WHITE : scene_cursor == x ? GL_ON : GL_DIM);   /* MORPH to */
+        gr_put(x, 6, project.live.morph_b == SCENE_BANK + x ? GL_WHITE : scene_cursor == SCENE_BANK + x ? GL_ON : GL_DIM);   /* MORPH to */
         gr_put(8u + x, 6, x == 7u ? (project.live.mute_q ? GL_ORANGE : GL_FAINT) : project.live.quant == x ? GL_WHITE : GL_BLUE);
     }
     gr_bar(4, 0, 16, ((int32_t)morph_pos * 15 + 63) / 127, GL_VIOLET, GL_WHITE);          /* MORPH */
@@ -1789,9 +1803,11 @@ static void gr_render_fx(void)
     gr_put(1, 7, rl_state ? GL_PEND : rl_src != 255u ? GL_ORANGE : GL_FAINT);              /* RELOAD */
     gr_put(2, 7, restart_pend ? GL_PEND : playing ? GL_ORANGE : GL_FAINT);                 /* RESTART */
     gr_put(3, 7, stop_at_bar ? GL_PEND : playing ? GL_MUTED : GL_FAINT);                   /* STOP at the end of the bar */
-    for (x = 0; x < SQ_SNAPS; x++)                                                         /* 0.8: SNAPSHOTS */
-        gr_put(4u + x, 7, snap_pend == x ? GL_PEND : snap_cur == x && project.snap[x].used ? GL_PLAY : project.snap[x].used ? GL_CYAN : gr_shift() ? GL_ORANGE : GL_FAINT);
-    gr_put(12, 7, snap_capture ? GL_PEND : GL_VIOLET);
+    for (x = 0; x < 8u; x++) {                                                             /* 0.8: SNAPSHOTS (0.30: the bank) */
+        uint32_t n = snap_bank + x;
+        gr_put(4u + x, 7, snap_pend == n ? GL_PEND : snap_cur == n && project.snap[n].used ? GL_PLAY : project.snap[n].used ? GL_CYAN : gr_shift() ? GL_ORANGE : GL_FAINT);
+    }
+    gr_put(12, 7, snap_capture ? GL_PEND : gr_shift() ? (snap_bank ? GL_BLUE : GL_YELLOW) : GL_VIOLET);   /* (SHIFT: the bank - blue 9-16) */
     gr_put(13, 7, snap_cur < SQ_SNAPS ? GL_ON : GL_FAINT);
     gr_put(14, 7, snap_cur < SQ_SNAPS ? GL_YELLOW : GL_FAINT);
     gr_put(15, 7, GL_PLAY);
@@ -1841,7 +1857,8 @@ static void gr_render_track2(void)
     uint8_t ch = track_ch(t), pc = project.scene[g_pc_scene].pc[ch];
     for (k = 0; k < SQ_PLANES; k++) for (x = 0; x < 16u; x++) gr_put(x, k, gr_len_role(cfg->plen[k], x));
     for (x = 0; x < 16u; x++) gr_put(x, 3, pc > 127u ? GL_FAINT : gr_len_role((uint32_t)pc + 1u, x));
-    for (x = 0; x < SQ_SCENES; x++) gr_put(x, 4, g_pc_scene == x ? GL_WHITE : scene_cursor == x ? GL_ON : GL_DIM);
+    for (x = 0; x < 8u; x++) gr_put(x, 4, g_pc_scene == SCENE_BANK + x ? GL_WHITE : scene_cursor == SCENE_BANK + x ? GL_ON : GL_DIM);   /* (0.30: the bank) */
+    gr_put(15, 4, GL_BLUE);                                                               /* (send them now) */
     gr_put(15, 4, GL_ORANGE);
     for (k = 0; k < SQ_PLANES; k++) {
         uint8_t l = sq_plane_len(cfg, (uint8_t)k), pos = l ? (uint8_t)(tr[t].ppos[k] % l) : 0u;
@@ -1892,7 +1909,7 @@ static void gr_render_ctl(void)
                              : !track_audible(t) ? GL_MUTED : bank ? GL_BLUE : GL_DIM;
         g_cwant[GC_PAT0 + i] = tr[selected_track].pattern == i ? GL_ON
                              : tr[selected_track].pending_pattern == i ? GL_PEND : sh ? GL_ORANGE : GL_FAINT;
-        g_cwant[GC_SCN0 + i] = pending_scene == (scene_cursor & 8u) + i ? GL_PEND : scene_cursor == (scene_cursor & 8u) + i ? GL_ON : sh ? GL_ORANGE : GL_FAINT;
+        g_cwant[GC_SCN0 + i] = pending_scene == SCENE_BANK + i ? GL_PEND : scene_cursor == SCENE_BANK + i ? GL_ON : sh ? GL_ORANGE : GL_FAINT;
     }
 }
 

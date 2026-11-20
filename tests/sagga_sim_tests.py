@@ -181,6 +181,10 @@ class Log:
                           fb=[int(x) for x in m.group(7).split()], modfx=int(m.group(8)))   # 0.20: the new five [effect - 5], the order
                      for m in re.finditer(r"^\s*(\d+) ms  mfxd T(\d+) on (\d+) order((?: \d+)+) amt((?: -?\d+)+) time((?: \d+)+) fb((?: \d+)+) modfx (-?\d+)$",
                                           text, re.M)]
+        self.x30 = [dict(t=int(m.group(1)), cursor=int(m.group(2)), snapbank=int(m.group(3)), scenes=m.group(4), snaps=m.group(5),
+                         undo=int(m.group(6)), tape=int(m.group(7)), song=int(m.group(8)), songsc=[int(x) for x in m.group(9).split()])   # 0.30
+                    for m in re.finditer(r"^\s*(\d+) ms  x30 cursor (\d+) snapbank (\d+) scenes ([.x]+) snaps ([.x]+) undo (\d+) tape (\d+) song (\d+):((?: \d+)*)$",
+                                         text, re.M)]
         self.viaggio = [dict(t=int(m.group(1)), on=int(m.group(2)), bar=int(m.group(3)), bars=int(m.group(4)), energy=int(m.group(5)),
                              target=int(m.group(6)), genre=int(m.group(7)), mute=int(m.group(8), 16), speed=int(m.group(9)), rec=int(m.group(10)),
                              states=m.group(11), queue=m.group(12).split(), trail=int(m.group(13)), patterns=m.group(14), song=int(m.group(15)))
@@ -4082,7 +4086,7 @@ def t09_viaggio_moves():
     check(v[1]["queue"] == ["BACK/1/0"] and log.states[1]["msg"] == "QUEUED: BACK 1 PHRASE" and v[2]["queue"] == ["BACK/1/0"],
           "black 9: BACK 1 queued; again: still 1, the trail has no more (%s)" % v[2]["queue"])
     check(v[3]["states"][:2] == "IO" and v[3]["mute"] == 2 and v[3]["trail"] == 1, "at the boundary the first phrase is back: track 2 out (%s, trail %d)" % (v[3]["states"][:2], v[3]["trail"]))
-    check(v[4]["song"] == 1 and log.states[4]["msg"].startswith("JOURNEY SAVED: 1 SCENES"), "SAVE + white 16: the trail becomes scenes and the song (%s)" % log.states[4]["msg"])
+    check(v[4]["song"] == 1 and log.states[4]["msg"].startswith("SET SAVED: 1 SCENES"), "SAVE + white 16: the trail becomes scenes and the song (%s)" % log.states[4]["msg"])
 
 
 def t09_viaggio_loop_genre_remote():
@@ -6067,7 +6071,7 @@ def t012_break():
 
 
 def remote13_on(s, t):
-    """SAVE + K2 once: REMOTE ON CH 14 + VIAGGIO ON CH 13 (0.12: the Pi's new pages speak on 13, CC 33 and up, and notes)"""
+    """SAVE + K2 once: REMOTE ON CH 14 + PAGES ON CH 13 (0.30: was VIAGGIO ON CH 13; 0.12: the Pi's new pages speak on 13, CC 33 and up, and notes)"""
     s.press(t, SAVE); s.enc(t + 30, K2, 1); s.release(t + 100, SAVE)
     return t + 160
 
@@ -7653,7 +7657,7 @@ def t017_mosse():
     check(v[2]["mute"] == 0x0FFD and not log.notes(ch=0, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10)
           and log.notes(ch=1, after=t0 + 4 * BAR_MS + 10, before=t0 + 5 * BAR_MS - 10), "bar 5: track 2 alone (%04X)" % v[2]["mute"])
     check(v[3]["mute"] == 0 and log.notes(ch=0, after=t0 + 5 * BAR_MS + 10), "bar 6: both again (%04X)" % v[3]["mute"])
-    check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("JOURNEY SAVED"),
+    check(v[4]["song"] >= 1 and v[4]["trail"] >= 2 and log.states[4]["msg"].startswith("SET SAVED"),
           "SAVE + white 16 with the MOSSE never opened: the phrases played are scenes and the song (%s)" % log.states[4]["msg"])
     # SEL + GLO: PERF on page 3; the black keys are the moves there (black 10 cancels the last), the scenes on pages 1-2;
     # SEL + GLO from another page: the MOSSE again; on them: the studio
@@ -8209,7 +8213,7 @@ def t029_more():
 
 
 def t029_viaggio_progs():
-    group("0.29 the grid's VIAGGIO view, row 7: pads 1-8 the genre's eight progressions, 9-12 yours, 13 DICE/PI (named as the "
+    group("0.29 the grid's MOSSE view (VIAGGIO until 0.29), row 7: pads 1-8 the genre's eight progressions, 9-12 yours, 13 DICE/PI (named as the "
           "dice's slot: it read the first user slot's name)")
     s = Script()
     s.raw(100, "attach")
@@ -10926,11 +10930,11 @@ def t026_gaps():
     remote(s, 400, 29); s.raw(500, "probe")
     remote(s, 600, 28); s.raw(700, "probe")
     remote(s, 800, 28); remote(s, 900, 28); s.raw(1000, "probe")
-    for k in range(17): remote(s, 1100 + 60 * k, 29)
-    s.raw(2300, "probe")
-    log = run(s, 2500)
+    for k in range(33): remote(s, 1100 + 40 * k, 29)
+    s.raw(2500, "probe")
+    log = run(s, 2700)
     sc = [int(x["G"]["scene"]) for x in probes(log)]
-    check(sc == [0, 1, 2, 1, 0, 15], "the remote's CC 29 and 28: the scene after, the scene before - not before the first, not past the sixteenth (%s)" % sc)
+    check(sc == [0, 1, 2, 1, 0, 31], "the remote's CC 29 and 28: the scene after, the scene before - not before the first, not past the last (0.30: the thirty-second) (%s)" % sc)
 
 
 def t026_octave_patterns():
@@ -12052,6 +12056,197 @@ def t0281_proposal_start():
               "QUANTISE %s: START 2, then the proposal P2 plays from step 1 of its loop, where the bar says - at every 10 ms of a bar (%s -> %s, off at %s)"
               % (name, {k: a.get(k) for k in ("start", "pat", "ok")}, {k: b.get(k) for k in ("start", "pat", "ok", "step")}, late[:3]))
 
+
+def t030_banks():
+    group("0.30 THIRTY-TWO SCENES, SIXTEEN SNAPSHOTS, A SONG OF 128, UNDO 32: PERF PRESETS takes the scene cursor to 32 and the black "
+          "keys follow its bank of eight (store, recall, the song); SAVE + white 9 / 10 the snapshots 1-8 / 9-16; the grid's SONG pages "
+          "up to 128 and its row 2 with SHIFT (17-32), TRACK 2 row 5, FX rows 7 and 8 (SHIFT + pad 13: the other eight snapshots), "
+          "the remote's MORPH TO; 32 edits for UNDO; all of it saved, and there after a power cycle")
+    d = tempfile.mkdtemp()
+    flash = os.path.join(d, "flash.bin")
+    s = Script()
+    s.tap_key(100, wk(0))                                                  # pattern 1: step 1
+    s.enc(200, E_PRE, 1); s.tap_key(300, wk(4))                            # pattern 2: step 5 (track 1 plays pattern 2)
+    s.tap_btn(400, GLO)                                                    # PERF
+    s.enc(500, E_PRE, 16)                                                  # the scene cursor on 17: black 1-8 are 17-24
+    s.press(600, SEL); s.tap_key(630, bk(0)); s.release(700, SEL)          # SEL + black 1: scene 17
+    s.at(760, "dump", 0)                                                   # [0]
+    s.enc(800, E_PRE, 40)                                                  # PRESETS past the end: 32 (black 8 of 25-32)
+    s.press(900, SEL); s.tap_key(930, bk(7)); s.release(1000, SEL)         # SEL + black 8: scene 32
+    s.at(1060, "dump", 0); s.at(1080, "leds")                              # [1]
+    s.tap_btn(1200, GLO); s.enc(1300, E_PRE, -1)                           # out of PERF: track 1 back on pattern 1
+    s.tap_btn(1400, GLO); s.tap_key(1500, bk(7)); s.at(1560, "dump", 0)    # [2] black 8: scene 32 - pattern 2 again
+    # the song: HOME + black 1 / black 8 in turn - scenes 25 and 32 - 129 times: 128 entries, then SONG FULL (128)
+    s.press(1600, HOME)
+    t = 1650
+    for i in range(129):
+        s.tap_key(t, bk(0) if i % 2 == 0 else bk(7), hold=30); t += 70
+    s.release(t, HOME); t += 60
+    s.at(t, "dump", 0); t += 60                                            # [3]
+    # the grid's SONG view: eight pages of 16; a ninth is not there
+    s.raw(t, "attach"); t += 50                                            # (a bridge silent 3.5 s is gone: here again)
+    t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)                     # PERF, SONG
+    for i in range(8):
+        s.pad(t, 13, 3); t += 100
+    s.at(t, "dump", 0); t += 40                                            # [4]
+    s.pad(t, 4, 4); t += 100                                               # row 5 pad 5: the bars from entry 113 on - bar 5 is entry 114's
+    s.at(t, "dump", 0); t += 40                                            # [5]
+    t_song = t
+    s.tap_btn(t, GLO); t += 100                                            # out of PERF
+    # the snapshots: SAVE + white 10, SAVE + SEL + black 1: snapshot 9
+    s.press(t, SAVE); s.tap_key(t + 30, wk(9)); s.at(t + 90, "leds")
+    s.press(t + 120, SEL); s.tap_key(t + 150, bk(0)); s.release(t + 220, SEL); s.release(t + 260, SAVE); t += 320
+    s.at(t, "dump", 0); t += 40                                            # [6]
+    s.enc(t, E_PRE, -1); t += 60                                           # pattern 1
+    s.press(t, SAVE); s.tap_key(t + 30, bk(0)); s.release(t + 100, SAVE); t += 160    # SAVE + black 1: snapshot 9 back
+    s.at(t, "dump", 0); t += 40                                            # [7]
+    s.press(t, SAVE); s.tap_key(t + 30, wk(8)); s.tap_key(t + 90, bk(0)); s.release(t + 160, SAVE); t += 220   # white 9, black 1: snapshot 1
+    s.at(t, "dump", 0); t += 40                                            # [8]
+    # UNDO: 34 INVERTs, then UNDO - the ring holds 32
+    for i in range(34):
+        s.press(t, SEQ); s.tap_key(t + 40, wk(14)); s.release(t + 120, SEQ); t += 200
+    s.at(t, "dump", 0); t += 40                                            # [9]
+    s.press(t, SEQ); s.tap_key(t + 40, wk(7)); s.release(t + 120, SEQ); t += 200
+    s.at(t, "dump", 0); t += 40                                            # [10]
+    # the remote's MORPH TO (channel 14 CC 2): 31 is scene 32
+    remote(s, t, 2, 31); t += 60
+    s.at(t, "dump", 0); t += 40                                            # [11]
+    s.tap_btn(t, GLO); s.tap_key(t + 100, wk(1)); s.tap_btn(t + 200, GLO); t += 300   # PERF white 2: track 2 muted
+    s.tap_btn(t + 100, SAVE); s.tap_btn(t + 400, SAVE); t += 1200          # SAVE: slot 1
+    log = run(s, t + 100, flash=flash)
+    x, st, dp = log.x30, states(log), log.dumps
+    ok = len(x) == 12 and len(st) == 12 and len(dp) == 12
+    check(ok, "twelve dumps (%d %d %d)" % (len(x), len(st), len(dp)))
+    if not ok:
+        return
+    leds = [l for _, l in log.key_leds()]
+    check(x[0]["cursor"] == 16 and x[0]["scenes"] == "." * 16 + "x" + "." * 15 and st[0]["msg"] == "SCENE STORED 17",
+          "PERF, PRESETS +16: the cursor on 17; SEL + black 1 stores scene 17 (%s %s)" % (x[0]["scenes"], st[0]["msg"]))
+    check(x[1]["cursor"] == 31 and x[1]["scenes"] == "." * 16 + "x" + "." * 14 + "x" and st[1]["msg"] == "SCENE STORED 32",
+          "PRESETS past the end stops on 32; SEL + black 8 stores scene 32 (%s %s)" % (x[1]["scenes"], st[1]["msg"]))
+    check(leds and leds[0][BLACK[7]] == "X" and leds[0][BLACK[0]] == ".", "in PERF black 8 is lit: scene 32 is the cursor (%s)" % (leds[:1],))
+    check(dp[2]["pat"] == 2, "black 8 brings scene 32 back: track 1 on pattern 2 (P%d %s)" % (dp[2]["pat"], st[2]["msg"]))
+    check(x[3]["song"] == 128 and x[3]["songsc"] == [24, 31] * 64 and st[3]["msg"] == "SONG FULL (128)",
+          "HOME + black 1 / black 8 in the bank 25-32: 128 entries of scenes 25 and 32, the 129th: SONG FULL (128) (%d %s %s)" % (
+              x[3]["song"], x[3]["songsc"][:4], st[3]["msg"]))
+    check(st[4]["msg"] == "SONG ENTRIES FROM 113", "the grid's SONG view: seven pages on, entries 113-128; the eighth press finds no more (%s)" % st[4]["msg"])
+    check(st[5]["msg"] == "SONG ENTRY 114", "rows 5-8 show the bars from the page's first entry (0.30; until 0.29 the song's first 64 bars): on entries 113-128, bar 5 is entry 114 (%s)" % st[5]["msg"])
+    pads, _ = log.leds(until=t_song)
+    check(pads.get(16 + 15) == GL_BLUE and pads.get(16 + 8) == GL_DIM, "row 2 shows scenes 1-16: entry 114 is scene 32, blue on pad 16 - the other half (%s)" % pads.get(16 + 15))
+    check(pads.get(4 * 16 + 4) == GL_DIM and pads.get(4 * 16 + 0) == GL_ON, "row 5: entry 114's bars dim (the one chosen), entry 113's in its colour (%s %s)" % (pads.get(4 * 16 + 4), pads.get(4 * 16)))
+    check(leds and len(leds) >= 2 and leds[1][WHITE[9]] == "X" and leds[1][WHITE[8]] == ".", "SAVE + white 10: the white 10 lit, the 9 dark (%s)" % (leds[1:2],))
+    check(x[6]["snaps"] == "." * 8 + "x" + "." * 7 and x[6]["snapbank"] == 8 and st[6]["msg"] == "SNAPSHOT STORED 9",
+          "SAVE + white 10, SAVE + SEL + black 1: snapshot 9 (%s bank %d %s)" % (x[6]["snaps"], x[6]["snapbank"], st[6]["msg"]))
+    check(dp[7]["pat"] == 2 and st[7]["msg"] == "SNAPSHOT 9", "SAVE + black 1 in the bank 9-16: snapshot 9 back, pattern 2 (P%d %s)" % (dp[7]["pat"], st[7]["msg"]))
+    check(x[8]["snapbank"] == 0 and st[8]["msg"] == "EMPTY: SAVE+SEL+BLACK STORES SNAPSHOT 1", "SAVE + white 9, black 1: snapshot 1, empty (%d %s)" % (x[8]["snapbank"], st[8]["msg"]))
+    check(x[9]["undo"] == 32 and st[10]["msg"] == "UNDO  31 MORE", "34 edits: the UNDO keeps the last 32 - UNDO, 31 more (%d %s)" % (x[9]["undo"], st[10]["msg"]))
+    check(st[11]["msg"] == "MORPH TO SCENE 32", "the remote's CC 2 = 31: MORPH TO SCENE 32 (%s)" % st[11]["msg"])
+    check(len(log.saves) == 1, "SAVE, SAVE: the slot is written (%s)" % log.saves)
+    # a power cycle: the scenes, the snapshots, the song of 128 are there; the cursor on 32 and track 2 muted, as saved
+    # (0.30: as a LOAD has them - until 0.29 a power-up left the cursor on scene 1 and every track audible)
+    s = Script()
+    s.at(300, "dump", 0)
+    s.tap_btn(400, GLO); s.tap_key(500, bk(0)); s.at(560, "dump", 0)       # black 1: scene 25 (empty: pattern 1)
+    s.tap_key(600, bk(7)); s.at(660, "dump", 0)                            # black 8: scene 32, pattern 2
+    log2 = run(s, 800, flash=flash)
+    y, dp2 = log2.x30, log2.dumps
+    check(len(y) == 3 and y[0]["scenes"] == x[1]["scenes"] and y[0]["snaps"] == x[6]["snaps"] and y[0]["song"] == 128
+          and y[0]["songsc"] == [24, 31] * 64 and y[0]["undo"] == 0,
+          "after a power cycle: scenes 17 and 32, snapshot 9, the 128 entries (%s)" % (
+              {k: y[0][k] for k in ("cursor", "scenes", "snaps", "song", "undo")} if y else None))
+    check(len(y) == 3 and y[0]["cursor"] == 31 and log2.viaggio and log2.viaggio[0]["mute"] == 0x0002,
+          "... the scene cursor on 32 and track 2 muted, as saved - as a LOAD (until 0.29 a power-up forgot both) (%s %s)" % (
+              y[0]["cursor"] if y else None, "%04X" % log2.viaggio[0]["mute"] if log2.viaggio else None))
+    check(len(dp2) == 3 and dp2[1]["pat"] == 1 and dp2[2]["pat"] == 2, "... PERF black 8 brings scene 32 back, black 1 the empty 25 (%s)" % [d_["pat"] for d_ in dp2])
+    # the grid: FX view - SHIFT + row 8 pad 13 the snapshots 9-16; SHIFT + pad 5 stores 9, pad 5 brings it back; row 7 MORPH TO
+    # the cursor's bank; SONG row 2 with SHIFT: scenes 17-32; TRACK 2 row 5: the programs of the bank's scenes
+    s = Script()
+    t = s.steps(100, [0])
+    s.raw(t, "attach"); t = view(s, t + 100, GC_UNDO, alt=True)            # FX
+    shift(s, t, 1); s.pad(t + 20, 12, 7); s.at(t + 80, "dump", 0)          # [0] SHIFT + pad 13: 9-16
+    t_sh = t + 110                                                         # (SHIFT held: pad 13 shows the bank)
+    s.pad(t + 120, 4, 7); shift(s, t + 200, 0); t += 260                    # SHIFT + pad 5: snapshot 9
+    s.at(t, "dump", 0); t += 40                                            # [1]
+    t_fx = t
+    s.enc(t, E_PRE, 1); t += 60                                            # pattern 2
+    s.pad(t, 4, 7); t += 100                                               # pad 5: snapshot 9 back (pattern 1)
+    s.at(t, "dump", 0); t += 40                                            # [2]
+    s.tap_btn(t, GLO); s.enc(t + 50, E_PRE, 9); s.tap_btn(t + 100, GLO); t += 200   # the scene cursor on 10: the bank 9-16
+    s.pad(t, 3, 6); t += 100                                               # FX row 7 pad 4: MORPH TO scene 12
+    s.at(t, "dump", 0); t += 40                                            # [3]
+    t = view(s, t, GC_VPERF); t = view(s, t, GC_VPERF)                     # SONG
+    shift(s, t, 1); s.pad(t + 20, 15, 1); shift(s, t + 100, 0); t += 160   # SHIFT + row 2 pad 16: entry 1, scene 32
+    s.pad(t, 1, 0); s.pad(t + 60, 0, 1); t += 160                          # entry 2: scene 1
+    s.pad(t, 0, 0); t += 100                                               # entry 1 again
+    t_song = t
+    shift(s, t, 1); t += 80
+    t_shift = t
+    shift(s, t, 0); t += 40
+    s.at(t, "dump", 0); t += 40                                            # [4]
+    t = view(s, t, GC_VTRACK); t = view(s, t, GC_VTRACK)                   # TRACK 2
+    s.pad(t, 7, 4); t += 100                                               # row 5 pad 8: scene 16 (the bank 9-16)
+    s.at(t, "dump", 0); t += 40                                            # [5]
+    log = run(s, t + 100)
+    x, st, dp = log.x30, states(log), log.dumps
+    ok = len(x) == 6 and len(st) == 6
+    check(ok, "six dumps (%d %d)" % (len(x), len(st)))
+    if not ok:
+        return
+    pads1, _ = log.leds(until=t_sh)
+    check(x[0]["snapbank"] == 8 and st[0]["msg"] == "SNAPSHOTS 9-16: SAVE + BLACK 1-8", "FX view, SHIFT + row 8 pad 13: snapshots 9-16 (%d %s)" % (x[0]["snapbank"], st[0]["msg"]))
+    check(x[1]["snaps"] == "." * 8 + "x" + "." * 7 and st[1]["msg"] == "SNAPSHOT STORED 9", "SHIFT + pad 5: snapshot 9 stored (%s %s)" % (x[1]["snaps"], st[1]["msg"]))
+    check(pads1.get(7 * 16 + 12) == GL_BLUE, "SHIFT held: pad 13 blue - the bank 9-16 (%s)" % pads1.get(7 * 16 + 12))
+    check(dp[2]["pat"] == 1 and st[2]["msg"] == "SNAPSHOT 9", "pad 5 brings snapshot 9 back: pattern 1 (P%d %s)" % (dp[2]["pat"], st[2]["msg"]))
+    check(st[3]["msg"] == "MORPH TO SCENE 12", "FX row 7 pad 4 with the cursor in 9-16: MORPH TO SCENE 12 (%s)" % st[3]["msg"])
+    pa, _ = log.leds(until=t_song)
+    pb, _ = log.leds(until=t_shift)
+    check(x[4]["song"] == 2 and x[4]["songsc"] == [31, 0], "SONG: SHIFT + row 2 pad 16 adds scene 32, pad 1 scene 1 (%s)" % x[4]["songsc"])
+    check(pa.get(16 + 15) == GL_BLUE and pb.get(16 + 15) == GL_WHITE, "entry 1's scene on row 2: blue on pad 16 (in 17-32), white with SHIFT held (%s %s)" % (pa.get(16 + 15), pb.get(16 + 15)))
+    check(st[5]["msg"] == "PROGRAMS OF SCENE 16", "TRACK 2 row 5 pad 8 with the cursor in 9-16: the programs of scene 16 (%s)" % st[5]["msg"])
+
+
+def t030_tape():
+    group("0.30 THE TAPES HOLD 3072 EVENTS (1536 until 0.29): 1600 notes played in on a TAPE track of 16 bars are all kept; "
+          "past 3072, TAPE FULL")
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])                                          # HOME 4 K1: FREE -> IN KEY -> DRUM -> TAPE
+    t = home_page(s, t, 6, [(K3, 12)], cur=2)                          # HOME 7 K3: TAPE BARS 4 -> 16
+    s.tap_btn(t, REC); t += 100
+    t0 = t
+    s.tap_btn(t0, PLAY); t = t0 + 50
+    for i in range(1600):                                              # 1600 notes, 8 ms apart
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 100" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.at(t + 40, "dump", 0); t += 80
+    for i in range(1500):                                              # 1500 more: 3100 in all
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 90" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.at(t + 40, "dump", 0)
+    log = run(s, t + 200)
+    tp = [x for x in log.tapes if x["track"] == 1]
+    st = states(log)
+    check(len(tp) == 2 and tp[0]["n"] == 1600 and tp[0]["bars"] == 16, "1600 notes on a TAPE of 16 bars: all 1600 kept (%s)" % [(x["n"], x["bars"]) for x in tp])
+    check(len(tp) == 2 and tp[1]["n"] == 3072 and st and st[-1]["msg"] == "TAPE FULL", "3100 played: 3072 kept, TAPE FULL (%s %s)" % (
+        [x["n"] for x in tp], st[-1]["msg"] if st else None))
+    check(log.x30 and log.x30[-1]["tape"] == 3072, "the project's tape: 3072 events (%s)" % (log.x30[-1]["tape"] if log.x30 else None))
+    # DOUBLE (SEQ + white 13) on a tape of 8 bars with 1000 notes: 16 bars, 2000 notes (0.29: TAPE FULL past 1536)
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])
+    t = home_page(s, t, 6, [(K3, 4)], cur=2)                           # TAPE BARS 4 -> 8
+    s.tap_btn(t, REC); t += 100
+    t0 = t
+    s.tap_btn(t0, PLAY); t = t0 + 50
+    for i in range(1000):
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 100" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.tap_btn(t + 20, REC); t += 100                                   # REC off
+    s.press(t, SEQ); s.tap_key(t + 40, wk(13)); s.release(t + 120, SEQ); t += 200   # DOUBLE (white 14)
+    s.at(t, "dump", 0)
+    log = run(s, t + 200)
+    tp = [x for x in log.tapes if x["track"] == 1]
+    check(tp and tp[-1]["n"] == 2000 and tp[-1]["bars"] == 16 and states(log)[-1]["msg"] == "TAPE DOUBLED: BARS 16",
+          "DOUBLE on 8 bars and 1000 notes: 16 bars, 2000 notes (%s %s)" % ([(x["n"], x["bars"]) for x in tp], states(log)[-1]["msg"] if states(log) else None))
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -12073,7 +12268,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t026_engines, t026_tune_answers, t026_gaps, t026_octave_patterns, t026_lfo_dests, t026_song_entries, t026_cook_lfo, t026_tablet_retrig, t026_take_poly,
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
-    t029_viaggio_progs]
+    t029_viaggio_progs, t030_banks, t030_tape]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

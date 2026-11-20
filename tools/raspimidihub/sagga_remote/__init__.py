@@ -103,7 +103,7 @@ class SaggaRemote(ControllerBase):
     NAME = "SAGGA Remote"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): transport, LOOP / REPEAT, scenes, snapshots, MORPH, macros, TRANSPOSE on ch 14"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.12"
+    VERSION = "0.30"
     HELP = """\
 The live commands of SAGGA SEQ 0.8 on the M-VAVE FM-1, as Control Changes on MIDI channel 14. Wire this plugin's
 OUT to the FM-1 in the matrix (with USB PORTS 2: to its port 2, "Felucca MIDI 2").
@@ -112,8 +112,8 @@ PLAY/STOP, CONTINUE, STOP @BAR (the end of the bar; again: no), RESTART (every t
 moment). FILL and TEMP are on until you press them again (on = held); RELOAD, PANIC.
 LOOP 1/4 .. 1/32: a loop that stays (the same LOOP again, or EXIT LOOP: off). REP 1/4 .. 1/32: the same CC held: a
 REPEAT while the button is on; switch it off and the music lands where it would have been.
-UNDO (a dice waiting: back), KEEP DICE, MUTE QUEUE. SCENE - / + and 1-8 (QUANTISE decides when), EVOLVE, FREEZE,
-REVERT. MORPH glides the CC values from the scene playing to MORPH TO.
+UNDO (a dice waiting: back), KEEP DICE, MUTE QUEUE. SCENE - / + (all 32: 0.30) and 1-8 (QUANTISE decides when), EVOLVE,
+FREEZE, REVERT. MORPH glides the CC values from the scene playing to MORPH TO.
 The macros act on every track (64 = 0): INTENSITY (velocity), GATE, SWING, FILTER (the CC lane 1 of every track).
 TRANSPOSE moves the key (the tracks in key), 0 in the middle, at the QUANTISE moment. QUANTISE, EVOLVE AMT, HEAT.
 TEMPO -1 / +1, TAP.
@@ -124,7 +124,7 @@ EUCLID and algorithms play goes into the patterns). TAKE (0.12, channel 13): wha
 in the last loop of the tablet's track (TRACK on SAGGA Live, Motori or Mod) goes into its pattern.
 
 The tracks' mutes, kills and RETRIG are in the SAGGA Mutes plugin; 0.12 adds SAGGA Motori (the tracks as engines),
-SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, VIAGGIO)."""
+SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, the MOSSE)."""
 
     params = [
         Radio("bg", "Background", ControllerBase.BG_OPTIONS, default="Slate", config_only=True),

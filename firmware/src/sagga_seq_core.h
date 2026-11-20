@@ -9,9 +9,10 @@
 #define SQ_TRACK_BITS ((1u << SQ_TRACKS) - 1u)   /* 0.28: a bit for each track */
 #define SQ_PATTERNS 8u
 #define SQ_STEPS    64u
-#define SQ_SCENES   16u      /* 0.9: sixteen (SGQ8 images carry eight; SALVA VIAGGIO fills them from the trail) */
+#define SQ_SCENES   32u      /* 0.9: sixteen (SGQ8 images carry eight; SALVA VIAGGIO fills them from the trail); 0.30: 32, four
+                              * banks of eight (an image keeps the first 16 where 0.29 reads them, the rest in chunk 6) */
 #define SQ_SCENES8  8u       /* ... what a 0.8 image holds, and what the panel's black keys reach without the bank */
-#define SQ_SNAPS    8u       /* SNAPSHOTS: the whole live state, eight of them (0.8) */
+#define SQ_SNAPS    16u      /* SNAPSHOTS: the whole live state, eight of them (0.8); 0.30: sixteen, two banks of eight */
 #define SQ_SNAP_CC  48u      /* the synth CC values a snapshot keeps (captured from the synths, sent when it comes back) */
 #define SQ_POLY     6u       /* 0.28: the notes a step holds (were four) - as many as a chord shape plays (SQ_POLY_OUT) */
 #define SQ_LANES    8u       /* CC lanes per track: a value per step that is sent when the step plays (0.10: six, were four;
@@ -169,7 +170,7 @@ typedef struct sq_project sq_project_t;   /* (defined below) */
  * the project, sorted by track then start; SQ_TAPE_MAX in all. */
 #define SQ_TAPE_PPQ   384u
 #define SQ_TAPE_BAR   (4u * SQ_TAPE_PPQ)
-#define SQ_TAPE_MAX   1536u
+#define SQ_TAPE_MAX   3072u   /* (0.30: twice 0.29's 1536) */
 #define SQ_TAPE_BARS_MAX 16u
 typedef struct __attribute__((packed)) {
     uint16_t on;                 /* start, tape ticks from the loop's beginning */
@@ -832,13 +833,13 @@ void sq_uprog_sanitize(sq_uprog_t *u);
 void sq_uprog_tail_default(sq_uprog_t *u);   /* 0.11: semi / shape / dur / push / mood as a 0.10 progression has them */
 
 /* SONG: scenes in a row, each for a number of bars */
-#define SQ_SONG_LEN 64u
+#define SQ_SONG_LEN 128u       /* (0.30: twice 0.29's 64) */
 #define SQ_SONG_BARS_MAX 64u
 typedef struct __attribute__((packed)) { uint8_t scene, bars; uint16_t bpm; } sq_song_entry_t;   /* 0.10: bpm 0 = unchanged */
 typedef struct __attribute__((packed)) {
     uint8_t len;                 /* entries in use, 0..SQ_SONG_LEN */
     uint8_t loop;                /* 1: after the last back to the first; 0: the last one goes on */
-    sq_song_entry_t e[SQ_SONG_LEN];   /* scene 0..15, bars 1..64 */
+    sq_song_entry_t e[SQ_SONG_LEN];   /* scene 0..31 (0.30), bars 1..64 */
 } sq_song_t;
 
 /* 0.26 THE METRE WITH THE SCENE: where a song is `ticks` clock ticks (24 a beat) after its start when its scenes bring
@@ -1463,6 +1464,10 @@ int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len);
  * what was aimed at them: an LFO stops, a MOD slot goes OFF, their mutes go) */
 /* 0 if sq_deserialize() would take the image whole (it reads nothing into a project): check first, then replace */
 int sq_image_ok(const uint8_t *in, uint32_t len);
+/* 0.30: where chunk `id` of an image starts (its id byte), 0 when the image has none (for the tests and the Pi's tools) */
+uint32_t sq_image_chunk_at(const uint8_t *in, uint32_t len, uint8_t id);
+/* 0.30: 1 if a scene is as a new project has it (nothing stored in it) */
+uint8_t sq_scene_empty(const sq_scene_t *sc);
 /* 0.29: a genre (or a THEORY style) of 0.28's numbering as 0.29 numbers it (v29: the image is 0.29's - its AFRO HOUSE is
  * BALANI), and back (BALANI: AFRO HOUSE) */
 uint8_t sq_genre_from28(uint8_t g, uint8_t v29);

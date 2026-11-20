@@ -13,9 +13,9 @@ changes them.
 
 * **SAGGA Remote** (channel 14): PLAY / STOP, CONTINUE, STOP @BAR, RESTART; FILL, RELOAD, TEMP, PANIC; LOOP 1/4 1/8
   1/16 1/32 (a tap: the loop stays) and REP 1/4 .. 1/32 (on until pressed again: a REPEAT that lands in time when
-  switched off); EXIT LOOP, UNDO, KEEP DICE, MUTE QUEUE; scene - / +, EVOLVE, FREEZE, scenes 1-8; MORPH (fader) and
+  switched off); EXIT LOOP, UNDO, KEEP DICE, MUTE QUEUE; scene - / + (0.30: all 32), EVOLVE, FREEZE, scenes 1-8; MORPH (fader) and
   MORPH TO; the macros INTENSITY, GATE, SWING, FILTER (64 = 0); TRANSPOSE (0 in the middle), QUANTISE, EVOLVE amount,
-  heat; tempo -1 / +1, TAP, REVERT; the snapshots; HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
+  heat; tempo -1 / +1, TAP, REVERT; the snapshots (1-8; 9-16 on the FM-1 and the grid); HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
 * **SAGGA Mutes** (channel 14): MUTE 1-12, KILL 1-12 (silent while on), RETRIG 1-12 (the track from its first step).
   0.28: twelve tracks (until 0.27: sixteen).
 * **SAGGA Motori** (0.12): a row a track (0.28: twelve rows): MUTE, PATTERN 1-8 (at the QUANTISE moment), LENGTH 1-64 (at the bar), RETRIG,
@@ -26,8 +26,8 @@ changes them.
   0.21: ROLLS, SWAP and SLICES show the tablet's track's (they follow TRACK and the FM-1, as the other pages' knobs).
 * **SAGGA Mod** (0.12): one LFO at a time (which, ON, SHAPE, RATE, DEPTH, DEST), the eight lanes of the tablet's
   track (their base, sent as you move it; 0.28.1: lanes 7 and 8, on channel 12 CC 62 / 63 - with an FM-1 0.28.1 or
-  later; SHAPE goes on to ENV and DEST to MOD ONLY, as on the FM-1), the four THROWS (the macros that spring back to 0 over a bar), VIAGGIO's
-  ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
+  later; SHAPE goes on to ENV and DEST to MOD ONLY, as on the FM-1), the four THROWS (the macros that spring back to 0 over a bar), the MOSSE's
+  (VIAGGIO's until 0.29) ENERGY, GENRE, KEY, the harmony's PROGRESSION and state; under them **L1-L16, the sixteen LFOs on / off at once**
   (each a note on channel 13, 100 + the LFO; the hub shows a CC 0 binding on those cells: a placeholder the FM-1 ignores).
   0.13: RATE goes on to the triplets (1/4T, 1/8T, 1/16T, 1/32T), as the FM-1's LFO RATE does. 0.18: GENRE reaches
   MERENGUE (25 genres; 0.29: 22, with BALANI); the LFO knobs are the tablet's LFO; L1-L16 follow the FM-1. 0.29:

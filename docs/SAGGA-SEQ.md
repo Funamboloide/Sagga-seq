@@ -1,9 +1,9 @@
-# SAGGA SEQ 0.29
+# SAGGA SEQ 0.30
 
 A MIDI-only performance sequencer for the M-VAVE FM-1, built on Dinghy's platform. No synthesis: the FM-1 sends
 notes, CCs and clock over USB to a hub (RaspiMIDIHub on a Raspberry Pi) that feeds the instruments. **Twelve
 tracks** on sixteen MIDI channels, eight patterns of up to 64 steps per track (a step: up to **six notes**, **eight CC
-lanes** a track), **sixteen scenes**, eight **snapshots**, a song of **64
+lanes** a track), **32 scenes**, **sixteen snapshots**, a song of **128
 entries**, sixteen LFOs, **sixteen keys**, eight project slots, a library of **22 genres** (patterns of 16, 32 and 64
 steps), the **THEORY engines** that make a band from a seed in each of them, in the bar of its metre, a bar in **any
 metre** and tracks in **five or seven against four**, a **click** with a count-in, the keyboard's chords as the harmony,
@@ -11,61 +11,47 @@ its pedal and wheels recorded, and **the journey**: every set is cut into phrase
 queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.29` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.30` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
-[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.28.
+[storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.29.
 
-## What is new in 0.29
+## What is new in 0.30
 
-**The genres are 22** (25 until 0.28), with **eight progressions** each, **BALANI** new, the **BALAFON** a part of its
-own, REGGAETON and BALANI's THEORY rules **written by hand**, and more to play with: **ROLL** and **ACCENT** among the
-MIDI FX, **five scales**, **three grooves**, **four chord shapes**. The projects of before open as they were, each
-genre where it went; a 0.28 opens a project of 0.29, without what it has no room for.
+**32 scenes** (16 until 0.29), **sixteen snapshots** (8), a song of **128 entries** (64), the tapes **3072
+events** in all (1536) and **UNDO** 32 rows back (16) - the room you chose. The name VIAGGIO is gone from the screen,
+the grid and the pages: its view is **MOSSE**, as the page of the FM-1. A power-on brings back the mutes and the scene
+cursor saved with the project, as a LOAD does.
 
-* **The genres.** AMAPIANO went into REGGAETON (its log drum, shakers, rims, piano chords: REGGAETON's tempo is 90-112
-  now), BASSLINE into UK GARAGE (its sub and stabs: speed garage with the bass in front), GRIME into DUBSTEP, AFRO HOUSE
-  is gone (its percussion went into GQOM and BATIDA), and **BALANI** came - the balafon's music at the street parties
-  of Bamako, fast (160-180 BPM): the kick in four, the djembe's 3-3-2 on the conga and the perc, the shaker's 16ths, the
-  toms rolling, the MC's shouts, and the **BALAFON**. The genres' order: TECHNO, HARDTECHNO, DUB TECHNO, HOUSE, UK
-  GARAGE, UK FUNKY, DUBSTEP, JUNGLE, REGGAETON, BATIDA, GQOM, EXPERIMENT, ELECTRO, DRUM+BASS, BALANI, FOOTWORK, TRANCE,
-  UK DRILL, HARDCORE, PHONK, BAILE FUNK, MERENGUE. The grid's BEAT view has two pages of genres again (12 + 10).
-* **A project of before** opens with each of its genres where it went: GRIME as DUBSTEP, BASSLINE as UK GARAGE, AFRO
-  HOUSE as GQOM, AMAPIANO as REGGAETON - wherever a genre is kept (the project's, the harmony's, the journey's, a track's
-  pattern, a pattern the engines made, a snapshot). On the Pi, the patterns and progressions **you** kept in those four
-  genres move to the genre that took them in (the stock ones stay behind), the first time the hub starts.
-* **Eight progressions a genre** (six until 0.28): the six of before where they were - a project keeps its progression
-  by its number - and two more (the bassline's in UK GARAGE, the grime's in DUBSTEP, the amapiano's in REGGAETON, the
-  afro house's in GQOM and BATIDA, the genre's own elsewhere). SEQ 4 (ARP 3) K2: PROG 1-8, USER 1-4, DICE/PI. The
-  VIAGGIO view of the grid, row 7: pads 1-8 the genre's, 9-12 yours, 13 DICE/PI, 14-16 the chord playing in turn
-  (white: the progression's first). The BEAT view's row 3 keeps PROG 1-6. SAGGA Mod's PROGRESSION: PROG 1-8, USER 1-4,
-  DICE/PI (channel 13, CC 117, 0-12).
-* **The BALAFON**: a part (and a role) of its own - a tune, struck: its notes are short, from middle C, and with the
-  harmony it follows the chords as a MELODY (as a LEAD or a VOX). BALANI's band has it where it had a LEAD.
-* **THEORY**: REGGAETON and BALANI have rules written by hand now (TECHNO, HOUSE, DUBSTEP and DRUM+BASS had them; the
-  other sixteen are counted from the library). REGGAETON: the dembow at every energy (the snare's `...x..x....x..x.`),
-  the rest coming in with the energy, the log drum's slides, four chords a bar each. BALANI: the clap on 2 and 4, the djembe's
-  3-3-2, the balafon's ostinato in 16ths on the pentatonic, one or two chords. The seventeen genres that did not change
-  (and FREE) make what they made, bit for bit; UK GARAGE, BATIDA and GQOM's counted rules changed with their libraries.
-* **ROLL** (MIDI FX): each note 2-6 hits in its step - LEVEL, RISING or FALLING - with a chance (K2, K3, K4). The trap
-  hats. **ACCENT**: every 2-8 steps (K3), from a step of its own (K4), louder (K2 up to +60; below 0, softer): three
-  over four. In the chain's ORDER, ACCENT comes after VEL CURVE and ROLL before ECHO. On the grid: SHIFT + pads 7 and 8
-  of the TRACK 3 view's second row.
-* **Scales**: HUNGARIAN MINOR, DOUBLE HARMONIC, LYDIAN DOMINANT, MAJOR BLUES, IN SEN (21 in all). On the grid's PROJ
-  view: SHIFT + row 2, pads 1-5.
-* **Grooves**: MALI (the djembe's 16ths, leaning towards three a beat), DEMBOW (the snare's two on the 'a', late and
-  loud), BROKEN (broken beat: the 'e' early, the 'a' late).
-* **Chord shapes**: 7#9, 7B9, MAJ7#11, QUARTAL (36 in all) - for a track's CHORD and in your progressions.
-* **Fixed**: the BEAT part chosen past the sixteenth of the list (a LEAD, a VOX, a LOG DRUM ...) came back as the KICK
-  after a power cycle; now it stays. The dice's progression in the VIAGGIO (DICE/PI: the grid's row 7 pad 13, or
-  PRESETS) took the first user slot's name on the screen (`USER PROG ...`); now it says `DICE/PI` and its chords.
-* **The projects.** A project of 0.29 is saved as 0.28 saves, plus one chunk for what 0.28 has no room for: BALANI, the
-  7th and 8th progressions, the balafon, ROLL and ACCENT. A 0.28 opens it: BALANI as AFRO HOUSE, PROG 7 and 8 as PROG 1,
-  the balafon as a LEAD, the new effects, scales, grooves and shapes left out (their default).
+* **The scenes: 32.** In PERF, PRESETS moves the scene cursor over 1-32, and the **black keys 1-8 are the eight scenes
+  of its bank**: 1-8, 9-16, 17-24, 25-32 (`PERF SCENE 17`: black 1 is scene 17). SEL + black stores, the black recalls,
+  HOME + black adds that scene to the song - as before, in the bank the cursor is in. The grid's scene buttons follow
+  the same bank; the **SONG view's row 2** is scenes 1-16, **with SHIFT 17-32** (the entry's scene in the other half
+  shows blue); **TRACK 2 row 5** pads 1-8 the bank's scenes (pad 16 sends the programs of the one chosen, as before);
+  the **FX view's row 7** MORPH TO the bank's scenes. The remote: CC 28 / 29 the scene before / after (all 32), CC
+  40-47 scenes 1-8, **CC 2 MORPH TO: 0-31 that scene** (32-127: the value / 4).
+* **The snapshots: 16.** **SAVE + white 9 / white 10**: the snapshots 1-8 / 9-16 (the white of the bank is lit while
+  SAVE is held); SAVE + black 1-8 recall the bank's eight, SAVE + SEL + black 1-8 store them. A snapshot stored or
+  recalled takes its bank there. The grid's FX view, row 8: pads 5-12 the bank's eight, **SHIFT + pad 13 the other
+  eight** (pad 13 with SHIFT held: yellow 1-8, blue 9-16). The remote's CC 106-113 and 12-19 stay on snapshots 1-8.
+* **The song: 128 entries** (`SONG FULL (128)` past them). The grid's SONG view: eight pages of 16 (row 4 pads 13 / 14).
+* **The tapes: 3072 events** among the twelve tracks (`TAPE FULL` past them). **UNDO**: the last 32 pattern rows an
+  edit changed (an edit of one row: 32 edits back).
+* **MOSSE** for VIAGGIO: the grid's view (PERF, SONG, MOSSE), SAVE + white 16 `SAVE THE SET` (`SET SAVED: 5 SCENES
+  AND THE SONG`), SAVE + K2 `REMOTE ON CH 14 + PAGES ON CH 13`, the pages SAGGA Mod and Remote (0.30). Nothing moved:
+  only the name.
+* **Fixed**: a power-on loaded the last slot but left out its mutes and its scene cursor (every track audible, scene
+  1), which a LOAD (HOME + SAVE twice) brought back; now a power-on brings them too. So it was since 0.9.
+* **The projects.** A project of 0.30 is saved as 0.29 saves, plus one chunk for what 0.29 has no room for: scenes
+  17-32 (and their metres), entries 65-128, snapshots 9-16, the tapes' events past 1536. A 0.29 opens it with the
+  first 16 scenes, 8 snapshots, 64 entries and 1536 events. The slots are 32 KB as before: a project very full of
+  everything (long tapes, sixteen snapshots, 32 scenes) may not fit - the FM-1 says `TOO BIG FOR A SLOT` and keeps
+  the slot as it was.
 
-On the Pi: the pattern and progression pages have the 22 genres, SAGGA Live the new grooves, shapes and effects, SAGGA
-Mod the 22 genres and the eight progressions, the editor ROLL and ACCENT. Install the FM-1 and the Pi together.
+On the Pi: the editor has the 32 scenes, the 128 entries and the 16 snapshots; SAGGA Mod and Remote say MOSSE. Install
+the FM-1 and the Pi together. **0.28 and 0.29** (twelve tracks, chords of six notes, eight lanes; 22 genres, BALANI and
+the balafon, eight progressions, ROLL and ACCENT, new scales, grooves and chord shapes): [storia/NOVITA.md](storia/NOVITA.md).
 
 ## The FM-1 panel
 
@@ -79,15 +65,15 @@ a button really held wins meanwhile. The rows below read the same way for a wind
 | nothing | the steps (**0.11: hold one, press another: the note between them**; **SEL + FX** tapped first (0.12; FX alone in 0.11): a step loop between them, EXIT puts the length back) | 1-8 track of the bank, 9 other bank (**0.28: the banks are 1-8 and 9-12**), 10 mute, 11 solo | note (an off step: its note and the pen, a preview, not lit), velocity, chance, ratchet of the cursor step |
 | SEL | the keys are notes for the cursor step (within 0.45 s: a chord of up to 6 - 0.28; 4 until 0.27) | (notes) | velocity offset, humanise timing, humanise velocity, **pen note** |
 | **a group + SEL** (0.12) | **PICK**: the key is the value of the knob in focus (lists, lengths, roots, semitones, percentages: see PICK) | 1-10 items 17-26; **11: the focus to the next knob** | |
-| HOME | **track 1-12** (0.28; whites 13-16: nothing, for now) | as with nothing held; in PERF: the song (1-8 add a scene, 9 loop, 10 take the last away, 11 clear) | see HOME pages (8) |
+| HOME | **track 1-12** (0.28; whites 13-16: nothing, for now) | as with nothing held; in PERF: the song (1-8 add a scene of the cursor's bank, 9 loop, 10 take the last away, 11 clear) | see HOME pages (8) |
 | EDIT | the cursor to that step (not switched) | **1 STEP LOCK**, 2 COPY, 3 PASTE, 4 CLEAR the step, **5 PLAIN** (no EXPO from this step), **6 TIE** (legato into the next step), **7 SLIDE** (0.13: TIE, and the next note glides: CC 65) | gate (1 % .. 100 %, 1.5 .. 64 STEP), condition (16), nudge, ramp; **SEL + K1-K4 (0.12): the step's notes 1-4** (a knob below the first: the note taken away; 0.28: the line shows notes 5 and 6, written by playing - SEL + keys, MIDI REC, the grid, the Pi's editor) |
 | ENV | the cursor to that step | | **one lane a page (OCT- / OCT+: lanes 1-8; 0.28, six until 0.27)**: K1 the lock on the step, K2 the CC number (SEL + K2: the NRPN MSB), K3 the base, K4 the mode NORMAL / SLIDE / TRIGLESS / NRPN |
 | LFO | that LFO on / off | | page 1 shape (**0.20: + ENV**), rate (**0.13: then 1/4T 1/8T 1/16T 1/32T**), depth, centre; page 2 destination (**0.20: + MOD ONLY**), target, CC, phase; page 3 on, retrigger, invert, **TRIG** (0.13: CLOCK or T1-T12, the sidechain); **page 4 RATE SEQ** (0.13): steps, every, position, its rate; **0.20: page 5 ENV** attack, decay, sustain, release; **page 6 MOD** slot, source (SEL: which), destination (SEL: which), amount |
 | SEQ | the 16 tools (WHEN / EVERY: when they happen; **0.12: UNDO held 0.6 s = REDO, COOK held = the random COOK**; **0.17: BEAT held = a PROPOSAL** in a free pattern; the tap acts when the key is let go) | dice SEQ CC LFO GROOVE ALL (**0.12: black 1 held = DICE PROG**), SCOPE, KIT (**held: BAND**), DRIFT, EVOLVE, FREEZE, REVERT | see SEQ pages (7) |
 | FX | the 16 effects while held | 1-8 LOOP (tap) / REPEAT (hold) 1/32 .. 4 bars, 9 RESTART, 10 STOP at the bar, 11 EXIT (a DJ loop, or the step loop of the selected track; SEL also held: the selected track only) | INTENSITY, GATE, SWING, FILTER (the macros, saved); **SEL + K1-K4 (0.12): the THROWS** (the same four, gliding back to 0 over a bar); FX + OCT-: to 0; FX + OCT+: ECHO ALL; **FX + ARP twice: BAKE**; **FX + HOME: PANIC** |
 | ARP | **0.12: the keys play the selected track** (its notes, a drum's hits), REC on: written; **on a BREAK track: the chops 1-16** (tapped: stays; held: while held, then back) | on a BREAK track: 1 ROLL, 2 ROLL 1/32 (held), 3 HALF, 4 DOUBLE, 5 BACKWARDS, 6 DICE, 7 RESET, 8 / 9 the chop after / before; **on a DRUM track, playing (0.13): 1-4 NOTE REPEAT 1/16, 1/32, 1/32T, 1/8 of the white held**; else the keys play | see ARP pages (6) |
-| SAVE | slot 1-8; **white 16: the set played becomes scenes and the song** (SALVA VIAGGIO) | **1-8 SNAPSHOT** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (4); PRESETS: the slot |
-| GLO (PERF) | **0.12: mute 1-12 in any mode** (0.28: twelve tracks) (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (4); PRESETS: the scene cursor 1-16; **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
+| SAVE | slot 1-8; **white 9 / 10 (0.30): the snapshots 1-8 / 9-16**; **white 16: the set played becomes scenes and the song** (SAVE THE SET; SALVA VIAGGIO until 0.29) | **1-8 SNAPSHOT of the bank** (SEL also held: store), **9 CC CAPTURE, 10 SEND, 11 PATCHES** | see SAVE pages (5); PRESETS: the slot |
+| GLO (PERF) | **0.12: mute 1-12 in any mode** (0.28: twelve tracks) (PERF: SEL + OCT+ first: solo, SEL + OCT-: mute) | pages 1-2: scenes 1-8 of the cursor's bank (SEL: store), 9 all on, 10 only the selected, 11 invert; **page 3 (0.17): the MOSSE** (below) | see GLO pages (4); PRESETS: the scene cursor 1-32 (0.30; the black keys are its bank: 1-8, 9-16, 17-24, 25-32); **GLO + OCT- / OCT+ (PERF: OCT- / OCT+ alone): the pages; GLO + SEL + OCT- / OCT+: the track's octave** |
 | **MOSSE** (SEL + GLO: PERF on page 3; 0.17) | PERF's mutes (SEL: solo) | the moves at the phrase's end: FILL, BREAK, RISER, DROP, HALF, DOUBLE (0.24, with SEL: SHORTER, LONGER - every track's length), THIN, SWELL, 9 INDIETRO, 10 the last cancelled, 11 NOW | K1 the energy, K2 the phrase, K3 the genre, K4 the key; **ALG MOVES AT**; SEL + ALG the tempo; **PRESETS the progression** (queued) |
 
 A group **held half a second** with nothing else shows the map of its keys on the screen's message lines, and what
@@ -246,7 +232,7 @@ the bar's steps (white 1 = 3 steps), or the ways it divides.
 | **4 LIVE IN** (0.13) | **MOTION** OFF / 1 / 2 / 4 BARS (REC + FX K: written) | **KEYBOARD** OFF / TRANSPOSE / TRANS <C3 (the MIDI IN transposes), **0.26: CHORDS / CHORD <C3** (its chords are the harmony) | **KEYB CH** ANY / 1-16 | **MIDI IN** REC ONLY / ALWAYS |
 | **5 THE CLICK** (0.26) | **CLICK** OFF / REC / PLAY | **COUNT IN** OFF / 1 BAR / 2 BARS | **CLICK OUT** FM-1 / CH 1-16 | **LEVEL** 1-10 (SEL + K4: the MIDI note) |
 
-SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot; SAVE tapped twice saves; HOME + SAVE twice loads;
+SAVE held, whatever the page: PRESETS or whites 1-8 choose the slot, **whites 9 / 10 the snapshots 1-8 / 9-16** (0.30); SAVE tapped twice saves; HOME + SAVE twice loads;
 **SAVE + REC twice clears the slot** (0.15). Page 1 shows the slot's project name and the one in the FM-1 (0.15).
 
 ### PICK: the keys set the knobs
@@ -269,7 +255,7 @@ the twelve tracks (a tap: that track gets the value; SHIFT + a tap: the FM-1 goe
 | a list (a mode, a scale, a shape, a genre, a chop ...) | whites 1-16 = items 1-16, blacks 1-10 = items 17-26 |
 | a count (pulses, hits, a track, a scene, a pattern) | whites 1-16, blacks 17-26 |
 | a length in steps (LENGTH, a loop, a chord's 16ths) | whites 4, 8, 12 .. 64; blacks 3 5 6 7 9 10 11 13 14 15 (the polymeters) |
-| a root (the KEY, VIAGGIO's key, a chord's root) | the key is the note: F3 .. G5, chromatic |
+| a root (the KEY, the MOSSE's key, a chord's root) | the key is the note: F3 .. G5, chromatic |
 | semitones or scale steps (TRANSPOSE, SHIFT, a CURVE) | F4 = 0, F3 = -12, G5 = +14 |
 | a percentage (heat, density, a gate, the energy ...) | whites 1-10 = 10 .. 100 %, blacks 1-10 = 5, 15 .. 95 % |
 | a note (EDIT + SEL: NOTE 1-4 of the step, the one in focus) | the key is the note, with the keyboard's octave (SEL + OCT); the gate and the condition stay on EDIT's knobs |
@@ -460,7 +446,7 @@ queue (black 10: something to cancel; black 11 blinks while NOW waits for the ba
 the order it was filled, and the phrase is written into the trail. **MOVES AT** (ALG on the MOSSE) chooses when the
 queue runs: the phrase boundary (the default), **every bar**, or **every beat** (you decide when things happen; the
 phrase still counts for FILL, RISER, DROP and the trail). The screen shows the energy, the bar of the phrase, the genre
-and key (with `>` when one is queued) and the queue; the grid's VIAGGIO view shows it all at once.
+and key (with `>` when one is queued) and the queue; the grid's MOSSE view (VIAGGIO until 0.29) shows it all at once.
 
 **Roles.** A track's role (HOME 4 K2: KICK SNARE HAT PERC BASS CHORD ARP ..., or none) says what it is in the genre:
 the proposals follow it, THIN and SWELL read its place on the genre's ladder (a track with no role takes the next free
@@ -473,7 +459,7 @@ is muted). It follows the hands: a mute in PERF, a scene, a pattern changed, a r
   the phrase), and a **proposal** is made in SEQ: **SEQ + BEAT held 0.6 s** writes what BEAT would (SEQ's genre, part
   and variation) into a free pattern of the selected track, the one playing untouched; held again: the next
   variation; **PRESETS** queues the proposal waiting first, and it enters at the QUANTISE with its settings.
-* **On the grid's VIAGGIO view and the remote on channel 13** the journey has its tracks as VIAGGIO mode had them: a
+* **On the grid's MOSSE view and the remote on channel 13** the journey has its tracks as VIAGGIO mode had them: a
   tap on an EMPTY track, a proposal from the library of the genre (`T1 KICK P2 READY`), with the track's role, else
   the next free one on the genre's ladder, and its note; a tap on a PROPOSED track goes through its proposals
   (`T1 KICK P3 (2/3)`); **held** (the grid, 0.45 s): the dice (another variant, maybe the genre's neighbour; for PERC in
@@ -542,10 +528,10 @@ the energy back).
 
 **SEL + PLAY** on the MOSSE while stopped: the SEED, a dice on the set genre, the key and a tempo of the genre.
 
-**The trail and SALVA VIAGGIO.** Every phrase is kept (the last 128), always (0.17). **SAVE + white 16** makes the
-set a song:
-the runs of equal phrases become scenes 1.. (at most 16, the shortest runs left out), the song plays them for as many
-bars as they lasted. Then save the project as usual.
+**The trail and SAVE THE SET** (SALVA VIAGGIO until 0.29). Every phrase is kept (the last 128), always (0.17). **SAVE +
+white 16** makes the set a song: the runs of equal phrases become scenes 1.. (at most 32 - 0.30, 16 until 0.29 -, the
+shortest runs left out), the song plays them for as many bars as they lasted (`SET SAVED: 5 SCENES AND THE SONG`).
+Then save the project as usual.
 
 **The remote on channel 13** (SAVE + K2 on 13 + 14; with two USB ports on port 2): CC 1-12 a tap on track 1-12 (0.28; 13-16 nothing), CC
 17-27 the moves (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW), 28 INDIETRO, 29 cancel the last, 30 the
@@ -563,8 +549,9 @@ the project: power-on comes back in it.
 
 | | panel | grid (FX view) | remote |
 |---|---|---|---|
-| recall 1-8 (at the QUANTISE moment; again before then: cancelled) | SAVE + black 1-8 | row 8 pads 5-12 | CC 106-113 |
-| store 1-8 | SAVE + SEL + black 1-8 | SHIFT + row 8 pads 5-12 | CC 12-19 |
+| **the bank: 1-8 or 9-16** (0.30) | SAVE + white 9 / white 10 | SHIFT + row 8 pad 13 | |
+| recall (the bank's eight; at the QUANTISE moment; again before then: cancelled) | SAVE + black 1-8 | row 8 pads 5-12 | CC 106-113 (1-8) |
+| store (the bank's eight) | SAVE + SEL + black 1-8 | SHIFT + row 8 pads 5-12 | CC 12-19 (1-8) |
 | CC CAPTURE on / off | SAVE + black 9 | row 8 pad 13 | CC 114 |
 | SEND the snapshot's sound | SAVE + black 10 | row 8 pad 14 | CC 115 |
 | PATCHES (the Pi keeps the synths' patches) | SAVE + black 11 | row 8 pad 15 | CC 116 |
@@ -686,13 +673,13 @@ put to what 0.10 did. SGQ3 .. SGQ9 images are refused.
 ## SAGGA REMOTE: the commands on MIDI channel 14
 
 Control Changes on channel 14 are commands (with two USB ports: on port 2, and channel 14 of port 1 is a track
-channel). A knob: 0-127. A button: 64-127 pressed, 0-63 let go. SAVE + K2: OFF, CH 14, 13 + 14 (VIAGGIO on
-channel 13, see VIAGGIO).
+channel). A knob: 0-127. A button: 64-127 pressed, 0-63 let go. SAVE + K2: OFF, CH 14, 13 + 14 (the MOSSE and the
+pages on channel 13, see the journey and the MOSSE).
 
 | CC | | CC | |
 |---|---|---|---|
-| 1 | MORPH position | 2 | MORPH TO scene 1-16 (0-15, or 16-127: value / 8) |
-| **3** | **VIAGGIO energy** (0-127: 0-100) | | |
+| 1 | MORPH position | 2 | MORPH TO scene 1-32 (0-31; 32-127: value / 4 - 0.30; until 0.29 0-15, or value / 8) |
+| **3** | **the MOSSE's energy** (0-127: 0-100) | | |
 | 4 | EVOLVE amount | 5 | heat |
 | 6 | QUANTISE 0-6 (AUTO NOW BEAT BAR 2 4 8 BARS) | 7 | INTENSITY (64 = 0) |
 | 8 | GATE (64 = 0; 0 = -90 %, 127 = +100 %) | 9 | SWING (64 = 0, -25 .. +25) |
@@ -700,7 +687,7 @@ channel 13, see VIAGGIO).
 | **12-19** | **store SNAPSHOT 1-8** | 20 | PLAY / STOP |
 | 21 | CONTINUE | 22 | RELOAD |
 | 23 | FILL (held) | 24-27 | LOOP / REPEAT 1/4, 1/8, 1/16, 1/32 (a tap: LOOP, held: REPEAT) |
-| 28 / 29 | scene - / + | 30 / 31 | tempo -1 / +1 |
+| 28 / 29 | scene - / + (1-32) | 30 / 31 | tempo -1 / +1 |
 | 32 | TAP | 33 / 34 / 35 | EVOLVE, FREEZE, REVERT |
 | 36 | UNDO (a dice waiting: BACK) | 37 | TEMP (held) |
 | 38 | PANIC | 39 | MUTE QUEUE on / off |
@@ -716,9 +703,9 @@ channel 13, see VIAGGIO).
 CC 120-127 are never commands: they are MIDI's channel mode messages (a PANIC's All Notes Off must not store a
 snapshot). The plugins for RaspiMIDIHub are in `tools/raspimidihub`.
 
-### Channel 13 (0.12): more commands beside VIAGGIO's
+### Channel 13 (0.12): more commands beside the MOSSE's
 
-With REMOTE 13 + 14, channel 13's CC 1-32 are VIAGGIO's (see VIAGGIO) and **CC 33 and up** these; **notes** on channel
+With REMOTE 13 + 14, channel 13's CC 1-32 are the MOSSE's (see the journey and the MOSSE) and **CC 33 and up** these; **notes** on channel
 13 play the selected track as the keys do with ARP held (on a BREAK, notes 36-51 are the slices 1-16), and **notes
 100-115 switch LFO 1-16 on (note on) and off (note off)**: SAGGA Mod's sixteen switches. A knob: 0-127 (a short list
 takes the value as the index when it is under its size, else value / its share). A button: 64-127 pressed, 0-63 let go.
@@ -836,16 +823,23 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
 * FILTER moves lane 1 of every track (put the synth's cutoff on lane 1); a lane with no base value is not moved.
 * The ornaments (HARM, ECHO) share 128 places: when they are full the faintest echo waiting gives way.
 * A snapshot keeps which pattern plays, not the pattern's steps.
-* The proposals (SEQ + BEAT held, the grid's VIAGGIO view, the remote) take free patterns of the track (8 per track):
+* The proposals (SEQ + BEAT held, the grid's MOSSE view, the remote) take free patterns of the track (8 per track):
   when none is free the oldest proposal is replaced (SEQ + BEAT never takes a pattern written by hand). The trail
   lives in RAM: a power cycle starts it again (SAVE + white 16 before that).
-* The remote's scene CCs 40-47 reach scenes 1-8; scenes 9-16 through CC 2, 28 / 29 or the panel.
+* The remote's scene CCs 40-47 reach scenes 1-8, its snapshot CCs (12-19, 106-113) snapshots 1-8; scenes 9-32
+  through CC 28 / 29 or the panel, snapshots 9-16 through the panel or the grid. CC 2 (MORPH TO) reaches all 32.
+* 0.30: the eight black keys of PERF and the grid's eight scene buttons reach the bank the scene cursor is in (PERF's
+  PRESETS, a scene recalled, the song, the remote's CC 28 / 29 move it); the screen says the cursor's scene, not the
+  bank. A 0.29 opens a project of 0.30 with its first 16 scenes, 8 snapshots, 64 entries of the song and 1536 tape
+  events. A slot holds 32 KB: a project very full of everything may not fit (`TOO BIG FOR A SLOT`: the slot stays as it
+  was; an export to the Pi says the same) - take a snapshot or a long tape away.
 * The patches need the bridge running on the Pi and the synths connected to the Pi; a synth that cannot send its patch
   over MIDI cannot have it kept.
 * A SLIDE lane glides a step at a time (one value per step of the track): smooth enough for a filter sweep, not for a
   pitch bend; an NRPN lane sends its three CCs on every change.
-* The eight lanes of a track share the step: a step is 22 bytes, a project about 163 KB of the FM-1's RAM (0.28:
-  twelve tracks; sixteen, six lanes and four notes were 178 KB).
+* The eight lanes of a track share the step: a step is 22 bytes, a project about 188 KB of the FM-1's RAM (0.30:
+  32 scenes, 16 snapshots, 128 entries, 3072 tape events; 0.28-0.29: 163 KB; sixteen tracks, six lanes and four notes
+  were 178 KB).
 * A written step holds six notes (0.28: SEL + keys, MIDI REC, the grid, the Pi's editor; EDIT + SEL's knobs set notes
   1-4); a CHORD shape plays up to six, and the arpeggio, the strum and the voicing work on all six: at most six sound
   from a step.

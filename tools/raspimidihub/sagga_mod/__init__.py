@@ -1,18 +1,18 @@
 # SPDX-License-Identifier: GPL-3.0-only
 """SAGGA MOD - a RaspiMIDIHub controller for SAGGA SEQ 0.12: the LFOs, the CC lanes of the tablet's track, the THROWS
-and VIAGGIO's knobs.
+and the MOSSE's knobs (0.30: the name VIAGGIO is gone).
 
 One LFO at a time (channel 13, CC 92: which), its ON / OFF (97), SHAPE (93), RATE (94), DEPTH (95), DEST (96). The eight
 lanes of the tablet's track (0.18: the track TRACK picks on SAGGA Live or Motori; before: the FM-1's selected one):
 their base value, sent to the synth as you move them - lanes 1-6 on channel 13 CC 101-106, lanes 7 and 8 (0.28.1) on
 channel 12 CC 62 / 63. The THROWS (108-111):
-INTENSITY, GATE, SWING, FILTER thrown and springing back to 0 over a bar on their own. VIAGGIO: ENERGY (114), GENRE
+INTENSITY, GATE, SWING, FILTER thrown and springing back to 0 over a bar on their own. MOSSE: ENERGY (114), GENRE
 (115), KEY (116), the HARMONY's progression (117) and state (118). The sixteen LFO switches L1-L16 (rows 10-13): each
 is a note on channel 13 (100 + the LFO, note on = on, note off = off), all sixteen at hand at once; their CC 0 binding
 is a placeholder the FM-1 ignores (the hub wants a CC on every cell).
 
 Wire this plugin's OUT to the FM-1 (USB PORTS 2: its port 2); SAVE K2 on the FM-1 = REMOTE 13 + 14. 0.18: the FM-1's port 2
-to this plugin's IN, and the knobs and switches follow the FM-1 (the tablet's LFO, its track's lanes, VIAGGIO).
+to this plugin's IN, and the knobs and switches follow the FM-1 (the tablet's LFO, its track's lanes, the MOSSE).
 """
 
 from raspimidihub.controller_base import ControllerBase
@@ -85,21 +85,21 @@ LFO_SW_NOTE = 100                         # L1-L16: notes 100-115 on channel 13 
 
 
 class SaggaMod(ControllerBase):
-    """SAGGA SEQ's modulation: an LFO, the tablet's track's lanes, the THROWS, VIAGGIO's knobs."""
+    """SAGGA SEQ's modulation: an LFO, the tablet's track's lanes, the THROWS, the MOSSE's knobs."""
 
     NAME = "SAGGA Mod"
-    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, VIAGGIO's energy, genre, key, harmony"
+    DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): the LFOs, the track's CC lanes, the THROWS that spring back, the MOSSE's energy, genre, key, harmony"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.29"
+    VERSION = "0.30"
     HELP = """\
 LFO picks one of the sixteen (the one the FM-1 shows under LFO); LFO ON, SHAPE (ENV: the envelope), RATE, DEPTH, DEST
 (MOD ONLY: a source for the MOD MATRIX, it sends nothing) set it.
 LANE 1-8: the base value of the CC lanes of the tablet's track (the one TRACK picks on SAGGA Live or Motori; the
 FM-1's screen says TAB T5), sent to the synth as you move it (what the lane's steps add rides on it). THROW INT / GATE / SWING / FILTER: the four macros as throws (64 = 0): move one and let it go, it
-glides back to 0 within a bar on its own. ENERGY, GENRE, KEY: VIAGGIO's (queued at the phrase boundary while it
+glides back to 0 within a bar on its own. ENERGY, GENRE, KEY: the MOSSE's (queued at the phrase boundary while it
 plays, at once when stopped); PROGRESSION and HARMONY (OFF, ON, LOCK): the harmony. L1-L16: the sixteen LFOs on / off,
 all at hand (a switch is a note on channel 13: 100 + the LFO).
-Channel 13: CC 92-97 the LFO, 101-106 lanes 1-6, 108-111 the throws, 114-118 VIAGGIO and the harmony, notes 100-115 the
+Channel 13: CC 92-97 the LFO, 101-106 lanes 1-6, 108-111 the throws, 114-118 the MOSSE and the harmony, notes 100-115 the
 switches; channel 12: CC 62 / 63 lanes 7 and 8 (0.28.1: the FM-1 0.28.1 or later). The FM-1: SAVE K2 = REMOTE 13 + 14;
 wire OUT to it (USB PORTS 2: port 2)."""
 
@@ -109,7 +109,7 @@ wire OUT to it (USB PORTS 2: port 2)."""
     ]
 
     cc_outputs = sorted({c.cc for c in CELLS} - {0})
-    outputs = ["CC and notes on ch 13 (lanes 7 and 8: CC on ch 12): the LFOs, lanes, throws and VIAGGIO of SAGGA SEQ"]
+    outputs = ["CC and notes on ch 13 (lanes 7 and 8: CC on ch 12): the LFOs, lanes, throws and MOSSE of SAGGA SEQ"]
 
     THROWS = ("th_int", "th_gate", "th_swing", "th_filt")
 

@@ -167,6 +167,7 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("key", project.key_cur); pr_ku("root", project.key_root); pr_ku("scale", project.key_scale);
     pr_k("shift"); pr_d(project.key_shift); pr_k("mute"); pr_x(mute_mask, 4u); pr_k("solo"); pr_x(solo_mask, 4u);
     pr_ku("scene", scene_cursor); pr_k("snap"); pr_d(snap_cur == 255u ? -1 : (int32_t)snap_cur);
+    pr_ku("sbank", snap_bank); pr_ku("son", song_on); pr_ku("spos", song_pos); pr_ku("slen", project.song.len);   /* 0.30: the snapshots' bank; the song on, its entry, its length (up to 128) */
     pr_k("mac"); pr_d(mac_vel); pr_c('/'); pr_d(mac_gate); pr_c('/'); pr_d(mac_swing); pr_c('/'); pr_d(mac_filt);
     pr_ku("upsel", uprog_sel); pr_ku("uppos", uprog_pos); pr_ku("dice", dice_pending);   /* (0.22: a dice waits: OCT and ALG are its keys) */
     pr_ku("thsrc", project.th.src); pr_ku("thseed", project.th.seed); pr_ku("en", vg_energy_now());   /* 0.23 THEORY: the SOURCE, the next seed, the energy applied now */

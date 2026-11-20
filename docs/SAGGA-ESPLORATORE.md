@@ -14,7 +14,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 ## Come lavora
 
-1. **Le situazioni.** Prepara la macchina in 29 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26): vuota ferma e in play, una band TECHNO in play, una HOUSE con
+1. **Le situazioni.** Prepara la macchina in 32 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26, 30 nella 0.28): vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una BALANI ferma (0.29; prima era AMAPIANO), una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
@@ -49,7 +49,16 @@ cosa cambia) e `build/explore/rapporto.json`.
    e 8), in play. Il nome promette la traccia scelta, le sei note e i lock: la sonda ha due valori nuovi per traccia,
    `poly` (quante note ha il passo scritto più pieno del pattern) e `lx` (i passi con un lock sulle lane 7 o 8), e
    viene controllata prima di cominciare. ENV ha otto pagine: l'esploratore gira le manopole anche sulle lane 7 e 8.
-2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
+   0.30: **due, con le cose della 0.29 e della 0.30**, perché dalla 0.27 si può passare alla 0.30 in un colpo.
+   **La 0.29**: una band BALANI dei motori (con il BALAFON), la scala HUNGARIAN MINOR, PROG 7, il groove MALI, e sulla
+   traccia 3 ROLL e ACCENT in catena (HOME 6), in play. Prima di cominciare la sonda controlla la scala, la
+   progressione, i motori e i due effetti in catena. **La 0.30**: le scene 17 e 32 salvate, una song di 70 entrate che
+   suona dalla 65, le snapshot 9 e 16 nella banca 9-16, il tablet e il grid, la band in play. La sonda ha quattro
+   valori nuovi, `sbank` (la banca delle snapshot), `son`, `spos` e `slen` (la song accesa, dove suona, quante entrate
+   ha), e prima di cominciare controlla quelli e il cursore delle scene sulla 32. Nei gesti sono entrati SHIFT + i pad
+   della riga 2 delle viste PROJ (le scale nuove della 0.29) e SONG (le scene 17-32), SHIFT + la riga 8 della vista FX
+   (le snapshot 9-16), e sul tablet i valori nuovi di GROOVE, MIDI FX e CHORD.
+2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
@@ -230,6 +239,19 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   rompendo il firmware e il Pi in dieci punti, uno alla volta: tutte e dieci le rotture trovate. Il piano del banco: 28
   sessioni; l'FM-1 completo: 33.
 
+* **Sulla 0.29 e la 0.30** (22 generi con il BALANI, 8 progressioni, ROLL e ACCENT; 32 scene, 16 snapshot, la song
+  da 128 entrate, le TAPE da 3072 eventi, UNDO a 32 righe): due situazioni nuove (sopra) e i gesti nuovi. Scrivendo la
+  prova delle 32 scene è venuto fuori **un errore vecchio, della 0.9**: all'accensione l'FM-1 caricava l'ultimo slot
+  ma lasciava fuori i suoi mute e il cursore delle scene (il LOAD li rimetteva). Corretto; lo guarda `t030_banks`, che
+  spegne e riaccende il simulatore. Al primo giro la situazione della song ha segnato un RITORNO su LFO 6 e ARP 6 con
+  PRESETS: il pattern in coda cambia alla fine del loop, e l'entrata fatta suonare subito mette la fine del loop fra
+  l'andata e il ritorno. È la stessa cosa già fra i "Visti e voluti" per le altre pagine. Il giro completo: **110.996
+  gesti da soli in 32 situazioni, 12.794 coppie, 200 sessioni da 60 gesti, nessun errore, niente da guardare** (13
+  minuti con due processori). Le prove fisse della 0.30 (`t030_banks` e `t030_tape` nel simulatore, l'immagine nel
+  cuore, la 0.29 vera presa da git in `tests/sagga_compat29.sh`, la song da 128 dell'editor) sono state provate
+  rompendo il firmware e l'editor in tredici punti, uno alla volta: tutte e tredici le rotture trovate. Il piano del
+  banco: 30 sessioni; l'FM-1 completo: 35.
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
@@ -309,7 +331,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 28 dalla 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 30 dalla 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
@@ -333,8 +355,8 @@ configurato, quanto è rimasto fermo il suo giro principale), per capire da che 
 (`prima-del-banco-<data>.sgq`). Nel confronto una sonda letta un tick di clock prima o dopo, sul confine di uno step, è
 TEMPO anche quando quelle dopo cadono sul confine come lei (le sonde vengono ogni 700 ms, sei step).
 
-Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`, 24 sessioni più 4
-con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
+Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`: ogni situazione una volta, 31
+sessioni dalla 0.30, più 4 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
 programma, senza Windows. La raccolta si confronta con `--banco` come quella del banco.
 
 `--banco-prova` fa tutto con il simulatore al posto dell'FM-1 (il bridge vero, i ritardi del Pi a caso) e deve dire

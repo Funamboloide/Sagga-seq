@@ -1097,6 +1097,8 @@ void sq_project_sanitize(sq_project_t *p)
     if (p->song.len > SQ_SONG_LEN) p->song.len = 0u;
     p->song.loop = p->song.loop ? 1u : 0u;
     for (n = 0; n < SQ_SONG_LEN; n++) {
+        if (n >= p->song.len) { p->song.e[n].scene = 0u; p->song.e[n].bars = 4u; p->song.e[n].bpm = 0u; continue; }   /* (0.30: past the
+                                                          * last, nothing: the image keeps an entry past the 64th only in use) */
         if (p->song.e[n].scene >= SQ_SCENES) p->song.e[n].scene = 0u;
         p->song.e[n].bars = (uint8_t)clampi(p->song.e[n].bars, 1, 64);
         if (p->song.e[n].bpm && (p->song.e[n].bpm < 30u || p->song.e[n].bpm > 300u)) p->song.e[n].bpm = 0u;
@@ -3300,7 +3302,7 @@ static uint32_t rd_u16(rd_t *r) { uint8_t b[2] = {0u, 0u}; rd_get(r, b, 2); retu
 typedef char sq_step_size[(sizeof(sq_step_t) == 22u) ? 1 : -1];
 typedef char sq_track_size[(sizeof(sq_track_cfg_t) == 104u) ? 1 : -1];
 typedef char sq_algo_size[(sizeof(sq_algo_t) == 4u) ? 1 : -1];
-typedef char sq_ext_size[(sizeof(sq_ext_t) == 1388u && sizeof(sq_ext_t) % 4u == 0u &&   /* (0.29: 1388 - ROLL, ACCENT) */
+typedef char sq_ext_size[(sizeof(sq_ext_t) == 1404u && sizeof(sq_ext_t) % 4u == 0u &&   /* (0.29: 1388 - ROLL, ACCENT; 0.30: 1404, 32 metres) */
                           __builtin_offsetof(sq_ext_t, name) - __builtin_offsetof(sq_ext_t, motion_bars) ==
                           __builtin_offsetof(sq27_ext_t, name) - __builtin_offsetof(sq27_ext_t, motion_bars)) ? 1 : -1];
 typedef char sq_mfxc_size[(sizeof(sq_mfxc_t) == 13u && sizeof(sq_mfxd_t) == 33u && sizeof(sq27_mfxd_t) == 25u && sizeof(sq_lfoe_t) == 4u && sizeof(sq_mod_t) == 5u) ? 1 : -1];
@@ -3416,12 +3418,12 @@ static uint8_t bal_func(uint8_t f) { return f == SQ_FUNC29_BALAFON ? (uint8_t)SQ
  * part is; a byte a track, a bit a pattern the engines made as one; the BEAT part; each snapshot's two bits a track),
  * then each track's MIDI effects as 0.29 has them (eleven: the image's own block holds 0.28's nine) */
 #define X29_PROG 0u
-#define X29_ROLE (1u + SQ_SNAPS)
+#define X29_ROLE (1u + SQ27_SNAPS)
 #define X29_FUNC (X29_ROLE + 2u)
 #define X29_TH (X29_FUNC + 2u)
 #define X29_GEN (X29_TH + SQ_TRACKS)
 #define X29_SNAP (X29_GEN + 1u)
-#define X29_MFX (X29_SNAP + 4u * SQ_SNAPS)
+#define X29_MFX (X29_SNAP + 4u * SQ27_SNAPS)
 #define X29_DATA (X29_MFX + SQ_TRACKS * (uint32_t)sizeof(sq_mfxd_t))
 #define SQ_X29_LEN (1u + X29_DATA)
 typedef char x29_fits[(SQ_TRACKS <= 16u && SQ_PATTERNS <= 8u) ? 1 : -1];
@@ -3432,7 +3434,7 @@ static uint8_t uses_prog78(const sq_project_t *p)
 {
     uint32_t k;
     if (prog_new29(p->gen.harm_prog)) return 1u;
-    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used && prog_new29(p->snap[k].harm_prog)) return 1u;
+    for (k = 0; k < SQ27_SNAPS; k++) if (p->snap[k].used && prog_new29(p->snap[k].harm_prog)) return 1u;   /* (0.30: 9-16 in chunk 6) */
     return 0u;
 }
 static uint8_t uses_balafon(const sq_project_t *p)
@@ -3443,7 +3445,7 @@ static uint8_t uses_balafon(const sq_project_t *p)
         if (p->track[t].role == SQ_ROLE_BALAFON || p->track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
         for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) return 1u;
     }
-    for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used)
+    for (k = 0; k < SQ27_SNAPS; k++) if (p->snap[k].used)
         for (t = 0; t < SQ_TRACKS; t++) if (p->snap[k].track[t].role == SQ_ROLE_BALAFON || p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) return 1u;
     return 0u;
 }
@@ -3453,14 +3455,14 @@ static void x29_of(const sq_project_t *p, uint8_t *x)
     uint32_t t, k;
     for (k = 0; k < X29_DATA; k++) x[k] = 0u;
     x[X29_PROG] = p->gen.harm_prog;
-    for (k = 0; k < SQ_SNAPS; k++) x[X29_PROG + 1u + k] = p->snap[k].harm_prog;
+    for (k = 0; k < SQ27_SNAPS; k++) x[X29_PROG + 1u + k] = p->snap[k].harm_prog;
     for (t = 0; t < SQ_TRACKS; t++) {
         if (p->track[t].role == SQ_ROLE_BALAFON) x[X29_ROLE + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
         if (p->track[t].src_func == SQ_FUNC29_BALAFON) x[X29_FUNC + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
         for (k = 0; k < SQ_PATTERNS; k++) if (p->th.pat[t][k].style && p->th.pat[t][k].func == SQ_FUNC29_BALAFON) x[X29_TH + t] |= (uint8_t)(1u << k);
     }
     if (p->gen.func == SQ_FUNC29_BALAFON) x[X29_GEN] = 1u;
-    for (k = 0; k < SQ_SNAPS; k++) for (t = 0; t < SQ_TRACKS; t++) {
+    for (k = 0; k < SQ27_SNAPS; k++) for (t = 0; t < SQ_TRACKS; t++) {
         if (p->snap[k].track[t].role == SQ_ROLE_BALAFON) x[X29_SNAP + 4u * k + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
         if (p->snap[k].track[t].src_func == SQ_FUNC29_BALAFON) x[X29_SNAP + 4u * k + 2u + (t >> 3)] |= (uint8_t)(1u << (t & 7u));
     }
@@ -3491,7 +3493,7 @@ static void balafon_in(sq_project_t *p, const uint8_t *x, const uint8_t *map)
         bal_track_in(&p->track[nt], x, X29_ROLE, X29_FUNC, t);
         for (k = 0; k < SQ_PATTERNS; k++)
             if (((x[X29_TH + t] >> k) & 1u) && p->th.pat[nt][k].func == SQ_FUNC28_LEAD) p->th.pat[nt][k].func = SQ_FUNC29_BALAFON;
-        for (k = 0; k < SQ_SNAPS; k++) if (p->snap[k].used) bal_track_in(&p->snap[k].track[nt], x, X29_SNAP + 4u * k, X29_SNAP + 4u * k + 2u, t);
+        for (k = 0; k < SQ27_SNAPS; k++) if (p->snap[k].used) bal_track_in(&p->snap[k].track[nt], x, X29_SNAP + 4u * k, X29_SNAP + 4u * k + 2u, t);
     }
 }
 static uint8_t uses_balani(const sq_project_t *p)
@@ -3503,7 +3505,7 @@ static uint8_t uses_balani(const sq_project_t *p)
         if (p->track[t].src_genre == B) return 1u;
         for (k = 0; k < SQ_PATTERNS; k++) if ((p->th.pat[t][k].style & 31u) == B + 1u) return 1u;
     }
-    for (k = 0; k < SQ_SNAPS; k++) {
+    for (k = 0; k < SQ27_SNAPS; k++) {                 /* (0.30: the snapshots 9-16 are in chunk 6, as 0.30 numbers them) */
         const sq_snap_t *sn = &p->snap[k];
         if (!sn->used) continue;
         if (sn->genre == B || sn->harm_genre == B) return 1u;
@@ -3525,7 +3527,7 @@ static void genres_in(sq_project_t *p, uint8_t v29, const uint8_t *x29, const ui
         p->track[t].src_genre = sq_genre_from28(p->track[t].src_genre, v29);
         for (k = 0; k < SQ_PATTERNS; k++) p->th.pat[t][k].style = thstyle_from28(p->th.pat[t][k].style, v29);
     }
-    for (k = 0; k < SQ_SNAPS; k++) {
+    for (k = 0; k < SQ27_SNAPS; k++) {                 /* (0.30: 9-16 came from chunk 6 with 0.30's own numbers) */
         sq_snap_t *sn = &p->snap[k];
         if (!sn->used) continue;
         sn->genre = sq_genre_from28(sn->genre, v29);
@@ -3705,7 +3707,7 @@ static void wr_ext27(wr_t *w, const sq_ext_t *x)
     for (t = 0; t < SQ27_TRACKS; t++) { mfxd27_out(t < SQ_TRACKS ? &x->mfxd[t] : &dx, &d27); wr_put(w, &d27, sizeof d27); }
     wr_put(w, x->lfoe, sizeof x->lfoe);
     wr_put(w, x->mod, sizeof x->mod);
-    wr_put(w, x->scene_metre, sizeof x->scene_metre);
+    wr_put(w, x->scene_metre, SQ27_SCENES);           /* (0.30: the 17th-32nd's in chunk 6) */
 }
 static void x27_range(void *dst, const uint8_t *src, uint32_t k, uint32_t off, uint32_t n)   /* what [off, off + n) has */
 {
@@ -3754,7 +3756,7 @@ static void ext27_in(const uint8_t *src, uint32_t k, sq_ext_t *x, const uint8_t 
             }
         }
     }
-    x27_range(x->scene_metre, src, k, X27_OFF(scene_metre), sizeof x->scene_metre);
+    x27_range(x->scene_metre, src, k, X27_OFF(scene_metre), SQ27_SCENES);
 }
 
 /* the LFOs aimed at a track, the SCOPE CUSTOM, the mutes saved: the image's track -> the project's (an LFO aimed at a
@@ -3874,11 +3876,16 @@ typedef struct {
     const uint8_t *map;
     uint8_t v29;                                      /* 0.29: chunk 5 was there (the genres are 0.29's) */
     const uint8_t *x29;                               /* ... and what 0.28 has not (X29_*: in the image itself), or 0 */
+    uint8_t find;                                     /* 0.30: a chunk looked for (sq_image_chunk_at) ... */
+    uint32_t found;                                   /* ... where its id is, 0: not there */
+    uint8_t x30_snaps;                                /* 0.30: the snapshots 9-16 chunk 6 brought (a bit each) ... */
+    uint16_t x30_tm[SQ_SNAPS - SQ27_SNAPS];           /* ... and, of each, the tracks it has of its own (the rest: the project's) */
 } parse_t;
 static void parse_init(parse_t *q)
 {
     q->p = 0; q->want_t = 255u; q->want_new = 255u; q->want_pat = 0u;
     q->cfg = 0; q->row = 0; q->th = 0; q->map = MAP_SAME; q->v29 = 0u; q->x29 = 0;
+    q->find = 0u; q->found = 0u; q->x30_snaps = 0u;
 }
 static void x28_in(const uint8_t *src, uint32_t n, parse_t *q)
 {
@@ -4000,6 +4007,94 @@ static void rd_gen(rd_t *r, sq_gen_t *g, uint8_t old)
     for (i = 0; i < sizeof g->reserved11; i++) g->reserved11[i] = 0u;
 }
 
+/* 0.30: a snapshot as the image keeps one - its head, the tracks that are not the project's, the LFOs if they are not, the
+ * CC values. own: chunk 6's snapshots 9-16, with the genres, the progression, the roles and parts as 0.30 numbers them
+ * (the image's own eight: 0.28's numbers, chunk 5 says the rest) */
+static void wr_snap(wr_t *w, const sq_project_t *p, const sq_snap_t *sn, uint8_t own)
+{
+    sq27_snap_head_t h;
+    uint8_t tm[2] = {0, 0}, lf;
+    uint32_t t;
+    sh27_out(sn, &h);
+    if (own) { h.genre = sn->genre; h.harm_prog = sn->harm_prog; h.harm_genre = sn->harm_genre; }
+    wr_put(w, &h, sizeof h);
+    for (t = 0; t < SQ_TRACKS; t++) if (tr27_differ(&sn->track[t], &p->track[t])) tm[t >> 3] |= (uint8_t)(1u << (t & 7u));
+    wr_put(w, tm, 2);
+    for (t = 0; t < SQ_TRACKS; t++)
+        if (tm[t >> 3] & (1u << (t & 7u))) {
+            sq27_track_t x;
+            tr27_out(&sn->track[t], &x);
+            if (own) {
+                x.tail[TR27_SRC_GENRE] = sn->track[t].src_genre;
+                x.tail[TR27_TAIL_AT(role)] = sn->track[t].role;
+                x.tail[TR27_TAIL_AT(src_func)] = sn->track[t].src_func;
+            }
+            wr_put(w, &x, sizeof x);
+        }
+    lf = (uint8_t)bdiff_(sn->lfo, p->lfo, sizeof p->lfo);
+    wr_put(w, &lf, 1);
+    if (lf) wr_put(w, sn->lfo, sizeof sn->lfo);
+    wr_put(w, sn->cc, (uint32_t)(sn->ccn <= SQ_SNAP_CC ? sn->ccn : 0u) * (uint32_t)sizeof(sq_ccv_t));
+}
+/* 0.30: the tapes' counts the image's own layout holds - their first 1536 events, track after track (the rest: chunk 6) */
+static uint32_t tape_cnt27(const sq_project_t *p, uint32_t t)
+{
+    uint32_t k, before = 0u;
+    if (t >= SQ_TRACKS) return 0u;
+    for (k = 0; k < t; k++) before += p->tape_cnt[k];
+    if (before >= SQ27_TAPE_MAX) return 0u;
+    return p->tape_cnt[t] < SQ27_TAPE_MAX - before ? p->tape_cnt[t] : SQ27_TAPE_MAX - before;
+}
+/* 0.30: chunk 6 - what 0.29 has no room for (sagga_img27.h): the parts a project needs, and their bytes */
+static uint8_t x30_parts(const sq_project_t *p)
+{
+    uint32_t k;
+    uint8_t parts = 0u;
+    sq_scene_t d;
+    scene_default(&d);
+    for (k = SQ27_SCENES; k < SQ_SCENES; k++) {
+        if (bdiff_(&p->scene[k], &d, sizeof d)) parts |= SQ_X30_SCENES;
+        if (p->ext.scene_metre[k]) parts |= SQ_X30_METRES;
+    }
+    if (p->song.len > SQ27_SONG_LEN) parts |= SQ_X30_SONG;
+    for (k = SQ27_SNAPS; k < SQ_SNAPS; k++) if (p->snap[k].used) parts |= SQ_X30_SNAPS;
+    if (p->tape_n > SQ27_TAPE_MAX) parts |= SQ_X30_TAPES;
+    return parts;
+}
+static void x30_body(wr_t *w, const sq_project_t *p, uint8_t parts)
+{
+    uint32_t k, t, n;
+    sq_scene_t d;
+    wr_u8(w, SQ_X30_VER);
+    wr_u8(w, parts);
+    if (parts & SQ_X30_SCENES) {
+        uint32_t m = 0u;
+        scene_default(&d);
+        for (k = SQ27_SCENES; k < SQ_SCENES; k++) if (bdiff_(&p->scene[k], &d, sizeof d)) m |= 1u << (k - SQ27_SCENES);
+        wr_u16(w, m);
+        for (k = SQ27_SCENES; k < SQ_SCENES; k++)
+            if (m & (1u << (k - SQ27_SCENES))) { sq27_scene_t x; sc27_out(&p->scene[k], &x); wr_put(w, &x, sizeof x); }
+    }
+    if (parts & SQ_X30_METRES) wr_put(w, &p->ext.scene_metre[SQ27_SCENES], SQ_SCENES - SQ27_SCENES);
+    if (parts & SQ_X30_SONG) {
+        n = p->song.len > SQ_SONG_LEN ? SQ_SONG_LEN : p->song.len;
+        wr_u8(w, n);
+        wr_put(w, &p->song.e[SQ27_SONG_LEN], (n - SQ27_SONG_LEN) * (uint32_t)sizeof(sq_song_entry_t));
+    }
+    if (parts & SQ_X30_SNAPS) {
+        uint32_t m = 0u;
+        for (k = SQ27_SNAPS; k < SQ_SNAPS; k++) if (p->snap[k].used) m |= 1u << (k - SQ27_SNAPS);
+        wr_u8(w, m);
+        for (k = SQ27_SNAPS; k < SQ_SNAPS; k++) if (m & (1u << (k - SQ27_SNAPS))) wr_snap(w, p, &p->snap[k], 1u);
+    }
+    if (parts & SQ_X30_TAPES) {
+        n = p->tape_n > SQ_TAPE_MAX ? SQ_TAPE_MAX : p->tape_n;
+        for (t = 0; t < SQ_TRACKS; t++) wr_u16(w, p->tape_cnt[t]);
+        wr_u16(w, n - SQ27_TAPE_MAX);
+        wr_put(w, &p->tape_ev[SQ27_TAPE_MAX], (n - SQ27_TAPE_MAX) * (uint32_t)sizeof(sq_tape_ev_t));
+    }
+}
+
 /* SGQB (0.11 ..; 0.28 in 0.27's layout): the project's settings at their sizes, the snapshots (a track or the LFOs equal
  * to the project's are not written again), the patterns, sparse, the tape events, then the chunks */
 uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
@@ -4031,32 +4126,23 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
         tr27_out(c, &x);
         wr_put(&w, &x, sizeof x);
     }
-    for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }
+    for (i = 0; i < SQ27_SCENES; i++) { sq27_scene_t x; sc27_out(&p->scene[i], &x); wr_put(&w, &x, sizeof x); }   /* (0.30: 17-32 in chunk 6) */
     wr_put(&w, p->lfo, sizeof p->lfo);
     { sq_gen_t g = p->gen; g.genre = sq_genre_to28(g.genre); g.harm_genre = sq_genre_to28(g.harm_genre); g.harm_prog = sq_prog_to28(g.harm_prog);
       g.func = bal_func(g.func); wr_put(&w, &g, sizeof g); }
-    wr_put(&w, &p->song, sizeof p->song);
+    {   /* (0.30: its first 64 entries; the rest in chunk 6) */
+        sq27_song_t sg;
+        sg.len = (uint8_t)(p->song.len > SQ27_SONG_LEN ? SQ27_SONG_LEN : p->song.len);
+        sg.loop = p->song.loop;
+        for (i = 0; i < SQ27_SONG_LEN; i++) sg.e[i] = p->song.e[i];
+        wr_put(&w, &sg, sizeof sg);
+    }
     wr_put(&w, &p->live, sizeof p->live);
     { sq27_viaggio_t x; vg27_out(&p->viaggio, &x); wr_put(&w, &x, sizeof x); }
-    for (t = 0; t < SQ27_TRACKS; t++) wr_u16(&w, t < SQ_TRACKS ? p->tape_cnt[t] : 0u);
-    for (i = 0; i < SQ_SNAPS; i++) if (p->snap[i].used) smask |= (uint8_t)(1u << i);
+    for (t = 0; t < SQ27_TRACKS; t++) wr_u16(&w, tape_cnt27(p, t));      /* (0.30: of the first 1536 events) */
+    for (i = 0; i < SQ27_SNAPS; i++) if (p->snap[i].used) smask |= (uint8_t)(1u << i);   /* (0.30: 9-16 in chunk 6) */
     wr_put(&w, &smask, 1);
-    for (i = 0; i < SQ_SNAPS; i++) {
-        const sq_snap_t *sn = &p->snap[i];
-        sq27_snap_head_t h;
-        uint8_t tm[2] = {0, 0}, lf;
-        if (!(smask & (1u << i))) continue;
-        sh27_out(sn, &h);
-        wr_put(&w, &h, sizeof h);
-        for (t = 0; t < SQ_TRACKS; t++) if (tr27_differ(&sn->track[t], &p->track[t])) tm[t >> 3] |= (uint8_t)(1u << (t & 7u));
-        wr_put(&w, tm, 2);
-        for (t = 0; t < SQ_TRACKS; t++)
-            if (tm[t >> 3] & (1u << (t & 7u))) { sq27_track_t x; tr27_out(&sn->track[t], &x); wr_put(&w, &x, sizeof x); }
-        lf = (uint8_t)bdiff_(sn->lfo, p->lfo, sizeof p->lfo);
-        wr_put(&w, &lf, 1);
-        if (lf) wr_put(&w, sn->lfo, sizeof sn->lfo);
-        wr_put(&w, sn->cc, (uint32_t)(sn->ccn <= SQ_SNAP_CC ? sn->ccn : 0u) * (uint32_t)sizeof(sq_ccv_t));
-    }
+    for (i = 0; i < SQ27_SNAPS; i++) if (smask & (1u << i)) wr_snap(&w, p, &p->snap[i], 0u);
     for (t = 0; t < SQ27_TRACKS; t++) {
         uint8_t pmask = 0u;
         if (t < SQ_TRACKS)
@@ -4074,7 +4160,7 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
                 if (m[i >> 3] & (1u << (i & 7u))) wr_step(&w, &p->step[t][pat][i], &def27);
         }
     }
-    n = p->tape_n > SQ_TAPE_MAX ? SQ_TAPE_MAX : p->tape_n;             /* the tapes' events */
+    n = p->tape_n > SQ27_TAPE_MAX ? SQ27_TAPE_MAX : p->tape_n;         /* the tapes' events (0.30: the first 1536) */
     nb[0] = (uint8_t)(n & 0xFFu); nb[1] = (uint8_t)(n >> 8);
     wr_put(&w, nb, 2);
     if (n) wr_put(&w, p->tape_ev, n * sizeof(sq_tape_ev_t));
@@ -4124,6 +4210,17 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
             }
         }
     }
+    {   /* 0.30: chunk 6, what 0.29 has no room for - the scenes 17-32, the song past 64, the snapshots 9-16, the tapes past
+         * 1536 (before chunk 4: its lanes 7-8 of those snapshots want them there) */
+        uint8_t parts = x30_parts(p);
+        if (parts) {
+            wr_t c;
+            c.p = 0; c.pos = 0; c.cap = 0xFFFFu; c.bad = 0;
+            x30_body(&c, p, parts);
+            if (c.bad) w.bad = 1;
+            else { wr_u8(&w, SQ_CHUNK_X30); wr_u16(&w, c.pos); x30_body(&w, p, parts); }
+        }
+    }
     {   /* 0.28: chunk 4, what 0.27 has no room for - the notes 5-6, the lanes 7-8 and their settings */
         uint8_t parts = x28_parts(p);
         if (parts) {
@@ -4142,6 +4239,87 @@ uint32_t sq_serialize(const sq_project_t *p, uint8_t *out, uint32_t cap)
     }
     b = 0u; wr_put(&w, &b, 1);                        /* the end of the chunks */
     return w.bad ? 0u : w.pos;
+}
+
+/* 0.30: chunk 6 (sagga_img27.h). The snapshots 9-16 keep the tracks that are not the project's; the others are the
+ * project's as it is once read whole (x30_fill: its genres and the balafon are only right then) */
+static void x30_in(const uint8_t *src, uint32_t n, parse_t *q)
+{
+    rd_t r;
+    sq_project_t *p = q->p;
+    uint32_t parts, k, t, m;
+    uint8_t id[SQ27_TRACKS];
+    r.p = src; r.pos = 0; r.len = n; r.bad = 0;
+    for (t = 0; t < SQ27_TRACKS; t++) id[t] = (uint8_t)t;     /* (an image of 0.30: the tracks are the project's) */
+    if (!p || !rd_u8(&r)) return;
+    parts = rd_u8(&r);
+    if (parts & SQ_X30_SCENES) {
+        m = rd_u16(&r);
+        for (k = 0; k < SQ_SCENES - SQ27_SCENES && !r.bad; k++) {
+            sq27_scene_t x;
+            if (!(m & (1u << k))) continue;
+            rd_get(&r, &x, sizeof x);
+            if (!r.bad) sc27_in(&x, &p->scene[SQ27_SCENES + k], id);
+        }
+    }
+    if ((parts & SQ_X30_METRES) && !r.bad) rd_get(&r, &p->ext.scene_metre[SQ27_SCENES], SQ_SCENES - SQ27_SCENES);
+    if ((parts & SQ_X30_SONG) && !r.bad) {
+        uint32_t len = rd_u8(&r);
+        if (len <= SQ27_SONG_LEN || len > SQ_SONG_LEN || p->song.len != SQ27_SONG_LEN) return;   /* (not 0.30's: the rest is not read) */
+        rd_get(&r, &p->song.e[SQ27_SONG_LEN], (len - SQ27_SONG_LEN) * (uint32_t)sizeof(sq_song_entry_t));
+        if (!r.bad) p->song.len = (uint8_t)len;
+    }
+    if ((parts & SQ_X30_SNAPS) && !r.bad) {
+        m = rd_u8(&r);
+        for (k = 0; k < SQ_SNAPS - SQ27_SNAPS && !r.bad; k++) {
+            sq27_snap_head_t h;
+            uint8_t tm[2] = {0, 0}, lf = 0u;
+            sq_snap_t *sn = &p->snap[SQ27_SNAPS + k];
+            if (!(m & (1u << k))) continue;
+            rd_get(&r, &h, sizeof h);
+            if (r.bad || h.ccn > SQ_SNAP_CC) return;
+            sh27_in(&h, sn, id);
+            for (t = 0; t < SQ_TRACKS; t++) sn->track[t] = p->track[t];   /* (its own tracks over the project's: their lanes 7-8
+                                                                            * are chunk 4's to say; the others again after) */
+            bcopy_(sn->lfo, p->lfo, sizeof p->lfo);
+            rd_get(&r, tm, 2);
+            for (t = 0; t < SQ27_TRACKS && !r.bad; t++) {
+                if (!(tm[t >> 3] & (1u << (t & 7u)))) continue;
+                if (t < SQ_TRACKS) rd_track(&r, &sn->track[t], 0u); else rd_skip(&r, (uint32_t)sizeof(sq27_track_t));
+            }
+            rd_get(&r, &lf, 1);
+            if (lf) rd_get(&r, sn->lfo, sizeof sn->lfo);
+            rd_get(&r, sn->cc, (uint32_t)h.ccn * (uint32_t)sizeof(sq_ccv_t));
+            if (r.bad) { sn->used = 0u; return; }
+            q->x30_snaps |= (uint8_t)(1u << k);
+            q->x30_tm[k] = (uint16_t)(tm[0] | ((uint32_t)tm[1] << 8));
+        }
+    }
+    if ((parts & SQ_X30_TAPES) && !r.bad) {
+        uint16_t cnt[SQ_TRACKS];
+        uint32_t sum = 0u, more;
+        for (t = 0; t < SQ_TRACKS; t++) { cnt[t] = (uint16_t)rd_u16(&r); sum += cnt[t]; }
+        more = rd_u16(&r);
+        if (r.bad || p->tape_n != SQ27_TAPE_MAX || sum != SQ27_TAPE_MAX + more || sum > SQ_TAPE_MAX) return;
+        rd_get(&r, &p->tape_ev[SQ27_TAPE_MAX], more * (uint32_t)sizeof(sq_tape_ev_t));
+        if (r.bad) return;
+        for (t = 0; t < SQ_TRACKS; t++) p->tape_cnt[t] = cnt[t];
+        p->tape_n = (uint16_t)sum;
+    }
+}
+static void x30_fill(sq_project_t *p, const parse_t *q)
+{
+    uint32_t k, t;
+    uint8_t lx[SQ_X28_LCFG];
+    for (k = 0; k < SQ_SNAPS - SQ27_SNAPS; k++)
+        if ((q->x30_snaps >> k) & 1u)
+            for (t = 0; t < SQ_TRACKS; t++) {
+                sq_track_cfg_t *c = &p->snap[SQ27_SNAPS + k].track[t];
+                if ((q->x30_tm[k] >> t) & 1u) continue;
+                tr_lx_get(c, lx);                     /* (its lanes 7-8, as chunk 4 left them: a snapshot can differ only there) */
+                *c = p->track[t];
+                tr_lx_put(c, lx);
+            }
 }
 
 /* SGQB / SGQA reader: the whole project, or one track and pattern for RELOAD, or a check (and which tracks have
@@ -4179,10 +4357,15 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
             if (c == &scratch) sq_track_default(&scratch, t);
             rd_track(&r, c, old);
         }
-        for (i = 0; i < SQ_SCENES; i++) { sq27_scene_t x; rd_get(&r, &x, sizeof x); sc27_in(&x, &p->scene[i], map); }
+        for (i = 0; i < SQ27_SCENES; i++) { sq27_scene_t x; rd_get(&r, &x, sizeof x); sc27_in(&x, &p->scene[i], map); }
         rd_get(&r, p->lfo, sizeof p->lfo);
         rd_gen(&r, &p->gen, old);
-        rd_get(&r, &p->song, sizeof p->song);
+        {   /* (0.30: the entries past 64 are in chunk 6) */
+            sq27_song_t sg;
+            rd_get(&r, &sg, sizeof sg);
+            p->song.len = sg.len; p->song.loop = sg.loop;
+            for (i = 0; i < SQ27_SONG_LEN; i++) p->song.e[i] = sg.e[i];
+        }
         rd_get(&r, &p->live, sizeof p->live);
         { sq27_viaggio_t x; rd_get(&r, &x, sizeof x); vg27_in(&x, &p->viaggio, map); }
         if (old) { p->gen.harm_genre = p->gen.genre; p->gen.harm_lock = 0u; }   /* 0.10: one genre for all */
@@ -4192,13 +4375,13 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
             if (q->cfg && t == q->want_t) rd_track(&r, q->cfg, old);
             else rd_skip(&r, old ? SQ_TRACK_CFG_A : (uint32_t)sizeof(sq27_track_t));
         }
-        rd_skip(&r, SQ_SCENES * (uint32_t)sizeof(sq27_scene_t) + SQ_LFOS * (uint32_t)sizeof(sq_lfo_t));
-        rd_skip(&r, (old ? SQ_GEN_A : (uint32_t)sizeof(sq_gen_t)) + (uint32_t)sizeof(sq_song_t) + (uint32_t)sizeof(sq_live_t) +
+        rd_skip(&r, SQ27_SCENES * (uint32_t)sizeof(sq27_scene_t) + SQ_LFOS * (uint32_t)sizeof(sq_lfo_t));
+        rd_skip(&r, (old ? SQ_GEN_A : (uint32_t)sizeof(sq_gen_t)) + (uint32_t)sizeof(sq27_song_t) + (uint32_t)sizeof(sq_live_t) +
                     (uint32_t)sizeof(sq27_viaggio_t));
     }
     for (t = 0; t < SQ27_TRACKS; t++) cnt27[t] = (uint16_t)rd_u16(&r);
     rd_get(&r, &smask, 1);
-    for (i = 0; i < SQ_SNAPS && !r.bad; i++) {
+    for (i = 0; i < SQ27_SNAPS && !r.bad; i++) {
         sq27_snap_head_t h;
         uint8_t tm[2] = {0, 0}, lf = 0u;
         sq_snap_t *sn = p ? &p->snap[i] : 0;
@@ -4241,7 +4424,7 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
     }
     rd_get(&r, nb, 2);                                /* the tapes' events */
     ev = (uint32_t)nb[0] | ((uint32_t)nb[1] << 8);
-    if (ev > SQ_TAPE_MAX) return -2;
+    if (ev > SQ27_TAPE_MAX) return -2;                /* (0.30: the rest in chunk 6) */
     ev_pos = r.pos;
     rd_skip(&r, ev * (uint32_t)sizeof(sq_tape_ev_t));
     if (p && !r.bad) {                                /* each track's events in the project's order of the tracks */
@@ -4268,6 +4451,7 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
         rd_get(&r, h + 1, 2);
         n = (uint32_t)h[1] | ((uint32_t)h[2] << 8);
         if (r.bad || r.pos + n > r.len) { r.bad = 1; break; }
+        if (h[0] == q->find && !q->found) q->found = r.pos - 3u;
         if (h[0] == SQ_CHUNK_EXT && p) {             /* (a longer one, from later: its first bytes are ours) */
             uint32_t k = n < (uint32_t)sizeof(sq27_ext_t) ? n : (uint32_t)sizeof(sq27_ext_t);
             ext27_in(in + r.pos, k, &p->ext, map);
@@ -4308,6 +4492,9 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
         } else if (h[0] == SQ_CHUNK_X28 && (p || q->cfg || q->row)) {
             x28_in(in + r.pos, n, q);
             rd_skip(&r, n);
+        } else if (h[0] == SQ_CHUNK_X30 && p) {     /* 0.30 */
+            x30_in(in + r.pos, n, q);
+            rd_skip(&r, n);
         } else if (h[0] == SQ_CHUNK_X29 && n >= 1u) {
             q->v29 = in[r.pos] >= 1u ? 1u : 0u;
             if (in[r.pos] >= 2u && n >= SQ_X29_LEN) q->x29 = in + r.pos + 1u;
@@ -4317,7 +4504,7 @@ static int sq_parse(const uint8_t *in, uint32_t len, parse_t *q)
     if (r.bad) return -2;
     if (p && ext_n < SQ27_EXT_019)                     /* 0.19: an image from before the MIDI FX chain: its tracks' one effect */
         for (t = 0; t < SQ_TRACKS; t++) sq_mfx_from_track(&p->track[t], &p->ext.mfxc[t]);
-    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29, map); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
+    if (p) { refs_in(p, map); genres_in(p, q->v29, q->x29, map); x30_fill(p, q); sq_project_sanitize(p); }   /* (0.29: 0.28's numbers) */
     if (!p && q->cfg) {                                   /* (RELOAD: the one track) */
         q->cfg->src_genre = sq_genre_from28(q->cfg->src_genre, q->v29);
         if (q->x29) bal_track_in(q->cfg, q->x29, X29_ROLE, X29_FUNC, q->want_t);
@@ -4335,6 +4522,21 @@ int sq_image_ok(const uint8_t *in, uint32_t len)
     parse_t q;
     parse_init(&q);
     return sq_parse(in, len, &q);
+}
+
+uint8_t sq_scene_empty(const sq_scene_t *sc)
+{
+    sq_scene_t d;
+    scene_default(&d);
+    return (uint8_t)!bdiff_(sc, &d, sizeof d);
+}
+
+uint32_t sq_image_chunk_at(const uint8_t *in, uint32_t len, uint8_t id)
+{
+    parse_t q;
+    parse_init(&q);
+    q.find = id;
+    return id && sq_parse(in, len, &q) == 0 ? q.found : 0u;
 }
 
 int sq_deserialize(sq_project_t *p, const uint8_t *in, uint32_t len)

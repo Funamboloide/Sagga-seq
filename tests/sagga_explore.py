@@ -241,7 +241,7 @@ GRID_VIEWS = {                                             # from STEP: the view
     "TRACK2": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0)], "TRACK3": [(S.GC_VTRACK, 0), (S.GC_VTRACK, 0), (S.GC_VTRACK, 0)],
     "BEAT": [(S.GC_VTRACK, 1)], "EUCLID": [(S.GC_VTRACK, 1), (S.GC_VTRACK, 1)], "PROJ": [(S.GC_REC, 1)],
     "FX": [(S.GC_UNDO, 1)],
-    "VIAGGIO": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, VIAGGIO; no test tapped its pads)
+    "MOSSE": [(S.GC_VPERF, 0), (S.GC_VPERF, 0), (S.GC_VPERF, 0)],   # (0.22: PERF, SONG, then the VIAGGIO view - 0.30: MOSSE)
 }
 
 
@@ -283,10 +283,10 @@ def g_ctl(c, shift=False):
 
 # 0.18: the tablet - the hub's pages, as MIDI on the remote's port (channel 12 SAGGA Live, channel 13 the tablet's TRACK).
 # A knob: its value; a switch: on, off; a tap: pressed and let go. (RETRIG, CC 30, puts a track off the bar on purpose.)
-TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5)), (6, "SWING", (58, 66)), (7, "GROOVE", (1, 3)),
-             (8, "GROOVE AMT", (40,)), (9, "MIDI FX", (3, 1)), (10, "FX AMOUNT", (14, 9)), (12, "ALGO", (1, 2)), (13, "A", (40,)),
+TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5)), (6, "SWING", (58, 66)), (7, "GROOVE", (1, 3, 11)),
+             (8, "GROOVE AMT", (40,)), (9, "MIDI FX", (3, 1, 10, 11)), (10, "FX AMOUNT", (14, 9)), (12, "ALGO", (1, 2)), (13, "A", (40,)),
              (14, "B", (90,)), (15, "C", (127,)), (17, "PULSES", (3, 7)), (18, "ROTATION", (2,)), (20, "ARP", (1, 8)),
-             (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13)),
+             (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13, 33)),   # (0.29: DEMBOW, ROLL, ACCENT, 7b9)
              (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40)),   # 0.23: the THEORY engines
              (62, "LANE 7", (30, 100)), (63, "LANE 8", (64,))]                  # 0.28.1: SAGGA Mod's lanes 7 and 8 (the base values)
 TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
@@ -379,8 +379,9 @@ def catalogo(veloce=False, grid=False, tablet=False):
             for y in range(8):
                 for x in range(16):
                     out.append(g_pad(view, x, y))
-                    if not veloce and view in ("STEP", "BEAT", "TRACK3", "PERF"):
-                        out.append(g_pad(view, x, y, shift=True))
+                    if not veloce and (view in ("STEP", "BEAT", "TRACK3", "PERF") or (view, y) in (("PROJ", 1), ("SONG", 1), ("FX", 7))):
+                        out.append(g_pad(view, x, y, shift=True))   # (0.29: SHIFT + PROJ row 2, the five new scales; 0.30: SONG row 2,
+                                                                    #  the scenes 17-32, and FX row 8 - pad 13 the other eight snapshots)
     if tablet:
         out += tablet_gestures()
     if veloce:                                       # the main ones: SEQ and HOME pages, the keys with SEQ, the gestures
@@ -732,6 +733,62 @@ def sit_028(s):
     return _play(s, t + 100)
 
 
+def sit_029(s):
+    """0.29: a BALANI band of the engines (THEORY: the balafon, the djembe, 6/8 over 4/4); the scale HUNGARIAN MINOR
+    (HOME 3 K3, the 17th - one of the five new ones), the genre's PROG 7 (ARP 3 K2: one of the two new ones), the groove
+    MALI on track 1 (HOME 7 K3); ROLL and ACCENT in the chain of track 3 (HOME 6 K1, SEQ + white 6, twice); in play"""
+    t = _genre(s, 200, 14)                                  # BALANI
+    t = _theory(s, t)
+    t = _band(s, t)
+    t = S.home_page(s, t, 2, [(S.K3, 16)])                  # the scale: HUNGARIAN MINOR
+    t = S.home_page(s, t, 6, [(S.K3, 10)])                  # track 1: the groove MALI
+    t = S.harm_knobs(s, t, [(S.K2, 6)])                     # HARMONY (ARP 3): PROG 7 (the band left it on)
+    t = S.pg(s, t, S.ARP, 0)
+    s.enc(t, S.E_SEL, 2); t += 60                           # track 3
+    t = S.home_page(s, t, 5, [(S.K1, -20), (S.K1, 10)])     # ROLL READY
+    t = S.seq_page(s, t, 0, keys=[S.wk(5)])                 # ... in the chain
+    t = S.home_page(s, t, 5, [(S.K1, 1)])                   # ACCENT READY
+    t = S.seq_page(s, t, 0, keys=[S.wk(5)])                 # ... in the chain
+    s.enc(t, S.E_SEL, -2); t += 60
+    t = S.home_page(s, t, 0, [])
+    return _play(s, t + 100)
+
+
+def sit_030(s):
+    """0.30: 32 scenes, 16 snapshots, a song of up to 128 entries. A TECHNO band; PERF: scene 17 stored (PRESETS on 17,
+    SEL + black 1), entries 1-4 of the song scenes 17 and 18 (HOME + black 1 / 2), scene 32 stored (PRESETS on 32, SEL +
+    black 8), entries 5-70 scenes 32 and 31 (HOME + black 8 / 7) - the cursor left on 32, the bank 25-32; snapshots 9
+    and 16 (SAVE + white 10, SAVE + SEL + black 1 / 8), the bank 9-16 left on; in play, the grid's SONG view on entries
+    65-80, the song on (row 4 pad 1) and from entry 65 (SHIFT + row 1 pad 1); REMOTE 13 + 14 (SAVE + K2): the tablet too
+    (and so the banco has it, with its grid and its pages)"""
+    s.press(100, S.SAVE); s.enc(130, S.K2, 1); s.release(180, S.SAVE)
+    s.raw(220, "attach")
+    t = _band(s, 300)
+    s.tap_btn(t, S.GLO); t += 80                            # PERF
+    s.enc(t, S.E_PRE, 16); t += 60                          # the scene cursor on 17 (the bank 17-24)
+    s.press(t, S.SEL); s.tap_key(t + 30, S.bk(0)); s.release(t + 100, S.SEL); t += 160    # scene 17
+    s.press(t, S.HOME)
+    for i in range(4):
+        s.tap_key(t + 50 + 70 * i, S.bk(i % 2), hold=30)    # entries 1-4: 17, 18, 17, 18
+    s.release(t + 50 + 70 * 4, S.HOME); t += 120 + 70 * 4
+    s.enc(t, S.E_PRE, 15); t += 60                          # the cursor on 32 (the bank 25-32)
+    s.press(t, S.SEL); s.tap_key(t + 30, S.bk(7)); s.release(t + 100, S.SEL); t += 160    # scene 32
+    s.press(t, S.HOME)
+    for i in range(66):
+        s.tap_key(t + 50 + 70 * i, S.bk(7 - i % 2), hold=30)   # entries 5-70: 32, 31, 32 ...
+    s.release(t + 50 + 70 * 66, S.HOME); t += 120 + 70 * 66
+    s.tap_btn(t, S.GLO); t += 80                            # out of PERF
+    s.press(t, S.SAVE); s.tap_key(t + 30, S.wk(9))          # the snapshots 9-16
+    s.press(t + 100, S.SEL); s.tap_key(t + 130, S.bk(0)); s.tap_key(t + 230, S.bk(7)); s.release(t + 300, S.SEL)
+    s.release(t + 340, S.SAVE); t += 400                    # ... 9 and 16
+    t = _play(s, t + 100)
+    t = _grid_view(s, t, "SONG")
+    for _ in range(4):
+        s.pad(t, 13, 3, hold=40); t += 80                   # the entries 65-80
+    s.pad(t, 0, 3, hold=40); t += 80                        # the song on (from the next bar) ...
+    S.shift(s, t, 1); s.pad(t + 20, 0, 0, hold=40); S.shift(s, t + 100, 0); t += 140   # ... at once from entry 65
+    return t
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -802,6 +859,10 @@ SITUAZIONI = [
                want={"G": {"prof": 2, "evo": 1, "ret": 50}}),
     Situazione("0.28 dodici tracce: la traccia 12 (la banca 9-12), un accordo di sei note, i lock delle lane 7 e 8, band in play", sit_028,
                want={12: {"poly": 6, "lx": 1}, "G": {"sel": 12}}),
+    Situazione("0.29 BALANI dei motori (il BALAFON), la scala HUNGARIAN MINOR, PROG 7, il groove MALI, ROLL e ACCENT in catena sulla traccia 3, in play", sit_029,
+               want={3: {"mfxnew": "60"}, "G": {"scale": 16, "hprog": 6, "thsrc": 1}}),
+    Situazione("0.30 32 scene e 16 snapshot: le scene 17 e 32, la song di 70 entrate dalla 65, le snapshot 9 e 16 nella banca 9-16, tablet e grid, band in play", sit_030,
+               grid=True, tablet=True, want={"G": {"scene": 31, "sbank": 8, "son": 1, "spos": 64, "slen": 70}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -1061,7 +1122,8 @@ REGOLE = {
 ACCETTATI = [
     # (0.16: EUCLID's knobs and the progression's no longer switch EUCLID LIVE / the HARMONY on: they set them up, READY)
     ("RITORNO", r"^HOME 7 (SEL\+)?K2 ", "CHAIN acceso e spento: se la fine del loop cade in mezzo, la traccia e' gia' passata al pattern dopo"),
-    ("RITORNO", r"^(HOME|ENV) \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),   # (0.28: ENV 7 and 8, reached later, fall there too)
+    ("RITORNO", r"^(HOME|ENV|LFO|ARP) \d (SEL\+)?PRESETS ", "il pattern in coda cambia alla fine del loop: con un loop di due step la fine cade fra l'andata e il ritorno"),   # (0.28: ENV 7 and 8, reached later, fall there too;
+                                                                         #  0.30: LFO 6 and ARP 6 in the song's situation - the entry played at once puts the loop's end there)
     ("RITORNO", r"^GLO 3 (SEL\+)?K3 ", "il genere di VIAGGIO porta con se' il genere dell'armonia: tornato indietro, l'armonia resta sul genere del set"),
     # 0.24, seen with the first situation that has a pattern's COPIES in its loop: a fourth field, the only fields that
     # may differ (anything else there and back with the loop's start is still to look at)
@@ -1657,7 +1719,9 @@ def main(argv):
                                             SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
                                             SITUAZIONI[22],     # (0.24: + the lengths, the copies, the moves at the bar)
                                             SITUAZIONI[23],     # (0.25: + the metre: 7/8, the engines' band in it)
-                                            SITUAZIONI[-1]]     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
+                                            SITUAZIONI[-3],     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
+                                            SITUAZIONI[-2],     # (0.29: + BALANI and the balafon, a new scale, PROG 7, ROLL and ACCENT)
+                                            SITUAZIONI[-1]]     # (0.30: + scenes 17-32, the song past 64, snapshots 9-16, the tablet and the grid)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:

@@ -572,7 +572,7 @@ function laneEvents() {
 
 function rScene() {
   const sc = V.scene, s = P.scene[sc];
-  let o = '<div class="row"><span>scena</span><select onchange="V.scene=+this.value;keepView();render()">' + range(1, 16).map((n, i) => '<option value="' + i + '"' + (i === sc ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
+  let o = '<div class="row"><span>scena</span><select onchange="V.scene=+this.value;keepView();render()">' + range(1, P.scene.length).map((n, i) => '<option value="' + i + '"' + (i === sc ? ' selected' : '') + '>' + n + '</option>').join('') + '</select>' +
     '<span>chiave</span>' + sel('scene', sc, 'key_slot', '-', range(1, 16, n => 'slot ' + n), 0, [[NONE, 'non la cambia']]) + '</div>' +
     '<table><tr><th>traccia</th><th>pattern</th><th>muta</th></tr>';
   for (let t = 0; t < NT; t++) o += '<tr><td>' + h(trackLabel(t)) + '</td><td>' + sel('scene', sc, 'pattern', t, range(1, 8, n => 'P' + n)) + '</td><td><input type="checkbox"' + (s.mute_mask & (1 << t) ? ' checked' : '') + ' ' + at('scene', sc, 'mute', t) + ' data-k="bit" data-bit="1"></td></tr>';
@@ -585,12 +585,13 @@ function rSong() {
   const n = P.song.len;
   let o = '<div class="row"><span>voci</span><b>' + n + '</b><label><input type="checkbox"' + (P.song.loop ? ' checked' : '') + ' ' + at('song', '-', 'loop') + ' data-k="bit" data-bit="1"> ricomincia dalla prima</label>' +
     '<button onclick="songAdd()">+ voce</button><button class="sec" onclick="songDel()">− ultima</button></div><table><tr><th>#</th><th>scena</th><th>battute</th><th>BPM (0: resta)</th><th></th></tr>';
-  for (let i = 0; i < n; i++) o += '<tr><td>' + (i + 1) + '</td><td>' + sel('song_e', i, 'scene', '-', range(1, 16)) + '</td><td>' + num('song_e', i, 'bars', '-', 1, 64, 'w2') + '</td><td>' + num('song_e', i, 'bpm', '-', 0, 300) +
+  for (let i = 0; i < n; i++) o += '<tr><td>' + (i + 1) + '</td><td>' + sel('song_e', i, 'scene', '-', range(1, P.scene.length)) + '</td><td>' + num('song_e', i, 'bars', '-', 1, 64, 'w2') + '</td><td>' + num('song_e', i, 'bpm', '-', 0, 300) +
     '</td><td><button class="sec" onclick="songSwap(' + i + ',-1)">↑</button><button class="sec" onclick="songSwap(' + i + ',1)">↓</button></td></tr>';
   const tot = P.song_e.slice(0, n).reduce((a, e) => a + e.bars, 0);
   return o + '</table><small>' + tot + ' battute in tutto. La song suona le scene in fila (HOME + GLO sull\'FM-1); un BPM diverso da 0 la porta a quel tempo (SAVE 2 SONG TEMPO).</small>';
 }
-function songAdd() { const n = P.song.len; if (n >= 64) return; set('song', '-', 'len', '-', n + 1); if (!P.song_e[n].bars) set('song_e', n, 'bars', '-', 4); commit(); render(); }
+function songAdd() { const n = P.song.len; if (n >= P.song_e.length) return;   // (0.30: 128 entries; 32 scenes)
+  set('song', '-', 'len', '-', n + 1); if (!P.song_e[n].bars) set('song_e', n, 'bars', '-', 4); commit(); render(); }
 function songDel() { const n = P.song.len; if (!n) return; set('song', '-', 'len', '-', n - 1); commit(); render(); }
 function songSwap(i, d) { const j = i + d; if (j < 0 || j >= P.song.len) return; const a = clone(P.song_e[i]), b = clone(P.song_e[j]);
   for (const f of ['scene', 'bars', 'bpm']) { set('song_e', i, f, '-', b[f]); set('song_e', j, f, '-', a[f]); } commit(); render(); }
@@ -658,7 +659,7 @@ function rProgetto() {
     L('le scene portano il metro', bit('ext', '-', 'scene_metre_on', '-', 1)) +
     '</div><h3>I SYNTH SUI CANALI</h3><div class="grid">';
   for (let ch = 0; ch < 16; ch++) o += L('canale ' + (ch + 1), sel(p, '-', 'device', ch, N.device || []));
-  o += '</div><small>Nel progetto anche: ' + P.snaps.filter(x => x).length + ' snapshot e VIAGGIO: l\'editor non li tocca.</small>';
+  o += '</div><small>Nel progetto anche: ' + P.snaps.filter(x => x).length + ' snapshot e lo stato delle MOSSE (energia, frase): l\'editor non li tocca.</small>';
   return o;
 }
 

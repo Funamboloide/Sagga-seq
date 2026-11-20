@@ -309,7 +309,7 @@ static void ui_build(void)
         p = b; p = put_s(p, "SLOT "); p = put_u(p, (uint32_t)slot_cur + 1u); p = put_s(p, " ");
         p = put_s(p, slot_info[slot_cur].ok ? (slot_info[slot_cur].seq == store_seq ? "NEWEST" : "USED") : "EMPTY");
         if (slot_info[slot_cur].ok) { p = put_s(p, " "); p = put_u(p, (slot_info[slot_cur].len + 512u) / 1024u); p = put_s(p, "K"); }
-        p = put_s(p, "  W16: SAVE JOURNEY"); finish(p);
+        p = put_s(p, "  W16: SAVE THE SET"); finish(p);   /* (0.30: was JOURNEY - the name VIAGGIO is gone) */
         ui_line(2, b, C_WARN);
         break;
     case UM_HOME:
@@ -693,7 +693,7 @@ static void ui_build(void)
             ui_cell(1, "KEY", track_in_key(t) ? sq_chord_key_name(cfg->chord_key) : "FREE TRK", track_in_key(t) && cfg->chord ? C_ACCENT : SQ_C_DIM);
             ui_cell(2, "VOICING", VN[cfg->voicing < SQ_VOICES ? cfg->voicing : 0u], C_ACCENT);
             ui_cell(3, "STRUM", f_spct(cfg->strum), cfg->strum ? C_WHITE : SQ_C_DIM);
-            ui_line(2, !cfg->chord ? "ARP 2/6 CHORD  ONE NOTE BECOMES A CHORD (32 SHAPES)" : cfg->chord_key == SQ_CK_STRICT ? "ARP 2/6 CHORD  STRICT: OUT OF KEY = SILENT" : cfg->chord_key == SQ_CK_FREE ? "ARP 2/6 CHORD  FREE: THE EXACT SHAPE, KEY OR NOT" : "ARP 2/6 CHORD  DIATONIC: BUILT ON THE SCALE", C_WARN);
+            ui_line(2, !cfg->chord ? "ARP 2/6 CHORD  ONE NOTE BECOMES A CHORD (36 SHAPES)" : cfg->chord_key == SQ_CK_STRICT ? "ARP 2/6 CHORD  STRICT: OUT OF KEY = SILENT" : cfg->chord_key == SQ_CK_FREE ? "ARP 2/6 CHORD  FREE: THE EXACT SHAPE, KEY OR NOT" : "ARP 2/6 CHORD  DIATONIC: BUILT ON THE SCALE", C_WARN);
         } else if (arp_page == 2u) {                 /* HARMONY: OFF / ON / LOCK, the progression, bars a chord / rhythm, FOLLOW */
             static const char *const BB[9] = {"PROG", "1 BAR", "2 BARS", "3", "4 BARS", "5", "6", "7", "8 BARS"};
             const sq_gen_t *g = &project.gen;

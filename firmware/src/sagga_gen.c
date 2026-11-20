@@ -2491,7 +2491,7 @@ static void tool_apply_x_(uint8_t tool, uint8_t now)
 #define DICE_HIST 16u
 static uint8_t dice_kind;
 static uint16_t dsnap_mask;
-static sq_step_t dsnap_row[SQ_TRACKS][SQ_STEPS] __attribute__((section(".pool")));
+static sq_step_t dsnap_row[SQ_TRACKS][SQ_STEPS];    /* (0.30: in the RAM - the pool has the 16 snapshots, 32 scenes, 32 undo rows) */
 static sq_track_cfg_t dsnap_cfg[SQ_TRACKS];
 static sq_thpat_t dsnap_th[SQ_TRACKS];             /* 0.23: what the engines knew of each row */
 static uint8_t dsnap_pat[SQ_TRACKS], dsnap_key[3], dsnap_harm[5];
@@ -3053,7 +3053,7 @@ static void song_append(uint8_t scene)
         e = &project.song.e[project.song.len - 1u];
         e->bars = (uint8_t)(e->bars + 4u > SQ_SONG_BARS_MAX ? SQ_SONG_BARS_MAX : e->bars + 4u);
     } else {
-        if (project.song.len >= SQ_SONG_LEN) { status_msg("SONG FULL (64)"); return; }
+        if (project.song.len >= SQ_SONG_LEN) { status_msg("SONG FULL (128)"); return; }
         e = &project.song.e[project.song.len++];
         e->scene = scene;
         e->bars = 4u;
@@ -3079,7 +3079,7 @@ static void song_insert(uint8_t pos)                    /* a copy of entry pos r
 {
     uint32_t i;
     if (pos >= project.song.len) { status_msg("NO ENTRY THERE"); return; }
-    if (project.song.len >= SQ_SONG_LEN) { status_msg("SONG FULL (64)"); return; }
+    if (project.song.len >= SQ_SONG_LEN) { status_msg("SONG FULL (128)"); return; }
     for (i = project.song.len; i > pos + 1u; i--) project.song.e[i] = project.song.e[i - 1u];
     project.song.e[pos + 1u] = project.song.e[pos];
     project.song.len++;
