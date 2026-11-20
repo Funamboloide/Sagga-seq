@@ -104,6 +104,9 @@ static uint32_t g_down[2];                /* step pads that are down (64 bits; n
 
 #define g_lane env_lane                   /* CC view: the lane being drawn (0.10: the same lane the panel shows) */
 static uint16_t g_fx_held, g_fx_latch, g_kill_held, g_kill_latch;   /* FX view: momentary and (with SHIFT) latched */
+static uint8_t g_kg_held, g_kg_latch;     /* 0.31: FX view row 6, pads 13-16: the groups killed (held, latched) ... */
+static uint16_t g_kg_m[SQ_TGROUPS];       /* ... and the tracks each took when it came (16: all but the selected one) */
+static const uint8_t GR_GCOL[SQ_TGROUPS] = {GL_ORANGE, GL_BLUE, GL_CYAN, GL_WHITE};   /* 0.31: the groups' colours */
 static uint16_t g_loop_mask = (uint16_t)SQ_TRACK_BITS;   /* FX view: the tracks the DJ loop takes */
 static uint8_t g_temp_held;               /* FX view: TEMP is held on its pad (not latched) */
 static uint8_t g_song_sel;                /* SONG view: the entry being edited (len = a new one at the end) */
@@ -135,9 +138,24 @@ static void gr_invalidate(void)
 
 static void gr_fx_sync(void)
 {
+    uint32_t g;
     grid_fx = (uint16_t)(g_fx_held | g_fx_latch);
     grid_kill = (uint16_t)(g_kill_held | g_kill_latch);
+    for (g = 0; g < SQ_TGROUPS; g++) if (((g_kg_held | g_kg_latch) >> g) & 1u) grid_kill |= g_kg_m[g];   /* (0.31) */
     ui_dirty = grid_dirty = 1u;
+}
+
+/* 0.31: a pad of a group (13-16 where a row is the tracks): its colour when it is on, faint when not, dark when the group
+ * has no track */
+static uint8_t gr_gpad(uint32_t g, uint8_t on)
+{
+    if (g < SQ_TG_ALL && !tgroup_mask((uint8_t)g)) return GL_OFF;
+    return on ? GR_GCOL[g & 3u] : GL_FAINT;
+}
+static uint8_t gr_gall(uint16_t have, uint32_t g)            /* every track of the group is in `have` (and it has some) */
+{
+    uint16_t m = tgroup_mask((uint8_t)g);
+    return (uint8_t)(m && (have & m) == m);
 }
 
 static void gr_temp_release(void)          /* a TEMP held on the grid ends when its pad can no longer come up */
@@ -159,6 +177,7 @@ static void gr_release_all(void)
     g_vg_hold = 255u;
     g_down[0] = g_down[1] = 0u;
     g_fx_held = g_fx_latch = g_kill_held = g_kill_latch = 0u;
+    g_kg_held = g_kg_latch = 0u;
     g_ctl_held = 0u;
     g_shift_lock = 0u;
     grid_fill = 0u;
@@ -194,6 +213,7 @@ static void gr_view_go(uint8_t v)
         g_hold_pad = 255u;
         g_down[0] = g_down[1] = 0u;
         g_fx_held = g_kill_held = 0u;      /* the pad-up of a held effect would go to another view */
+        g_kg_held = 0u;
         gr_fx_sync();
     }
     ui_dirty = grid_dirty = 1u;
@@ -301,8 +321,13 @@ static void gr_ctl(uint8_t id, uint8_t down)
         if (shift) gr_set_view(g_view == GV_BEAT ? GV_EUCLID : GV_BEAT);
         else gr_set_view(g_view == GV_TRACK ? GV_TRACK2 : g_view == GV_TRACK2 ? GV_TRACK3 : GV_TRACK);
     } else if (id >= GC_TRK0 && id < GC_TRK0 + 8u) {
-        if (shift) toggle_solo((uint8_t)(bank + id - GC_TRK0));
-        else select_track((uint8_t)(bank + id - GC_TRK0));
+        uint8_t t = (uint8_t)(bank + id - GC_TRK0);
+        if (t >= SQ_TRACKS) {                              /* 0.31: in the bank of 9-12, buttons 12-15 are their mutes (SHIFT: solo) */
+            t = (uint8_t)(t - 4u);
+            if (shift) toggle_solo(t); else { toggle_mute(t); mute_say(t); }
+        }
+        else if (shift) toggle_solo(t);
+        else select_track(t);
     } else if (id >= GC_PAT0 && id < GC_PAT0 + 8u) {
         if (shift) gr_copy_pattern((uint8_t)(id - GC_PAT0));
         else queue_pattern(selected_track, (uint8_t)(id - GC_PAT0));
@@ -415,12 +440,31 @@ static void gr_pad_step(uint8_t x, uint8_t y, uint8_t down)
     ui_dirty = grid_dirty = 1u;
 }
 
+/* 0.31: PERF in the bank of 9-12 has four tracks; rows 5-8 are the set at hand - the 32 scenes (rows 5 and 6: a tap brings
+ * the scene, at the QUANTISE; SHIFT stores it), the 16 snapshots (row 7: a tap, SHIFT stores), the mutes of the twelve
+ * tracks (row 8, SHIFT: solo) and on pads 13-16 the groups (the drums, the bass, the melodic ones; ALL every track audible;
+ * SHIFT: their solo). 0.28-0.30: dark. */
+static void gr_perf_set(uint8_t x, uint8_t y)
+{
+    uint8_t sh = gr_shift();
+    if (y == 4u || y == 5u) {
+        uint8_t sc = (uint8_t)(x + (y == 5u ? 16u : 0u));
+        if (sh) capture_scene(sc); else scene_recall(sc);
+    } else if (y == 6u) {
+        if (sh) snap_store(x); else snap_recall(x);
+    } else if (x < SQ_TRACKS) {
+        if (sh) toggle_solo(x); else { toggle_mute(x); mute_say(x); }
+    } else if (sh) solo_group((uint8_t)(x - SQ_TRACKS));
+    else mute_group((uint8_t)(x - SQ_TRACKS));
+    ui_dirty = grid_dirty = 1u;
+}
+
 /* PERF: a row per track of the bank: mute, solo, patterns 1-8, RETRIG, KILL (held; SHIFT: latched), where it plays */
 static void gr_pad_perf(uint8_t x, uint8_t y, uint8_t down)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y);
     uint16_t bit = (uint16_t)(1u << t);
-    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
+    if (t >= SQ_TRACKS) { if (down && y >= 4u) gr_perf_set(x, y); return; }   /* (0.28: the bank of 9-12 has four rows) */
     if (x == 11u) {                                     /* KILL, like the FX view's row 6 */
         if (!down) g_kill_held &= (uint16_t)~bit;
         else {
@@ -559,6 +603,13 @@ static void gr_pad_lfo(uint8_t x, uint8_t y)
     case 6:
         if (l->dest == SQ_LD_CC) { if (x < ch_limit()) { l->target = x; status_num("CHANNEL ", (uint32_t)x + 1u); } }
         else if (x < SQ_TRACKS) { l->target = x; status_num("TRACK ", (uint32_t)x + 1u); }   /* (0.28.1: pads 13-16 no track) */
+        else {                                          /* 0.31: pads 13-16, the LFO moves a whole group (targets 16-19) */
+            char *p = msg_buf;
+            l->target = (uint8_t)(SQ_LFO_TG0 + x - SQ_TRACKS);
+            p = put_s(p, "LFO ON "); p = put_s(p, tgroup_name((uint8_t)(x - SQ_TRACKS)));
+            if (!tgroup_mask((uint8_t)(x - SQ_TRACKS))) p = put_s(p, " (NO TRACK IN IT NOW)");
+            finish(p); status_msg(msg_buf);
+        }
         break;
     default:
         if (gr_shift()) learn_arm(2u, 0u, lfo_sel);     /* SHIFT + a CC number: LEARN */
@@ -578,12 +629,40 @@ static void gr_pad_lfo(uint8_t x, uint8_t y)
  *   row 5  EUCLID rotation 0-15 of this track
  *   row 6  random density (8)      COOK heat (8)
  *   row 7  EVOLVE  FREEZE  REVERT  DRIFT   every 1 2 4 8 16 bars   amount (7) */
+#define GR_BEAT_PROGS 6u                    /* row 3: the genre's progressions 1-6 (0.29: 7 and 8 on the MOSSE view, SEQ 4 K2) */
+static void gr_custom_group(uint8_t g)      /* 0.31: SCOPE CUSTOM, row 5 pads 13-16: a group in or out of it (16: every track) */
+{
+    uint16_t m = tgroup_mask(g), have = gen_custom_mask();
+    uint8_t all;
+    char *p = msg_buf;
+    if (tgroup_none(g)) return;
+    all = (uint8_t)((have & m) == m);
+    have = all ? (uint16_t)(have & ~m) : (uint16_t)(have | m);
+    project.gen.custom = have ? have : (uint16_t)(1u << selected_track);
+    project.gen.scope = SQ_SCOPE_CUSTOM;
+    p = put_s(p, all ? "SCOPE - " : "SCOPE + "); p = put_s(p, tgroup_name(g)); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void gr_pad_beat(uint8_t x, uint8_t y)
 {
     sq_track_cfg_t *cfg = &project.track[selected_track];
     switch (y) {
     case 0:
-        if (x < 12u) { uint8_t g = (uint8_t)(g_genre_page * 12u + x); if (g < SQ_GENRES) gen_genre_set(g); }
+        if (x < 12u) {
+            uint8_t g = (uint8_t)(g_genre_page * 12u + x);
+            if (g < SQ_GENRES) gen_genre_set(g);
+            else if (g == SQ_GENRES) {                    /* 0.31: page 2's pad 11 - a genre at random (another one) */
+                uint8_t r = (uint8_t)grand(SQ_GENRES - 1u);
+                if (r >= beat_genre) r++;
+                gen_genre_set(r);
+            } else if (g == SQ_GENRES + 1u) {             /* ... pad 12 - the SOURCE, as SEQ 8 K1: LIBRARY, THEORY, FREE */
+                project.th.src = (uint8_t)((project.th.src + 1u) % SQ_SRCS);
+                status_msg(project.th.src == SQ_SRC_FREE ? "SOURCE FREE: MADE BY THE RULES OF NO GENRE" :
+                           project.th.src == SQ_SRC_THEORY ? "SOURCE THEORY: MADE BY THE GENRE'S RULES" : "SOURCE LIBRARY: THE PATTERNS ARE LOADED");
+            }
+        }
         else if (x == 12u) { g_genre_page = (uint8_t)((g_genre_page + 1u) % ((SQ_GENRES + 11u) / 12u)); status_num("GENRES PAGE ", (uint32_t)g_genre_page + 1u); }
         else if (x == 13u) tool_apply(TOOL_BEAT);
         else if (x == 14u) { if (gr_shift()) beat_band(); else beat_kit(); }   /* 0.10: SHIFT: BAND */
@@ -599,7 +678,7 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
         else live_write();
         break;
     case 2:
-        if (x < SQ_PROGS) harm_prog_set(x);
+        if (x < GR_BEAT_PROGS) harm_prog_set(x);       /* (0.31: six - 0.29-0.30 took eight here, and HARMONY and its bars were gone) */
         else if (x == 6u) harm_toggle();
         else if (x == 7u) harm_bars_turn(1);
         else if (x == 8u) follow_set(selected_track, (cfg->flags & SQ_TF_FOLLOW) ? 0u : 1u);
@@ -622,7 +701,7 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
         else if (x == 14u || x == 15u) { if (dice_pending) dice_browse(x == 14u ? -1 : 1); else status_msg("NO DICE ROLLED"); }
         break;
     case 4:
-        if (project.gen.scope == SQ_SCOPE_CUSTOM) gen_custom_toggle(x);
+        if (project.gen.scope == SQ_SCOPE_CUSTOM) { if (x >= SQ_TRACKS) gr_custom_group((uint8_t)(x - SQ_TRACKS)); else gen_custom_toggle(x); }
         else { cfg->euc_pulses = (uint8_t)(x + 1u); euclid_touch(selected_track); }
         break;
     case 5: cfg->euc_rot = x; euclid_touch(selected_track); break;
@@ -645,11 +724,29 @@ static void gr_pad_beat(uint8_t x, uint8_t y)
 /* EUCLID view (0.8): the eight tracks of the bank, a row each. Pad 1: EUCLID LIVE on / off; pads 2-16: pulses 1-15 (heard
  * at once if the row's EUCLID LIVE is on; 0.16: off, set up for pad 1 to start it); SHIFT + pads 2-16: the rotation 0-14.
  * The pads show the pulses (the rotation with SHIFT). */
+/* 0.31: in the bank of 9-12 rows 5-8 are its four tracks' ROTATION (pads 2-16: 0-14, without SHIFT) and FAMILY (pad 1:
+ * EUCLID, TRESILLO, NUMERIC - SEQ 1 K3) - the pulses above, how they turn below (0.28-0.30: dark) */
+static void gr_euclid_turn(uint8_t x, uint8_t y)
+{
+    uint8_t t = (uint8_t)(8u + y - 4u);
+    sq_track_cfg_t *c = &project.track[t];
+    char *p;
+    if (x == 0u) c->euc_fam = (uint8_t)((c->euc_fam + 1u) % SQ_RF_COUNT);
+    else c->euc_rot = (uint8_t)(x - 1u);
+    euclid_touch(t);                                   /* (as the knobs; then the pad's own message, as SEQ 1 K3's) */
+    p = msg_buf; p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u);
+    if (x == 0u) { p = put_s(p, " FAMILY "); p = put_s(p, sq_rhythm_name(c->euc_fam)); }
+    else { p = put_s(p, " ROTATION "); p = put_u(p, c->euc_rot); }
+    finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void gr_pad_euclid(uint8_t x, uint8_t y)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y);
     sq_track_cfg_t *c = &project.track[t < SQ_TRACKS ? t : 0u];
-    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
+    if (t >= SQ_TRACKS) { if (y >= 4u) gr_euclid_turn(x, y); return; }   /* (0.28: the bank of 9-12 has four rows) */
     if (x == 0u) {
         c->flags ^= SQ_TF_EUC;
         euclid_status(t);
@@ -770,11 +867,30 @@ static uint8_t gr_drum_step(uint32_t t, uint32_t x)
     return (uint8_t)((page % pages) * 16u + x);
 }
 
+/* 0.31: DRUM in the bank of 9-12: rows 5-8 are the force of the steps of its four tracks, under their rows - a tap goes
+ * NORMAL (100) -> ACCENT (124) -> GHOST (45) -> NORMAL, the library's three; a step that is off comes on, ACCENT. SHIFT
+ * + a pad: that row's track. (0.28-0.30: dark.) */
+static void gr_drum_force(uint8_t x, uint8_t y)
+{
+    uint8_t t = (uint8_t)(8u + y - 4u), stn = gr_drum_step(t, x), v;
+    sq_step_t *s = &project.step[t][tr[t].pattern][stn];
+    char *p = msg_buf;
+    if (gr_shift()) { select_track(t); status_msg(track_mode_name(t)); ui_dirty = grid_dirty = 1u; return; }
+    if (!(s->flags & SQ_STEP_ON)) { v = 124u; step_activate(t, s); }
+    else v = s->velocity >= 110u ? 45u : s->velocity < 70u ? 100u : 124u;
+    s->velocity = v;
+    regia_touched(t);                                   /* (changed by hand, as a tap above) */
+    p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u); p = put_s(p, " STEP "); p = put_u(p, (uint32_t)stn + 1u);
+    p = put_s(p, v == 124u ? ": ACCENT" : v == 45u ? ": GHOST" : ": NORMAL"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void gr_pad_drum(uint8_t x, uint8_t y, uint8_t down)
 {
     uint8_t t = (uint8_t)((selected_track & 8u) + y), stn, id = (uint8_t)(y * 16u + x);
     sq_step_t *s;
-    if (t >= SQ_TRACKS) return;                         /* 0.28: the bank of 9-12 has four rows */
+    if (t >= SQ_TRACKS) { if (down && y >= 4u) gr_drum_force(x, y); return; }   /* (0.28: the bank of 9-12 has four rows) */
     stn = gr_drum_step(t, x);
     s = &project.step[t][tr[t].pattern][stn];
     if (!down) { if (g_drum_hold == id) g_drum_hold = 255u; return; }
@@ -886,10 +1002,43 @@ static void gr_pad_song(uint8_t x, uint8_t y)
 static const uint16_t GR_LOOP_T[4] = {2u, 4u, 8u, 16u};          /* the triplet lengths of row 2 */
 static uint16_t gr_loop_ticks(uint8_t x) { return x < 8u ? loop_ticks(x) : x < 12u ? GR_LOOP_T[x - 8u] : 0u; }
 
+/* 0.31: rows 4 and 6 are the twelve tracks; their pads 13-16 the groups. Row 4: the group in or out of what LOOP / REPEAT
+ * take (16: every track); row 6: KILL the group while held (SHIFT: latched; 16: all but the selected track). */
+static void gr_fx_group(uint8_t g, uint8_t y, uint8_t down)
+{
+    uint32_t k;
+    if (y == 3u) {
+        uint16_t m = tgroup_mask(g), have = g_loop_mask ? g_loop_mask : (uint16_t)SQ_TRACK_BITS;
+        char *p = msg_buf;
+        if (!down) return;
+        if (g >= SQ_TG_ALL) { g_loop_mask = (uint16_t)SQ_TRACK_BITS; status_msg("LOOP / REPEAT: EVERY TRACK"); }
+        else if (!tgroup_none(g)) {
+            uint8_t all = (uint8_t)((have & m) == m);
+            g_loop_mask = all ? (uint16_t)(have & ~m) : (uint16_t)(have | m);
+            if (!g_loop_mask) status_msg("LOOP / REPEAT: EVERY TRACK");
+            else { p = put_s(p, all ? "LOOP / REPEAT WITHOUT " : "LOOP / REPEAT WITH "); p = put_s(p, tgroup_name(g)); finish(p); status_msg(msg_buf); }
+        }
+        ui_dirty = grid_dirty = 1u;
+        return;
+    }
+    if (!down) { g_kg_held &= (uint8_t)~(1u << g); gr_fx_sync(); return; }
+    if (g < SQ_TG_ALL && tgroup_none(g)) return;
+    g_kg_m[g] = g >= SQ_TG_ALL ? (uint16_t)(SQ_TRACK_BITS & ~(1u << selected_track)) : tgroup_mask(g);
+    if (gr_shift()) g_kg_latch ^= (uint8_t)(1u << g); else g_kg_held |= (uint8_t)(1u << g);
+    for (k = 0; k < SQ_TRACKS; k++) if ((g_kg_m[g] >> k) & 1u) track_all_off(k);   /* (their notes stop now) */
+    {
+        char *p = msg_buf;
+        p = put_s(p, "KILL "); p = put_s(p, g >= SQ_TG_ALL ? "ALL BUT THIS TRACK" : tgroup_name(g));
+        if (gr_shift()) p = put_s(p, (g_kg_latch >> g) & 1u ? " (STAYS)" : " OFF");
+        finish(p); status_msg(msg_buf);
+    }
+    gr_fx_sync();
+}
+
 static void gr_pad_fx(uint8_t x, uint8_t y, uint8_t down)
 {
     uint16_t bit = (uint16_t)(1u << x);
-    if ((y == 3u || y == 5u) && x >= SQ_TRACKS) return;   /* 0.28: rows 4 and 6 are the tracks: twelve of them */
+    if ((y == 3u || y == 5u) && x >= SQ_TRACKS) { gr_fx_group((uint8_t)(x - SQ_TRACKS), y, down); return; }   /* (0.28: twelve tracks) */
     if (y == 0u) {
         if (!down) g_fx_held &= (uint16_t)~bit;
         else if (gr_shift()) g_fx_latch ^= bit;
@@ -961,6 +1110,31 @@ static void gr_jump(uint8_t bar)                        /* a bar of the song: th
     status_num("BAR ", (uint32_t)bar + 1u);
 }
 
+/* 0.31: PROJ row 4, pads 13-16 (the tracks' row: 1-12 their mode) - the MIDI channels: 13 every track on the channel of
+ * its number (T1 on 1 ... T12 on 12), 14 the DRUM tracks on channel 10 (a General MIDI kit), 15 / 16 the selected track's
+ * channel - / + (as TRACK 3 row 8). A track that changes channel lets its notes go first. */
+static void gr_proj_channels(uint8_t x)
+{
+    uint32_t t, n = 0u;
+    char *p = msg_buf;
+    if (x == 12u) {
+        for (t = 0; t < SQ_TRACKS; t++) if (project.track[t].channel != t) { track_all_off(t); project.track[t].channel = (uint8_t)t; n++; }
+        status_msg("EVERY TRACK ON ITS OWN CHANNEL: T1 ON 1 ... T12 ON 12");
+    } else if (x == 13u) {
+        for (t = 0; t < SQ_TRACKS; t++) if (track_drum(t)) { if (project.track[t].channel != 9u) track_all_off(t); project.track[t].channel = 9u; n++; }
+        status_msg(n ? "THE DRUM TRACKS ON CHANNEL 10 (GENERAL MIDI)" : "NO DRUM TRACK");
+    } else {
+        sq_track_cfg_t *c = &project.track[selected_track];
+        int32_t ch = (int32_t)c->channel + (x == 14u ? -1 : 1);
+        if (ch < 0 || ch >= (int32_t)ch_limit()) { status_msg(ch < 0 ? "CHANNEL 1 IS THE FIRST" : "CHANNELS 15-16: TWO USB PORTS (USB PAGE)"); ui_dirty = grid_dirty = 1u; return; }
+        track_all_off(selected_track);
+        c->channel = (uint8_t)ch;
+        p = put_s(p, "T"); p = put_u(p, (uint32_t)selected_track + 1u); p = put_s(p, " CHANNEL "); p = put_u(p, (uint32_t)ch + 1u); finish(p);
+        status_msg(msg_buf);
+    }
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void gr_pad_proj(uint8_t x, uint8_t y)
 {
     uint32_t i;
@@ -969,7 +1143,7 @@ static void gr_pad_proj(uint8_t x, uint8_t y)
     case 1: { uint32_t sc = x + (gr_shift() ? 16u : 0u); if (sc < SQ_SCALES) { project.key_scale = (uint8_t)sc; key_toast(); } break; }   /* (0.29: SHIFT, 17-21) */
     case 2: if (x < 15u) { project.key_shift = GR_SHIFT[x]; key_toast(); } break;
     case 3:                                             /* the mode of track x: FREE, IN KEY, DRUM */
-        if (x >= SQ_TRACKS) break;                      /* (0.28: twelve tracks) */
+        if (x >= SQ_TRACKS) { gr_proj_channels(x); break; }   /* (0.28: twelve tracks; 0.31: 13-16 the channels) */
         set_track_mode(x, (uint8_t)((track_mode(x) + 1u) % 3u));
         { char *p = msg_buf; p = put_s(p, "T"); p = put_u(p, (uint32_t)x + 1u); p = put_s(p, " "); p = put_s(p, track_mode_name(x)); finish(p); status_msg(msg_buf); }
         break;
@@ -1071,9 +1245,44 @@ static void gr_pad_lib(uint8_t x, uint8_t y)
  *   3 the queue per track (tap: in / out)     4 the moves (FILL BREAK RISER DROP HALF DOUBLE THIN SWELL SWAP LOOP NOW, 15 cancel)
  *   5 the energy (tap: the target)            6 the proposals of the selected track (tap: SWAP / IN; pad 16: the dice)
  *   7 the progression (tap: in the queue)     8 the trail (tap: INDIETRO up to there) */
+/* 0.31: rows 2 and 3 are the twelve tracks, pads 13-16 their groups. Row 2: the dice for every track of the group (a new
+ * proposal each, as a pad held); row 3: the group in or out at the boundary (out if some of it is in; 16: every track that
+ * has notes, in). */
+static void gr_vg_group(uint8_t g, uint8_t y)
+{
+    uint16_t m = tgroup_mask(g);
+    uint32_t t, n = 0u, bad = 0u;
+    uint8_t out = 0u;
+    char *p = msg_buf;
+    if (tgroup_none(g)) return;
+    if (y == 1u) {
+        for (t = 0; t < SQ_TRACKS; t++) if ((m >> t) & 1u) { vg_tira((uint8_t)t, 1u); n++; }
+        p = put_s(p, "THE DICE: "); p = put_s(p, tgroup_name(g)); p = put_s(p, ", "); p = put_u(p, n); p = put_s(p, n == 1u ? " TRACK" : " TRACKS");
+        finish(p); status_msg(msg_buf);
+        ui_dirty = grid_dirty = 1u;
+        return;
+    }
+    if (g < SQ_TG_ALL) for (t = 0; t < SQ_TRACKS; t++) if (((m >> t) & 1u) && vg_track_in(t)) out = 1u;
+    for (t = 0; t < SQ_TRACKS; t++) {
+        if (!((m >> t) & 1u) || (vg_track_in(t) != 0u) != (out != 0u)) continue;
+        if (out) { if (vg_queue(SQ_MV_OUT, (uint8_t)t, 0u)) bad++; else n++; }
+        else if (vg_state(t) == SQ_TS_EMPTY) {
+            if (g >= SQ_TG_ALL) continue;               /* (ALL IN: the tracks that have something) */
+            vg_tira((uint8_t)t, 0u);
+            if (vg_queue(SQ_MV_IN, (uint8_t)t, 255u)) bad++; else n++;
+        } else if (vg_queue(SQ_MV_IN, (uint8_t)t, vg_prop[t])) bad++; else n++;
+    }
+    if (bad) return;                                    /* (the queue said why: QUEUE FULL, NOT IN THIS PROFILE) */
+    if (!n) { status_msg(out ? "NOTHING TO TAKE OUT" : "NOTHING TO BRING IN"); ui_dirty = grid_dirty = 1u; return; }
+    p = put_s(p, "QUEUED: "); p = put_s(p, tgroup_name(g)); p = put_s(p, out ? " OUT, " : " IN, "); p = put_u(p, n);
+    p = put_s(p, n == 1u ? " TRACK" : " TRACKS"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 static void gr_pad_viaggio(uint8_t x, uint8_t y, uint8_t down)
 {
-    if ((y == 1u || y == 2u) && x >= SQ_TRACKS) return;   /* 0.28: rows 2 and 3 are the tracks: twelve of them */
+    if ((y == 1u || y == 2u) && x >= SQ_TRACKS) { if (down) gr_vg_group((uint8_t)(x - SQ_TRACKS), y); return; }   /* (0.28: twelve tracks) */
     if (y == 1u) {                                        /* a track: tap now, the dice if it is held; SHIFT: its role (0.10) */
         if (down && gr_shift()) {
             sq_track_cfg_t *c = &project.track[x];
@@ -1200,7 +1409,18 @@ static void gr_pad_pick(uint8_t x, uint8_t y)
     uint8_t pg = pick_page(g);
     uint32_t key;
     if (y >= 4u && gr_pt(g, y & 3u)) {                                 /* 0.18: a track's knob across the tracks */
-        if (x >= SQ_TRACKS) return;                                    /* (0.28: twelve) */
+        if (x >= SQ_TRACKS) {                                          /* 0.31: pads 13-16 - the value to a whole group */
+            uint8_t gg = (uint8_t)(x - SQ_TRACKS), keep = selected_track;
+            uint16_t m = tgroup_mask(gg);
+            uint32_t t, n = 0u;
+            char *p = msg_buf;
+            if (tgroup_none(gg)) return;
+            for (t = 0; t < SQ_TRACKS; t++) if (((m >> t) & 1u) && t != keep) { gr_follow_copy(g, y & 3u, (uint8_t)t); n++; }
+            p = put_s(p, tgroup_name(gg)); p = put_s(p, ": "); p = put_s(p, ui_cell_label(y & 3u));
+            p = put_s(p, " AS T"); p = put_u(p, (uint32_t)keep + 1u); finish(p);
+            status_msg(n ? msg_buf : "THAT GROUP IS THIS TRACK");
+            return;
+        }
         if (gr_shift()) select_track(x);
         else gr_follow_copy(g, y & 3u, x);
         return;
@@ -1385,6 +1605,26 @@ static void gr_render_perf(void)
         gr_put(11, y, (grid_kill & (1u << t)) ? GL_PLAY : GL_ORANGE);                      /* KILL */
         for (x = 0; x < 4u; x++) gr_put(12u + x, y, pos == x ? GL_PLAY : (sel ? GL_DIM : GL_FAINT));
     }
+    if (b + 4u >= SQ_TRACKS) {                          /* 0.31: the bank of 9-12 - rows 5-8, the set at hand */
+        uint8_t sh = gr_shift();
+        uint16_t aud = 0u;
+        for (x = 0; x < SQ_TRACKS; x++) if (track_audible(x)) aud |= (uint16_t)(1u << x);
+        for (x = 0; x < 16u; x++) {
+            uint32_t k;
+            for (k = 0; k < 2u; k++) {                  /* the scenes: the one waiting, the cursor's, its group of eight, the rest */
+                uint32_t sc = x + 16u * k;
+                gr_put(x, 4u + k, pending_scene == sc ? GL_PEND : scene_cursor == sc ? GL_ON : (sc & ~7u) == SCENE_BANK ? GL_DIM : GL_FAINT);
+            }
+            gr_put(x, 6, snap_pend == x ? GL_PEND : snap_cur == x && project.snap[x].used ? GL_PLAY : project.snap[x].used ? GL_CYAN : sh ? GL_ORANGE : GL_FAINT);
+            if (x < SQ_TRACKS)
+                gr_put(x, 7, ((pending_mute >> x) & 1u) ? GL_PEND : ((solo_mask >> x) & 1u) ? GL_YELLOW : ((mute_mask >> x) & 1u) ? GL_MUTED : GL_ON);
+            else {
+                uint32_t g = x - SQ_TRACKS;
+                gr_put(x, 7, sh ? gr_gpad(g, g == SQ_TG_ALL ? solo_mask != 0u : gr_gall(solo_mask, g))
+                                : gr_gpad(g, g == SQ_TG_ALL ? (mute_mask || solo_mask || pending_mute) : (aud & tgroup_mask((uint8_t)g)) != 0u));
+            }
+        }
+    }
 }
 
 static void gr_render_viaggio(void)
@@ -1407,6 +1647,16 @@ static void gr_render_viaggio(void)
         if (q < 0) q = sq_queue_find(&vg_q, SQ_MV_SWAP, (uint8_t)x);
         if (q < 0) q = sq_queue_find(&vg_q, SQ_MV_LOOP, (uint8_t)x);
         gr_put(x, 2, q >= 0 ? GL_PEND : st == SQ_TS_IN ? GL_DIM : st == SQ_TS_EMPTY ? GL_OFF : GL_FAINT);
+    }
+    for (x = SQ_TRACKS; x < 16u; x++) {                    /* 0.31: pads 13-16, the groups: the dice (row 2), in / out (row 3) */
+        uint32_t g = x - SQ_TRACKS, i;
+        uint16_t m = tgroup_mask((uint8_t)g), in = 0u, pend = 0u;
+        for (i = 0; i < SQ_TRACKS; i++) {
+            if (vg_track_in(i)) in |= (uint16_t)(1u << i);
+            if (sq_queue_find(&vg_q, SQ_MV_IN, (uint8_t)i) >= 0 || sq_queue_find(&vg_q, SQ_MV_OUT, (uint8_t)i) >= 0) pend |= (uint16_t)(1u << i);
+        }
+        gr_put(x, 1, gr_gpad(g, 1u));
+        gr_put(x, 2, (pend & m) ? GL_PEND : gr_gpad(g, g == SQ_TG_ALL ? (in & m) == m : (in & m) != 0u));
     }
     for (x = 0; x < 16u; x++) {                            /* row 4: the moves */
         uint8_t kind = x < 11u ? VG_BLACK_MOVE[x] : 0u, role = GL_OFF;
@@ -1509,7 +1759,7 @@ static void gr_render_cc(void)
         }
     }
     for (x = 0; x < SQ_LANES; x++) gr_put(x, 4, x == g_lane ? GL_CURSOR : cfg->lane_cc[x] != SQ_LANE_NONE ? GL_ON : GL_FAINT);
-    gr_put(6, 4, GL_OFF); gr_put(7, 4, GL_OFF);
+    /* (0.31: 0.28-0.30 drew pads 7 and 8 dark here, as with six lanes: the lanes 7 and 8 worked, unseen) */
     for (x = 0; x < 4u; x++) gr_put(8u + x, 4, page == x ? GL_ACCENT : GL_DIM);
     for (x = 12u; x < 15u; x++) gr_put(x, 4, GL_OFF);
     gr_put(15, 4, GL_ORANGE);
@@ -1530,12 +1780,15 @@ static void gr_render_pick(void)
         pick_t d;
         pick_desc(g, y & 3u, &d);
         if (y >= 4u && gr_pt(g, y & 3u)) {                             /* 0.18: across the tracks (0.28: twelve) */
+            uint16_t same = (uint16_t)(1u << selected_track);
             for (x = 0; x < SQ_TRACKS; x++) {
                 pick_t e;
                 if (x == selected_track) { gr_put((uint8_t)x, (uint8_t)y, GL_WHITE); continue; }
                 gr_desc_of(g, y & 3u, (uint8_t)x, &e);
+                if (e.cur == d.cur) same |= (uint16_t)(1u << x);
                 gr_put((uint8_t)x, (uint8_t)y, e.cur == d.cur ? KC[y & 3u] : GL_FAINT);
             }
+            for (x = SQ_TRACKS; x < 16u; x++) gr_put((uint8_t)x, (uint8_t)y, gr_gpad(x - SQ_TRACKS, gr_gall(same, x - SQ_TRACKS)));   /* 0.31: the groups */
             continue;
         }
         for (x = 0; x < 16u; x++) {
@@ -1568,6 +1821,8 @@ static void gr_render_lfo(void)
     gr_bar(4, 0, 16, ((int32_t)l->center * 15 + 63) / 127, GL_CYAN, GL_WHITE);
     gr_bar(5, 0, 16, ((int32_t)l->phase * 15 + 63) / 127, GL_BLUE, GL_WHITE);
     for (x = 0; x < 16u; x++) gr_put(x, 6, x >= (l->dest == SQ_LD_CC ? (uint32_t)ch_limit() : SQ_TRACKS) ? GL_OFF : l->target == x ? GL_WHITE : GL_DIM);
+    if (l->dest != SQ_LD_CC)                            /* 0.31: the groups (white: the one the LFO moves) */
+        for (x = SQ_TRACKS; x < 16u; x++) gr_put(x, 6, l->target == SQ_LFO_TG0 + x - SQ_TRACKS ? GL_WHITE : GR_GCOL[x - SQ_TRACKS] == GL_WHITE ? GL_DIM : GR_GCOL[x - SQ_TRACKS]);
     for (x = 0; x < 16u; x++) gr_put(x, 7, l->param == GR_CCP[x] ? GL_WHITE : GL_VIOLET);
     if (gr_shift()) for (x = 0; x < 16u; x++) gr_put(x, 7, learn_kind == 2u && learn_l == lfo_sel ? GL_PEND : GL_CYAN);
 }
@@ -1580,7 +1835,12 @@ static void gr_render_beat(void)
     uint8_t harm = g->harm_on, mine = 1u, st = th_style_now(beat_genre);
     uint8_t th = (uint8_t)(st != 255u && beat_func != SQ_FUNC_PROG && beat_func != SQ_FUNC_KIT);   /* 0.23 THEORY: pads 11-16 are six seeds, pad 10 the next six */
     for (x = 0; x < 16u; x++) {
-        if (x < 12u) { uint32_t gn = g_genre_page * 12u + x; gr_put(x, 0, gn >= SQ_GENRES ? GL_OFF : gn == beat_genre ? GL_WHITE : GL_DIM); }
+        if (x < 12u) {
+            uint32_t gn = g_genre_page * 12u + x;
+            gr_put(x, 0, gn == SQ_GENRES ? GL_YELLOW                                       /* 0.31: a genre at random, the SOURCE */
+                       : gn == SQ_GENRES + 1u ? (project.th.src == SQ_SRC_THEORY ? GL_CYAN : project.th.src == SQ_SRC_FREE ? GL_VIOLET : GL_DIM)
+                       : gn >= SQ_GENRES ? GL_OFF : gn == beat_genre ? GL_WHITE : GL_DIM);
+        }
         else gr_put(x, 0, x == 12u ? (g_genre_page == 2u ? GL_VIOLET : g_genre_page ? GL_CYAN : GL_BLUE) :   /* (0.16: page 3, the merengue) */
                       x == 13u ? GL_ACCENT : x == 14u ? GL_ORANGE : GL_PLAY);
         if (x < 9u) {
@@ -1591,7 +1851,7 @@ static void gr_render_beat(void)
         }
         else if (x < 9u + SQ_SCOPES) gr_put(x, 1, g->scope == x - 9u ? GL_WHITE : GL_BLUE);
         else gr_put(x, 1, live_active(selected_track) ? GL_ORANGE : GL_FAINT);               /* WRITE LIVE */
-        if (x < SQ_PROGS) gr_put(x, 2, mine && g->harm_prog == x ? (harm ? GL_CYAN : GL_WHITE) : GL_DIM);
+        if (x < GR_BEAT_PROGS) gr_put(x, 2, mine && g->harm_prog == x ? (harm ? GL_CYAN : GL_WHITE) : GL_DIM);
         else if (x == 6u) gr_put(x, 2, harm ? GL_ON : GL_FAINT);
         else if (x == 7u) gr_put(x, 2, g->harm_bars ? GL_YELLOW : GL_BLUE);
         else if (x == 8u) gr_put(x, 2, (cfg->flags & SQ_TF_FOLLOW) ? GL_CYAN : GL_FAINT);
@@ -1628,7 +1888,8 @@ static void gr_render_beat(void)
         uint8_t euc = (cfg->flags & SQ_TF_EUC) ? 1u : 0u;
         if (g->scope == SQ_SCOPE_CUSTOM) {
             uint16_t cm = gen_custom_mask();
-            for (x = 0; x < 16u; x++) gr_put(x, 4, (cm & (1u << x)) ? GL_WHITE : GL_FAINT);
+            for (x = 0; x < SQ_TRACKS; x++) gr_put(x, 4, (cm & (1u << x)) ? GL_WHITE : GL_FAINT);
+            for (x = SQ_TRACKS; x < 16u; x++) gr_put(x, 4, gr_gpad(x - SQ_TRACKS, gr_gall(cm, x - SQ_TRACKS)));   /* 0.31: the groups */
         } else gr_bar(4, 0, 16, (int32_t)cfg->euc_pulses - 1, euc ? GL_CYAN : GL_ORANGE, GL_YELLOW);
         for (x = 0; x < 16u; x++) gr_put(x, 5, cfg->euc_rot == x ? GL_YELLOW : GL_FAINT);
     }
@@ -1656,7 +1917,10 @@ static void gr_render_euclid(void)
             if (sh) role = c->euc_rot == x - 1u ? GL_YELLOW : GL_FAINT;
             else role = x < c->euc_pulses ? (euc ? GL_CYAN : GL_DIM) : x == c->euc_pulses ? (euc ? GL_WHITE : GL_ORANGE) : GL_FAINT;
             gr_put(x, y, role);
+            if (b + 4u >= SQ_TRACKS) gr_put(x, y + 4u, c->euc_rot == x - 1u ? GL_YELLOW : GL_FAINT);   /* 0.31: 9-12's rotation, below */
         }
+        if (b + 4u >= SQ_TRACKS)                        /* ... and the family: EUCLID cyan, TRESILLO orange, NUMERIC violet */
+            gr_put(0, y + 4u, c->euc_fam == SQ_RF_TRESILLO ? GL_ORANGE : c->euc_fam == SQ_RF_NUMERIC ? GL_VIOLET : GL_CYAN);
     }
 }
 
@@ -1734,6 +1998,11 @@ static void gr_render_drum(void)
             if (sel && stn == cursor_step) role = on ? GL_CURSOR : GL_ORANGE;
             if (playing && ev[t].step_index == stn && stn < c->length) role = GL_PLAY;
             gr_put(x, y, role);
+            if (b + 4u >= SQ_TRACKS) {                  /* 0.31: the bank of 9-12 - the force of the step, four rows below */
+                uint8_t fr = !on || stn >= c->length || stn < c->start ? GL_OFF : s->velocity >= 110u ? GL_ACCENT : s->velocity < 70u ? GL_DIM : GL_ON;
+                if (on && playing && ev[t].step_index == stn) fr = GL_PLAY;
+                gr_put(x, y + 4u, fr);
+            }
         }
     }
     if (shift) for (x = 0; x < 4u; x++) gr_put(x, 0, page == x ? GL_YELLOW : GL_VIOLET);
@@ -1790,6 +2059,11 @@ static void gr_render_fx(void)
         if (x < SQ_TRACKS) {                                /* (0.28: the rows of the tracks: twelve) */
             gr_put(x, 3, ((g_loop_mask >> x) & 1u) ? (x == selected_track ? GL_ACCENT : GL_ON) : GL_FAINT);
             gr_put(x, 5, (grid_kill >> x) & 1u ? GL_PLAY : !track_audible(x) ? GL_MUTED : x == selected_track ? GL_CURSOR : GL_DIM);
+        } else {                                            /* 0.31: pads 13-16, the groups */
+            uint32_t g = x - SQ_TRACKS;
+            uint16_t have = g_loop_mask ? g_loop_mask : (uint16_t)SQ_TRACK_BITS;
+            gr_put(x, 3, gr_gpad(g, g == SQ_TG_ALL ? have == (uint16_t)SQ_TRACK_BITS : gr_gall(have, g)));
+            gr_put(x, 5, ((g_kg_held | g_kg_latch) >> g) & 1u ? GL_PLAY : gr_gpad(g, 1u));
         }
     }
     gr_put(15, 1, loop_on ? GL_PLAY : GL_FAINT);                                          /* EXIT */
@@ -1824,6 +2098,18 @@ static void gr_render_proj(void)
         { uint32_t sc = x + (gr_shift() ? 16u : 0u); gr_put(x, 1, sc >= SQ_SCALES ? GL_OFF : project.key_scale == sc ? GL_WHITE : GL_VIOLET); }
         if (x < SQ_TRACKS) gr_put(x, 3, track_drum(x) ? GL_ORANGE : track_in_key(x) ? GL_CYAN : GL_FAINT);
         gr_put(x, 7, bar == x ? GL_PLAY : GL_FAINT);
+    }
+    {   /* 0.31: row 4, pads 13-16 - the channels: each on its own (white when they are), the drums on 10 (orange), - / + */
+        uint32_t t;
+        uint8_t own = 1u, d10 = 0u, nd = 0u;
+        for (t = 0; t < SQ_TRACKS; t++) {
+            if (project.track[t].channel != t) own = 0u;
+            if (track_drum(t)) { nd++; if (project.track[t].channel == 9u) d10++; }
+        }
+        gr_put(12, 3, own ? GL_WHITE : GL_DIM);
+        gr_put(13, 3, !nd ? GL_OFF : d10 == nd ? GL_ORANGE : GL_DIM);
+        gr_put(14, 3, GL_VIOLET);
+        gr_put(15, 3, GL_VIOLET);
     }
     for (x = 0; x < 15u; x++) gr_put(x, 2, project.key_shift == GR_SHIFT[x] ? GL_WHITE : GR_SHIFT[x] == 0 ? GL_DIM : GL_FAINT);
     gr_put(13, 4, bake_ask ? GL_PEND : GL_ORANGE);
@@ -1902,8 +2188,9 @@ static void gr_render_ctl(void)
                          g_view == GV_TRACK2 || g_view == GV_TRACK3 ? GL_CYAN : sh ? GL_ORANGE : GL_DIM;
     g_cwant[GC_SHIFT] = g_shift_lock ? GL_YELLOW : sh ? GL_WHITE : g_follow ? GL_CYAN : GL_FAINT;   /* (0.18: cyan while it FOLLOWs) */
     for (i = 0; i < 8u; i++) {
-        uint32_t t = (uint32_t)bank * 8u + i;
-        g_cwant[GC_TRK0 + i] = t >= SQ_TRACKS ? GL_OFF                     /* (0.28: the bank of 9-12 has four) */
+        uint32_t t = (uint32_t)bank * 8u + i, m = t - 4u;
+        g_cwant[GC_TRK0 + i] = t >= SQ_TRACKS ? (((pending_mute >> m) & 1u) ? GL_PEND : ((mute_mask >> m) & 1u) ? GL_MUTED   /* (0.31: 9-12's mutes) */
+                                                : ((solo_mask >> m) & 1u) ? GL_YELLOW : GL_ON)
                              : t == selected_track ? GL_CURSOR
                              : ((solo_mask >> t) & 1u) ? GL_YELLOW
                              : !track_audible(t) ? GL_MUTED : bank ? GL_BLUE : GL_DIM;

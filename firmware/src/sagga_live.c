@@ -296,10 +296,19 @@ static void remote_cc(uint8_t cc, uint8_t v)
         return;
     default: break;
     }
-    if (cc >= 64u && cc < 80u) {
-        uint16_t bit = (uint16_t)(1u << (cc - 64u));
-        if (cc - 64u >= SQ_TRACKS) return;              /* 0.28: tracks 13-16 are gone */
-        if (on) { remote_kill |= bit; track_all_off(cc - 64u); } else remote_kill &= (uint16_t)~bit;
+    if (cc >= 64u && cc < 80u) {                        /* KILL while held: 64-75 the tracks; 0.31: 76-79 the groups (drums, bass,
+                                                         * melodic, all but the tablet's track - 0.28-0.30: tracks 13-16, gone) */
+        uint32_t k, g = cc - 64u - SQ_TRACKS;
+        if (cc - 64u < SQ_TRACKS) {
+            uint16_t bit = (uint16_t)(1u << (cc - 64u));
+            if (on) { remote_kill_t |= bit; track_all_off(cc - 64u); } else remote_kill_t &= (uint16_t)~bit;
+        } else if (on) {
+            remote_kgrp_m[g] = g == SQ_TG_ALL ? (uint16_t)(SQ_TRACK_BITS & ~(1u << selected_track)) : tgroup_mask((uint8_t)g);
+            remote_kgrp |= (uint8_t)(1u << g);
+            for (k = 0; k < SQ_TRACKS; k++) if ((remote_kgrp_m[g] >> k) & 1u) track_all_off(k);
+        } else remote_kgrp &= (uint8_t)~(1u << g);
+        remote_kill = remote_kill_t;
+        for (k = 0; k < SQ_TGROUPS; k++) if ((remote_kgrp >> k) & 1u) remote_kill |= remote_kgrp_m[k];
         ui_dirty = grid_dirty = 1u;
         return;
     }
@@ -333,9 +342,23 @@ static void remote_cc(uint8_t cc, uint8_t v)
     default:
         if (cc >= 106u && cc < 114u) snap_recall((uint8_t)(cc - 106u));
         else if (cc >= 12u && cc < 20u) snap_store((uint8_t)(cc - 12u));
-        else if (cc >= 90u && cc < 106u) track_retrig((uint8_t)(cc - 90u));
+        else if (cc >= 90u && cc < 90u + SQ_TRACKS) track_retrig((uint8_t)(cc - 90u));
+        else if (cc >= 90u + SQ_TRACKS && cc < 106u) {  /* 0.31: 102-105 RETRIG a group (drums, bass, melodic, all) */
+            uint32_t k;
+            uint8_t g = (uint8_t)(cc - 90u - SQ_TRACKS);
+            uint16_t m = tgroup_mask(g);
+            if (tgroup_none(g)) { }
+            else if (!playing) status_msg("PLAY FIRST");
+            else {
+                char *p = msg_buf;
+                for (k = 0; k < SQ_TRACKS; k++) if ((m >> k) & 1u) track_retrig((uint8_t)k);
+                p = put_s(p, "RETRIG "); p = put_s(p, tgroup_name(g)); finish(p);
+                status_msg(msg_buf);
+            }
+        }
         else if (cc >= 40u && cc < 48u) scene_recall((uint8_t)(cc - 40u));
-        else if (cc >= 48u && cc < 64u) toggle_mute((uint8_t)(cc - 48u));
+        else if (cc >= 48u && cc < 48u + SQ_TRACKS) toggle_mute((uint8_t)(cc - 48u));
+        else if (cc >= 48u + SQ_TRACKS && cc < 64u) mute_group((uint8_t)(cc - 48u - SQ_TRACKS));   /* 0.31: 60-63 the groups' mutes */
         else if (cc >= 80u && cc < 85u) dice_roll((uint8_t)(DICE_SEQ + cc - 80u));
         break;
     }

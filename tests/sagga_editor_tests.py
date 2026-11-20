@@ -1400,7 +1400,7 @@ def t028_files_page():
             pg.evaluate("V.tab='lfo';render()")
             tg = pg.evaluate("[2, 4].map(i => document.querySelector('select[data-g=\"lfo\"][data-i=\"' + i + '\"][data-f=\"target\"]').options.length)")
             trg = pg.evaluate("document.querySelector('select[data-g=\"lfox\"][data-i=\"2\"][data-f=\"trig\"]').options.length")
-            check(tg == [12, 16] and trg == 13, 'an LFO: a track of twelve, a channel of sixteen; TRIG: the clock and twelve tracks (%s %s)' % (tg, trg))
+            check(tg == [16, 16] and trg == 13, 'an LFO: a track of twelve or a group of four (0.31), a channel of sixteen; TRIG: the clock and twelve tracks (%s %s)' % (tg, trg))
             for tb in ('tracce', 'traccia', 'lane', 'tape', 'scene', 'song', 'catene', 'lfo', 'progetto'):
                 pg.evaluate("V.tab='%s';render()" % tb)
             check(not errs, 'every tab renders (%s)' % errs)
@@ -1416,10 +1416,63 @@ def t028_files_page():
     check(x3.get('note', [0] * 6)[5] == 67 and x3.get('lane', [0] * 8)[7] == 100, 'in the file: the sixth note and lane 8 changed on the page (%s)' % x3)
 
 
+def t031_lfo_groups():
+    group("0.31 an LFO on a group of tracks (target 16-19: DRUMS, BASS, MELODIC, ALL): kept in the files, put right where it can't be, chosen and saved on the page")
+    d = tempfile.mkdtemp()
+    a = os.path.join(d, 'a.sgq')
+    r = apply('new', ['lfo 5 enabled - 1', 'lfo 5 dest - 1', 'lfo 5 target - 17', 'lfo 6 dest - 0', 'lfo 6 target - 18',
+                      'lfo 7 dest - 2', 'lfo 7 target - 20', 'lfo 8 dest - 3', 'lfo 8 target - 19', 'lfo 9 dest - 1', 'lfo 9 target - 14'], a)
+    j = read(a) if r.returncode == 0 else {}
+    tg = [j['lfo'][i]['target'] for i in (5, 6, 7, 8, 9)] if j else None
+    check(tg == [17, 0, 0, 19, 0], 'a group kept (BASS, ALL); on CC (a channel of sixteen), past the groups, and between the tracks and the groups: '
+          'put right as the FM-1 does (%s %s)' % (tg, r.stderr))
+    try:
+        from playwright.sync_api import sync_playwright
+    except Exception:
+        print('  (skipped: no playwright)')
+        return
+    import sagga_fw as FW
+    fw, pr = os.path.join(d, 'fw'), os.path.join(d, 'pr')
+    os.makedirs(fw)
+    os.makedirs(pr)
+    shutil.copy(a, os.path.join(pr, 'gruppi.sgq'))
+    state = FW.State(fw, pr, writer=FW.BootWriter(fw, mounts=lambda: [('/', ['rw'])]))
+    state.editor.control = os.path.join(d, 'run')
+    srv = FW.ThreadingHTTPServer(('127.0.0.1', 0), FW.make_handler(state))
+    port = srv.server_address[1]
+    threading.Thread(target=srv.serve_forever, daemon=True).start()
+    try:
+        with sync_playwright() as p:
+            br = p.chromium.launch()
+            pg = br.new_page(viewport={'width': 1300, 'height': 900})
+            errs = []
+            pg.on('pageerror', lambda e: errs.append(str(e)))
+            pg.on('dialog', lambda dg: dg.accept())
+            pg.goto('http://127.0.0.1:%d/edit/gruppi.sgq' % port)
+            pg.wait_for_timeout(800)
+            pg.evaluate("V.tab='lfo';render()")
+            q = 'select[data-g="lfo"][data-i="%d"][data-f="target"]'
+            shown = pg.evaluate("[5, 8].map(i => { const s = document.querySelector('%s'.replace('%%d', i)); return [s.options.length, s.options[s.selectedIndex].text]; })" % q)
+            check(shown == [[16, 'BASS (i bassi)'], [16, 'ALL (tutte)']] and not errs, 'the page: twelve tracks and the four groups, the group chosen shown by its name (%s %s)' % (shown, errs))
+            pg.select_option(q % 9, '18')
+            pg.wait_for_timeout(200)
+            pg.evaluate("V.tab='lfo';render()")
+            lab = pg.evaluate("document.querySelector('%s').closest('label').querySelector('span').textContent" % (q % 9))
+            check(lab == 'traccia o gruppo', 'the field says it: a track or a group (%s)' % lab)
+            pg.click('#bsave')
+            pg.wait_for_timeout(1200)
+            check((pg.text_content('#status') or '').startswith('salvato'), 'Save (%s)' % pg.text_content('#status'))
+            br.close()
+    finally:
+        srv.shutdown()
+    j2 = read(os.path.join(pr, 'gruppi.sgq'))
+    check(j2['lfo'][9]['target'] == 18 and j2['lfo'][5]['target'] == 17, 'in the file: LFO 10 on the melodic ones, chosen on the page; LFO 6 still on the bass (%s %s)' % (j2['lfo'][9], j2['lfo'][5]))
+
+
 def main():
     build()
     for t in (t_converter, t_editor_backend, t_page_lists, t_fm1_in_out, t_page, t015_converter, t015_backend, t015_bridge, t015_page, t023_page, t0232_tape_link, t024_copies, t025_preview,
-              t025_metre, t025_melody, t026_files, t027_files, t028_files_page):
+              t025_metre, t025_melody, t026_files, t027_files, t028_files_page, t031_lfo_groups):
         try:
             t()
         except Exception as e:

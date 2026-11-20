@@ -174,6 +174,10 @@ static uint32_t probe_render(char *buf, uint32_t cap)
     pr_ku("bar", bar_st()); pr_k("beats"); pr_x(bar_bt(), 8u); pr_ku("barpend", bar_pend_steps); pr_ku("mid", metre_id_now());      /* 0.25 THE METRE: the bar in 16ths, its beats, the bar that waits */
     pr_ku("kbc", kb_chord_on); pr_ku("cnt", cnt_on); pr_ku("clk", clk_count); pr_ku("clkl", clk_last); pr_ku("clkt", clk_last_tick);   /* 0.26: the keyboard's chord is the harmony; the count runs; the clicks so far, the last one */
     pr_ku("prof", vg_profile); pr_ku("evo", evo_run); pr_ku("ret", sq_evo_return(&project.ext, &project.gen));   /* 0.27: the profile, EVOLVE and its RETURN */
+    pr_ku("spage", page); pr_k("lmask"); pr_x(g_loop_mask, 4u); pr_k("gkill"); pr_x(grid_kill, 4u); pr_k("rkill"); pr_x(remote_kill, 4u);   /* 0.31: the page of steps; */
+    pr_ku("lfosel", lfo_sel); pr_ku("lfot", project.lfo[lfo_sel].target); pr_ku("lfod", project.lfo[lfo_sel].dest);   /* LOOP's tracks, the kills; the LFO shown */
+    pr_k("chs"); for (t = 0; t < SQ_TRACKS; t++) pr_c("0123456789ABCDEF"[project.track[t].channel & 15u]);   /* (the tracks' channels, a digit each) */
+    pr_k("cmask"); pr_x(project.gen.custom, 4u);
     pr_kh("set26#", &project.ext.click, 6u); pr_kh("smetre#", project.ext.scene_metre, sizeof project.ext.scene_metre);                /* ... the click's settings and SCENE METRE; the scenes' metres */
     pr_kh("uprog#", project.uprog, sizeof project.uprog); pr_kh("keys#", project.key, sizeof project.key);
     pr_kh("scenes#", project.scene, sizeof project.scene); pr_kh("lfo#", project.lfo, sizeof project.lfo);

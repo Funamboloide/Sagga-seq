@@ -57,6 +57,7 @@ const SHAPES = ['SINE','TRI','RAMP+','RAMP-','SQUARE','S&H','SMOOTH','DECAY','EN
 const RATES = ['16 BAR','8 BAR','4 BAR','3 BAR','2 BAR','1.5 BAR','1 BAR','3/4 BAR','1/2 BAR','3/8 BAR','1/4 BAR','3/16','1/8 BAR','3/32','1/16','1/32','1/4T','1/8T','1/16T','1/32T'];
 const DESTS = ['CC','VEL','GATE','CHANCE','TIMING','SWING','MOD ONLY'];
 const QUANT = ['AUTO','NOW','BEAT','BAR','2 BARS','4 BARS','8 BARS'];
+const LFO_GROUPS = [[16, 'DRUMS (le batterie)'], [17, 'BASS (i bassi)'], [18, 'MELODIC (le altre)'], [19, 'ALL (tutte)']];   // 0.31: an LFO on a group of tracks (target 16-19)
 const EVERY = ['BEAT','2 BEATS','BAR','2 BARS'];
 const MFX = ['OFF','HARM','OCTAVE','ECHO','VEL CURVE','CHANCE','RANDOM','NOTE FILTER','GATE','GLITCH','ROLL','ACCENT'];   // 0.29: ROLL, ACCENT
 const ROLL_V = ['LEVEL','RISING','FALLING'];
@@ -248,9 +249,10 @@ function at(g, i, f, e) { return 'data-g="' + g + '" data-i="' + i + '" data-f="
 function changed(g, i, f, e) { return changes.has([g, String(i), f, e === undefined ? '-' : String(e)].join('|')) ? ' chg' : ''; }
 function num(g, i, f, e, lo, hi, cls) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
   return '<input type="number" class="' + (cls || '') + changed(g, i, f, e) + '" min="' + lo + '" max="' + hi + '" value="' + v + '" ' + at(g, i, f, e) + ' data-k="num" data-lo="' + lo + '" data-hi="' + hi + '">'; }
-function sel(g, i, f, e, names, base, extra) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
-  let o = (extra || []).map(([val, n]) => '<option value="' + val + '"' + (val === v ? ' selected' : '') + '>' + h(n) + '</option>').join('') + opts(names, v, base);
-  if (![...Array(names.length).keys()].map(x => x + (base || 0)).includes(v) && !(extra || []).some(x => x[0] === v)) o += '<option value="' + v + '" selected>' + v + '</option>';
+function sel(g, i, f, e, names, base, extra, after) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
+  const xo = l => (l || []).map(([val, n]) => '<option value="' + val + '"' + (val === v ? ' selected' : '') + '>' + h(n) + '</option>').join('');
+  let o = xo(extra) + opts(names, v, base) + xo(after);   // (after: options after the list - 0.31 an LFO's groups)
+  if (![...Array(names.length).keys()].map(x => x + (base || 0)).includes(v) && !(extra || []).concat(after || []).some(x => x[0] === v)) o += '<option value="' + v + '" selected>' + v + '</option>';
   return '<select class="' + changed(g, i, f, e) + '" ' + at(g, i, f, e) + ' data-k="sel">' + o + '</select>'; }
 function bit(g, i, f, e, mask) { const v = get(g, String(i), f, e === undefined ? '-' : String(e));
   return '<input type="checkbox"' + (v & mask ? ' checked' : '') + ' ' + at(g, i, f, e) + ' data-k="bit" data-bit="' + mask + '">'; }
@@ -614,7 +616,7 @@ function rLfo() {
     o += '<div class="card' + (l.enabled ? '' : ' off') + '"><div class="row"><b>LFO ' + (i + 1) + '</b>' + L('acceso', bit(g, i, 'enabled', '-', 1)) + '</div><div class="grid">' +
       L('forma', sel(g, i, 'shape', '-', SHAPES)) + L('rate', sel(g, i, 'rate', '-', RATES)) + L('profondità', num(g, i, 'depth', '-', 0, 127)) + L('centro', num(g, i, 'center', '-', 0, 127)) +
       L('fase', num(g, i, 'phase', '-', 0, 127)) + L('destinazione', sel(g, i, 'dest', '-', DESTS)) +
-      L(l.dest === 0 ? 'canale' : 'traccia', sel(g, i, 'target', '-', range(1, l.dest === 0 ? 16 : NT))) + (l.dest === 0 ? L('CC', num(g, i, 'param', '-', 0, 127)) : '') +
+      L(l.dest === 0 ? 'canale' : 'traccia o gruppo', sel(g, i, 'target', '-', range(1, l.dest === 0 ? 16 : NT), 0, [], l.dest === 0 ? [] : LFO_GROUPS)) + (l.dest === 0 ? L('CC', num(g, i, 'param', '-', 0, 127)) : '') +
       L('retrigger', bit(g, i, 'flags', '-', 1)) + L('inverti', bit(g, i, 'flags', '-', 2)) +
       L('TRIG', sel('lfox', i, 'trig', '-', range(1, NT, n => 'T' + n), 1, [[0, 'CLOCK']])) +
       L('RATE SEQ', sel('lfox', i, 'seq_n', '-', range(2, 8), 2, [[0, 'OFF']])) + (x.seq_n >= 2 ? L('ogni', sel('lfox', i, 'seq_every', '-', EVERY)) : '') + '</div>';

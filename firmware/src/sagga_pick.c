@@ -279,7 +279,8 @@ static void pick_desc(int g, uint32_t k, pick_t *d)
             PK(PK_NONE, 0, 127, 1, k == 2u ? l->depth : l->center);
         } else if (pg == 1u) {
             if (k == 0u) PK(PK_LIST, 0, SQ_LD_ALL - 1, 1, l->dest);
-            if (k == 1u) PK(PK_COUNT, 0, l->dest == SQ_LD_CC ? (int32_t)ch_limit() - 1 : (int32_t)SQ_TRACKS - 1, 1, l->target);
+            if (k == 1u && l->dest == SQ_LD_CC) PK(PK_COUNT, 0, (int32_t)ch_limit() - 1, 1, l->target);
+            if (k == 1u) PK(PK_COUNT, 0, (int32_t)LFO_TGT_N - 1, 1, lfo_tgt_idx(l->target));   /* (0.31: whites 13-16 the groups) */
             if (k == 2u) PK(PK_CC, 0, SQ_CC_MAX, 1, l->param);
             PK(PK_NONE, 0, 127, 1, l->phase);
         } else if (pg == 2u) {

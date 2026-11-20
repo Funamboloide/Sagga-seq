@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.30"
+#define SQ_VERSION "0.31"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -234,7 +234,10 @@ static uint8_t loop_latched;               /* a LOOP that stays (it was tapped) 
 static uint16_t latched_len;
 static uint8_t pc_last[SQ_CHANNELS];       /* the Program Change sent last on each channel (255: none yet) */
 static uint8_t remote_fill;                /* SAGGA REMOTE: FILL held */
-static uint16_t remote_kill;               /* ... the tracks killed while held */
+static uint16_t remote_kill;               /* ... the tracks killed while held (0.31: by their CC or by a group's) */
+static uint16_t remote_kill_t;             /* 0.31: ... by their own CC 64-75 */
+static uint8_t remote_kgrp;                /* 0.31: ... the groups held (CC 76-79), and the tracks each took when it came */
+static uint16_t remote_kgrp_m[SQ_TGROUPS];
 static uint8_t env_lane;                   /* the lane whose knob was turned last with ENV (LEARN on the panel) */
 /* 0.5.1 */
 #define mac_vel   (project.live.mac[0])    /* FX + K1..K4: the macros (0.10: saved with the project) */
@@ -377,6 +380,9 @@ static void undo_begin(void);              /* sagga_gen.c: a group of rows UNDO 
 static void undo_add(uint8_t t, uint8_t pat);
 static uint8_t track_tape(uint32_t t);     /* sagga_tape.c: 0.11 */
 static uint8_t track_drum(uint32_t t);     /* sagga_gen.c */
+static uint16_t tgroup_mask(uint8_t g);    /* sagga_gen.c: 0.31 the groups - drums, bass, melodic, all */
+static const char *tgroup_name(uint8_t g);
+static uint8_t tgroup_none(uint8_t g);
 static void tape_clock_tick(uint32_t now, uint32_t interval);
 static void tape_service(uint32_t now);
 static void tape_track_off(uint32_t t);
@@ -649,8 +655,12 @@ static uint8_t ch_limit(void) { return usb_ports > 1u ? (uint8_t)SQ_CHANNELS : (
 static void lfo_target_fit(sq_lfo_t *l)
 {
     uint8_t n = l->dest == SQ_LD_CC ? ch_limit() : (uint8_t)SQ_TRACKS;
-    if (l->target >= n) l->target = (uint8_t)(n - 1u);
+    if (l->target >= n && !(l->dest != SQ_LD_CC && SQ_LFO_TGROUP(l->target))) l->target = (uint8_t)(n - 1u);   /* (0.31: a group stays) */
 }
+/* 0.31: the TRACK of an LFO on a track's parameter as its knob turns it: T1-T12, then the groups (targets 16-19) */
+#define LFO_TGT_N (SQ_TRACKS + SQ_TGROUPS)
+static uint8_t lfo_tgt_idx(uint8_t target) { return SQ_LFO_TGROUP(target) ? (uint8_t)(SQ_TRACKS + target - SQ_LFO_TG0) : target; }
+static uint8_t lfo_tgt_of(uint32_t idx) { return idx < SQ_TRACKS ? (uint8_t)idx : (uint8_t)(SQ_LFO_TG0 + (idx - SQ_TRACKS) % SQ_TGROUPS); }
 static uint8_t track_ch(uint32_t t)
 {
     uint8_t c = project.track[t].channel, lim = ch_limit();
@@ -2234,9 +2244,10 @@ static void lfo_send_cc(uint32_t i, const sq_lfo_t *l, uint8_t v)
         lfo_sent_ms[i] = fm1_ms;
     }
 }
-static void lfo_track_add(const sq_lfo_t *l, int32_t o)   /* o: -63 .. +63, on the parameter of its track */
+static void lfo_track_add(const sq_lfo_t *l, int32_t o)   /* o: -63 .. +63, on the parameter of its track (0.31: or of its group's) */
 {
-    uint32_t t = l->target < SQ_TRACKS ? l->target : 0u;
+    uint16_t m = SQ_LFO_TGROUP(l->target) ? tgroup_mask((uint8_t)(l->target - SQ_LFO_TG0)) : (uint16_t)(1u << (l->target < SQ_TRACKS ? l->target : 0u));
+    uint32_t t;
     if (vg_lfo_pct() < 100u) o = o * (int32_t)vg_lfo_pct() / 100;
     switch (l->dest) {
     case SQ_LD_VEL:    break;                                             /* +-63 */
@@ -2245,7 +2256,7 @@ static void lfo_track_add(const sq_lfo_t *l, int32_t o)   /* o: -63 .. +63, on t
     case SQ_LD_TIMING: o = o * 25 / 64; break;
     default:           o = (o + 64) * 25 / 128; break;                    /* swing: 0 .. +25 */
     }
-    lfo_mod[t][l->dest - 1u] = (int16_t)(lfo_mod[t][l->dest - 1u] + o);
+    for (t = 0; t < SQ_TRACKS; t++) if ((m >> t) & 1u) lfo_mod[t][l->dest - 1u] = (int16_t)(lfo_mod[t][l->dest - 1u] + o);
 }
 static uint32_t ticks256(uint32_t us, uint32_t interval)   /* a time in clock ticks x 256 (at most 65535 ticks) */
 {
@@ -2680,16 +2691,20 @@ static uint8_t track_other_bank(uint8_t t)
     return n < SQ_TRACKS ? n : (uint8_t)(SQ_TRACKS - 1u);
 }
 
-static void toggle_solo(uint8_t t)
+static void solo_mask_set(uint16_t m)                   /* (0.31: a group's solo in one go: only what ends silent stops) */
 {
     uint32_t k;
     uint16_t before = 0u;
-    if (t >= SQ_TRACKS) return;
     for (k = 0; k < SQ_TRACKS; k++) if (track_audible(k)) before |= (uint16_t)(1u << k);
-    solo_mask ^= (uint16_t)(1u << t);
+    solo_mask = (uint16_t)(m & SQ_TRACK_BITS);
     for (k = 0; k < SQ_TRACKS; k++)
         if ((before & (1u << k)) && !track_audible(k)) { track_hard_off(k); pre[k].state = 0u; }
     ui_dirty = grid_dirty = 1u;
+}
+static void toggle_solo(uint8_t t)
+{
+    if (t >= SQ_TRACKS) return;
+    solo_mask_set((uint16_t)(solo_mask ^ (1u << t)));
 }
 
 /* a mute: at once, or (MUTE QUEUE on, while playing) at the next quantised moment, the bar on AUTO; pressed again
@@ -2699,6 +2714,62 @@ static void toggle_mute(uint8_t t)
     if (t >= SQ_TRACKS) return;
     if (playing && project.live.mute_q && project.live.quant != SQ_Q_NOW) pending_mute ^= (uint16_t)(1u << t);
     else { mute_mask ^= (uint16_t)(1u << t); vg_state_sync(t); }
+    ui_dirty = grid_dirty = 1u;
+}
+
+/* ---- 0.31: the mutes the keys that did nothing got: the bank of 9-12's black 5-8 (and the grid's buttons 12-15), the
+ * groups on PERF's whites 13-16, the grid's pads 13-16 and the remote's CC 60-63 */
+static void mute_say(uint8_t t)                          /* T9 MUTED / T9 PLAYS (AT THE QUANTISE: with MUTE QUEUE) */
+{
+    char *p = msg_buf;
+    uint16_t bit = (uint16_t)(1u << t);
+    if (t >= SQ_TRACKS) return;
+    p = put_s(p, "T"); p = put_u(p, (uint32_t)t + 1u);
+    p = put_s(p, ((mute_mask ^ pending_mute) & bit) ? " MUTED" : " PLAYS");
+    if (pending_mute & bit) p = put_s(p, " AT THE QUANTISE");
+    finish(p);
+    status_msg(msg_buf);
+}
+static void mute_set(uint8_t t, uint8_t on)              /* muted (1) or not, where it is going (MUTE QUEUE: at its moment) */
+{
+    uint16_t bit = (uint16_t)(1u << t);
+    if (t >= SQ_TRACKS || (((mute_mask ^ pending_mute) & bit) != 0u) == (on != 0u)) return;
+    toggle_mute(t);
+}
+static void mutes_all_on(void)                           /* every track audible: no mute, no solo (PERF's black 9) */
+{
+    mute_mask = 0u; solo_mask = 0u; pending_mute = 0u;
+    vg_states_sync_all();
+    ui_dirty = grid_dirty = 1u;
+}
+/* a group: muted if any of it plays (or is going to), else back; ALL: every track audible */
+static void mute_group(uint8_t g)
+{
+    uint16_t m = tgroup_mask(g), going = (uint16_t)(mute_mask ^ pending_mute);
+    uint8_t on, t;
+    char *p = msg_buf;
+    if (g >= SQ_TG_ALL) { mutes_all_on(); status_msg("ALL TRACKS AUDIBLE"); return; }
+    if (tgroup_none(g)) return;
+    on = (m & (uint16_t)~going) ? 1u : 0u;
+    for (t = 0; t < SQ_TRACKS; t++) if ((m >> t) & 1u) mute_set(t, on);
+    p = put_s(p, tgroup_name(g)); p = put_s(p, on ? " MUTED" : " PLAY");
+    if (pending_mute & m) p = put_s(p, " AT THE QUANTISE");
+    finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+/* a group's solo: on for all of it unless it all has it already (then off); ALL: no solo left */
+static void solo_group(uint8_t g)
+{
+    uint16_t m = tgroup_mask(g);
+    uint8_t on;
+    char *p = msg_buf;
+    if (g >= SQ_TG_ALL) { solo_mask_set(0u); status_msg("NO SOLO"); return; }
+    if (tgroup_none(g)) return;
+    on = (m & (uint16_t)~solo_mask) ? 1u : 0u;
+    solo_mask_set(on ? (uint16_t)(solo_mask | m) : (uint16_t)(solo_mask & ~m));
+    p = put_s(p, on ? "SOLO: " : "SOLO OFF: "); p = put_s(p, tgroup_name(g)); finish(p);
+    status_msg(msg_buf);
     ui_dirty = grid_dirty = 1u;
 }
 
@@ -3786,6 +3857,28 @@ static void step_key_down(uint32_t k, int wi)
     ui_dirty = grid_dirty = 1u;
 }
 
+/* PERF's white keys (GLO held, the PERF mode, the MOSSE's page): 1-12 the mutes (solo: SEL, or the whites set to solo);
+ * 0.31: 13-16 the groups - the drums, the bass, the melodic ones (all of it goes quiet, or comes back), ALL every track
+ * audible; with solo: the group's solo, ALL no solo (0.28-0.30: 13-16 nothing) */
+static void perf_white(uint8_t wi, uint8_t solo)
+{
+    if (wi < SQ_TRACKS) { if (solo) toggle_solo(wi); else toggle_mute(wi); }
+    else if (solo) solo_group((uint8_t)(wi - SQ_TRACKS));
+    else mute_group((uint8_t)(wi - SQ_TRACKS));
+}
+/* 0.31 HOME + white 13-16: the page of steps 1-4 at once (OCT- / OCT+ step through them) */
+static void step_page_go(uint8_t pg)
+{
+    char *p = msg_buf;
+    if (pg > 3u) return;
+    page = pg;
+    cursor_step = (uint8_t)(page * 16u);
+    p = put_s(p, "STEPS "); p = put_u(p, (uint32_t)pg * 16u + 1u); p = put_s(p, "-"); p = put_u(p, (uint32_t)pg * 16u + 16u);
+    finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+}
+
 /* PERF: black 1-8 the scenes (SEL: store), 9 all on, 10 only the selected track, 11 invert the mutes.
  * With HOME: the song. 1-8 add that scene (the same one again: four bars more), 9 loop on / off, 10 take the last one
  * away, 11 clear it. 0.17: on the third page (the MOSSE) the black keys are the moves (sagga_viaggio.c). */
@@ -3821,10 +3914,13 @@ static void seq_black(int bi)
     else evo_revert();
 }
 
-/* the black keys with nothing held: tracks 1-8 of the bank, 9 the other bank, 10 mute and 11 solo of the selected track */
+/* the black keys with nothing held: tracks 1-8 of the bank, 9 the other bank, 10 mute and 11 solo of the selected track.
+ * 0.31: the bank of 9-12 has four tracks - its black 5-8 are their mutes (0.28-0.30: nothing) */
 static void track_black(int bi)
 {
-    if (bi < 8) select_track((uint8_t)((selected_track & 8u) + (uint8_t)bi));    /* (0.28: in 9-12, black 5-8 nothing) */
+    uint8_t t = (uint8_t)((selected_track & 8u) + (uint8_t)(bi & 7));
+    if (bi < 8 && t >= SQ_TRACKS) { t = (uint8_t)(t - 4u); toggle_mute(t); mute_say(t); }
+    else if (bi < 8) select_track(t);
     else if (bi == 8) select_track(track_other_bank(selected_track));
     else if (bi == 9) toggle_mute(selected_track);
     else toggle_solo(selected_track);
@@ -4037,8 +4133,9 @@ static void handle_keys(uint32_t keys)
             }
             continue;
         }
-        if (held & (1u << BTN_HOME)) {                         /* HOME + a white key: that track, 1-16 */
+        if (held & (1u << BTN_HOME)) {                         /* HOME + a white key: that track, 1-12 (0.31: 13-16 the page of steps) */
             if (wi >= 0 && wi < (int)SQ_TRACKS) { select_track((uint8_t)wi); status_num("TRACK ", (uint32_t)wi + 1u); }
+            else if (wi >= 0) step_page_go((uint8_t)(wi - (int)SQ_TRACKS));
             else if (bi >= 0) { if (perf_mode) perf_black(bi, sel_held, 1u); else track_black(bi); }
             continue;
         }
@@ -4048,14 +4145,13 @@ static void handle_keys(uint32_t keys)
             continue;
         }
         if (held & (1u << BTN_GLO)) {                          /* 0.12: GLO held: the PERF keys, in any mode (mutes, scenes) */
-            if (wi >= 0) { if (perf_solo_mode) toggle_solo((uint8_t)wi); else toggle_mute((uint8_t)wi); }
+            if (wi >= 0) perf_white((uint8_t)wi, perf_solo_mode);
             else if (bi >= 0) perf_black(bi, 0u, 0u);   /* (GLO + SEL + a key is PICK: on the MOSSE the long BREAK is PERF + SEL + black 2) */
             continue;
         }
         if (perf_mode) {
-            if (wi >= 0) {
-                if (sel_held || perf_solo_mode) toggle_solo((uint8_t)wi); else toggle_mute((uint8_t)wi);
-            } else if (bi >= 0) perf_black(bi, sel_held, 0u);
+            if (wi >= 0) perf_white((uint8_t)wi, (uint8_t)(sel_held || perf_solo_mode));
+            else if (bi >= 0) perf_black(bi, sel_held, 0u);
             continue;
         }
         if (sel_held) { note_entry(k); continue; }
@@ -4535,7 +4631,8 @@ static void encoders_apply(int32_t dsel, int32_t dalg, int32_t dp, int32_t d1, i
             if (d4) l->center = (uint8_t)kstep(l->center, d4, f4, 0, 127);
         } else if (lfo_page == 1u) {
             if (d1) { l->dest = change_u8(l->dest, d1, 0u, SQ_LD_ALL - 1u); lfo_target_fit(l); }   /* 0.20: + MOD ONLY */
-            if (d2) l->target = change_u8(l->target, d2, 0u, l->dest == SQ_LD_CC ? (uint8_t)(ch_limit() - 1u) : SQ_TRACKS - 1u);
+            if (d2 && l->dest == SQ_LD_CC) l->target = change_u8(l->target, d2, 0u, (uint8_t)(ch_limit() - 1u));
+            else if (d2) l->target = lfo_tgt_of(change_u8(lfo_tgt_idx(l->target), d2, 0u, LFO_TGT_N - 1u));   /* (0.31: after T12 the groups) */
             if (d3) l->param = (uint8_t)kstep(l->param, d3, f3, 0, (int32_t)SQ_CC_MAX);
             if (d4) l->phase = (uint8_t)kstep(l->phase, d4, f4, 0, 127);
         } else if (lfo_page == 2u) {
@@ -4983,6 +5080,7 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[10]), loop_on);
     } else if (held & (1u << BTN_HOME)) {                      /* the track selected, 1-16; PERF: the song on the blacks */
         for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), i == selected_track);   /* (0.28: whites 13-16 dark) */
+        for (i = 0; i < 4u; i++) fm1_led_key(KEY_LED(white_key[SQ_TRACKS + i]), page == i);         /* 0.31: the page of steps */
         if (perf_mode) {
             for (i = 0; i < project.song.len; i++)                 /* (0.9: the scenes of the cursor's bank) */
                 if ((project.song.e[i].scene & ~7u) == SCENE_BANK) fm1_led_key(KEY_LED(black_key[project.song.e[i].scene & 7u]), 1);
@@ -5026,6 +5124,14 @@ static void update_leds(void)
         fm1_led_key(KEY_LED(black_key[9]), evo_run == 2u);
     } else if (perf_mode || (held & (1u << BTN_GLO))) {        /* (0.12: GLO held shows the PERF keys in any mode) */
         for (i = 0; i < SQ_TRACKS; i++) fm1_led_key(KEY_LED(white_key[i]), perf_solo_mode ? ((solo_mask >> i) & 1u) : (((pending_mute >> i) & 1u) ? blink : track_audible(i)));
+        for (i = 0; i < SQ_TGROUPS; i++) {                     /* 0.31: the groups - lit while some of it plays (solo: all of it in solo) */
+            uint16_t m = tgroup_mask((uint8_t)i), aud = 0u;
+            uint32_t t;
+            for (t = 0; t < SQ_TRACKS; t++) if (track_audible(t)) aud |= (uint16_t)(1u << t);
+            fm1_led_key(KEY_LED(white_key[SQ_TRACKS + i]),
+                        perf_solo_mode ? (i == SQ_TG_ALL ? solo_mask != 0u : (m && (solo_mask & m) == m))
+                                       : (i == SQ_TG_ALL ? (aud == (uint16_t)SQ_TRACK_BITS && !pending_mute) : (pending_mute & m) ? blink : (aud & m) != 0u));
+        }
         if (perf_page == 2u) for (i = 0; i < 11u; i++) fm1_led_key(KEY_LED(black_key[i]), vg_move_lit((int)i, blink));   /* 0.17 the MOSSE: what waits */
         else for (i = 0; i < 8u; i++) { uint32_t sc = SCENE_BANK + i; fm1_led_key(KEY_LED(black_key[i]), pending_scene == sc ? blink : scene_cursor == sc); }
     } else if (record_arm) {
@@ -5036,7 +5142,11 @@ static void update_leds(void)
         uint8_t base = (uint8_t)(page * 16u);
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), live_preview(selected_track, (uint8_t)(base + i)));
         leds_note_tails();                                     /* 0.12: the keys a long note covers glow */
-        for (i = 0; i < 8u; i++) fm1_led_key(KEY_LED(black_key[i]), (selected_track & 7u) == i);
+        for (i = 0; i < 8u; i++) {
+            uint32_t t = (selected_track & 8u) + i;
+            if (t >= SQ_TRACKS) { t -= 4u; fm1_led_key(KEY_LED(black_key[i]), ((pending_mute >> t) & 1u) ? blink : (mute_mask >> t) & 1u); }   /* 0.31: 9-12's mutes */
+            else fm1_led_key(KEY_LED(black_key[i]), (selected_track & 7u) == i);
+        }
         fm1_led_key(KEY_LED(black_key[8]), (selected_track & 8u) != 0u);
         fm1_led_key(KEY_LED(black_key[9]), (mute_mask >> selected_track) & 1u);
         fm1_led_key(KEY_LED(black_key[10]), (solo_mask >> selected_track) & 1u);

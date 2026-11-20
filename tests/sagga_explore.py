@@ -374,14 +374,18 @@ def catalogo(veloce=False, grid=False, tablet=False):
     out += [g_knob(v) for v in (0, 300, 700, 1023)]
     out.append(g_save_twice())
     if grid:
-        out += [g_ctl(c, sh) for c in list(range(8)) + [S.GC_TRK0 + 1, S.GC_PAT0 + 1, S.GC_SCN0 + 1] for sh in (False, True) if c != S.GC_SHIFT]
+        out += [g_ctl(c, sh) for c in list(range(8)) + [S.GC_TRK0 + 1, S.GC_TRK0 + 5, S.GC_PAT0 + 1, S.GC_SCN0 + 1] for sh in (False, True) if c != S.GC_SHIFT]
+        #   (0.31: button 6 too - in the bank of 9-12 the mute of T10, with SHIFT its solo)
         for view in GRID_VIEWS:
             for y in range(8):
                 for x in range(16):
                     out.append(g_pad(view, x, y))
-                    if not veloce and (view in ("STEP", "BEAT", "TRACK3", "PERF") or (view, y) in (("PROJ", 1), ("SONG", 1), ("FX", 7))):
+                    if not veloce and (view in ("STEP", "BEAT", "TRACK3", "PERF") or (view, y) in (("PROJ", 1), ("SONG", 1), ("FX", 7), ("FX", 5))
+                                       or (view == "DRUM" and y >= 4)):
                         out.append(g_pad(view, x, y, shift=True))   # (0.29: SHIFT + PROJ row 2, the five new scales; 0.30: SONG row 2,
-                                                                    #  the scenes 17-32, and FX row 8 - pad 13 the other eight snapshots)
+                                                                    #  the scenes 17-32, and FX row 8 - pad 13 the other eight snapshots;
+                                                                    #  0.31: FX row 6, a group's KILL latched; DRUM rows 5-8, in the bank
+                                                                    #  of 9-12 SHIFT selects the track of the force's row)
     if tablet:
         out += tablet_gestures()
     if veloce:                                       # the main ones: SEQ and HOME pages, the keys with SEQ, the gestures
@@ -789,6 +793,26 @@ def sit_030(s):
     S.shift(s, t, 1); s.pad(t + 20, 0, 0, hold=40); S.shift(s, t + 100, 0); t += 140   # ... at once from entry 65
     return t
 
+def sit_031(s):
+    """0.31: the GROUPS and the bank of 9-12. REMOTE 13 + 14 (SAVE + K2): the tablet too; a TECHNO band; track 10 selected
+    (HOME + white 10: the bank of 9-12, where the grid's track buttons 12-15 are the mutes of 9-12): T9 muted by button
+    12; the grid's LFO view: LFO 1 on, VEL, depth 13 of 16, on the group BASS (row 7 pad 14); FX view: LOOP / REPEAT
+    without the drums (row 4 pad 13); the grid back on STEP; in play"""
+    s.press(100, S.SAVE); s.enc(130, S.K2, 1); s.release(180, S.SAVE)
+    s.raw(220, "attach")
+    t = _band(s, 300)
+    s.press(t, S.HOME); s.tap_key(t + 30, S.wk(9)); s.release(t + 100, S.HOME); t += 160      # track 10
+    s.ctl(t, S.GC_TRK0 + 4, hold=20); t += 60                       # button 12: T9 muted
+    t = _grid_view(s, t, "LFO")
+    for x, y in ((0, 0), (9, 1), (12, 3), (13, 6)):                 # LFO 1 on, VEL, DEPTH, the group BASS
+        s.pad(t, x, y, hold=40); t += 80
+    s.ctl(t, S.GC_VSTEP, hold=20); t += 60                          # (STEP)
+    t = _grid_view(s, t, "FX")
+    s.pad(t, 12, 3, hold=40); t += 80                               # LOOP / REPEAT without the drums
+    s.ctl(t, S.GC_VSTEP, hold=20); t += 60                          # (STEP: where the explorer's grid gestures start)
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -863,6 +887,8 @@ SITUAZIONI = [
                want={3: {"mfxnew": "60"}, "G": {"scale": 16, "hprog": 6, "thsrc": 1}}),
     Situazione("0.30 32 scene e 16 snapshot: le scene 17 e 32, la song di 70 entrate dalla 65, le snapshot 9 e 16 nella banca 9-16, tablet e grid, band in play", sit_030,
                grid=True, tablet=True, want={"G": {"scene": 31, "sbank": 8, "son": 1, "spos": 64, "slen": 70}}),
+    Situazione("0.31 i gruppi e la banca 9-12: la traccia 10, la T9 muta dal bottone 12, un LFO VEL sul gruppo BASS, il LOOP senza la batteria, tablet e grid, band in play", sit_031,
+               grid=True, tablet=True, want={"G": {"sel": 10, "mute": "0100", "lfot": 17, "lfod": 1, "lmask": "0FC0"}}),
 ]
 
 # ------------------------------------------------------------------------------------------------------------ running
@@ -1078,7 +1104,9 @@ HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(b
 HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
-                   r"grid PICK pad \d+,1$)")      # (0.12: the PICK view's row 1 is K1 of the page open: HOME 1's CHANNEL when no window is)
+                   r"grid PICK pad \d+,1$|grid PROJ (SHIFT\+)?pad 1[3-6],4$)")
+#   (0.12: the PICK view's row 1 is K1 of the page open: HOME 1's CHANNEL when no window is; 0.31: PROJ row 4 pads 13-16,
+#    the channels - each track on its own, the drums on 10, the selected track's one down and up)
 
 
 class Finding:
@@ -1098,8 +1126,8 @@ REGOLE = {
     "ARMONIA": ("ERRORE", "l'armonia (genere dell'armonia, progressione, accordo) cambia solo a mano (ARP 3-6, DICE PROG, EDIT + ARP) o "
                           "caricando qualcosa di un genere (BEAT, KIT, BAND, PROG, una scena, uno snapshot, un progetto)"),
     "LOCK": ("ERRORE", "con l'armonia su LOCK solo ARP 3-6, DICE PROG ed EDIT + ARP la cambiano"),
-    "CANALE": ("ERRORE", "il canale MIDI di una traccia lo cambia solo chi deve (HOME 1 K1, il grid TRACK 3, uno "
-                         "snapshot, un progetto caricato)"),
+    "CANALE": ("ERRORE", "il canale MIDI di una traccia lo cambia solo chi deve (HOME 1 K1, il grid TRACK 3, la riga 4 del grid "
+                         "PROJ - 0.31 -, uno snapshot, un progetto caricato)"),
     "NOTE SCRITTE": ("ERRORE", "BAND e KIT non cambiano la nota di una traccia dove e' scritto qualcosa"),
     "FASE": ("ERRORE", "due battute dopo qualunque gesto ogni traccia e' dove la battuta dice (la 0.9 le lasciava spostate)"),
     "COPIE": ("ERRORE", "0.24: due battute dopo qualunque gesto le copie di ogni pattern sono a posto - nel pattern che suona sono "
@@ -1719,9 +1747,10 @@ def main(argv):
                                             SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
                                             SITUAZIONI[22],     # (0.24: + the lengths, the copies, the moves at the bar)
                                             SITUAZIONI[23],     # (0.25: + the metre: 7/8, the engines' band in it)
-                                            SITUAZIONI[-3],     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
-                                            SITUAZIONI[-2],     # (0.29: + BALANI and the balafon, a new scale, PROG 7, ROLL and ACCENT)
-                                            SITUAZIONI[-1]]     # (0.30: + scenes 17-32, the song past 64, snapshots 9-16, the tablet and the grid)
+                                            SITUAZIONI[-4],     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
+                                            SITUAZIONI[-3],     # (0.29: + BALANI and the balafon, a new scale, PROG 7, ROLL and ACCENT)
+                                            SITUAZIONI[-2],     # (0.30: + scenes 17-32, the song past 64, snapshots 9-16, the tablet and the grid)
+                                            SITUAZIONI[-1]]     # (0.31: + the groups, the bank of 9-12 on the grid: its mutes, an LFO on a group, LOOP without the drums)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:

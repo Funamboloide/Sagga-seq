@@ -479,7 +479,7 @@ static void ui_build(void)
             ui_cell(3, l->dest == SQ_LD_CC ? "CENTER" : "(CENTER)", f_u(l->center), l->dest == SQ_LD_CC ? lc : SQ_C_DIM);
         } else if (lfo_page == 1u) {
             ui_cell(0, "DESTINATION", lfo_dest_name(l->dest), lc);
-            ui_cell(1, l->dest == SQ_LD_CC ? "CHANNEL" : "TRACK", f_u((uint32_t)l->target + 1u), lc);
+            ui_cell(1, l->dest == SQ_LD_CC ? "CHANNEL" : "TRACK", l->dest != SQ_LD_CC && SQ_LFO_TGROUP(l->target) ? tgroup_name((uint8_t)(l->target - SQ_LFO_TG0)) : f_u((uint32_t)l->target + 1u), lc);   /* (0.31: or a group) */
             ui_cell(2, "CC NUMBER", l->dest == SQ_LD_CC ? f_cc(l->param) : "-", l->dest == SQ_LD_CC ? lc : SQ_C_DIM);
             ui_cell(3, "PHASE", f_u(l->phase), lc);
         } else if (lfo_page == 2u) {
