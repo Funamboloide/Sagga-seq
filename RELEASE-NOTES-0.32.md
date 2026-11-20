@@ -127,7 +127,30 @@ sessioni, circa 37 minuti). Tutti e due sono nel pacchetto del Pi, e partono dal
 
 ## Come è stato provato
 
-PROVE_QUI
+Non ho un FM-1 in mano: la 0.32 è provata nel simulatore (lo stesso codice del firmware, sul computer), con i test e
+con l'esploratore.
+
+| la prova | il risultato |
+| --- | --- |
+| il cuore: progetti, immagini, la manopola sull'ENERGIA | 44.562.597 controlli, 0 errori |
+| la 0.32 contro la 0.31 vera, presa da git | 40 progetti 0.32 → 0.31 → 0.32 giusti (la manopola dall'ENERGIA al TEMPO); 40 salvati uguali byte per byte da tutte e due; i 40 della 0.31 salvati di nuovo uguali |
+| i motori THEORY | 200.798.646 controlli, 0 errori |
+| il simulatore del pannello e del grid | 1708 controlli, 0 errori, con le prove nuove dei tasti (`t032_panel`), del grid (`t032_grid`, `t032_grid2`, `t032_grid3`) e della mappa dei tasti (`t032_maps`) |
+| l'editor dei progetti sul Pi | 276 controlli, 0 errori |
+| le pagine SAGGA, il bridge del grid, il hub | 96, 328 e 179 controlli, 0 errori |
+| la fuzz con AddressSanitizer e UndefinedBehaviorSanitizer | 26 giri, 0 errori |
+| l'esploratore, il giro completo | 123.748 gesti da soli in 34 situazioni, 13.594 coppie, 200 sessioni da 60 gesti: 0 errori, niente da guardare |
+| il banco, con il simulatore al posto dell'FM-1 | 0 errori; e trova le rotture preparate apposta (i comandi persi, un FM-1 sordo) |
+| settantanove rotture fatte apposta nel firmware, nell'editor e nel bridge | trovate tutte e settantanove |
+
+Il primo giro completo dell'esploratore aveva segnato 26 casi sulla vista MOSSE: la regola dell'armonia la conosceva
+con il nome di prima. Adesso lo sa. Rileggendo i pad ho trovato anche un errore mio, prima di uscire: su REGIA un pad
+di traccia tenuto non tirava i dadi. Corretto.
+
+**Sull'FM-1 vero** la 0.32 non è ancora passata. La provi con il banco, dalla pagina del Pi (porta 8090): **Avvia la
+prova** (32 sessioni, circa ventisette minuti) e, nella tendina, **l'FM-1 completo** (37 sessioni, con le cose della
+0.28, della 0.29, della 0.30, della 0.31 e della 0.32: circa 37 minuti). Se qualcosa non torna, la raccolta si confronta
+con il simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json` (`docs/SAGGA-ESPLORATORE.md`).
 
 ## I tasti che restano senza lavoro
 
