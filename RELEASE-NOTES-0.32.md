@@ -112,13 +112,18 @@ Le note intere sono in `docs/storia/` (`RELEASE-NOTES-0.28.md`, `0.29.md`, `0.30
 
 ## 6. L'esploratore
 
-L'esploratore prova ogni gesto in ogni situazione. Ha una situazione nuova, così le cose della 0.32 sono anche nel
-piano per l'FM-1 vero (`fm1_piano.json`) e nel banco:
+L'esploratore prova ogni gesto in ogni situazione. Ha una situazione nuova per la 0.32, e i due piani per l'FM-1 vero
+hanno **una sessione per ogni situazione della 0.28, della 0.29, della 0.30, della 0.31 e della 0.32**, oltre a tutte
+le altre: il **banco** (`banco_piano.json`, 32 sessioni, circa 27 minuti) e **l'FM-1 completo** (`fm1_piano.json`, 37
+sessioni, circa 37 minuti). Tutti e due sono nel pacchetto del Pi, e partono dalla sua pagina.
 
 * **0.32**: la manopola MASTER sull'ENERGIA, una band TECHNO, l'LFO 1 copiato e incollato sul 2, la lane 2 del grid in
   rampa e su SLIDE (e copiata), la frase di 8 battute e le MOSSE a ogni battuta, il tempo 140 e MUTE QUEUE dal grid, il
   tablet e il grid, in play. Prima di cominciare la sonda controlla il tempo e l'LFO.
-* Nei gesti: tutti i pad della vista **LIB** (senza un Pi: chiede, e lo dice).
+* Nei gesti: tutti i pad della vista **LIB** (senza un Pi: chiede, e lo dice). I tasti nuovi con EDIT, ENV, LFO e SAVE
+  tenuti c'erano già: l'esploratore prova ogni tasto con ogni bottone.
+* La regola ARMONIA conosceva la vista MOSSE con il nome di prima (VIAGGIO): adesso sa che i suoi pad delle
+  progressioni, del genere, della chiave e di HARMONY / LOCK cambiano l'armonia a mano, come ARP 3 e GLO 3.
 
 ## Come è stato provato
 
@@ -126,7 +131,16 @@ PROVE_QUI
 
 ## I tasti che restano senza lavoro
 
-TASTI_QUI
+Ho guardato di nuovo ogni pad del grid e ogni tasto con ogni bottone tenuto: adesso lavorano tutti. Restano spenti
+solo dove non c'è niente da fare:
+
+* su **FOLLOW**, i pad 11-16 delle righe 5-8 quando la manopola non ha valori lì (una nota, una percentuale, un CC): lo
+  dicono (`PUSH: NOT A VALUE OF IT`, `...: BY THE KNOB`);
+* i pad di cose che non ci sono: un'entrata della song oltre l'ultima, un file oltre l'ultimo, un passo oltre la
+  lunghezza di un loop (lo dicono anche loro);
+* **SHIFT** + un pad dove SHIFT non aggiunge niente (per esempio PROJ riga 2 dopo le cinque scale in più).
+
+Sul pannello, con niente tenuto, ogni tasto aveva già il suo lavoro.
 
 ## Installare
 
@@ -139,7 +153,8 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.32` per tre secondi.
    **neri 9 e 10** lo step si sposta nel loop.
 2. **Una rampa in un colpo**: tieni ENV, scegli la lane con un **nero 1-8**, poi il **nero 9**: la lane sale lungo il
    pattern; il **nero 11** la svuota.
-3. **Un LFO doppio**: tieni LFO, **nero 7** (copia), il bianco di un altro LFO, **nero 8** (incolla).
+3. **Un LFO doppio**: tieni LFO, **nero 7** (copia), il bianco di un altro LFO (lo sceglie e lo accende), **nero 8**
+   (incolla).
 4. **La scaletta senza grid**: con il Pi acceso, tieni SAVE e tocca due volte il **bianco 15**: il file dopo.
 
 DIMENSIONE
