@@ -58,7 +58,17 @@ cosa cambia) e `build/explore/rapporto.json`.
    ha), e prima di cominciare controlla quelli e il cursore delle scene sulla 32. Nei gesti sono entrati SHIFT + i pad
    della riga 2 delle viste PROJ (le scale nuove della 0.29) e SONG (le scene 17-32), SHIFT + la riga 8 della vista FX
    (le snapshot 9-16), e sul tablet i valori nuovi di GROOVE, MIDI FX e CHORD.
-2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
+   0.31: **una, con i gruppi e la banca 9-12**: una band TECHNO, la traccia 10 scelta (la banca 9-12, dove i bottoni
+   traccia 12-15 del grid sono i mute di 9-12), la T9 muta dal bottone 12, un LFO VEL sul gruppo BASS (la vista LFO del
+   grid, riga 7 pad 14), LOOP e REPEAT senza la batteria (la vista FX, riga 4 pad 13), il tablet e il grid, in play. La
+   sonda ha nove valori nuovi: `spage` (la pagina di step), `lmask` (le tracce di LOOP e REPEAT), `gkill` e `rkill` (i
+   KILL dei gruppi del grid e del remoto), `lfosel`, `lfot` e `lfod` (l'LFO scelto sul grid, la sua traccia o il suo
+   gruppo, la destinazione), `chs` (i canali delle dodici tracce) e `cmask` (lo SCOPE CUSTOM); prima di cominciare
+   controlla la traccia, il mute, l'LFO e il LOOP. Nei gesti sono entrati il bottone traccia 6 del grid (nella banca 9-12
+   il mute di T10) con e senza SHIFT, SHIFT + le righe 5-8 della vista DRUM (nella banca 9-12 la forza degli step) e
+   SHIFT + la riga 6 della vista FX (il KILL di un gruppo che resta). La regola CANALE sa che la riga 4 di PROJ, pad
+   13-16, cambia i canali.
+2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069; 0.31: 5723 con il grid e il tablet): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
    ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
@@ -331,7 +341,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 30 dalla 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 31 dalla 0.31, 30 nella 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:
@@ -355,8 +365,8 @@ configurato, quanto è rimasto fermo il suo giro principale), per capire da che 
 (`prima-del-banco-<data>.sgq`). Nel confronto una sonda letta un tick di clock prima o dopo, sul confine di uno step, è
 TEMPO anche quando quelle dopo cadono sul confine come lei (le sonde vengono ogni 700 ms, sei step).
 
-Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`: ogni situazione una volta, 31
-sessioni dalla 0.30, più 4 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
+Dalla stessa pagina c'è anche **l'FM-1 completo**: il piano dell'esploratore dal PC (`--hw-piano`: ogni situazione una volta, 32
+sessioni dalla 0.31, più 4 con il tablet e il grid; make_release lo mette nello zip come `hub/fm1_piano.json`) fatto girare dal Pi con lo stesso
 programma, senza Windows. La raccolta si confronta con `--banco` come quella del banco.
 
 `--banco-prova` fa tutto con il simulatore al posto dell'FM-1 (il bridge vero, i ritardi del Pi a caso) e deve dire
