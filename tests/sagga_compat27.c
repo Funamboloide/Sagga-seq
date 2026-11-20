@@ -10,6 +10,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sagga_seq_core.h"
+#ifndef OLD27
+#include "sagga_compat_lt30.h"                /* (0.30: what a firmware before it keeps) */
+#endif
 
 #define PROJECTS 60u
 static sq_project_t a, b;
@@ -121,6 +124,7 @@ static void strip(sq_project_t *p)
     sq_track_cfg_t d;
     p->gen.genre = via_old(p->gen.genre); p->gen.harm_genre = via_old(p->gen.harm_genre); p->viaggio.set_genre = via_old(p->viaggio.set_genre);
     p->gen.harm_prog = sq_prog_from28(sq_prog_to28(p->gen.harm_prog));      /* (0.29: a genre's 7th and 8th progression: 0.27 has six) */
+    less_than_30(p);                                 /* (0.30: scenes 17-32, snapshots 9-16, the long song and tapes) */
     more_via28(p);
     for (t = 0; t < SQ_TRACKS; t++) {
         p->track[t].src_genre = via_old(p->track[t].src_genre);

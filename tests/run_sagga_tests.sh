@@ -24,6 +24,10 @@ step "compat 0.27" tail 2 sh tests/sagga_compat27.sh
 # AFRO HOUSE), 0.29 what 0.28 saves again (AFRO HOUSE as GQOM), and a 0.28 project in each of its 25 genres opens where
 # that genre went
 step "compat 0.28" tail 2 sh tests/sagga_compat28.sh
+# 0.30: 32 scenes, a song of 128, 16 snapshots, 3072 tape events - the image keeps 0.29's layout and chunk 6 the rest:
+# 0.29 (its core from git) opens what 0.30 saves, 0.30 what 0.29 saves, and a project with nothing 0.29 lacks is saved
+# by both byte for byte
+step "compat 0.29" tail 1 sh tests/sagga_compat29.sh
 # 0.23: the THEORY engines (parts made from the rules of a genre, not loaded). First the rules counted from the library
 # (0.29: 16 genres: firmware/src/sagga_theory_data.h and its sheet docs/TEORIA-GENERI.md are what tools/theory/gen_rules.py
 # makes of the library as it is now), then what the engines promise over many seeds in the 22 genres and FREE, then the

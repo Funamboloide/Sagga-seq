@@ -14,6 +14,9 @@
 #include <stdlib.h>
 #include <string.h>
 #include "sagga_seq_core.h"
+#ifndef OLD28
+#include "sagga_compat_lt30.h"                /* (0.30: what a firmware before it keeps) */
+#endif
 
 #define PROJECTS 40u
 #define OLD_GENRES 25u
@@ -159,6 +162,7 @@ int main(int argc, char **argv)
 #undef BR
 #undef BF
             more_via28(&a);
+            less_than_30(&a);                            /* (0.30: scenes 17-32, snapshots 9-16, the long song and tapes) */
             n = sq_serialize(&a, img, sizeof img);
             if (!n || put(argv[2], "e29", k, img, n)) return 1;
         }

@@ -16,6 +16,12 @@
 #define SQ27_LANES  6u
 #define SQ27_TRACK_HEAD 12u      /* the bytes of a track's settings before its lanes (channel .. hum_vel) */
 #define SQ27_TRACK_TAIL 60u      /* ... after its lanes (flags .. brk_cfg) */
+/* 0.30: what the image's own layout holds of the scenes, the snapshots, the song and the tapes (0.9 - 0.29's sizes); the
+ * scenes 17-32, the snapshots 9-16, the song's entries past 64 and the tapes' events past 1536 are in chunk 6 */
+#define SQ27_SCENES   16u
+#define SQ27_SNAPS    8u
+#define SQ27_SONG_LEN 64u
+#define SQ27_TAPE_MAX 1536u
 
 /* a step: 18 bytes (0.28: 22, the notes 5-6 and the lanes 7-8 in the chunk) */
 typedef struct __attribute__((packed)) {
@@ -81,8 +87,13 @@ typedef struct __attribute__((packed)) {
     sq27_mfxd_t mfxd[SQ27_TRACKS];
     sq_lfoe_t lfoe[SQ_LFOS];
     sq_mod_t mod[SQ_MODS];
-    uint8_t scene_metre[SQ_SCENES];
+    uint8_t scene_metre[SQ27_SCENES];
 } sq27_ext_t;                    /* 1524 bytes */
+
+typedef struct __attribute__((packed)) {
+    uint8_t len, loop;
+    sq_song_entry_t e[SQ27_SONG_LEN];
+} sq27_song_t;                   /* 258 bytes */
 
 #define SQ27_EXT_014 780u        /* the bytes of the chunk a 0.13 / 0.14 image holds */
 #define SQ27_EXT_018 796u        /* ... a 0.15 - 0.18 image */
@@ -98,7 +109,8 @@ typedef char sq27_sizes[(sizeof(sq27_step_t) == 18u && sizeof(sq27_track_t) == 9
 typedef char sq27_track_split[(__builtin_offsetof(sq_track_cfg_t, lane_cc) == SQ27_TRACK_HEAD &&
                                __builtin_offsetof(sq_track_cfg_t, flags) == SQ27_TRACK_HEAD + 4u * SQ_LANES &&
                                sizeof(sq_track_cfg_t) == SQ27_TRACK_HEAD + 4u * SQ_LANES + SQ27_TRACK_TAIL) ? 1 : -1];
-typedef char sq27_more[(SQ_TRACKS <= SQ27_TRACKS && SQ_POLY >= SQ27_POLY && SQ_LANES >= SQ27_LANES) ? 1 : -1];
+typedef char sq27_more[(SQ_TRACKS <= SQ27_TRACKS && SQ_POLY >= SQ27_POLY && SQ_LANES >= SQ27_LANES && SQ_SCENES >= SQ27_SCENES &&
+                        SQ_SNAPS >= SQ27_SNAPS && SQ_SONG_LEN >= SQ27_SONG_LEN && SQ_TAPE_MAX >= SQ27_TAPE_MAX && sizeof(sq27_song_t) == 258u) ? 1 : -1];
 
 /* the chunk of 0.28 (SQ_CHUNK_X28): a version byte, a byte of the parts that follow (SQ_X28_*), then each part:
  *   LANES  the settings of the lanes 7-8 of the twelve tracks: lane_cc, lane_base, lane_flags, lane_hi, two of each
@@ -112,6 +124,23 @@ typedef char sq27_more[(SQ_TRACKS <= SQ27_TRACKS && SQ_POLY >= SQ27_POLY && SQ_L
  * the project has BALANI somewhere (every other genre reads back as it was). 0.28 skips the chunk and opens the project
  * with its own genres: BALANI as AFRO HOUSE */
 #define SQ_CHUNK_X29 5u
+/* 0.30: chunk 6, what 0.29 has no room for: a version byte (1), a byte of the parts that follow (SQ_X30_*), then each part:
+ *   SCENES  2 bytes, a bit a scene 17-32 that is not an empty one, then those scenes in the layout above (131 bytes each)
+ *   METRES  the metres of the scenes 17-32 (16 bytes: ext.scene_metre)
+ *   SONG    the song's length (65..128), then its entries past the 64th (4 bytes each)
+ *   SNAPS   a byte, a bit a snapshot 9-16 that is used, then each as the image's own snapshots (its head, the tracks that
+ *           are not the project's, the LFOs if they are not, the CC values) - but with the genres, the progression, the
+ *           roles and parts as 0.30 numbers them (no 0.28 numbers: nothing before 0.30 reads it)
+ *   TAPES   the twelve tracks' counts of events (2 bytes each, all of them), 2 bytes n, the n events past the 1536th
+ * Written before chunk 4, whose lanes 7-8 reach the snapshots 9-16 (and the scenes 17-32) by their numbers: 0.28 and 0.29
+ * skip both what chunk 4 says of them and chunk 6 */
+#define SQ_CHUNK_X30 6u
+#define SQ_X30_VER    1u
+#define SQ_X30_SCENES 0x01u
+#define SQ_X30_METRES 0x02u
+#define SQ_X30_SONG   0x04u
+#define SQ_X30_SNAPS  0x08u
+#define SQ_X30_TAPES  0x10u
 #define SQ_X28_VER   1u
 #define SQ_X28_LANES 0x01u
 #define SQ_X28_SCENE 0x02u

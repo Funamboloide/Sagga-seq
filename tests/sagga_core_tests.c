@@ -8,6 +8,7 @@
 #include "sagga_beats.h"
 #include "sagga_img27.h"       /* 0.28: the image keeps the layout of 0.27 */
 #include "sagga_setgenre_data.h"     /* 0.10: VIAGGIO's set genres as generated (the core has its own copy of the table) */
+#include "sagga_compat_lt30.h"       /* 0.30: what a firmware before 0.30 keeps of a project */
 
 static int failures, checks;
 #define CHECK(c) do { checks++; if (!(c)) { failures++; printf("FAIL %s:%d  %s\n", __FILE__, __LINE__, #c); } } while (0)
@@ -22,9 +23,9 @@ static void test_layout(void)
     CHECK(sizeof(sq_gen_t) == 32u && SQ_GEN_A == 24u && sizeof(sq_song_t) == 2u + 4u * SQ_SONG_LEN);   /* 0.11: the harmony's rhythm and mood */
     CHECK(sizeof(sq_snap_t) == SQ_SNAP_HEAD + 12u * 104u + 16u * 10u + 48u * 3u && SQ_SNAP_HEAD == 36u && sizeof(sq27_snap_head_t) == 40u);
     {   /* the project: its parts end to end, no padding (images compare whole). 0.28: twelve tracks */
-        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 12u * 104u + 16u * 127u + 16u * 10u + 32u + 258u + 20u + 8u * (uint32_t)sizeof(sq_snap_t) + 24u + 1388u + 772u + 24u + 2u + 2u + 1536u * 6u + 12u * 8u * 64u * 22u + 2u;
+        uint32_t want = 4u + 8u + 16u * 4u + 16u + 5u * 52u + 12u * 104u + 32u * 127u + 16u * 10u + 32u + 514u + 20u + 16u * (uint32_t)sizeof(sq_snap_t) + 24u + 1404u + 772u + 24u + 2u + 2u + 3072u * 6u + 12u * 8u * 64u * 22u + 2u;   /* (0.30: 32 scenes, a song of 128, 16 snapshots, 3072 tape events) */
         CHECK(sizeof(sq_viaggio_t) == 24u && sizeof(sq27_viaggio_t) == 28u && sizeof(sq_phrase_t) == 22u && sizeof(sq_move_t) == 3u && sizeof(sq_expo_t) == 12u);
-        CHECK(sizeof(sq_ext_t) == 1388u && sizeof(sq27_ext_t) == 1524u && sizeof(sq_theory_t) == 772u);   /* (0.29: two MIDI effects more) */
+        CHECK(sizeof(sq_ext_t) == 1404u && sizeof(sq27_ext_t) == 1524u && sizeof(sq_theory_t) == 772u && sizeof(sq27_song_t) == 258u);   /* (0.29: two MIDI effects more; 0.30: 32 scenes' metres) */
         CHECK(sizeof(sq_tape_ev_t) == 6u && sizeof(sq_tape_cfg_t) == 4u && sizeof(sq_key_t) == 4u && sizeof(sq_uprog_t) == 52u && SQ_UPROG_A == 18u);
         CHECK(sizeof(sq_project_t) == want);
     }
@@ -35,7 +36,7 @@ static void test_layout(void)
 static void test_tape(void)
 {
     static sq_project_t pa, pb;
-    static uint8_t img[20000];
+    static uint8_t img[40000];                          /* (0.30: 3072 tape events, 18432 bytes of them) */
     uint16_t f, n;
     uint32_t len, k;
     sq_project_init(&pa);
@@ -88,7 +89,8 @@ static void test_tape(void)
     pa.track[2].flags = SQ_TF_TAPE | SQ_TF_CHAIN; pa.track[3].flags = 0x80u | SQ_TF_DRUM; pa.track[4].flags = SQ_TF_BREAK | SQ_TF_DRUM | SQ_TF_SCALE;
     sq_project_sanitize(&pa);
     CHECK(pa.track[2].flags == (SQ_TF_TAPE | SQ_TF_CHAIN) && pa.track[3].flags == SQ_TF_DRUM && pa.track[4].flags == SQ_TF_BREAK);   /* (0.12: a BREAK is neither a drum nor in key) */
-    /* full: 1536 events, the next is refused */
+    /* full: 3072 events (0.30; 1536 until 0.29), the next is refused - and all of them go round the image (the first 1536
+     * where 0.29 reads them, the rest in chunk 6) */
     sq_project_init(&pa);
     for (k = 0; k < SQ_TAPE_MAX; k++) CHECK(sq_tape_add(&pa, (uint8_t)(k % SQ_TRACKS), (uint16_t)(k * 3u % 6144u), 10u, 60u, 100u) == 0);
     CHECK(sq_tape_add(&pa, 0u, 1u, 1u, 60u, 100u) == -1 && pa.tape_n == SQ_TAPE_MAX);
@@ -985,11 +987,14 @@ static void test_serialize(void)
         sq_project_init(&proj_a);
         proj_a.track[1].flags = SQ_TF_DRUM | SQ_TF_SCALE | 0x80u;
         proj_a.gen.scope = 9u; proj_a.gen.targets = 0xF0u; proj_a.gen.heat = 0u; proj_a.gen.evo_every = 7u;
-        proj_a.song.len = 70u; proj_a.song.e[3].bars = 0u; proj_a.song.e[4].scene = 19u;
+        proj_a.song.len = 6u; proj_a.song.e[3].bars = 0u; proj_a.song.e[4].scene = 40u; proj_a.song.e[9].bars = 9u;   /* (0.30: 32 scenes; past the last: cleared) */
         sq_project_sanitize(&proj_a);
         CHECK(proj_a.track[1].flags == SQ_TF_DRUM);
         CHECK(proj_a.gen.scope == SQ_SCOPE_THIS && proj_a.gen.targets == SQ_GT_RHYTHM && proj_a.gen.heat == 1u && proj_a.gen.evo_every == 2u);
-        CHECK(proj_a.song.len == 0u && proj_a.song.e[3].bars == 1u && proj_a.song.e[4].scene == 0u);
+        CHECK(proj_a.song.len == 6u && proj_a.song.e[3].bars == 1u && proj_a.song.e[4].scene == 0u && proj_a.song.e[9].bars == 4u);
+        proj_a.song.len = 130u;                          /* (0.30: 128 entries at most) */
+        sq_project_sanitize(&proj_a);
+        CHECK(proj_a.song.len == 0u);
     }
 }
 
@@ -1487,13 +1492,13 @@ static void test_serialize_v8(void)
         img_a[3] = 'A';
         for (k = 0; k < SQ_UPROG_SLOTS; k++) { if (k < SQ_UPROGS) { memcpy(img_a + a, image + b, SQ_UPROG_A); a += SQ_UPROG_A; } b += (uint32_t)sizeof(sq_uprog_t); }   /* (0.10: four of 18 bytes) */
         for (k = 0; k < SQ27_TRACKS; k++) { memcpy(img_a + a, image + b, SQ_TRACK_CFG_A); a += SQ_TRACK_CFG_A; b += (uint32_t)sizeof(sq27_track_t); }
-        k = SQ_SCENES * (uint32_t)sizeof(sq27_scene_t) + (uint32_t)sizeof proj_a.lfo;     /* (0.28: the image's layout is 0.27's) */
+        k = SQ27_SCENES * (uint32_t)sizeof(sq27_scene_t) + (uint32_t)sizeof proj_a.lfo;   /* (0.28: the image's layout is 0.27's) */
         memcpy(img_a + a, image + b, k); a += k; b += k;
         memcpy(img_a + a, image + b, SQ_GEN_A); a += SQ_GEN_A; b += (uint32_t)sizeof proj_a.gen;   /* (0.10: 24 bytes of settings) */
-        k = (uint32_t)sizeof proj_a.song + (uint32_t)sizeof proj_a.live + (uint32_t)sizeof(sq27_viaggio_t) + 2u * SQ27_TRACKS + 1u;
+        k = (uint32_t)sizeof(sq27_song_t) + (uint32_t)sizeof proj_a.live + (uint32_t)sizeof(sq27_viaggio_t) + 2u * SQ27_TRACKS + 1u;
         memcpy(img_a + a, image + b, k); a += k; b += k;
         smask = image[b - 1u];
-        for (k = 0; k < SQ_SNAPS; k++) {
+        for (k = 0; k < SQ27_SNAPS; k++) {
             uint8_t tm[2], lf;
             uint32_t ccn, hb = b;
             if (!(smask & (1u << k))) continue;
@@ -1523,8 +1528,8 @@ static void test_serialize_v8(void)
     }
     {   /* a snapshot that says it holds more CC values than it can: refused */
         uint32_t off = 4u + 4u + 2u + 1u + 3u + 1u + (uint32_t)sizeof proj_a.key + (uint32_t)sizeof proj_a.device + (uint32_t)sizeof proj_a.uprog
-                     + SQ27_TRACKS * (uint32_t)sizeof(sq27_track_t) + SQ_SCENES * (uint32_t)sizeof(sq27_scene_t) + (uint32_t)sizeof proj_a.lfo + (uint32_t)sizeof proj_a.gen
-                     + (uint32_t)sizeof proj_a.song + (uint32_t)sizeof proj_a.live + (uint32_t)sizeof(sq27_viaggio_t) + 2u * SQ27_TRACKS + 1u;   /* snapshot 1's head */
+                     + SQ27_TRACKS * (uint32_t)sizeof(sq27_track_t) + SQ27_SCENES * (uint32_t)sizeof(sq27_scene_t) + (uint32_t)sizeof proj_a.lfo + (uint32_t)sizeof proj_a.gen
+                     + (uint32_t)sizeof(sq27_song_t) + (uint32_t)sizeof proj_a.live + (uint32_t)sizeof(sq27_viaggio_t) + 2u * SQ27_TRACKS + 1u;   /* snapshot 1's head */
         uint8_t keep = image[off + 1u];
         CHECK(image[off] == 1u && image[off + 1u] == 3u);
         image[off + 1u] = 200u;
@@ -2976,7 +2981,7 @@ static void test_v026_image(void)
     CHECK(b.ext.kb_mode == SQ_KB_CHORD_SPLIT && b.track[5].follow_mode == SQ_FM_SMOOTH && b.ext.scene_metre[7] == a.ext.scene_metre[7] && b.ext.count_in == 2u);
     /* a 0.25 image: chunk 1 of 1508 bytes - no scene brings a metre; what 0.25 kept in reserve is whatever it wrote (0) */
     at1 = n - 1u - 3u - (uint32_t)sizeof(sq27_ext_t);   /* (0.28: the chunk in 0.27's layout) */
-    CHECK(img[at1] == SQ_CHUNK_EXT && SQ27_EXT_025 + SQ_SCENES == sizeof(sq27_ext_t));
+    CHECK(img[at1] == SQ_CHUNK_EXT && SQ27_EXT_025 + SQ27_SCENES == sizeof(sq27_ext_t));
     memcpy(old, img, at1);
     old[at1] = SQ_CHUNK_EXT; old[at1 + 1u] = (uint8_t)(SQ27_EXT_025 & 0xFFu); old[at1 + 2u] = (uint8_t)(SQ27_EXT_025 >> 8);
     memcpy(old + at1 + 3u, img + at1 + 3u, SQ27_EXT_025);
@@ -4264,6 +4269,70 @@ static void test_v029_balafon(void)
 
 /* 0.29: ROLL and ACCENT (the image's own block holds 0.28's nine effects: chunk 5 the eleven), three grooves, four chord
  * shapes */
+/* 0.30: 32 scenes, a song of 128 entries, 16 snapshots, 3072 tape events. All of it goes round the image; the image keeps
+ * 0.29's layout (the first 16 scenes, 64 entries, 8 snapshots, 1536 events) and chunk 6 the rest, before chunk 4 (whose
+ * lanes 7-8 reach the snapshots 9-16); a project with none of it has no chunk 6; without chunk 6 the image reads as
+ * 0.29 would keep it; the snapshots 9-16 keep 0.30's numbers (BALANI, the balafon, a genre's 8th progression) */
+static void test_v030_image(void)
+{
+    static sq_project_t a, b, c;
+    static uint8_t img[600000];
+    uint32_t n, at6, at4, k, t, sum;
+    sq_project_init(&a);
+    a.scene[16].pattern[3] = 4u; a.scene[31].mute_mask = 0x00Fu; a.scene[20].lane[2][7] = 99u; a.ext.scene_metre[25] = 2u;
+    a.song.len = 128u;
+    for (k = 0; k < 128u; k++) { a.song.e[k].scene = (uint8_t)(k % 32u); a.song.e[k].bars = (uint8_t)(1u + k % 16u); }
+    a.snap[12].used = 1u; a.snap[15].used = 1u;
+    for (t = 0; t < SQ_TRACKS; t++) { a.snap[12].track[t] = a.track[t]; a.snap[15].track[t] = a.track[t]; }
+    memcpy(a.snap[12].lfo, a.lfo, sizeof a.lfo); memcpy(a.snap[15].lfo, a.lfo, sizeof a.lfo);
+    a.snap[12].genre = SQ_GENRE_BALANI; a.snap[12].harm_prog = 7u; a.snap[12].track[4].role = SQ_ROLE_BALAFON; a.snap[12].track[4].src_func = SQ_FUNC_BALAFON;
+    a.snap[12].track[5].lane_cc[7] = 21u;                 /* (a lane 8 of its own: chunk 4 says it, after chunk 6) */
+    a.snap[15].morph_b = 30u; a.snap[15].bpm = 131u; a.live.scene_cursor = 27u; a.live.morph_b = 29u;
+    for (k = 0; k < SQ_TAPE_MAX; k++) CHECK(sq_tape_add(&a, (uint8_t)(k % 5u), (uint16_t)(k * 5u % 6000u), 9u, 62u, 101u) == 0);
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_image_ok(img, n) == 0);
+    memset(&b, 0x5A, sizeof b);
+    CHECK(sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    CHECK(b.snap[12].genre == SQ_GENRE_BALANI && b.snap[12].harm_prog == 7u && b.snap[12].track[4].role == SQ_ROLE_BALAFON &&
+          b.snap[12].track[5].lane_cc[7] == 21u && b.scene[20].lane[2][7] == 99u && b.song.len == 128u && b.song.e[127].scene == 31u &&
+          b.tape_n == SQ_TAPE_MAX && b.live.scene_cursor == 27u);
+    at6 = sq_image_chunk_at(img, n, SQ_CHUNK_X30); at4 = sq_image_chunk_at(img, n, SQ_CHUNK_X28);
+    CHECK(at6 > 0u && at4 > at6 && img[at6] == SQ_CHUNK_X30 && img[at6 + 3u] == SQ_X30_VER &&
+          img[at6 + 4u] == (SQ_X30_SCENES | SQ_X30_METRES | SQ_X30_SONG | SQ_X30_SNAPS | SQ_X30_TAPES));
+    img[at6] = 0x7Eu;                                     /* (a chunk nobody knows: skipped - what 0.29 reads) */
+    CHECK(sq_deserialize(&c, img, n) == 0);
+    for (k = 16u, sum = 0u; k < SQ_SCENES; k++) sum += (uint32_t)(c.scene[k].pattern[3] + c.scene[k].mute_mask + c.ext.scene_metre[k]);
+    CHECK(sum == 0u && !memcmp(c.scene, a.scene, 16u * sizeof a.scene[0]) && c.song.len == 64u && !memcmp(c.song.e, a.song.e, 64u * sizeof a.song.e[0]));
+    for (k = 8u; k < SQ_SNAPS; k++) CHECK(!c.snap[k].used);
+    for (t = 0, sum = 0u; t < SQ_TRACKS; t++) sum += c.tape_cnt[t];
+    CHECK(c.tape_n == 1536u && sum == 1536u && !memcmp(c.tape_ev, a.tape_ev, 1536u * sizeof a.tape_ev[0]));
+    less_than_30(&b);                                     /* (and the rest as it was - with what 0.29's own reading puts right: the song's
+                                                           * scenes past 16, chunk 4's lanes 7-8 of the scenes 17-32) */
+    less_than_30(&c);
+    CHECK(!memcmp(&b, &c, sizeof b));
+    /* nothing past 0.29's room: no chunk 6 */
+    sq_project_init(&a);
+    a.scene[15].pattern[1] = 2u; a.song.len = 64u; a.snap[7].used = 1u;
+    for (t = 0; t < SQ_TRACKS; t++) a.snap[7].track[t] = a.track[t];
+    memcpy(a.snap[7].lfo, a.lfo, sizeof a.lfo);
+    for (k = 0; k < 1536u; k++) CHECK(sq_tape_add(&a, (uint8_t)(k % 3u), (uint16_t)(k % 6000u), 9u, 62u, 101u) == 0);
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    CHECK(n > 0u && sq_image_chunk_at(img, n, SQ_CHUNK_X30) == 0u && sq_deserialize(&b, img, n) == 0 && !memcmp(&a, &b, sizeof a));
+    /* a chunk 6 that does not hold together: the parts it can, the rest left as 0.29 has it */
+    sq_project_init(&a);
+    a.song.len = 100u; for (k = 0; k < 100u; k++) a.song.e[k].scene = (uint8_t)(k % 32u);
+    sq_project_sanitize(&a);
+    n = sq_serialize(&a, img, sizeof img);
+    at6 = sq_image_chunk_at(img, n, SQ_CHUNK_X30);
+    CHECK(at6 > 0u && img[at6 + 4u] == SQ_X30_SONG && img[at6 + 5u] == 100u);
+    img[at6 + 5u] = 200u;                                 /* (a song longer than 128) */
+    CHECK(sq_deserialize(&b, img, n) == 0 && b.song.len == 64u);
+    img[at6 + 5u] = 50u;                                  /* (... or shorter than the image's own 64) */
+    CHECK(sq_deserialize(&b, img, n) == 0 && b.song.len == 64u);
+}
+
 static void test_v029_more(void)
 {
     static sq_project_t a, b;
@@ -4359,6 +4428,7 @@ int main(void)
     test_v029_progs();
     test_v029_balafon();
     test_v029_more();
+    test_v030_image();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();
