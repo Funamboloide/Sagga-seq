@@ -87,7 +87,7 @@ Le note intere sono in `docs/storia/RELEASE-NOTES-0.28.md` e `RELEASE-NOTES-0.29
   HOUSE in GQOM e BATIDA) e c'è il **BALANI** con il suo **BALAFON**; ogni genere ha **8 progressioni**; REGGAETON e
   BALANI hanno le regole THEORY scritte a mano; in più gli effetti **ROLL** e **ACCENT**, **5 scale**, **3 groove**,
   **4 forme d'accordo**.
-* Il manuale nuovo, "SAGGA SEQ - Manuale d'uso 0.30", spiega tutto da capo, con le cose nuove dentro le lezioni.
+* Il manuale nuovo, "SAGGA SEQ 0.30 — Il manuale", spiega tutto da capo, con le cose nuove dentro le lezioni.
 
 ## 9. L'esploratore
 
@@ -96,13 +96,35 @@ dentro anche il piano per l'FM-1 vero (`fm1_piano.json`):
 
 * **0.29**: una band BALANI dei motori (con il balafon), la scala HUNGARIAN MINOR, PROG 7, il groove MALI, ROLL e
   ACCENT in catena sulla traccia 3, in play.
-* **0.30**: le scene 17 e 32 salvate, una song di 70 entrate che suona dalla 65, le snapshot 9 e 16, il grid attaccato,
-  in play.
+* **0.30**: le scene 17 e 32 salvate, una song di 70 entrate che suona dalla 65, le snapshot 9 e 16, il tablet e il
+  grid, in play.
 * E nei gesti: SHIFT + i pad della riga 2 delle viste PROJ (le scale nuove) e SONG (le scene 17-32), SHIFT + la riga 8
   della vista FX (le snapshot 9-16), e sul tablet i valori nuovi di GROOVE, MIDI FX e CHORD.
 * La situazione della 0.28 (12 tracce, accordi di 6, lane 7-8) c'era già.
 
-COME_PROVATO
+## Come è stato provato
+
+Non ho un FM-1 in mano: la 0.30 è provata nel simulatore (lo stesso codice del firmware, sul computer), con i test e
+con l'esploratore.
+
+| la prova | il risultato |
+| --- | --- |
+| il cuore: progetti, immagini, song, TAPE | 44.562.587 controlli, 0 errori |
+| la 0.30 contro la 0.29 vera, presa da git | 40 progetti 0.30 → 0.29 → 0.30 giusti; 40 salvati uguali byte per byte da tutte e due; quelli della 0.29 come erano |
+| i motori THEORY | 200.798.646 controlli, 0 errori |
+| il simulatore del pannello e del grid | 1584 controlli, 0 errori, con le prove nuove delle scene, delle snapshot, della song, di UNDO e delle TAPE |
+| l'editor dei progetti sul Pi | 267 controlli, 0 errori |
+| le pagine SAGGA, il bridge del grid, il hub | 94, 326 e 179 controlli, 0 errori |
+| la fuzz con AddressSanitizer e UndefinedBehaviorSanitizer | 26 giri, 0 errori |
+| l'esploratore, il giro completo | 110.996 gesti da soli in 32 situazioni, 12.794 coppie, 200 sessioni da 60 gesti: 0 errori, niente da guardare |
+| il banco, con il simulatore al posto dell'FM-1 | 0 errori; e trova le rotture preparate apposta (i comandi persi, un FM-1 sordo) |
+| tredici rotture fatte apposta nel firmware e nell'editor | trovate tutte e tredici |
+
+**Sull'FM-1 vero** la 0.30 non è ancora passata. La provi con il banco, dalla pagina del Pi (porta 8090): **Avvia la
+prova** (30 sessioni, circa venticinque minuti) e, nella tendina, **l'FM-1 completo** (35 sessioni, con le cose della
+0.28, della 0.29 e della 0.30: mezz'ora abbondante). Se qualcosa non torna, la raccolta si confronta con il
+simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json` (`docs/SAGGA-ESPLORATORE.md`).
+
 
 ## Installare
 

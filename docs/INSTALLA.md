@@ -8,7 +8,7 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ - Manuale d'uso"; il riferimento
+I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.30 — Il manuale"; il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
 in `tools/hub/LEGGIMI.md` (nello zip: `LEGGIMI.md`).
 
