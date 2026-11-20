@@ -1,0 +1,3 @@
+SAGGA SEQ 0.32, built from 13624e8d8b8ada57ea65fdd5705684f120523785
+
+Install: py fm1_install.py sagga-0.32.fwsc (FM-1 on the PC), or the Pi page (port 8090).
