@@ -285,6 +285,22 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   di un gruppo che non si spegneva mai, solo dopo aver aggiunto il controllo che mancava). Il piano del banco: 31
   sessioni; l'FM-1 completo: 36.
 
+* **Sulla 0.32** (i tasti e i pad che non facevano niente da sempre: con EDIT, ENV, LFO e SAVE tenuti i neri e i bianchi
+  che restavano, la manopola MASTER sull'ENERGIA, e i pad spenti di quasi ogni vista del grid): una situazione nuova
+  (sopra) e i pad della vista LIB nei gesti. Il primo giro completo ha segnato **26 volte ARMONIA, tutte sulla vista
+  MOSSE**: la regola la conosceva come VIAGGIO, il suo nome fino alla 0.29, e con le mosse alla battuta della
+  situazione nuova i pad delle progressioni, del genere e della chiave cambiano l'armonia dentro le due battute che la
+  sonda guarda; i pad nuovi HARMONY e LOCK la cambiano subito. È a mano: la regola ora lo sa. Rileggendo i pad è venuto
+  fuori anche un errore della 0.32 prima di uscire: su REGIA, che ha le righe delle MOSSE, un pad di traccia tenuto non
+  tirava i dadi (il servizio guardava solo la vista MOSSE). Corretto; lo guarda `t032_grid3`. Il giro completo:
+  **123.748 gesti da soli in 34 situazioni, 13.594 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
+  guardare** (13 minuti con due processori). Le prove fisse della 0.32 (`t032_panel`, `t032_grid`, `t032_grid2`,
+  `t032_grid3` e `t032_maps` nel simulatore, l'ENERGIA nel cuore, la 0.31 vera presa da git in
+  `tests/sagga_compat31.sh`, l'ENERGIA e le 32 scene nell'editor, i 112 file nel bridge) sono state provate rompendo il
+  firmware, l'editor e il bridge in settantanove punti, uno alla volta: le prove le hanno trovate tutte. Il piano del
+  banco: 32 sessioni; l'FM-1 completo: 37 (con una sessione per ogni situazione della 0.28, della 0.29, della 0.30,
+  della 0.31 e della 0.32).
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
