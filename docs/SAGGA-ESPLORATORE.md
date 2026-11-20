@@ -262,6 +262,20 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   rompendo il firmware e l'editor in tredici punti, uno alla volta: tutte e tredici le rotture trovate. Il piano del
   banco: 30 sessioni; l'FM-1 completo: 35.
 
+* **Sulla 0.31** (i tasti delle tracce 13-16 sono i gruppi: batteria, bassi, melodiche, tutte; nella banca 9-12 i mute,
+  le scene, le snapshot, la forza degli step e la rotazione sul grid): una situazione nuova (sopra) e i gesti nuovi.
+  Rileggendo il codice di ogni pad, per dare un lavoro a quelli spenti, sono venuti fuori **due errori vecchi del
+  grid**: dalla 0.29 la riga 3 di BEAT prendeva otto progressioni, e i suoi pad 7 e 8 (HARMONY e le battute di un
+  accordo) non c'erano più; dalla 0.28 la vista CC disegnava spenti i pad delle lane 7 e 8. Corretti; li guarda
+  `t031_grid`. Il giro
+  completo: **117.129 gesti da soli in 33 situazioni, 13.194 coppie, 200 sessioni da 60 gesti, nessun errore, niente
+  da guardare** (10 minuti con due processori). Le prove fisse della 0.31 (`t031_panel`, `t031_grid`,
+  `t031_lfo_group` e `t031_group_retrig` nel simulatore, l'LFO sui gruppi nel cuore, la 0.30 vera presa da git in
+  `tests/sagga_compat30.sh`, i gruppi nell'editor e nella pagina Mutes) sono state provate rompendo il firmware,
+  l'editor e la pagina in quarantuno punti, uno alla volta: le prove le hanno trovate tutte e quarantuno (una, il solo
+  di un gruppo che non si spegneva mai, solo dopo aver aggiunto il controllo che mancava). Il piano del banco: 31
+  sessioni; l'FM-1 completo: 36.
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;

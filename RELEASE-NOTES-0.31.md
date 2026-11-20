@@ -127,7 +127,36 @@ piano per l'FM-1 vero (`fm1_piano.json`) e nel banco:
   righe 5-8 di DRUM e della riga 6 di FX.
 * PROJ riga 4, pad 13-16 può cambiare i canali delle tracce: la regola CANALE lo sa.
 
-PROVE_QUI
+## Come è stato provato
+
+Non ho un FM-1 in mano: la 0.31 è provata nel simulatore (lo stesso codice del firmware, sul computer), con i test e
+con l'esploratore.
+
+| la prova | il risultato |
+| --- | --- |
+| il cuore: progetti, immagini, un LFO su un gruppo | 44.562.592 controlli, 0 errori |
+| la 0.31 contro la 0.30 vera, presa da git | 40 progetti 0.31 → 0.30 → 0.31 giusti (gli LFO sui gruppi spenti, sulla T1); 40 salvati uguali byte per byte da tutte e due; i 40 della 0.30 salvati di nuovo uguali |
+| i motori THEORY | 200.798.646 controlli, 0 errori |
+| il simulatore del pannello e del grid | 1634 controlli, 0 errori, con le prove nuove dei tasti (`t031_panel`), del grid (`t031_grid`), dell'LFO sui gruppi e del RETRIG dei gruppi dal remoto |
+| l'editor dei progetti sul Pi | 272 controlli, 0 errori |
+| le pagine SAGGA, il bridge del grid, il hub | 96, 326 e 179 controlli, 0 errori |
+| la fuzz con AddressSanitizer e UndefinedBehaviorSanitizer | 26 giri, 0 errori |
+| l'esploratore, il giro completo | 117.129 gesti da soli in 33 situazioni, 13.194 coppie, 200 sessioni da 60 gesti: 0 errori, niente da guardare |
+| il banco, con il simulatore al posto dell'FM-1 | 0 errori; e trova le rotture preparate apposta (i comandi persi, un FM-1 sordo) |
+| quarantuno rotture fatte apposta nel firmware, nell'editor e nella pagina Mutes | trovate tutte e quarantuno |
+
+**Sull'FM-1 vero** la 0.31 non è ancora passata. La provi con il banco, dalla pagina del Pi (porta 8090): **Avvia la
+prova** (31 sessioni, circa ventisei minuti) e, nella tendina, **l'FM-1 completo** (36 sessioni, con le cose della
+0.28, della 0.29, della 0.30 e della 0.31: mezz'ora abbondante). Se qualcosa non torna, la raccolta si confronta con il
+simulatore: `python3 tests/sagga_explore.py --banco raccolta-banco-....json` (`docs/SAGGA-ESPLORATORE.md`).
+
+## I tasti che restano senza lavoro
+
+Ho guardato ogni pad del grid. Quelli liberati dalle dodici tracce e dai 22 generi adesso lavorano tutti. Ne restano
+alcuni che non facevano niente già da prima (non li ha liberati una riduzione): sul grid parte delle righe 5, 6 e 7 di
+PROJ, parte della riga 4 di SONG, i pad 12-14 della riga 4 e 9-15 della riga 6 di MOSSE, le righe 5-7 di LIB, la riga
+8 di CC dopo il pad 2, la riga 5 di TRACK 2 dal pad 9 al 15 e le sue righe 6-8 (mostrano i loop, non si toccano), le
+righe 2-8 di REGIA; sul pannello i neri 8-11 con EDIT tenuto e i neri con ENV o LFO tenuti.
 
 ## Installare
 
@@ -141,3 +170,5 @@ schermo, dopo l'aggiornamento: `SAGGA SEQ 0.31` per tre secondi.
 2. **I mute di 9-12**: il nero 9 (la banca 9-12), poi i **neri 5-8**: le tracce 9-12 tacciono e tornano.
 3. **Un LFO sui bassi**: tieni LFO, OCT+ fino alla pagina 2, K1 su VEL, **K2 oltre T12 fino a BASS**; pagina 3, K1 ON.
    Il basso e il rumble respirano insieme.
+
+DIMENSIONE
