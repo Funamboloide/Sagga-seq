@@ -12229,6 +12229,23 @@ def t030_tape():
     check(len(tp) == 2 and tp[1]["n"] == 3072 and st and st[-1]["msg"] == "TAPE FULL", "3100 played: 3072 kept, TAPE FULL (%s %s)" % (
         [x["n"] for x in tp], st[-1]["msg"] if st else None))
     check(log.x30 and log.x30[-1]["tape"] == 3072, "the project's tape: 3072 events (%s)" % (log.x30[-1]["tape"] if log.x30 else None))
+    # DOUBLE (SEQ + white 13) on a tape of 8 bars with 1000 notes: 16 bars, 2000 notes (0.29: TAPE FULL past 1536)
+    s = Script()
+    t = kp(s, 100, [(K4, 3)])
+    t = home_page(s, t, 6, [(K3, 4)], cur=2)                           # TAPE BARS 4 -> 8
+    s.tap_btn(t, REC); t += 100
+    t0 = t
+    s.tap_btn(t0, PLAY); t = t0 + 50
+    for i in range(1000):
+        n = 48 + i % 24
+        s.raw(t, "midi 0x90 %d 100" % n); s.raw(t + 3, "midi 0x80 %d 0" % n); t += 8
+    s.tap_btn(t + 20, REC); t += 100                                   # REC off
+    s.press(t, SEQ); s.tap_key(t + 40, wk(13)); s.release(t + 120, SEQ); t += 200   # DOUBLE (white 14)
+    s.at(t, "dump", 0)
+    log = run(s, t + 200)
+    tp = [x for x in log.tapes if x["track"] == 1]
+    check(tp and tp[-1]["n"] == 2000 and tp[-1]["bars"] == 16 and states(log)[-1]["msg"] == "TAPE DOUBLED: BARS 16",
+          "DOUBLE on 8 bars and 1000 notes: 16 bars, 2000 notes (%s %s)" % ([(x["n"], x["bars"]) for x in tp], states(log)[-1]["msg"] if states(log) else None))
 
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,

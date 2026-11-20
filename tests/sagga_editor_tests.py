@@ -443,6 +443,8 @@ def t_page():
             for tb in ('tracce', 'traccia', 'lane', 'scene', 'song', 'catene', 'lfo', 'progetto'):
                 pg.evaluate("V.tab='%s';render()" % tb)
             check(not errs, 'every tab renders (%s)' % errs)
+            pg.evaluate("V.tab='song';render();for (let i = 0; i < 140; i++) songAdd()")   # (after the save: the file keeps its two)
+            check(pg.evaluate('P.song.len') == 128, '0.30: the page\'s song takes 128 entries, not one more (%d)' % pg.evaluate('P.song.len'))
             b.close()
     finally:
         srv.shutdown()
