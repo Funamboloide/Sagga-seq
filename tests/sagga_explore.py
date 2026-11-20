@@ -1124,9 +1124,13 @@ def is_music(field):
 #  USER slot, which plays from then on; 0.17: PRESETS on the MOSSE (GLO 3) is the progression, a move of the set)
 HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
-                     r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid VIAGGIO|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
+                     r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid (VIAGGIO|MOSSE|REGIA)|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
                      r"HOME\+SAVE|SAVE, SAVE|tablet (DICE|BEAT)$)")      # (0.18: the tablet's DICE and BEAT are SEQ's)
-HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] )")
+#   (0.32: the view is MOSSE since 0.30 - "grid VIAGGIO" matched nothing since, unseen while a progression's pad there
+#    waited for the phrase's end; the 0.32 situation moves at the bar. Its row 6 pads 12-13 are the genre - / + (as GLO 3
+#    K3), row 7 pads 1-13 the progressions (PRESETS), 14-16 HARMONY on / off, LOCK, the bars (ARP 3 K1, K3): by hand)
+HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] |"
+                          r"grid (MOSSE|REGIA) pad 1[456],7$)")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
                    r"grid PICK pad \d+,1$|grid PROJ (SHIFT\+)?pad 1[3-6],4$)")
