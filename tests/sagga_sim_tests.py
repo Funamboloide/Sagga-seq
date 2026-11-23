@@ -7253,6 +7253,27 @@ def t015_link():
     check(ok and j["playing"] == 1 and j["bpm"] == BPM and j["steps"][0] == 5 and j["pats"][0] == 0,
           "the bridge reads it: at the 6th 16th (clock 30) T1 plays its step 6, 128 BPM (%s)" % ({k: j[k] for k in ("clock", "bpm", "steps")} if j else six[:1]))
     check(len([m for _, m in pos if B.get7(m[8:11]) == 0 and m[5] == 1]) == 1, "START: one position for the 16th it starts on")
+    # 0.32.1: the song's place. 127 is "no song" and (0.30: 128 entries) the song's last entry: the sixteenth place's
+    # step says the song is on
+    check(ok and j["song"] == -1 and all(m[7] == 127 and m[5 + 8 + 30] == 0 for _, m in pos),
+          "no song: 127, the sixteenth place 0, the bridge reads -1 (%s)" % (j.get("song") if j else None))
+    frame = list(six[0]) if six else []
+    got = []
+    for song, flag in ((127, 1), (127, 0), (5, 0), (5, 1)):
+        if frame:
+            frame[7], frame[5 + 8 + 30] = song, flag
+            ctl.fm1_sysex(frame, 0.0)
+            got.append(json.load(open(os.path.join(d, "pos.json")))["song"])
+    check(got == [127, -1, 5, 5], "the bridge: entry 128 with the song on is 127, 127 with it off no song (an FM-1 before 0.32.1), any other entry itself (%s)" % got)
+    s2 = Script()
+    t2 = s2.steps(100, [0, 4, 8, 12])
+    s2.tap_btn(t2, GLO); s2.press(t2 + 50, HOME); s2.tap_key(t2 + 100, bk(0)); s2.tap_key(t2 + 200, bk(1)); s2.release(t2 + 300, HOME); s2.tap_btn(t2 + 400, GLO)   # the song: scenes 1, 2
+    s2.press(t2 + 500, HOME); s2.tap_btn(t2 + 550, GLO); s2.release(t2 + 650, HOME)   # HOME + GLO: the song on
+    s2.at(t2 + 800, "sx", "7D 53 47 30 01")
+    s2.tap_btn(t2 + 1000, PLAY)
+    log2 = run(s2, t2 + 1000 + int(BAR_MS))
+    pos2 = [m for tm, m in log2.sysex if m[:5] == [0xF0, 0x7D, 0x53, 0x47, 0x31] and m[5] == 1]
+    check(pos2 and all(m[7] == 0 and m[5 + 8 + 30] == 1 for m in pos2), "a song playing its first entry: 0, and the sixteenth place says the song is on (%s)" % [(m[7], m[5 + 8 + 30]) for m in pos2[:2]])
     stop = [tm for tm, m in pos if m[5] == 0 and tm > p]
     check(stop and near(stop[0], p + 1.5 * BAR_MS, 40), "at STOP: where it stopped (%s)" % stop[:1])
     check(not [tm for tm, m in pos if tm > p + 1.6 * BAR_MS + 20], "not asked any more: none, playing or not")
@@ -12551,7 +12572,9 @@ def t031_grid():
     s.pad(t, 13, 3); t += 100; P("ch10a")                                  # row 4 pad 14: the drums on channel 10 - 0.32.1: asked
     s.pad(t, 13, 3); t += 100; P("ch10")                                   # ... again: done
     s.pad(t, 12, 3); t += 100; P("chowna")                                 # pad 13: each on its own - asked
-    s.pad(t, 12, 3); t += 100; P("chown")                                  # ... again
+    s.pad(t, 13, 3); t += 100; P("chx14")                                  # (pad 14 now: ANOTHER pad's question is no answer - it asks)
+    s.pad(t, 12, 3); t += 100; P("chx13")                                  # (pad 13: the question was pad 14's - it asks again)
+    s.pad(t, 12, 3); t += 100; P("chown")                                  # ... again: done
     s.pad(t, 15, 3); t += 100; P("chp")                                    # pad 16: T10 channel +
     t_proj = t
     t = view(s, t, GC_VSTEP, alt=True)                                     # CC
@@ -12618,6 +12641,9 @@ def t031_grid():
     check(g("ch10a", "chs", "msg") == ("0123456789AB", "THE DRUM TRACKS ON CHANNEL 10? AGAIN: YES")
           and g("chowna", "chs", "msg") == ("9999996789AB", "EVERY TRACK ON ITS OWN CHANNEL? AGAIN: YES"),
           "0.32.1: pads 13 and 14 change every track's channel - the first tap only asks, the channels as they were (%s %s)" % (g("ch10a", "chs", "msg"), g("chowna", "chs", "msg")))
+    check(g("chx14", "chs", "msg") == ("9999996789AB", "THE DRUM TRACKS ON CHANNEL 10? AGAIN: YES")
+          and g("chx13", "chs", "msg") == ("9999996789AB", "EVERY TRACK ON ITS OWN CHANNEL? AGAIN: YES"),
+          "0.32.1: a pad's question is answered by the same pad only - another pad in between asks its own, and then this one asks again (%s %s)" % (g("chx14", "chs", "msg"), g("chx13", "chs", "msg")))
     p, _ = log.leds(until=t_proj)
     check(p.get(3 * 16 + 12) == GL_DIM and p.get(3 * 16 + 14) == GL_VIOLET, "... pad 13 dim (T10 not on its own any more), 15 violet (%s %s)" % (p.get(3 * 16 + 12), p.get(3 * 16 + 14)))
     p, _ = log.leds(until=t_cc)
@@ -12849,6 +12875,9 @@ def t032_grid():
     s.ctl(t, GC_TRK0 + 1); t += 80                                         # T2
     pad(14, 6, "v2"); mark("vo")                                           # row 7 pad 15: T2's
     pad(15, 6, "v0a"); X("v0a")                                            # pad 16: every track's to 0 - 0.32.1: asked
+    for _ in range(3):                                                     # (more than three seconds go by, the grid kept alive)
+        t += 1050; s.raw(t, "hb")
+    pad(15, 6, "v0b"); X("v0b")                                            # ... too late: it asks again
     pad(15, 6, "v0"); X("v0"); mark("vo0")                                 # ... again: done
     pad(0, 7, "nu"); mark("nu")                                            # row 8 pad 1: T2 step 1's nudge (it comes on)
     pad(15, 7, "nu0"); X("nu0"); mark("nu0")                               # pad 16: every step of the pattern on the grid
@@ -12891,6 +12920,8 @@ def t032_grid():
           "row 7 pad 16: every track's VEL OFFSET back to 0, the pad faint (%s %s)" % (g("v0"), [x["vel_offset"] for x in e("v0")["track"]]))
     check(g("v0a") == "EVERY TRACK'S VEL OFFSET TO 0? AGAIN: YES" and [x["vel_offset"] for x in e("v0a")["track"]][:2] != [0, 0],
           "0.32.1: the first tap only asks - T1's and T2's offsets still there (%s %s)" % (g("v0a"), [x["vel_offset"] for x in e("v0a")["track"]][:3]))
+    check(g("v0b") == "EVERY TRACK'S VEL OFFSET TO 0? AGAIN: YES" and [x["vel_offset"] for x in e("v0b")["track"]] == [x["vel_offset"] for x in e("v0a")["track"]],
+          "0.32.1: the same pad more than three seconds later asks again - the question had gone (%s)" % g("v0b"))
     st = step_of(e("nu0"), 1, 0, 0)
     check(g("nu").startswith("NUDGE -") and L("nu", 15, 7) == GL_ORANGE and g("nu0") == "EVERY STEP ON THE GRID: NO NUDGE" and st["nudge"] == 0
           and st["flags"] & 1 and L("nu0", 15, 7) == GL_FAINT,

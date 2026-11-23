@@ -35,6 +35,8 @@ every one. Then everything written since 0.27 was read again, the FM-1, the Pi a
   reset it without asking).
 * **The map of the keys** (a button held half a second): HOME and GLO say what 0.31 gave their whites 13-16 (`W TRK
   13-16 STEP PG`, `W MUTE 13-16 GROUPS`).
+* **The Pi's editor** shows the song's place at its 128th entry too (the position message said "no song" there: 127
+  is both, since 0.30's 128 entries).
 * **The bench's comparison** (docs/SAGGA-ESPLORATORE.md) no longer calls three kinds of timing an error: a probe read a
   clock tick apart twice in a row, a note only the moved replay plays, a page's cell the Pi pressed after the FM-1's
   last word on it.
@@ -701,7 +703,7 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
 | **74** | `seq*2 n (ms*4 gc*4 st d1 d2 cable)*n` | (to the PC, 0.20.3, when GO's byte 1 bit 0 asked to hear the ports) every MIDI message that came in from the ports and was played: the ms, the clock tick before it, the status without bit 7, the cable (0 port 1, 1 port 2); seq = the number of the first in the session. DONE then also carries `heard*2 lost` |
 | **30** | `on` | (from the Pi, 0.15) 1: send the positions for the next 6 s (the bridge asks again every 2 s while an editor page follows); 0: stop |
-| **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song; clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
+| **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song (0.32.1: or the song's 128th entry - then the sixteenth place's step, which no track uses, is 1: the song is on); clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
 | **32** | `t vel gate flags n note*n` | (from the Pi) play these notes on track t as the track plays a step (its channel, key, CHORD, voicing) for gate x 10 ms; flags bit 0: a TAPE note (the key only). A new one ends the one before; PANIC and STOP end it |
 
 The FM-1 sends 31 only while asked (30), with the same rule: a position that does not fit the USB queue is skipped.

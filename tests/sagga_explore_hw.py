@@ -430,6 +430,23 @@ def lost_messages(hw_midi, sim_midi, music):
     return lost, extra
 
 
+def tick_apart_edge(gc_sim, gc_hw, d):
+    """0.32.1: a probe the two read a clock tick apart (their gc), showing only what a step's edge carries (d: its
+    differences) - the probe AFTER one read a tick apart with more than that in it (a scene landing on the bar line):
+    that one is timing when this one is"""
+    return gc_sim is not None and gc_hw is not None and abs(gc_sim - gc_hw) == 1 and (steps_only(d) or edge_fields(d))
+
+
+def lost_in_both(lost, lost0, extra0):
+    """0.32.1: what the computer did not hear of what BOTH replays send - the one moved a few ms to make a probe the
+    FM-1's (lost) and the one with every event at the ms the FM-1 said (lost0, extra0: what that one lacks / has more of
+    against the FM-1). -> ([(what, how many, when)] lost in both, how many only the moved replay sends). A replay that
+    has MORE than the FM-1 says nothing against a message: it counts as not sending it"""
+    n0 = {} if extra0 else {what: n_ for what, n_, _ in lost0}
+    both = [(what, min(n_, n0[what]), when) for what, n_, when in lost if n0.get(what)]
+    return both, sum(n_ for _, n_, _ in lost) - sum(n_ for _, n_, _ in both)
+
+
 def compare(session, heard=None):
     """-> (findings [(rule, level, what)], the replay's record). 0.20.3 heard: [[ms, gc, st, d1, d2, cable]], what the FM-1
     heard from its ports (the banco), replayed where it heard it"""
@@ -498,10 +515,8 @@ def compare(session, heard=None):
         return any(gc_of(sim_p, j) is not None and gc_of(sim_p, j) == gc_of(hw_p, j) for j, _, _ in diffs[n_ + 1:])
 
     def tick_edge_next(m_):
-        """0.32.1: the probe at diffs[m_] was read a clock tick apart too, and shows only what a step's edge carries"""
         j, _, dj = diffs[m_]
-        a, b = gc_of(sim_p, j), gc_of(hw_p, j)
-        return a is not None and b is not None and abs(a - b) == 1 and (steps_only(dj) or edge_fields(dj))
+        return tick_apart_edge(gc_of(sim_p, j), gc_of(hw_p, j), dj)
 
     first = None
     timing = 0
@@ -694,9 +709,7 @@ def compare(session, heard=None):
             # the ms the FM-1 said, the simulator does not play it either: the moved replay's note, not one lost on
             # the road. Lost is what BOTH replays send and the computer did not hear
             lost0, extra0 = lost_messages(hw["midi"], sim0["midi"], music)
-            n0 = {} if extra0 else {what: n_ for what, n_, _ in lost0}
-            both = [(what, min(n_, n0[what]), when) for what, n_, when in lost if n0.get(what)]
-            ghost = sum(n_ for _, n_, _ in lost) - sum(n_ for _, n_, _ in both)
+            both, ghost = lost_in_both(lost, lost0, extra0)
             if ghost:
                 found.append(("TEMPO", "VISTO", "%d messaggi che il simulatore manda solo con i tasti spostati di qualche "
                               "ms (con i ms dell'FM-1 non li manda: una nota sul confine di un gesto)" % ghost))
