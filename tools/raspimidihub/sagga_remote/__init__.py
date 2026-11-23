@@ -128,8 +128,9 @@ The macros act on every track (64 = 0): INTENSITY (velocity), GATE, SWING, FILTE
 TRANSPOSE moves the key (the tracks in key), 0 in the middle, at the QUANTISE moment. QUANTISE, EVOLVE AMT, HEAT.
 TEMPO -1 / +1, TAP.
 SNAP 1-8: a snapshot comes back (at the QUANTISE moment); STORE 1-8 keeps what plays now in it; SNAPS (0.32.1): which
-eight they are - 1-8 or 9-16. SCENES and SNAPS are the tablet's own (the FM-1's keys and the grid keep their banks), on
-channel 12: they need SAVE K2 = REMOTE 13 + 14 on the FM-1 (with REMOTE 14 alone: the first eight). CC CAPTURE: the CCs
+eight they are - 1-8 or 9-16. SCENES and SNAPS are the tablet's own: turning them moves nothing on the FM-1 (a scene
+or a snapshot then brought back takes the FM-1's cursor there, as from its own keys). They are on channel 12: they need
+SAVE K2 = REMOTE 13 + 14 on the FM-1 (with REMOTE 14 alone: the first eight). CC CAPTURE: the CCs
 your synths send go into the snapshot playing (again: off). SEND SOUND: its CC values out again. PATCHES: the Pi keeps
 the synths' patches for it (patches.json on the Pi). HARMONY on / off, ECHO (every track), WRITE LIVE (what the live
 EUCLID and algorithms play goes into the patterns). TAKE (0.12, channel 13): what was played on the keys or the pads

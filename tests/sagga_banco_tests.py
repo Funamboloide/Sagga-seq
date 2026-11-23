@@ -307,8 +307,8 @@ def t_units():
     # 0.32.1: who spoke last. The FM-1 said every value at 1000 ms; the Pi pressed RATE at 5000 (after: the page's 40 is
     # the Pi's own, not compared), TEMP at 500 (before: the FM-1's word is the last, still wrong), LFO 4 at 2000 (after)
     when = {k: 1000.0 for k in fb}
-    done = [[4950.0, "pagina", [0xBC, 94, 40], "sagga_mod", "rate", 40, 100.0], [450.0, "pagina", [0xBD, 37, 0], "sagga_remote", "temp", False, 100.0],
-            [250.0, "pagina", [0xBC, 94, 7], "sagga_mod", "rate", 7, 100.0],          # (RATE pressed before too: the last press counts)
+    done = [[250.0, "pagina", [0xBC, 94, 7], "sagga_mod", "rate", 7, 100.0],          # (RATE pressed twice: the last press counts)
+            [450.0, "pagina", [0xBD, 37, 0], "sagga_remote", "temp", False, 100.0], [4950.0, "pagina", [0xBC, 94, 40], "sagga_mod", "rate", 40, 100.0],
             [1950.0, "pagina", [0x8C, 104, 0], "sagga_mod", "lfo_sw4", False, 100.0], [100.0, "grid", [0x9F, 1, 100]]]
     pr = R.pressed_last(done)
     check(pr == {("sagga_mod", "rate"): 5000.0, ("sagga_remote", "temp"): 500.0, ("sagga_mod", "lfo_sw4"): 2000.0},

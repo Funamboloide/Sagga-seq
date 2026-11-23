@@ -17,6 +17,9 @@ step() {
 }
 cc -std=c11 -Wall -Wextra -Werror -Ifirmware/src tests/sagga_core_tests.c firmware/src/sagga_seq_core.c firmware/src/sagga_beats.c -o build/sagga_core_tests
 step "core" tail 1 build/sagga_core_tests
+# 0.32.1: every table of the firmware declared with a size has that many elements - the compiler counts them in a copy of
+# the sources (0.29 brought four chord shapes and the table of their names kept its 32: four null pointers, read on ARP 5)
+step "tables" tail 1 python3 tests/sagga_tables.py
 # 0.28: twelve tracks, six notes, eight lanes - and the image still 0.27's: 0.27 (its core from git) opens what 0.28
 # saves, 0.28 what 0.27 saves again, and a 0.27 project of sixteen tracks keeps its first twelve
 step "compat 0.27" tail 2 sh tests/sagga_compat27.sh

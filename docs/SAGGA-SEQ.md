@@ -22,10 +22,17 @@ a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three p
 0.32 ran on a real FM-1 for the first time (the bench's two plans, 69 sessions): the FM-1 did what the simulator does in
 every one. Then everything written since 0.27 was read again, the FM-1, the Pi and the bridge. What changed:
 
+* **The four chord shapes of 0.29 no longer bring the FM-1 down.** 7#9, 7B9, MAJ7#11 and QUARTAL work on a track (ARP 2)
+  since 0.29; as the shape of a chord of a **USER progression** (ARP 5 K4) they had no name: the table of the names had
+  kept its 32 rows, and the page read the name of the 33rd to the 36th from nowhere - the simulator dies there, the FM-1
+  shows its crash screen or letters that are not a name (0.29 to 0.32). They are named now (`I7#9`, `I7b9`, `Imaj7#11`,
+  `Iq4`), the compiler counts that table, and the explorer turns every knob of every page all the way up and down: one
+  click each way, as it did, never reached the end of a list. Beside it, ARP 3's cell of the chord playing has room for
+  the longest name and its place (a name of nine letters at the tenth place or later wrote one byte past the cell).
 * **The tablet reaches the 32 scenes and the 16 snapshots.** SAGGA Remote has two new knobs, **SCENES** (1-8, 9-16,
   17-24, 25-32) and **SNAPS** (1-8, 9-16): they say which eight its SCENE 1-8, SNAP 1-8 and STORE 1-8 are (channel 12
-  CC 37 / 39; the tablet's own banks, as its track - the panel's and the grid's stay where they are; they need REMOTE 13
-  + 14). **MORPH TO** holds the 32 scenes, and follows the FM-1 past scene 8. 0.30 made the scenes 32 and the snapshots
+  CC 37 / 39; the tablet's own banks, as its track - choosing one moves nothing on the panel or the grid; they need
+  REMOTE 13 + 14). **MORPH TO** holds the 32 scenes, and follows the FM-1 past scene 8. 0.30 made the scenes 32 and the snapshots
   16; the page had stayed at eight of each.
 * **A pad that changes every track or every scene asks first.** On the grid: PROJ row 4 pad 13 (every track on its own
   channel) and 14 (the drums on channel 10), TRACK row 7 pad 16 (every VEL OFFSET to 0), TRACK 2 row 5 pads 13 and 15 (a
@@ -816,8 +823,9 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 62 / 63 | **LANE 7 / 8** (0.28.1, SAGGA Mod): the lane's base value, sent at once (lanes 1-6: channel 13 CC 101-106) | | |
 | 37 | **SCENES** (0.32.1, SAGGA Remote): the tablet's bank of scenes 0-3 - the eight that channel 14's CC 40-47 are (1-8, 9-16, 17-24, 25-32; a higher value: over the four) | 39 | **SNAPS** (0.32.1): its bank of snapshots, 0 (1-8) or 1 (9-16; a switch's "on" too) - the eight that channel 14's CC 106-113 and 12-19 are |
 
-The two banks are the tablet's own, as its track: the panel's black keys and the grid keep theirs. They start at 1-8
-with the FM-1, and are not saved. (CC 38 is left alone: a Data Entry in MIDI 2.0.)
+The two banks are the tablet's own, as its track: choosing one moves nothing on the panel or the grid (a scene or a
+snapshot then brought back or stored takes the panel's cursor and bank there, as from anywhere). They start at 1-8 with
+the FM-1, and are not saved. (CC 38 is left alone: a Data Entry in MIDI 2.0.)
 
 ### What goes back to the hub (0.18)
 

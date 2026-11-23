@@ -12088,6 +12088,84 @@ def t0281_mod_page():
     check(pads2[6 * 16 + 11] == GL_WHITE and pads2[6 * 16] == GL_DIM, "... pad 12: track 12 (%s %s)" % (pads2[6 * 16 + 11], pads2[6 * 16]))
 
 
+def t0321_chord_names():
+    """0.32.1: the four chord shapes of 0.29 (7#9, 7B9, MAJ7#11, QUARTAL) have a name on a root. From 0.29 to 0.32 the
+    table of the names kept its 32 places: the moment ARP 5 K4 reached one of the four, the page read the name through
+    a null pointer (the simulator dies there; on the FM-1 the crash screen, or letters from nowhere). And ARP 3's
+    chord playing: its name and its place have room (a name of nine letters at a place past the ninth ran one byte
+    past the old twelve; the longest name now, eleven letters, three)"""
+    BAR = 16 * STEP_MS
+    s = Script()
+    t = 200
+    s.tap_btn(t, ARP); t += 100
+    for _ in range(4):
+        s.tap_btn(t, OCT_UP); t += 80                                      # ARP 5: USER PROG
+    s.enc(t, K3, 1); t += 60                                               # a chord on its first place (I)
+    s.enc(t, K4, 127); t += 60; s.at(t, "ui"); t += 40                     # its shape all the way up: QUARTAL, the last one
+    for _ in range(3):
+        s.enc(t, K4, -1); t += 60; s.at(t, "ui"); t += 40                  # MAJ7#11, 7B9, 7#9
+    s.enc(t, K4, -1); t += 60; s.at(t, "ui"); t += 40                      # 1-3-5-8: the last shape 0.28 had
+    s.at(t, "dump", 0); t += 40
+    try:
+        log = run(s, t + 200)
+    except subprocess.CalledProcessError as e:
+        check(False, "ARP 5 K4 on the chord shapes of 0.29: the simulator died (exit %s) - a name read from nowhere" % e.returncode)
+        return
+    sc = log.screens()
+    got = [(x["cells"][2][1], x["cells"][3][1]) for x in sc[-5:]] if len(sc) >= 5 else []
+    check(got == [("Iq4", "QUARTAL"), ("Imaj7#11", "MAJ7#11"), ("I7b9", "7B9"), ("I7#9", "7#9"), ("I", "1-3-5-8")],
+          "ARP 5: K4 all the way up is QUARTAL, and down from it MAJ7#11, 7B9, 7#9, 1-3-5-8 - each with its name on the root (%s)" % got)
+    check(len(sc) >= 5 and sc[-5]["lines"][3] == "USER PROG 1: Iq4" and harm11(log)[0]["u"][0][2] == [(0, 36, 0, 0)],
+          "... the progression's own name too; the shape is the project's (%s %s)" % (sc[-5]["lines"][3] if len(sc) >= 5 else None, harm11(log)[0]["u"][0]))
+    # the chord playing on ARP 3: the longest name there is (bVIImaj7#11) at a place of two digits (3+3+2 over four chords: twelve places)
+    s = Script()
+    ch = [(K3, 11), (K4, 39)]
+    t = uprog_knobs(s, 100, ch + [(K2, 1)] + ch + [(K2, 1)] + ch + [(K2, 1)] + ch)   # USER 1: four chords, each bVII MAJ7#11
+    t = harm_knobs(s, t, [(K2, 8), (K1, 1)])                               # HARMONY on USER 1
+    t = harm2_knobs(s, t, [(K4, 4)])                                       # its rhythm 3+3+2
+    t = harm_knobs(s, t, [])                                               # (ARP's page: 3)
+    s.tap_btn(t, ARP); t += 100                                            # ARP 3 stays on the screen
+    s.tap_btn(t, PLAY); p0 = t
+    for k in (0.2, 3.2, 3.9):                                              # the places 1, 10 and 12
+        s.at(p0 + int(k * BAR), "ui")
+    s.at(p0 + int(3.95 * BAR), "dump", 0)
+    try:
+        log = run(s, p0 + int(4 * BAR))
+    except subprocess.CalledProcessError as e:
+        check(False, "ARP 3 with a chord of eleven letters playing: the simulator died (exit %s)" % e.returncode)
+        return
+    sc = log.screens()
+    h = harm11(log)[0]
+    check(len(sc) >= 3 and all(x["cells"][0] == ("> HARMONY", "bVIImaj7#") and x["cells"][2] == ("RHYTHM", "3+3+2") for x in sc[-3:])
+          and h["chord"] == "bVIImaj7#11" and h["u"][0][0] == 4,
+          "ARP 3: the chord playing, bVIImaj7#11, at the places 1, 10 and 12 - the cell shows what fits of it (%s %s)" % ([x["cells"][0] for x in sc[-3:]], h["chord"]))
+
+
+def t0321_knobs_far():
+    """0.32.1: the MOSSE's knobs (GLO 3: the genre, the key, the progression) go round their lists however far they are
+    turned. The key's wrap held for two turns of the twelve down: 127 clicks down in one go (no hand does it - the
+    explorer's knob all the way) left a root that is no note, 249, and it went to the page as a byte MIDI has not; the
+    genre and the progression stayed in their lists, on the wrong item"""
+    s = Script()
+    t = pg(s, 200, GLO, 2, [(K4, -127)]); s.at(t, "probe"); t += 40        # the key: C, 127 semitones down - 10 octaves and 7: F
+    t = pg(s, t, GLO, 2, [(K4, 127)]); s.at(t, "probe"); t += 40           # ... and up again: C
+    t = pg(s, t, GLO, 2, [(K3, -127)]); s.at(t, "probe"); t += 40          # the genre: 22 of them, 127 back from TECHNO - five on (UK FUNKY)
+    t = pg(s, t, GLO, 2, [(E_PRE, -127)]); s.at(t, "probe"); t += 40       # the progression: 13, 127 back from the first - the fourth
+    log = run(s, t + 200)
+    G = [p["G"] for p in probes(log)]
+    ok = len(G) == 4
+    check(ok, "the MOSSE's knobs: 4 probes (%d)" % len(G))
+    if not ok:
+        return
+    check(G[0]["root"] == "5" and G[0]["msg"] == "KEY 1: F CHROMA" and G[1]["root"] == "0",
+          "GLO 3 K4, 127 down: the key goes round the twelve to F, a note (0.32: the root 249), and 127 up is C again (%s %s %s)" % (G[0]["root"], G[0]["msg"], G[1]["root"]))
+    check(G[2]["genre"] == "5" and G[2]["msg"] == "GENRE UK FUNKY" and G[3]["hprog"] == "3",
+          "K3 and PRESETS, 127 down: round their lists to where a hand would land - UK FUNKY, the fourth progression (0.32: BATIDA, DICE/PI) (%s %s %s)"
+          % (G[2]["genre"], G[2]["msg"], G[3]["hprog"]))
+    bad = [m for m in log.msgs if m[2] > 127 or m[3] > 127]
+    check(not bad, "no byte that MIDI has not goes out (%s)" % bad[:3])
+
+
 def t0321_tablet_banks():
     group("0.32.1: the tablet reaches the 32 scenes and the 16 snapshots - channel 12 CC 37 is the bank of eight that SAGGA "
           "Remote's SCENE 1-8 (channel 14 CC 40-47) are, CC 39 the bank its SNAP and STORE 1-8 (CC 106-113, 12-19) are; MORPH "
@@ -12128,7 +12206,7 @@ def t0321_tablet_banks():
     t1 = t + 600
     t = pg(s, t1, GLO, 0, [(K2, 19)]); t += 60; P("morph")                # the panel: MORPH TO from scene 2 up nineteen
     s.at(t, "dump", 0); t += 40
-    log = run(s, t + 700)
+    log = run(s, t + 6200)                                                # (and the five seconds in which every value is said again)
     G = [p["G"] for p in probes(log)]
     ok = len(G) == n[0] and bool(log.x30)
     check(ok, "%d probes and the dump (%d %d)" % (n[0], len(G), len(log.x30)))
@@ -12140,16 +12218,21 @@ def t0321_tablet_banks():
     check(g("sc3", "scene") == "2" and g("sc11", "scene") == "10" and g("sc32", "scene") == "31" and g("sc25", "scene") == "24",
           "SCENE 3 is scene 3, with SCENES 9-16 scene 11; SCENE 8 with 25-32 scene 32; a value over the four: the last bank (%s %s %s %s)"
           % (g("sc3", "scene"), g("sc11", "scene"), g("sc32", "scene"), g("sc25", "scene")))
-    check(g("bank").endswith("SCENES 9-16: THE TABLET'S SCENE 1-8") and g("bank", "sbank") == g("sc3", "sbank"),
-          "the screen says the bank; the panel's own bank of scenes stays where it is (%s, sbank %s)" % (g("bank"), g("bank", "sbank")))
+    check(g("bank").endswith("SCENES 9-16: THE TABLET'S SCENE 1-8") and g("bank", "scene") == "2",
+          "the screen says the bank; choosing it moves nothing: the panel's scene cursor still on 3 (%s, scene %s)" % (g("bank"), g("bank", "scene")))
     x = log.x30[-1]
     check(g("st2", "snap") == "1" and g("st10", "snap") == "9" and g("sbank").endswith("SNAPSHOTS 9-16: THE TABLET'S SNAP AND STORE 1-8"),
           "STORE 2 is snapshot 2, with SNAPS 9-16 snapshot 10 (%s %s; %s)" % (g("st2", "snap"), g("st10", "snap"), g("sbank")))
+    check(g("sbank", "sbank") == "0" and g("st10", "sbank") == "8",
+          "choosing SNAPS 9-16 leaves the panel's bank of snapshots on 1-8; the snapshot stored takes it there, as from anywhere (%s %s)" % (g("sbank", "sbank"), g("st10", "sbank")))
     check("EMPTY" in g("sn11") and g("sn11").endswith("11") and g("sn2", "snap") == "1" and g("sn10", "snap") == "9",
           "SNAP 3 with 9-16: snapshot 11, empty; SNAP 2 with 1-8: snapshot 2; with 9-16: snapshot 10 (%s | %s %s)" % (g("sn11"), g("sn2", "snap"), g("sn10", "snap")))
     check(x["snaps"] == ".x.......x......", "... the snapshots stored are 2 and 10 (%s)" % x["snaps"])
     back = [(m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] in (37, 39) and m[0] < t0 + 400]
     check((37, 0) in back and (39, 0) in back, "the banks go back to the page from the start: CC 37 and 39 on channel 12, 0 (%s)" % back[:4])
+    again = [(m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] in (37, 39) and m[0] > t1]
+    check((37, 3) in again and (39, 1) in again and all(v in ((37, 3), (39, 1)) for v in again),
+          "... and said again within five seconds with what they are now: SCENES 25-32 (3), SNAPS 9-16 (1) (%s)" % again)
     mt = [m[3] for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBD and m[2] == 2 and m[0] > t1]
     check(mt[-1:] == [20], "MORPH TO turned on the panel to scene 21 goes back to the page (0.30-0.32: nothing past scene 8) (%s)" % mt)
     # REMOTE 14 alone: channel 12 is a track's then - the banks are not heard, SCENE 3 is scene 3
@@ -13337,7 +13420,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
     t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig,
-    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps, t0321_tablet_banks]
+    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps, t0321_tablet_banks, t0321_chord_names, t0321_knobs_far]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

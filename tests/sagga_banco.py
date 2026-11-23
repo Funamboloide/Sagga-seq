@@ -207,7 +207,7 @@ def piano(n=None, length=40, seed=11):
     if n is None:
         n = len(sits)
     every = E.catalogo(grid=True, tablet=False)
-    panel = [g for g in every if g.name != "niente" and "andata" not in g.tags and "grid" not in g.tags and H.gesture_ok(g)]
+    panel = [g for g in every if g.name != "niente" and "andata" not in g.tags and "grid" not in g.tags and not E.fondo(g) and H.gesture_ok(g)]
     grid = [g for g in every if "grid" in g.tags and H.gesture_ok(g)]
     rnd = random.Random(seed)
     pg = page_gestures(rnd)

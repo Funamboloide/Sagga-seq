@@ -2980,7 +2980,7 @@ uint8_t sq_hchord_quality(uint8_t scale, const sq_hchord_t *c, uint8_t *ext)
         return q;
     }
 }
-/* a chord as a root and one of the 32 shapes, whatever it was written as (a step of the key with a colour: the notes the
+/* a chord as a root and one of the shapes (0.29: 36), whatever it was written as (a step of the key with a colour: the notes the
  * key gives it, matched to the shape that has them) - how it goes to the Pi, which keeps progressions without a key */
 void sq_hchord_explicit(uint8_t scale, const sq_hchord_t *c, uint8_t *semi, uint8_t *shape)
 {
@@ -3022,15 +3022,22 @@ void sq_hchord_explicit(uint8_t scale, const sq_hchord_t *c, uint8_t *semi, uint
 
 static const char *const ROM[12] = {"I", "bII", "II", "bIII", "III", "IV", "#IV", "V", "bVI", "VI", "bVII", "VII"};
 const char *sq_degree_name(uint8_t semi) { return ROM[semi % 12u]; }   /* 0.12: a root's name, semitones above the key's */
+/* what a chord shape adds to its root's name (SQ_CH_*: "bVII" + "maj7"). 0.32.1: with no size of its own, and counted
+ * here below. 0.29 brought four shapes (7#9, 7B9, MAJ7#11, QUARTAL) and this table, declared [SQ_CH_COUNT], kept its 32
+ * names: C filled the four places with null pointers and said nothing, and the name of a chord of one of those shapes
+ * (a USER progression's: ARP 5 K4) was read from address 0 - 0.29 to 0.32 */
+static const char *const HCHORD_SUF[] = {"", "8", "5", "5", "", "", "o", "+", "sus2", "sus4", "6", "6", "7", "7",
+    "maj7", "mM7", "o7", "m7b5", "7sus4", "add9", "add9", "9", "9", "maj9", "9sus4", "6/9", "6/9", "11", "13", "7sh", "sh", "",
+    "7#9", "7b9", "maj7#11", "q4"};
+typedef char sq_hchord_suf_every_shape[(sizeof HCHORD_SUF / sizeof HCHORD_SUF[0] == SQ_CH_COUNT) ? 1 : -1];
 void sq_hchord_name(uint8_t scale, const sq_hchord_t *c, char *out)
 {
-    static const char *const SUF[SQ_CH_COUNT] = {"", "8", "5", "5", "", "", "o", "+", "sus2", "sus4", "6", "6", "7", "7",
-        "maj7", "mM7", "o7", "m7b5", "7sus4", "add9", "add9", "9", "9", "maj9", "9sus4", "6/9", "6/9", "11", "13", "7sh", "sh", ""};
     uint8_t hs = sq_harm_scale(scale), sh, semi, ext, q, k = 0u;
     int32_t deg;
     const char *a, *b;
     sh = chord_shape(hs, c, &deg);
     if (!sh) { sq_harm_chord_name(scale, (int8_t)deg, c->semi == 255u ? c->col : c->shape, out); return; }
+    if (sh >= SQ_CH_COUNT) sh = SQ_CH_MAJ;              /* (a shape there is not: a plain chord, never a place past the table) */
     semi = c->semi % 12u;
     q = sq_hchord_quality(scale, c, &ext);
     for (a = ROM[semi]; *a && k < 11u; a++) {
@@ -3038,7 +3045,7 @@ void sq_hchord_name(uint8_t scale, const sq_hchord_t *c, char *out)
         if ((q == 1u || q == 2u) && ch >= 'A' && ch <= 'Z') ch = (char)(ch - 'A' + 'a');   /* minor, diminished: small */
         out[k++] = ch;
     }
-    for (b = SUF[sh]; *b && k < 11u; b++) out[k++] = *b;
+    for (b = HCHORD_SUF[sh]; *b && k < 11u; b++) out[k++] = *b;
     out[k] = 0;
 }
 

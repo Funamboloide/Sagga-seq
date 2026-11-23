@@ -697,7 +697,8 @@ static void ui_build(void)
         } else if (arp_page == 2u) {                 /* HARMONY: OFF / ON / LOCK, the progression, bars a chord / rhythm, FOLLOW */
             static const char *const BB[9] = {"PROG", "1 BAR", "2 BARS", "3", "4 BARS", "5", "6", "7", "8 BARS"};
             const sq_gen_t *g = &project.gen;
-            char cn[12];
+            char cn[16];                                 /* (0.32.1: the chord's name, up to 11 letters, a space, its place 1-24: 12
+                                                          *  bytes held a name of 8 and a place under 10 - "bVII9sus4 10" ran past it) */
             ui_cell(0, "HARMONY", g->harm_on ? (g->harm_lock ? "LOCK" : "ON") : "OFF", g->harm_on ? (g->harm_lock ? C_WARN : C_ON) : SQ_C_DIM);
             if (piprog_browsing()) {                                          /* 0.11: one of the Pi's: its place among them */
                 uint8_t cnt = pi_prog_n[pp.genre][pp.mood];

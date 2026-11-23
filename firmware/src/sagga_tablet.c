@@ -23,7 +23,8 @@
  *   SAGGA Mod's; lanes 1-6 are channel 13 CC 101-106)
  *   CC 37 the tablet's bank of SCENES 0-3 (0.32.1: the eight scenes SAGGA Remote's SCENE 1-8 are - 1-8, 9-16, 17-24,
  *   25-32)   39 its bank of SNAPSHOTS 0-1 (the eight its SNAP 1-8 and STORE 1-8 are - 1-8, 9-16). The tablet's own, as
- *   its track: the panel's and the grid's banks stay where they are. (38 is a Data Entry in MIDI 2.0: left alone.)
+ *   its track: a bank chosen moves nothing on the panel or the grid (a scene or a snapshot then brought back or stored
+ *   takes the panel's cursor and bank there, as from anywhere). (38 is a Data Entry in MIDI 2.0: left alone.)
  *
  *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
  *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it

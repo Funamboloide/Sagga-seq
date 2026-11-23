@@ -5,8 +5,8 @@ stancarsi. Gira sul computer, senza l'FM-1: il firmware vero (lo stesso `firmwar
 compilato per il PC con il simulatore (`tests/host.c`), che va circa 400 volte più veloce del tempo vero.
 
 ```sh
-python3 tests/sagga_explore.py            # tutto: circa 3 minuti e mezzo
-python3 tests/sagga_explore.py --veloce   # un minuto: le situazioni e i gesti principali (è nella suite dei test)
+python3 tests/sagga_explore.py            # tutto: un quarto d'ora (con due processori; nella 0.11 erano 3 minuti e mezzo)
+python3 tests/sagga_explore.py --veloce   # tre minuti: le situazioni e i gesti principali (è nella suite dei test)
 ```
 
 Alla fine scrive `build/explore/RAPPORTO.md` (cosa non va, e come rifarlo), `build/explore/EFFETTI.md` (per ogni gesto,
@@ -14,7 +14,7 @@ cosa cambia) e `build/explore/rapporto.json`.
 
 ## Come lavora
 
-1. **Le situazioni.** Prepara la macchina in 32 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26, 30 nella 0.28): vuota ferma e in play, una band TECHNO in play, una HOUSE con
+1. **Le situazioni.** Prepara la macchina in 35 modi (erano 12 nella 0.12, 23 nella 0.24, 28 nella 0.26, 30 nella 0.28, 34 nella 0.32): vuota ferma e in play, una band TECHNO in play, una HOUSE con
    l'armonia su LOCK, una BALANI ferma (0.29; prima era AMAPIANO), una progressione USER con FOLLOW RETRIG e 3+3+2, GENRE LIVE, VIAGGIO, PERF,
    note lunghe con un loop fra due step, il grid attaccato, e (0.12) una band JUNGLE con la traccia 1 in BREAK; 0.13 e 0.20: tre con le cose nuove di allora (CHAIN LIST e MOTION, gli LFO, i MIDI FX in catena); 0.18: **il
    tablet e il grid insieme** (REMOTE 13 + 14, il grid, la band in play), con una e con due porte USB (con due i valori
@@ -77,8 +77,14 @@ cosa cambia) e `build/explore/rapporto.json`.
    prima (VIAGGIO, fino alla 0.29): con le mosse alla battuta i suoi pad delle progressioni, del genere e della chiave
    cambiano l'armonia dentro le due battute che la sonda guarda - a mano, come PRESETS e GLO 3 K3; i pad 14-16 della
    riga 7 (HARMONY, LOCK, le battute) sono ARP 3 K1 e K3, anche sotto LOCK.
-2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069; 0.31: 5723 con il grid e il tablet; 0.32: 5851 e 3069): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
-   ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, e avanti-e-indietro; ogni tasto
+   0.32.1: **una, con le 32 scene e le 16 snapshot dal tablet**: una band TECHNO, la scena 11 tenuta dal pannello,
+   poi dalla pagina SAGGA Remote le due manopole nuove sulle banche 9-16 (canale 12, CC 37 e 39), STORE 2 (che lì è la
+   snapshot 10) e SCENE 3 (che lì è la scena 11), il tablet e il grid, in play. Prima di cominciare la sonda controlla
+   la scena, la snapshot e la banca delle snapshot del pannello (che è andata dietro alla snapshot tenuta). Nei gesti
+   del tablet sono entrati SCENES (tre valori) e SNAPS (due), e della pagina Remote SCENE 3 e 8, SNAP 2 e STORE 2
+   (fino alla 0.32 fra i gesti del tablet i bottoni della pagina Remote non c'erano: li premeva solo il banco, dal Pi).
+2. **I gesti.** Più di 5000 (0.23: 5416 con il grid e il tablet, 2901 senza; 0.30: 5641 e 3069; 0.31: 5723 con il grid e il tablet; 0.32: 5851 e 3069; 0.32.1: 7269 e 4119, con le manopole girate fino in fondo e i controller del remoto al massimo): ogni bottone da solo e tenuto con un altro; ogni manopola su ogni pagina di HOME, GLO, SEQ,
+   ENV, LFO, ARP e SAVE (le pagine della 0.12), con e senza SEL, avanti, indietro, avanti-e-indietro, e (0.32.1) fino in fondo: 127 scatti in su e 127 in giù; ogni tasto
    della tastiera da solo e con ogni modificatore (SEQ, HOME, FX, EDIT, ARP ... e **ogni gruppo + SEL: il PICK**); i gesti
    a due step (la nota lunga, e con SEL + FX il loop); i tasti tenuti della 0.12 (REC = TAKE, SEL + GLO = viaggio off, GLO +
    SEL + OCT); **le finestre** (un tocco su HOME, SEQ, EDIT, ENV, LFO, ARP o FX, poi un tasto, una manopola o una pagina,
@@ -301,6 +307,49 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   banco: 32 sessioni; l'FM-1 completo: 37 (con una sessione per ogni situazione della 0.28, della 0.29, della 0.30,
   della 0.31 e della 0.32).
 
+* **Sulla 0.32.1** (le banche del tablet per le 32 scene e le 16 snapshot, i pad del grid che chiedono due volte, il
+  RESET di un LFO chiesto per quell'LFO, la song all'entrata 128, i nomi delle quattro forme di accordo della 0.29): una
+  situazione nuova (sopra), nove gesti del tablet, e **ogni manopola girata fino in fondo**.
+  * **L'errore che l'esploratore non vedeva.** La 0.29 aveva aggiunto quattro forme di accordo (7#9, 7B9, MAJ7#11,
+    QUARTAL) e la tabella dei nomi degli accordi era rimasta a 32 righe su 36: C riempie il resto di zeri senza dire
+    niente. In una progressione USER (ARP 5 K4) il nome di un accordo di quelle forme veniva letto dall'indirizzo 0: il
+    simulatore muore lì, l'FM-1 mostra lo schermo del crash o lettere a caso. Dalla 0.29 alla 0.32 nessuna prova c'era
+    arrivata, perché l'esploratore girava ogni manopola di uno scatto in su e uno in giù, e la fine di una lista sta a
+    quaranta scatti. Adesso ogni manopola di ogni pagina, con e senza SEL, gira anche di 127 scatti in su e in giù
+    (`FONDO`, 1050 gesti in più per situazione): con il firmware della 0.32 trova l'errore al primo giro (`MORTO`,
+    `ARP 5 K4 +127`, nella situazione con la progressione USER).
+  * **Il secondo errore, trovato dai gesti nuovi.** `GLO 3 K4 -127` nella situazione con due porte USB: `MIDI`, un byte
+    che il MIDI non ha (249) mandato alla pagina. La chiave delle MOSSE girava intorno alle dodici note con un conto
+    che reggeva due ottave in giù; oltre, la radice non era più una nota. Nessuna mano gira 25 scatti in un solo giro
+    di lettura dei tasti, e dal tablet il salto è al più di undici: l'ha trovato solo il gesto nuovo. Corretto, con il
+    genere e la progressione delle MOSSE (che restavano nella lista, ma sull'elemento sbagliato).
+  * **I controller del remoto al massimo.** Lo stesso pensiero dal lato del tablet: ogni controller (0-119) dei tre
+    canali che l'FM-1 ascolta (12 la traccia del tablet, 13 le pagine, 14 il remoto) mandato a 127, il valore che una
+    manopola delle pagine non manda mai e un controller tuo può mandare. 359 gesti nelle sette situazioni con il
+    tablet: nessun errore (la regola ARMONIA ora sa quali di quei numeri sono comandi dell'armonia). Con `--gesti` si
+    fa girare solo una parte dei gesti (`--gesti "^tablet CH"`).
+  * **Le tabelle contate dal compilatore** (`tests/sagga_tables.py`, nella suite): in una copia dei sorgenti ogni
+    tabella dichiarata con una misura perde la misura e guadagna un `_Static_assert` della sua lunghezza; la copia si
+    compila come il simulatore. 243 tabelle, più tre accorciate apposta per provare la prova. È così che è venuta fuori
+    la tabella dei nomi: quattro righe in meno.
+  * **Il giro veloce** (quello della suite) prendeva le situazioni delle ultime versioni contando dalla fine
+    dell'elenco, e ogni situazione nuova spingeva fuori la più vecchia: con la 0.32 era uscita quella della 0.28, e
+    niente lo diceva. Adesso le prende per nome: 0.28, 0.29, 0.30, 0.31, 0.32 e 0.32.1.
+  * **Sotto i controllori della memoria.** Il giro completo è stato fatto anche con il simulatore costruito con
+    AddressSanitizer e UndefinedBehaviorSanitizer (`SAGGA_SIM_CFLAGS`), per la prima volta tutto intero: GIRO_ASAN_QUI.
+    Con il firmware di prima AddressSanitizer conferma anche un errore più vecchio, sulla pagina ARP 3: lo spazio per
+    l'accordo che suona teneva 12 byte, e un nome di nove lettere con un posto a due cifre (`bVII9sus4 10`) ne scriveva
+    13. Adesso ne tiene 16.
+  * Il giro completo: **GIRO_QUI**. Le prove fisse della 0.32.1 (`t0321_tablet_banks`, `t0321_chord_names` e
+    `t0321_knobs_far` nuove; `t031_grid`, `t032_grid`, `t032_grid2`, `t032_panel`, `t032_maps` e `t015_link` con i casi
+    nuovi; i nomi degli accordi nel cuore; le pagine; il programma del banco; le tre regole nuove del confronto) sono
+    state provate rompendo il firmware, la pagina, il bridge, il programma del Pi e il confronto in cinquantuno punti,
+    uno alla volta. Al primo giro due rotture erano passate (il valore della banca rimandato alla pagina; quale
+    pressione di una cella conta): erano le prove a essere deboli, e sono state rinforzate. Adesso le trovano tutte.
+  * I gesti a fondo e i controller al massimo sono del simulatore: i piani per l'FM-1 vero non li hanno (un tempo
+    buttato a 300 o a 30, un clock passato a EXT, un PANIC fanno dei tempi di una sessione un'altra faccenda), e sono
+    byte per byte quelli di prima più la situazione nuova. Il piano del banco: 33 sessioni; l'FM-1 completo: 38.
+
 * **La 0.32 sull'FM-1 vero** (fra il 20 e il 22 novembre 2026; i file portano ancora la data del 26 ottobre, l'orologio del Pi): il
   banco (32 sessioni) e l'FM-1 completo (37). **In tutte e 69 l'FM-1 fa quello che fa il simulatore.** Il confronto aveva
   segnato quattro cose, e tutte e quattro erano sue, non dell'FM-1. Corrette nella 0.32.1:
@@ -401,7 +450,7 @@ python3 tests/sagga_explore.py --banco raccolta-banco-<data>.json         # -> b
 ```
 
 Il piano: una sessione da 40 gesti per ogni situazione con il tablet e il grid (REMOTE 13 + 14 e il grid attaccato,
-poi ognuna delle situazioni dell'FM-1: 32 dalla 0.32, 31 nella 0.31, 30 nella 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
+poi ognuna delle situazioni dell'FM-1: 33 dalla 0.32.1, 32 nella 0.32, 31 nella 0.31, 30 nella 0.30, 28 nella 0.28, 27 nella 0.27, erano 26 nella 0.26, 25 nella 0.25, 21 nella 0.24 e 20 prima); un gesto su due è una cella di una pagina (ogni cella di ogni pagina almeno una
 volta nel giro), gli altri il pannello e il grid. Dalla 0.20.3 l'FM-1, se il test glielo chiede, ascolta le sue porte e
 dice ogni messaggio che ha sentito, dove (il millisecondo, il tick del clock, la porta): il confronto rifà la sessione
 con quei messaggi negli stessi punti, come gli eventi del test. In più del rapporto dal PC:

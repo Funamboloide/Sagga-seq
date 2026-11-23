@@ -460,13 +460,12 @@ static void gr_perf_set(uint8_t x, uint8_t y)
     ui_dirty = grid_dirty = 1u;
 }
 
-
 /* 0.32.1: a pad that changes every track or every scene in one go, with no UNDO, asks first: the same pad again within
  * three seconds does it (as CLEAR and a NEW PROJECT). 0.31 and 0.32 gave such pads a single tap: every track's MIDI
  * channel (PROJ row 4, pads 13 and 14), every track's VEL OFFSET (TRACK row 7 pad 16), the programs of every scene
  * (TRACK 2 row 5, pads 13 and 15) - a finger one pad off, on stage, and the set played other synths. */
-static uint8_t g_ask_id;                    /* the pad that asked (0: none): the view * 16 + its place, + 1 */
-static uint32_t g_ask_until;
+static uint8_t g_ask_id;                    /* the pad that asked (GA_*, below; 0: none) ... */
+static uint32_t g_ask_until;                /* ... and until when its second tap is the yes */
 static uint8_t gr_twice(uint8_t id, const char *what)
 {
     char *p = msg_buf;

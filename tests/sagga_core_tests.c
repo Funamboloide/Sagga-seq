@@ -4412,6 +4412,53 @@ static void test_v031_lfo_group(void)
 }
 
 /* 0.32: the MASTER knob's fourth job, ENERGY (SQ_MK_ENERGY 3): kept by the sanitizer and in the image; past it, TEMPO */
+/* 0.32.1: every chord shape has its name after a root - the four of 0.29 (7#9, 7B9, MAJ7#11, QUARTAL) had none: the
+ * table kept its 32 names and the four places were null pointers, read when a USER progression's chord was one of them */
+static void test_v0321_chord_names(void)
+{
+    static const char *const ROOT[12] = {"I", "bII", "II", "bIII", "III", "IV", "#IV", "V", "bVI", "VI", "bVII", "VII"};
+    static const uint8_t SC[3] = {SQ_SC_MAJOR, SQ_SC_MINOR, SQ_SC_CHROMATIC};
+    uint32_t sh, r, k, j, longest = 0u;
+    char nm[16];
+    for (sh = 1; sh < SQ_CH_COUNT; sh++)
+        for (r = 0; r < 12u; r++)
+            for (k = 0; k < 3u; k++) {
+                sq_hchord_t x = {0, 0, 0u, 0u};
+                uint32_t n, rl = (uint32_t)strlen(ROOT[r]), same = 1u;
+                x.semi = (uint8_t)r; x.shape = (uint8_t)(SQ_HSHAPE_CH + sh);
+                memset(nm, '?', sizeof nm);
+                sq_hchord_name(SC[k], &x, nm);
+                n = 0u; while (n < sizeof nm && nm[n]) n++;
+                if (n > longest) longest = n;
+                for (j = 0; j < rl && j < n; j++) {     /* the root first, small when the chord is minor or diminished */
+                    char a = nm[j], b = ROOT[r][j];
+                    if (a >= 'a' && a <= 'z' && a != 'b') a = (char)(a - 'a' + 'A');
+                    if (a != b) same = 0u;
+                }
+                CHECK(n >= rl && n <= 11u && same);     /* (12 bytes hold it: sagga_seq_core.h) */
+                for (j = 0; j < n; j++) CHECK(nm[j] >= 0x21 && nm[j] < 0x7F);   /* letters: nothing read from elsewhere */
+            }
+    CHECK(longest == 11u);                              /* "bIIImaj7#11", "bVIImaj7#11": the screen's cell keeps room for it */
+    {   sq_hchord_t x = {0, 0, 0u, SQ_HSHAPE_CH + SQ_CH_7S9}; sq_hchord_name(SQ_SC_MAJOR, &x, nm); CHECK(!strcmp(nm, "I7#9")); }
+    {   sq_hchord_t x = {0, 0, 7u, SQ_HSHAPE_CH + SQ_CH_7B9}; sq_hchord_name(SQ_SC_MINOR, &x, nm); CHECK(!strcmp(nm, "V7b9")); }
+    {   sq_hchord_t x = {0, 0, 10u, SQ_HSHAPE_CH + SQ_CH_MAJ7S11}; sq_hchord_name(SQ_SC_MINOR, &x, nm); CHECK(!strcmp(nm, "bVIImaj7#11")); }
+    {   sq_hchord_t x = {0, 0, 5u, SQ_HSHAPE_CH + SQ_CH_QUARTAL}; sq_hchord_name(SQ_SC_MAJOR, &x, nm); CHECK(!strcmp(nm, "IVq4")); }
+    {   sq_hchord_t x = {0, 0, 0u, 0u}; x.shape = (uint8_t)(SQ_HSHAPE_CH + SQ_CH_COUNT + 3u);   /* a shape there is not (nothing sanitised it): a plain chord */
+        sq_hchord_name(SQ_SC_MAJOR, &x, nm); CHECK(!strcmp(nm, "I")); }
+    {   /* a USER progression of the four: its name, as the Pi's editor and the screen show it */
+        sq_uprog_t u;
+        char un[48];
+        memset(&u, 0, sizeof u);
+        sq_uprog_tail_default(&u);
+        u.n = 4u;
+        for (k = 0; k < 4u; k++) { u.semi[k] = (uint8_t)(k * 5u % 12u); u.shape[k] = (uint8_t)(SQ_HSHAPE_CH + SQ_CH_7S9 + k); }
+        sq_uprog_sanitize(&u);
+        CHECK(u.shape[0] == SQ_HSHAPE_CH + SQ_CH_7S9 && u.shape[3] == SQ_HSHAPE_CH + SQ_CH_QUARTAL);
+        sq_uprog_name(&u, SQ_SC_MAJOR, un, sizeof un);
+        CHECK(!strcmp(un, "I7#9-IV7b9-bVIImaj7#11-bIIIq4"));
+    }
+}
+
 static void test_v032_master_energy(void)
 {
     static sq_project_t a, b;
@@ -4482,6 +4529,7 @@ int main(void)
     test_v030_image();
     test_v031_lfo_group();
     test_v032_master_energy();
+    test_v0321_chord_names();
     test_v026_gaps();
     test_v011_cook();
     test_v011_harmony();

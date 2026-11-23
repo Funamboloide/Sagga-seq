@@ -125,7 +125,7 @@ def piano(n, length, seed, tablet=0):
     """n sessions, a situation each in turn; 0.18: then `tablet` more in the tablet's situations (the tablet, the grid
     and the panel at once)"""
     sits = [x for x in E.SITUAZIONI if x.hw and situation_ok(x)]
-    pool = [g for g in E.catalogo(grid=True, tablet=True) if g.name != "niente" and "andata" not in g.tags and gesture_ok(g)]
+    pool = [g for g in E.catalogo(grid=True, tablet=True) if g.name != "niente" and "andata" not in g.tags and not E.fondo(g) and gesture_ok(g)]
     rnd = random.Random(seed)
     out = []
     tab = [x for x in sits if x.tablet]

@@ -1006,7 +1006,7 @@ static void vg_genre_turn(int32_t d)
 {
     int i = sq_queue_find(&vg_q, SQ_MV_GENRE, 0u);
     uint8_t cur = i >= 0 ? vg_q.m[i].a : vg_set_genre_cur();
-    cur = (uint8_t)(((int32_t)cur + d + SQ_SET_GENRES * 4) % SQ_SET_GENRES);
+    cur = (uint8_t)(((int32_t)cur + d % (int32_t)SQ_SET_GENRES + (int32_t)SQ_SET_GENRES) % (int32_t)SQ_SET_GENRES);   /* (0.32.1: round the list, however far) */
     if (cur == vg_set_genre_cur()) { if (i >= 0) sq_queue_remove(&vg_q, (uint32_t)i); vg_msg2("GENRE STAYS ", vg_genre()->name); return; }
     if (!playing) { vg_set_genre_apply(cur); return; }
     if (!vg_queue(SQ_MV_GENRE, cur, 0u)) vg_msg2("QUEUED: GENRE ", sq_set_genre(cur)->name);
@@ -1017,7 +1017,10 @@ static void vg_key_turn(int32_t d)
 {
     int i = sq_queue_find(&vg_q, SQ_MV_KEY, 0u);
     uint8_t root = i >= 0 ? vg_q.m[i].a : project.key_root;
-    root = (uint8_t)(((int32_t)root + d + 24) % 12);
+    root = (uint8_t)(((int32_t)root + d % 12 + 12) % 12);   /* (0.32.1: round the twelve, however far - "+ 24" held for two
+                                                              *  turns of the twelve down: past them the root was no note, 244-255,
+                                                              *  and went to the page as a byte MIDI has not. No hand turns that far
+                                                              *  in one go: the explorer's knob all the way did) */
     if (!playing) { project.key_root = root; key_sync_slot(); key_toast(); return; }
     if (!vg_queue(SQ_MV_KEY, root, project.key_scale)) vg_msg2("QUEUED: KEY ", sq_root_name(root));
 }
@@ -1026,7 +1029,7 @@ static void vg_prog_turn(int32_t d)                         /* the PRESETS encod
     int i = sq_queue_find(&vg_q, SQ_MV_PROG, 0u);
     uint8_t cur = i >= 0 ? vg_q.m[i].a : project.gen.harm_prog;
     char name[24];
-    cur = (uint8_t)(((int32_t)cur + d + SQ_PROGS_ALL * 4) % SQ_PROGS_ALL);
+    cur = (uint8_t)(((int32_t)cur + d % (int32_t)SQ_PROGS_ALL + (int32_t)SQ_PROGS_ALL) % (int32_t)SQ_PROGS_ALL);   /* (0.32.1: as above) */
     /* (0.29: DICE/PI is the fifth slot, the Pi's - its own chords and its own name: it read the first user slot's) */
     if (cur >= SQ_PROGS) sq_uprog_name(&project.uprog[cur - SQ_PROGS], project.key_scale, name, sizeof name);
     else sq_prog_name(vg_lib_genre(), cur, project.key_scale, name, sizeof name);
