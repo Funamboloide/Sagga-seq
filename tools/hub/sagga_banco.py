@@ -490,10 +490,16 @@ ECHO_BACK = {("sagga_live", "swing"): (11, 33), ("sagga_remote", "quant"): (11, 
              ("sagga_mod", "lane0"): (11, 36)}
 
 
-def values_back(api, insts, feedback):
+def values_back(api, insts, feedback, when=None, pressed=None):
     """the values the FM-1 sent back (CC on its remote port; the LFO switches as notes) -> did each page's cell take
-    it? [(page, cell, the FM-1's value, the page's value)] for the ones that did not"""
-    wrong, checked = [], 0
+    it? ([(page, cell, the FM-1's value, the page's value)] for the ones that did not, how many were looked at, and
+    0.32.1 the same rows for the cells the Pi pressed AFTER the FM-1's last word on them).
+    0.32.1 when: {the feedback's key: the ms the FM-1 said it last}; pressed: {(page type, cell): the ms the Pi pressed
+    it last}. A cell is compared only when the FM-1 spoke last: a value the Pi pressed afterwards is on the page, and
+    whether the FM-1 took it is not something a value from before can say - the banco of 0.32 called two such cells
+    wrong (a grid pad had switched the REMOTE off: the FM-1 hears no page then, and says nothing back; a SEED on a
+    pattern that has none: the FM-1 has nothing to show there)"""
+    wrong, checked, later = [], 0, []
     for typ, iid in insts.items():
         try:
             data = api.get("/api/plugins/instances/%s" % iid) or {}
@@ -501,16 +507,19 @@ def values_back(api, insts, feedback):
             continue
         params = data.get("params") or {}
         for cell, (ch, cc, kind, on, off) in page_bindings(data).items():
-            v = feedback.get(("cc", ch, cc))
+            key = ("cc", ch, cc)
+            v = feedback.get(key)
             if typ == "sagga_mod" and cell.startswith("lfo_sw"):
-                v = feedback.get(("note", 12, 100 + int(cell[6:])))
+                key = ("note", 12, 100 + int(cell[6:]))
+                v = feedback.get(key)
                 if v is None:
                     continue
                 want, have = bool(v), bool(params.get(cell))
             else:
                 if (typ, cell) in ECHO_BACK:
                     e = feedback.get(("cc",) + ECHO_BACK[(typ, cell)])
-                    v = e if e is not None else v
+                    if e is not None:
+                        v, key = e, ("cc",) + ECHO_BACK[(typ, cell)]
                 if v is None:
                     continue
                 if kind in ("button", "trigger"):
@@ -519,10 +528,26 @@ def values_back(api, insts, feedback):
                     want, have = abs(v - on) < abs(v - off), bool(params.get(cell))
                 else:
                     want, have = v, params.get(cell)
+            row = [PAGE_NAMES.get(typ, typ), cell, want, have]
+            t_fm1, t_pi = (when or {}).get(key), (pressed or {}).get((typ, cell))
+            if t_fm1 is not None and t_pi is not None and t_pi > t_fm1:
+                if want != have:
+                    later.append(row)                # (the Pi had the last word: nothing to compare it with)
+                continue
             checked += 1
             if want != have:
-                wrong.append([PAGE_NAMES.get(typ, typ), cell, want, have])
-    return wrong, checked
+                wrong.append(row)
+    return wrong, checked, later
+
+
+def pressed_last(done):
+    """0.32.1: {(page type, cell): the ms of the last press} from what the Pi did on the pages (Pages.take's rows)"""
+    out = {}
+    for r in done or []:
+        if len(r) >= 5 and r[1] == "pagina":            # (r[0]: the middle of the hub's call, r[6]: how long it took -
+            t = r[0] + (r[6] if len(r) > 6 else 0) / 2.0  #  its end: what the FM-1 said while it ran is not "after")
+            out[(r[3], r[4])] = max(out.get((r[3], r[4]), 0), t)
+    return out
 
 
 def take_tagged(hub):
@@ -563,7 +588,7 @@ def run_session(hub, sess, pages, grid, say, clock_box, conti=None):
     t_done, last_rx = None, time.perf_counter()
     nreal = 0
     snaps = [(events[i][0] + SNAP_MS, i) for i in probes_at]
-    feedback = {}
+    feedback, feedback_t = {}, {}
     while True:
         now = time.perf_counter()
         rel = (now - t_go) * 1000.0
@@ -613,8 +638,10 @@ def run_session(hub, sess, pages, grid, say, clock_box, conti=None):
                 grid.from_fm1(d)
             if remote and len(d) == 3 and (d[0] & 0xF0) == 0xB0 and (d[0] & 15) in (11, 12, 13):
                 feedback["cc %d %d" % (d[0] & 15, d[1])] = d[2]
+                feedback_t["cc %d %d" % (d[0] & 15, d[1])] = round((t - t_go) * 1000.0, 1)   # (0.32.1: and when)
             elif remote and len(d) == 3 and (d[0] & 0xF0) in (0x80, 0x90) and (d[0] & 15) == 12 and 100 <= d[1] < 116:
                 feedback["note %d %d" % (12, d[1])] = d[2] if (d[0] & 0xF0) == 0x90 else 0
+                feedback_t["note %d %d" % (12, d[1])] = round((t - t_go) * 1000.0, 1)
             if (d[0] & 0xF0) in X.MIDI_KEEP or d[0] in (0xF8, 0xFA, 0xFB, 0xFC):
                 rec["midi"].append([round((t - t_go) * 1000.0, 1)] + list(d[:3]) + [0] * (3 - len(d[:3])) + [2 if remote and two else 1])
         if rec["abort"] is not None:
@@ -671,6 +698,7 @@ def run_session(hub, sess, pages, grid, say, clock_box, conti=None):
     rec["reali_fatti"].sort(key=lambda r: r[0])
     rec["ponte"] = grid.wrong
     rec["feedback"] = feedback
+    rec["feedback_t"] = feedback_t
     return rec
 
 
@@ -1021,8 +1049,9 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
             rec["hello_prima"] = hello
             rec["riavvio"] = reboot_info                # (0.20.9: how long, the kernel's lines, the FM-1's counters)
             rec["celle_fm1"] = kept
-            wrong, checked = values_back(api, insts, fb_keys(rec["feedback"]))
-            rec["valori"] = {"sbagliati": wrong, "controllati": checked}
+            wrong, checked, later = values_back(api, insts, fb_keys(rec["feedback"]), fb_keys(rec.get("feedback_t") or {}),
+                                                pressed_last(rec.get("reali_fatti")))
+            rec["valori"] = {"sbagliati": wrong, "controllati": checked, "dopo": later}
             rec["pagine"] = sorted(insts)
             rec["errori_pagine"] = pages.errors[:20]
             rec["proprie"] = pages.proprie()

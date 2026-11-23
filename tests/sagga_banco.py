@@ -339,6 +339,29 @@ def msg_txt(m):
     return "%02X %d %d" % tuple(m[:3])
 
 
+def said_last(session, w):
+    """0.32.1: a cell of VALORI [page, cell, the FM-1's value, the page's] -> (the ms the Pi pressed it last, the ms the
+    FM-1 said its value last or None, the ms the FM-1 said any value to the pages last or None), from what the raccolta
+    keeps (the Pi's presses, the FM-1's messages on the remote's port); None: the Pi never pressed it"""
+    hw = session["fm1"]
+    typ = next((t for t, n in R_NAMES.items() if n == w[0]), None)
+    press = runner().pressed_last(hw.get("reali_fatti")).get((typ, w[1]))
+    if typ is None or press is None:
+        return None
+    if typ == "sagga_mod" and w[1].startswith("lfo_sw"):
+        is_it = lambda m: (m[1] & 0xF0) in (0x80, 0x90) and (m[1] & 15) == 12 and m[2] == 100 + int(w[1][6:])
+    else:
+        cell = [c for c in pages()[typ][1] if c.param.name == w[1]]
+        if not cell:
+            return None
+        ch, cc = runner().ECHO_BACK.get((typ, w[1]), (cell[0].channel, cell[0].cc))
+        is_it = lambda m: m[1] == (0xB0 | ch) and m[2] == cc
+    port2 = [m for m in hw.get("midi") or [] if len(m) < 5 or m[4] == 2]
+    mine = [m[0] for m in port2 if is_it(m)]
+    anyv = [m[0] for m in port2 if (m[1] & 0xF0) == 0xB0 and (m[1] & 15) in (11, 12, 13)]
+    return press, (mine[-1] if mine else None), (anyv[-1] if anyv else None)
+
+
 REGOLE = dict(H.REGOLE_HW)
 REGOLE.update({
     "MATRICE": "le celle che servono ci sono, quelle che non devono esserci no",
@@ -409,6 +432,29 @@ def compare(session):
                     continue
             keep.append(w)
         v = dict(v, sbagliati=keep)
+    # 0.32.1: a cell the Pi pressed AFTER the FM-1's last word on it is not one that "does not follow" - whether the FM-1
+    # took the press, a value from before cannot say (the Pi's side of 0.32.1 leaves them out itself: "dopo"; an older
+    # raccolta: from the times it keeps). The banco of 0.32: a grid pad had switched the REMOTE off (b030), a SEED on a
+    # pattern that has none (b032)
+    later = [(w, None) for w in v.get("dopo") or []]
+    if v.get("sbagliati") and "dopo" not in v:
+        keep = []
+        for w in v["sbagliati"]:
+            sl = said_last(session, w)
+            if sl and sl[1] is not None and sl[0] > sl[1]:
+                later.append((w, sl))
+            else:
+                keep.append(w)
+        v = dict(v, sbagliati=keep)
+    if later:
+        def why(w, sl):
+            sl = sl or said_last(session, w)
+            if not sl or sl[2] is None:
+                return ""
+            return (" (l'FM-1 parla ancora alle pagine, ma non di questa cella: li' non ha un valore da mostrare)" if sl[2] > sl[0] + 1000
+                    else " (da li' l'FM-1 non rimanda piu' niente alle pagine: REMOTE spento da un gesto, o la fine della sessione)")
+        found.append(("VALORI", "VISTO", "%d celle premute dal Pi dopo l'ultima parola dell'FM-1 su di loro (non si confrontano): %s" % (
+            len(later), "; ".join("%s %s%s" % (w[0], w[1], why(w, sl)) for w, sl in later[:5]))))
     kc = hw.get("celle_fm1") or {}                     # 0.20.9: the FM-1's cells after its reboot
     if kc.get("rimesse"):
         found.append(("CELLE", "VISTO", "RaspiMIDIHub aveva perso %d celle dell'FM-1 nel riavvio: il Pi le ha rimesse" % kc["rimesse"]))

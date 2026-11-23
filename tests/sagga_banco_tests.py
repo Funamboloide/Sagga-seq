@@ -301,9 +301,24 @@ def t_units():
             return {"params": {"fill": True, "temp": False, "swing": 70, "play": False}, "params_schema": schema_of("sagga_remote")}
     fb = {("cc", 13, 23): 127, ("cc", 13, 37): 127, ("cc", 13, 9): 70, ("cc", 13, 20): 127, ("note", 12, 103): 127,
           ("note", 12, 104): 127, ("cc", 12, 94): 41}
-    wrong, n = R.values_back(VAPI(), {"sagga_remote": "rem", "sagga_mod": "mod"}, fb)
-    check(n == 6 and sorted(w[1] for w in wrong) == ["lfo_sw4", "rate", "temp"],
+    wrong, n, later = R.values_back(VAPI(), {"sagga_remote": "rem", "sagga_mod": "mod"}, fb)
+    check(n == 6 and sorted(w[1] for w in wrong) == ["lfo_sw4", "rate", "temp"] and not later,
           "values_back: a switch, a knob, an LFO switch that did not follow; a trigger not asked (%d %s)" % (n, wrong))
+    # 0.32.1: who spoke last. The FM-1 said every value at 1000 ms; the Pi pressed RATE at 5000 (after: the page's 40 is
+    # the Pi's own, not compared), TEMP at 500 (before: the FM-1's word is the last, still wrong), LFO 4 at 2000 (after)
+    when = {k: 1000.0 for k in fb}
+    done = [[4950.0, "pagina", [0xBC, 94, 40], "sagga_mod", "rate", 40, 100.0], [450.0, "pagina", [0xBD, 37, 0], "sagga_remote", "temp", False, 100.0],
+            [1950.0, "pagina", [0x8C, 104, 0], "sagga_mod", "lfo_sw4", False, 100.0], [100.0, "grid", [0x9F, 1, 100]]]
+    pr = R.pressed_last(done)
+    check(pr == {("sagga_mod", "rate"): 5000.0, ("sagga_remote", "temp"): 500.0, ("sagga_mod", "lfo_sw4"): 2000.0},
+          "pressed_last: the end of the Pi's last press of each cell (%s)" % pr)
+    wrong, n, later = R.values_back(VAPI(), {"sagga_remote": "rem", "sagga_mod": "mod"}, fb, when, pr)
+    check(n == 4 and [w[1] for w in wrong] == ["temp"] and sorted(w[1] for w in later) == ["lfo_sw4", "rate"],
+          "0.32.1 values_back: a cell the Pi pressed after the FM-1's last word is not compared, one pressed before is (%d %s %s)" % (n, wrong, later))
+    when[("cc", 12, 94)] = 5400.0                       # (the FM-1 says RATE again after the press: compared again)
+    wrong, n, later = R.values_back(VAPI(), {"sagga_remote": "rem", "sagga_mod": "mod"}, fb, when, pr)
+    check(n == 5 and sorted(w[1] for w in wrong) == ["rate", "temp"] and [w[1] for w in later] == ["lfo_sw4"],
+          "0.32.1 values_back: the FM-1 speaks again after the press: its word is the last (%d %s %s)" % (n, wrong, later))
 
 
 def t_audit():
