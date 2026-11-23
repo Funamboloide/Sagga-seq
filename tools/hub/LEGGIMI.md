@@ -76,7 +76,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
   Non cambia niente.
-* **Avvia la prova** (tutte le sessioni - 32 dalla 0.32, circa ventisette minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
+* **Avvia la prova** (tutte le sessioni - 33 dalla 0.32.1, circa ventisette minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
   mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
@@ -88,7 +88,7 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
   Tornano alla fine; l'elenco sta in `/boot/firmware/sagga/banco/celle-staccate.json` finché non sono tornate, e se
   la prova si interrompe la pagina offre **Rimetti le celle** (la prova dopo le rimette anche da sola). Alla fine il
   progetto che l'FM-1 aveva in memoria torna dov'era (`IMPORTED`: SAVE per tenerlo).
-* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 37 sessioni dalla 0.32 - con le cose della 0.28, della 0.29, della 0.30, della 0.31 e della 0.32 -, mezz'ora abbondante): le sessioni
+* Nella tendina, al posto del banco, **l'FM-1 completo** (`fm1_piano.json`, 38 sessioni dalla 0.32.1 - con le cose della 0.28, della 0.29, della 0.30, della 0.31, della 0.32 e della 0.32.1 -, quasi quaranta minuti): le sessioni
   dell'esploratore dal PC (ogni situazione dell'FM-1, 60 gesti, il tablet e il grid come eventi del test), dal Pi,
   senza PC. Il resto uguale: SEL, le celle dei synth staccate, il progetto che torna in memoria.
 * **I conti** (0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1): l'FM-1 conta quello che manda sull'USB, porta per porta e

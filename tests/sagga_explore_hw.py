@@ -125,7 +125,7 @@ def piano(n, length, seed, tablet=0):
     """n sessions, a situation each in turn; 0.18: then `tablet` more in the tablet's situations (the tablet, the grid
     and the panel at once)"""
     sits = [x for x in E.SITUAZIONI if x.hw and situation_ok(x)]
-    pool = [g for g in E.catalogo(grid=True, tablet=True) if g.name != "niente" and "andata" not in g.tags and gesture_ok(g)]
+    pool = [g for g in E.catalogo(grid=True, tablet=True) if g.name != "niente" and "andata" not in g.tags and not E.fondo(g) and gesture_ok(g)]
     rnd = random.Random(seed)
     out = []
     tab = [x for x in sits if x.tablet]
@@ -430,6 +430,23 @@ def lost_messages(hw_midi, sim_midi, music):
     return lost, extra
 
 
+def tick_apart_edge(gc_sim, gc_hw, d):
+    """0.32.1: a probe the two read a clock tick apart (their gc), showing only what a step's edge carries (d: its
+    differences) - the probe AFTER one read a tick apart with more than that in it (a scene landing on the bar line):
+    that one is timing when this one is"""
+    return gc_sim is not None and gc_hw is not None and abs(gc_sim - gc_hw) == 1 and (steps_only(d) or edge_fields(d))
+
+
+def lost_in_both(lost, lost0, extra0):
+    """0.32.1: what the computer did not hear of what BOTH replays send - the one moved a few ms to make a probe the
+    FM-1's (lost) and the one with every event at the ms the FM-1 said (lost0, extra0: what that one lacks / has more of
+    against the FM-1). -> ([(what, how many, when)] lost in both, how many only the moved replay sends). A replay that
+    has MORE than the FM-1 says nothing against a message: it counts as not sending it"""
+    n0 = {} if extra0 else {what: n_ for what, n_, _ in lost0}
+    both = [(what, min(n_, n0[what]), when) for what, n_, when in lost if n0.get(what)]
+    return both, sum(n_ for _, n_, _ in lost) - sum(n_ for _, n_, _ in both)
+
+
 def compare(session, heard=None):
     """-> (findings [(rule, level, what)], the replay's record). 0.20.3 heard: [[ms, gc, st, d1, d2, cable]], what the FM-1
     heard from its ports (the banco), replayed where it heard it"""
@@ -461,6 +478,7 @@ def compare(session, heard=None):
         return collect(run_sim(text, settings=settings)), n
 
     sim, n = replay_sim(replay)
+    sim0 = sim                                         # (0.32.1: the replay with every event at the ms the FM-1 said)
     probes = probe_events(session)
     hw_p = {int(k): T.probe_dict(v) for k, v in hw["sonde"].items()}
     sim_p = {int(k): T.probe_dict(v) for k, v in sim["sonde"].items()}
@@ -496,6 +514,10 @@ def compare(session, heard=None):
             return False
         return any(gc_of(sim_p, j) is not None and gc_of(sim_p, j) == gc_of(hw_p, j) for j, _, _ in diffs[n_ + 1:])
 
+    def tick_edge_next(m_):
+        j, _, dj = diffs[m_]
+        return tick_apart_edge(gc_of(sim_p, j), gc_of(hw_p, j), dj)
+
     first = None
     timing = 0
     shifted = []                                       # (the gesture, ms): the FM-1 read its keys that much later
@@ -515,10 +537,13 @@ def compare(session, heard=None):
             timing += 1                                # (the steps only, and equal again later: the probe fell on a step's
             n_ += 1                                    #  edge, or a loop / the STOP took the step on the other side of it)
             continue
-        if d and tick_off(i, n_) and n_ + 1 < len(diffs) and not diffs[n_ + 1][2]:
+        if d and tick_off(i, n_) and n_ + 1 < len(diffs) and (not diffs[n_ + 1][2] or tick_edge_next(n_ + 1)):
             # 0.27's banco: the probe read a clock tick apart by the two (its gc), whatever it shows, and equal again at
             # the very next probe: that tick's own work seen from its two sides - a pattern switched on the bar line
             # (the FM-1 completo's s021), a THROW's glide a step on (the banco's b020: FILTER -10 and -9)
+            # 0.32.1 (the FM-1 completo of 0.32, s024): or the next probe is a tick apart too and shows the steps alone -
+            # at 128 BPM the probes come 36 ticks apart nearly to the ms, and stay on a tick's edge for six in a row;
+            # a scene queued landed on the bar line between the two readings of one of them (the mutes with it)
             timing += 1
             n_ += 1
             continue
@@ -678,6 +703,17 @@ def compare(session, heard=None):
         # as a number) and one with a tick and two note-offs gone that no rule saw (the notes were counted by their
         # note-ons, the ticks with two to spare)
         lost, extra = lost_messages(hw["midi"], sim["midi"], music) if not first else ([], [])
+        if lost and not extra and sim is not sim0:
+            # 0.32.1 (the banco of 0.32, b012): the replay was moved a few ms to make a probe the FM-1's (TEMPO), and
+            # moved, it plays a note the FM-1 did not - a step 4 ms before a KILL from the pages. With every event at
+            # the ms the FM-1 said, the simulator does not play it either: the moved replay's note, not one lost on
+            # the road. Lost is what BOTH replays send and the computer did not hear
+            lost0, extra0 = lost_messages(hw["midi"], sim0["midi"], music)
+            both, ghost = lost_in_both(lost, lost0, extra0)
+            if ghost:
+                found.append(("TEMPO", "VISTO", "%d messaggi che il simulatore manda solo con i tasti spostati di qualche "
+                              "ms (con i ms dell'FM-1 non li manda: una nota sul confine di un gesto)" % ghost))
+            lost = both
         if lost and not extra:
             found.append(("PERSI", "ERRORE", "il computer non ha sentito dall'FM-1 %s che il simulatore manda" % "; ".join(
                 "%d %s%s" % (n_, what, " (verso %s ms)" % ", ".join(str(t) for t in when[:6]) if when else "") for what, n_, when in lost[:8])))

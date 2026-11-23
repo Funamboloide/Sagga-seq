@@ -11,11 +11,44 @@ its pedal and wheels recorded, and **the journey**: every set is cut into phrase
 queue moves for the phrase's end (or the bar, or the beat), and what you played can become a song. With two Launchpads through the Pi it becomes a 16 x 8
 grid sequencer ([SAGGA-GRID.md](SAGGA-GRID.md)); almost everything is also on the FM-1's own panel.
 
-The screen says `SAGGA SEQ 0.32` for three seconds after power-on: that is how you know the update took.
+The screen says `SAGGA SEQ 0.32.1` for three seconds after power-on: that is how you know the update took.
 
 This page is the reference: every control, every message. [MAPPA-GENERATORI.md](MAPPA-GENERATORI.md) (Italian) is the map of everything that makes or changes a pattern - which to use for what. The manual (Italian, a Claude Doc the author keeps) builds
 a song step by step; [INSTALLA.md](INSTALLA.md) installs and updates the three parts (the FM-1, the Pi, the grid);
 [storia/NOVITA.md](storia/NOVITA.md) is what each version brought, from 0.8 to 0.31.
+
+## What is new in 0.32.1
+
+0.32 ran on a real FM-1 for the first time (the bench's two plans, 69 sessions): the FM-1 did what the simulator does in
+every one. Then everything written since 0.27 was read again, the FM-1, the Pi and the bridge. What changed:
+
+* **The four chord shapes of 0.29 no longer bring the FM-1 down.** 7#9, 7B9, MAJ7#11 and QUARTAL work on a track (ARP 2)
+  since 0.29; as the shape of a chord of a **USER progression** (ARP 5 K4) they had no name: the table of the names had
+  kept its 32 rows, and the page read the name of the 33rd to the 36th from nowhere - the simulator dies there, the FM-1
+  shows its crash screen or letters that are not a name (0.29 to 0.32). They are named now (`I7#9`, `I7b9`, `Imaj7#11`,
+  `Iq4`), the compiler counts that table, and the explorer turns every knob of every page all the way up and down: one
+  click each way, as it did, never reached the end of a list. Beside it, ARP 3's cell of the chord playing has room for
+  the longest name and its place (a name of nine letters at the tenth place or later wrote one byte past the cell).
+* **The tablet reaches the 32 scenes and the 16 snapshots.** SAGGA Remote has two new knobs, **SCENES** (1-8, 9-16,
+  17-24, 25-32) and **SNAPS** (1-8, 9-16): they say which eight its SCENE 1-8, SNAP 1-8 and STORE 1-8 are (channel 12
+  CC 37 / 39; the tablet's own banks, as its track - choosing one moves nothing on the panel or the grid; they need
+  REMOTE 13 + 14). **MORPH TO** holds the 32 scenes, and follows the FM-1 past scene 8. 0.30 made the scenes 32 and the snapshots
+  16; the page had stayed at eight of each.
+* **A pad that changes every track or every scene asks first.** On the grid: PROJ row 4 pad 13 (every track on its own
+  channel) and 14 (the drums on channel 10), TRACK row 7 pad 16 (every VEL OFFSET to 0), TRACK 2 row 5 pads 13 and 15 (a
+  scene's programs, a channel's program, in every scene). The first tap asks (`EVERY TRACK ON ITS OWN CHANNEL? AGAIN:
+  YES`), the same pad again within three seconds does it - as CLEAR and a NEW PROJECT. They had no UNDO, and one tap.
+* **LFO + black 11** (RESET) asks for the LFO chosen: another LFO chosen before the second press is asked again (0.32
+  reset it without asking).
+* **The map of the keys** (a button held half a second): HOME and GLO say what 0.31 gave their whites 13-16 (`W TRK
+  13-16 STEP PG`, `W MUTE 13-16 GROUPS`).
+* **The Pi's editor** shows the song's place at its 128th entry too (the position message said "no song" there: 127
+  is both, since 0.30's 128 entries).
+* **The bench's comparison** (docs/SAGGA-ESPLORATORE.md) no longer calls three kinds of timing an error: a probe read a
+  clock tick apart twice in a row, a note only the moved replay plays, a page's cell the Pi pressed after the FM-1's
+  last word on it.
+
+Install the FM-1 and the Pi together (the page's new knobs send numbers only the FM-1 0.32.1 knows).
 
 ## What is new in 0.32
 
@@ -677,7 +710,7 @@ Every frame is `F0 7D 53 47 <cmd> ... F7`, all bytes 7-bit. With two USB ports, 
 | **73** | `n (idx*2 ms*4 gc*4)*n` | (to the PC) where each event was taken: the FM-1's ms and clock tick (the explorer replays the session in the simulator at those places) |
 | **74** | `seq*2 n (ms*4 gc*4 st d1 d2 cable)*n` | (to the PC, 0.20.3, when GO's byte 1 bit 0 asked to hear the ports) every MIDI message that came in from the ports and was played: the ms, the clock tick before it, the status without bit 7, the cable (0 port 1, 1 port 2); seq = the number of the first in the session. DONE then also carries `heard*2 lost` |
 | **30** | `on` | (from the Pi, 0.15) 1: send the positions for the next 6 s (the bridge asks again every 2 s while an editor page follows); 0: stop |
-| **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song; clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
+| **31** | `play scene song clk*3 bpm*2 (step pat)*16` | (to the Pi) where everything is: every 16th while asked, and at START / STOP. song 127: no song (0.32.1: or the song's 128th entry - then the sixteenth place's step, which no track uses, is 1: the song is on); clk: clock ticks since START (24 a beat, 21 bits: a TAPE track's place in its loop); each track's step sounding (0-63) and the pattern it plays |
 | **32** | `t vel gate flags n note*n` | (from the Pi) play these notes on track t as the track plays a step (its channel, key, CHORD, voicing) for gate x 10 ms; flags bit 0: a TAPE note (the key only). A new one ends the one before; PANIC and STOP end it |
 
 The FM-1 sends 31 only while asked (30), with the same rule: a position that does not fit the USB queue is skipped.
@@ -721,11 +754,11 @@ pages on channel 13, see the journey and the MOSSE).
 | 32 | TAP | 33 / 34 / 35 | EVOLVE, FREEZE, REVERT |
 | 36 | UNDO (a dice waiting: BACK) | 37 | TEMP (held) |
 | 38 | PANIC | 39 | MUTE QUEUE on / off |
-| 40-47 | scene 1-8 | 48-59 | mute track 1-12; **60-63 (0.31): the groups' mutes** - DRUMS, BASS, MELODIC, ALL ON |
+| 40-47 | scene 1-8 (0.32.1: of the tablet's bank of eight - channel 12 CC 37) | 48-59 | mute track 1-12; **60-63 (0.31): the groups' mutes** - DRUMS, BASS, MELODIC, ALL ON |
 | 64-75 | kill track 1-12 (held); **76-79 (0.31): kill a group** - DRUMS, BASS, MELODIC, all but the tablet's track | 80-84 | DICE SEQ, CC, LFO, GROOVE, ALL |
 | 85 / 86 | keep the dice / put it back | 87 | STOP at the end of the bar |
 | 88 | RESTART every track | 89 | EXIT the loop |
-| 90-101 | RETRIG track 1-12; **102-105 (0.31): RETRIG a group** (stopped: PLAY FIRST) | **106-113** | **SNAPSHOT 1-8** (at the QUANTISE moment) |
+| 90-101 | RETRIG track 1-12; **102-105 (0.31): RETRIG a group** (stopped: PLAY FIRST) | **106-113** | **SNAPSHOT 1-8** (at the QUANTISE moment; 0.32.1: of the tablet's bank - channel 12 CC 39) |
 | **114** | **CC CAPTURE on / off** | **115** | **SEND the snapshot's sound** |
 | **116** | **PATCHES** (the Pi) | **117** | **HARMONY on / off** |
 | **118** | **ECHO on every track** | **119** | **WRITE LIVE** |
@@ -788,6 +821,11 @@ All on the tablet's track. A switch: 64-127 on, 0-63 off. A tap: it acts at 64-1
 | 57 | NEXT SEED 0-127 (seeds 1-128) | 58 / 59 | the SEED 0-127 of the pattern the tablet's track plays (made again at once) / its VARIATION 0-99 |
 | 60 | **SHORTER** (0.25; a tap): every track half as long, at the next bar (stopped: at once) | 61 | **LONGER** (0.25; a tap): every track twice as long. Each takes the other back |
 | 62 / 63 | **LANE 7 / 8** (0.28.1, SAGGA Mod): the lane's base value, sent at once (lanes 1-6: channel 13 CC 101-106) | | |
+| 37 | **SCENES** (0.32.1, SAGGA Remote): the tablet's bank of scenes 0-3 - the eight that channel 14's CC 40-47 are (1-8, 9-16, 17-24, 25-32; a higher value: over the four) | 39 | **SNAPS** (0.32.1): its bank of snapshots, 0 (1-8) or 1 (9-16; a switch's "on" too) - the eight that channel 14's CC 106-113 and 12-19 are |
+
+The two banks are the tablet's own, as its track: choosing one moves nothing on the panel or the grid (a scene or a
+snapshot then brought back or stored takes the panel's cursor and bank there, as from anywhere). They start at 1-8 with
+the FM-1, and are not saved. (CC 38 is left alone: a Data Entry in MIDI 2.0.)
 
 ### What goes back to the hub (0.18)
 
@@ -803,12 +841,12 @@ LENGTH past the pattern, an OCTAVE on a drum track) comes back corrected after t
 * channel 12: CC 1-10, 12-15, 17-25 (the tablet's track as above), 40-55 (the mutes as meant: MUTE QUEUE's waiting ones
   included, a BREAK's silence not), 56-59 (0.23: THEORY, the next seed, the track's seed and variation - a seed past
   128 shows as 128; nothing for a pattern that is not the engines'), 62 / 63 (0.28.1: lanes 7 and 8; nothing for a lane
-  with no base);
+  with no base), 37 / 39 (0.32.1: the tablet's banks of scenes and snapshots);
 * channel 13: CC 33-48 (the patterns: the one queued, else the one playing), 49-64 (the lengths: the one waiting for
   the bar, else the length), 73-75 (0.21: the BREAK's SWAP, ROLLS and SLICES 0-2 of the tablet's track), 92-97 (the tablet's LFO), 101-106 (the tablet's track's lanes), 112 (the tablet's track),
   113 (its MODE), 114-118 (energy 0-127, genre, key, progression, HARMONY); notes 100-115 (the LFOs on / off: note on
   127 / note off);
-* channel 14: CC 1 (MORPH), 2 (MORPH TO, scenes 1-8), 4 / 5 (EVOLVE amount, heat), 6 (QUANTISE), 7-10 (the macros, 64 =
+* channel 14: CC 1 (MORPH), 2 (MORPH TO, the 32 scenes: 0.32.1 - until 0.32 scenes 1-8, nothing past them), 4 / 5 (EVOLVE amount, heat), 6 (QUANTISE), 7-10 (the macros, 64 =
   0: a THROW gliding back moves them), 11 (TRANSPOSE).
 
 0.20.6: four of these come back on **channel 12 CC 33-36** instead: 33 SWING (channel 12 CC 6), 34 QUANTISE (channel 14
@@ -856,8 +894,10 @@ FM-1 (tools/raspimidihub/README.md). With one USB port nothing goes back (port 1
 * The proposals (SEQ + BEAT held, the grid's MOSSE view, the remote) take free patterns of the track (8 per track):
   when none is free the oldest proposal is replaced (SEQ + BEAT never takes a pattern written by hand). The trail
   lives in RAM: a power cycle starts it again (SAVE + white 16 before that).
-* The remote's scene CCs 40-47 reach scenes 1-8, its snapshot CCs (12-19, 106-113) snapshots 1-8; scenes 9-32
-  through CC 28 / 29 or the panel, snapshots 9-16 through the panel or the grid. CC 2 (MORPH TO) reaches all 32.
+* The remote's scene CCs 40-47 are eight scenes, its snapshot CCs (12-19, 106-113) eight snapshots: the first eight,
+  or (0.32.1) the eight of the tablet's banks - channel 12 CC 37 / 39, which need REMOTE 13 + 14. With REMOTE 14 alone:
+  scenes 9-32 through CC 28 / 29 or the panel, snapshots 9-16 through the panel or the grid. CC 2 (MORPH TO) reaches
+  all 32.
 * 0.30: the eight black keys of PERF and the grid's eight scene buttons reach the bank the scene cursor is in (PERF's
   PRESETS, a scene recalled, the song, the remote's CC 28 / 29 move it); the screen says the cursor's scene, not the
   bank. A 0.29 opens a project of 0.30 with its first 16 scenes, 8 snapshots, 64 entries of the song and 1536 tape

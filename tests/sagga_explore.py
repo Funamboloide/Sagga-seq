@@ -175,6 +175,17 @@ def g_enc(e, d):
     return Gesto("%s %+d" % (ENC_NAME[e], d), kind, do)
 
 
+FONDO = 127                                       # a knob turned all the way: more clicks than any list is long
+
+
+def fondo(g):
+    """a knob turned all the way, a controller of the remote's channels at its top value (0.32.1). The simulator's
+    own: the plans for the real FM-1 leave these out - a tempo thrown to 300 or to 30, a clock gone to EXT, a PANIC
+    make a session's timing another matter, and what they are for (a value at the end of its range that breaks
+    something) the simulator finds"""
+    return g.name.endswith((" +%d" % FONDO, " -%d" % FONDO)) or bool(re.match(r"^tablet CH\d+ CC\d+ 127$", g.name))
+
+
 def g_mod_enc(m, page, e, d, sel=False, back=False):
     """M held (on page `page`), SEL held too when `sel`, the encoder d; `back`: then -d (there and back)"""
     def do(s, t):
@@ -289,10 +300,13 @@ TAB_KNOBS = [(3, "PATTERN", (1, 3)), (4, "LENGTH", (8, 32)), (5, "OCTAVE", (2, 5
              (14, "B", (90,)), (15, "C", (127,)), (17, "PULSES", (3, 7)), (18, "ROTATION", (2,)), (20, "ARP", (1, 8)),
              (21, "OCTAVES", (2,)), (22, "RATE", (0, 4)), (23, "RUN", (2, 3)), (24, "CHORD", (5, 13, 33)),   # (0.29: DEMBOW, ROLL, ACCENT, 7b9)
              (56, "SOURCE", (0, 1, 2)), (57, "NEXT SEED", (4, 60)), (58, "SEED", (9, 100)), (59, "VARIATION", (2, 40)),   # 0.23: the THEORY engines
-             (62, "LANE 7", (30, 100)), (63, "LANE 8", (64,))]                  # 0.28.1: SAGGA Mod's lanes 7 and 8 (the base values)
+             (62, "LANE 7", (30, 100)), (63, "LANE 8", (64,)),                  # 0.28.1: SAGGA Mod's lanes 7 and 8 (the base values)
+             (37, "SCENES", (1, 3, 0)), (39, "SNAPS", (1, 0))]                  # 0.32.1: SAGGA Remote's banks of scenes and snapshots
 TAB_SWITCHES = [(1, "MUTE"), (2, "SOLO"), (19, "EUCLID"), (25, "FOLLOW"), (40, "MUTE 1"), (47, "MUTE 8")]
 TAB_TAPS = [(11, "FX GO"), (16, "ALGO GO"), (26, "COOK"), (27, "BEAT"), (28, "PROPOSAL"), (29, "QUEUE"), (31, "DICE"), (32, "UNDO"),
             (60, "SHORTER"), (61, "LONGER")]              # (0.25: every track's length, at the bar)
+REMOTE_TAPS = [(42, "SCENE 3"), (47, "SCENE 8"), (107, "SNAP 2"), (13, "STORE 2")]   # 0.32.1: SAGGA Remote's buttons the banks move
+#                                                    (channel 14: the scene and the snapshot they are depends on SCENES / SNAPS)
 
 
 def g_tab(ch, cc, vals, name):
@@ -308,6 +322,12 @@ def tablet_gestures():
     out += [g_tab(11, cc, (v,), "%s %d" % (nm, v)) for cc, nm, vals in TAB_KNOBS for v in vals]
     out += [g_tab(11, cc, (v,), "%s %s" % (nm, "ON" if v else "OFF")) for cc, nm in TAB_SWITCHES for v in (127, 0)]
     out += [g_tab(11, cc, (127, 0), nm) for cc, nm in TAB_TAPS]
+    out += [g_tab(13, cc, (127, 0), "REMOTE %s" % nm) for cc, nm in REMOTE_TAPS]
+    # 0.32.1: and every controller of the three channels the FM-1 listens to (12 the tablet's track, 13 the pages, 14 the
+    # remote) at its top value, 127 - what a page's knob never sends, and a controller of the player's own may: a list's
+    # last item and past it, a command nobody thought of on a number nobody uses (120-127 are MIDI's channel mode
+    # messages: not commands; channel 13 CC 112 is the tablet's TRACK, above)
+    out += [g_tab(ch, cc, (127,), "CH%d CC%d 127" % (ch + 1, cc)) for ch in (11, 12, 13) for cc in range(120) if (ch, cc) != (12, 112)]
     return out
 
 
@@ -351,6 +371,10 @@ def catalogo(veloce=False, grid=False, tablet=False):
                 if m in SEL_MODS:
                     out.append(g_mod_enc(m, page, e, 1, sel=True, back=True))
                     out.append(g_mod_enc(m, page, e, -1, sel=True, back=True))
+                for d in (FONDO, -FONDO):                    # 0.32.1: and all the way - the last value of a list, a range's two
+                    out.append(g_mod_enc(m, page, e, d))     # ends (a click each way never got there: the four chord shapes
+                    if m in SEL_MODS:                        # of 0.29 had no name, and ARP 5 K4 on one of them read a null
+                        out.append(g_mod_enc(m, page, e, d, sel=True))   # pointer - from 0.29 to 0.32 nothing went that far)
     for mods in ([], [S.HOME], [S.SEQ], [S.SEQ, S.SEL], [S.FX], [S.EDIT], [S.ENV], [S.LFO], [S.SEL], [S.GLO], [S.ARP], [S.SAVE],
                  [S.HOME, S.SEL], [S.ARP, S.SEL], [S.GLO, S.SEL], [S.EDIT, S.SEL], [S.ENV, S.SEL], [S.LFO, S.SEL], [S.FX, S.SEL], [S.SAVE, S.SEL]):
         for k in ALL_KEYS:
@@ -836,6 +860,27 @@ def sit_032(s):
     return _play(s, t + 100)
 
 
+def sit_0321(s):
+    """0.32.1: the tablet reaches the 32 scenes and the 16 snapshots. REMOTE 13 + 14 (SAVE + K2): the tablet too; a TECHNO
+    band; PERF: scene 11 stored (PRESETS on 11, SEL + black 3); then the tablet, as SAGGA Remote sends it: SCENES 9-16
+    (channel 12 CC 37 = 1), SNAPS 9-16 (CC 39 = 1), STORE 2 (channel 14 CC 13: snapshot 10), SCENE 3 (CC 42: scene 11,
+    at once - stopped); in play. The banks left on 9-16: the explorer's REMOTE SCENE and SNAP gestures are scenes 11 and
+    16 and snapshot 10 here, 3, 8 and 2 in every other situation"""
+    s.press(100, S.SAVE); s.enc(130, S.K2, 1); s.release(180, S.SAVE)
+    s.raw(220, "attach")
+    t = _band(s, 300)
+    s.tap_btn(t, S.GLO); t += 80                            # PERF
+    s.enc(t, S.E_PRE, 10); t += 60                          # the scene cursor on 11 (the bank 9-16)
+    s.press(t, S.SEL); s.tap_key(t + 30, S.bk(2)); s.release(t + 100, S.SEL); t += 160    # scene 11
+    s.enc(t, S.E_PRE, -10); t += 60                         # (the panel's cursor back on 1: its bank is 1-8)
+    s.tap_btn(t, S.GLO); t += 80                            # out of PERF
+    for st, cc, vals in ((0xBB, 37, (1,)), (0xBB, 39, (1,)), (0xBD, 13, (127, 0)), (0xBD, 42, (127, 0))):
+        for v in vals:
+            s.raw(t, "midi 0x%02X %d %d 2" % (st, cc, v)); t += 40
+        t += 40
+    return _play(s, t + 100)
+
+
 def sit_025_poly(s):
     """0.25: the POLYRHYTHMS. A TECHNO band; track 3 at 1/4 5:4 with a loop of five steps (five in the bar), track 5
     at 1/16 7:4 (seven in a quarter), track 1 with a TURING as long as the track (LENGTH TRACK) running; in play"""
@@ -914,7 +959,17 @@ SITUAZIONI = [
                grid=True, tablet=True, want={"G": {"sel": 10, "mute": "0100", "lfot": 17, "lfod": 1, "lmask": "0FC0"}}),
     Situazione("0.32 i tasti che non facevano niente: la manopola MASTER sull'ENERGIA, l'LFO 1 copiato sul 2, la lane 2 in rampa e SLIDE, la frase di 8, le MOSSE alla battuta, tempo 140, tablet e grid, band in play", sit_032,
                grid=True, tablet=True, want={"G": {"bpm": 140, "lfosel": 1, "lfod": 1}}),
+    Situazione("0.32.1 le 32 scene e le 16 snapshot dal tablet: SCENES e SNAPS su 9-16, la scena 11 e la snapshot 10 dalla pagina Remote, tablet e grid, band in play", sit_0321,
+               grid=True, tablet=True, want={"G": {"scene": 10, "snap": 9, "sbank": 8}}),   # (the panel's bank of snapshots went with the store)
 ]
+
+
+def sit_di(prefix):
+    """The one situation whose name starts so (a version's own)."""
+    found = [x for x in SITUAZIONI if x.name.startswith(prefix)]
+    assert len(found) == 1, (prefix, [x.name for x in found])
+    return found[0]
+
 
 # ------------------------------------------------------------------------------------------------------------ running
 
@@ -1125,12 +1180,15 @@ def is_music(field):
 HARM_OK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+(SEL\+)?nero (1|5|7)$|SEQ\+(SEL\+)?bianco (10|11)$|"
                      r"finestra SEQ\+nero (1|5|7)$|finestra SEQ\+bianco (10|11)$|finestra ARP K[1-4] |grid PICK pad |"
                      r"GLO 3 (SEL\+)?K3 |GLO 3 PRESETS |grid BEAT|grid PERF|grid SONG|grid (VIAGGIO|MOSSE|REGIA)|grid (SHIFT\+)?scena|grid pattern|grid TRACK (SHIFT\+)?pad (10|11),1$|"
-                     r"HOME\+SAVE|SAVE, SAVE|tablet (DICE|BEAT)$)")      # (0.18: the tablet's DICE and BEAT are SEQ's)
+                     r"HOME\+SAVE|SAVE, SAVE|tablet (DICE|BEAT)$|"       # (0.18: the tablet's DICE and BEAT are SEQ's)
+                     r"tablet CH13 CC(31|11[578]) 127$|tablet CH14 CC(8[0-4]|117) 127$)")
+#   (0.32.1: the controllers at 127 - channel 13's 31 the MOSSE's next progression, 115 their genre, 117 the progression,
+#    118 the HARMONY's state (the pages' knobs); channel 14's 80-84 the dice, 117 HARMONY on / off: by hand, from the tablet)
 #   (0.32: the view is MOSSE since 0.30 - "grid VIAGGIO" matched nothing since, unseen while a progression's pad there
 #    waited for the phrase's end; the 0.32 situation moves at the bar. Its row 6 pads 12-13 are the genre - / + (as GLO 3
 #    K3), row 7 pads 1-13 the progressions (PRESETS), 14-16 HARMONY on / off, LOCK, the bars (ARP 3 K1, K3): by hand)
 HARM_OK_LOCK = re.compile(r"^(EDIT\+ARP$|ARP [34] (SEL\+)?K[1-4]|ARP [3456]\+?SEL\+(bianco|nero) |ARP [56] |SEQ\+SEL\+nero 1|HOME\+SAVE|SAVE, SAVE|finestra ARP K[1-4] |"
-                          r"grid (MOSSE|REGIA) pad 1[456],7$)")
+                          r"grid (MOSSE|REGIA) pad 1[456],7$|tablet CH13 CC(31|11[78]) 127$|tablet CH14 CC117 127$)")
 # the gestures that may change a track's MIDI channel
 CH_OK = re.compile(r"^(HOME 1 (SEL\+)?K1|HOME\+SEL\+(bianco|nero) |HOME\+SAVE|finestra HOME K1 |grid TRACK3 (SHIFT\+)?pad \d+,8|grid (SHIFT\+)?scena|"
                    r"grid PICK pad \d+,1$|grid PROJ (SHIFT\+)?pad 1[3-6],4$)")
@@ -1680,6 +1738,7 @@ def main(argv):
     ap.add_argument("--veloce", action="store_true", help="poche situazioni e i gesti principali (per la suite dei test)")
     ap.add_argument("--solo", help="solo questa situazione (il nome intero, o un pezzo: tutte quelle che lo contengono)")
     ap.add_argument("--gesto", help="solo questo gesto (con --solo e --vedi: tutto quello che fa)")
+    ap.add_argument("--gesti", metavar="REGEX", help="solo i gesti il cui nome ha questo dentro (un'espressione regolare)")
     ap.add_argument("--vedi", action="store_true", help="mostra un gesto per intero")
     ap.add_argument("--coppie", type=int, default=None, help="quante coppie di gesti per situazione (0: nessuna)")
     ap.add_argument("--sessioni", type=int, default=None, help="quante sessioni a caso (0: nessuna)")
@@ -1776,10 +1835,13 @@ def main(argv):
                                             SITUAZIONI[18],     # (0.23: + THEORY with counted rules and GENRE LIVE)
                                             SITUAZIONI[22],     # (0.24: + the lengths, the copies, the moves at the bar)
                                             SITUAZIONI[23],     # (0.25: + the metre: 7/8, the engines' band in it)
-                                            SITUAZIONI[-4],     # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
-                                            SITUAZIONI[-3],     # (0.29: + BALANI and the balafon, a new scale, PROG 7, ROLL and ACCENT)
-                                            SITUAZIONI[-2],     # (0.30: + scenes 17-32, the song past 64, snapshots 9-16, the tablet and the grid)
-                                            SITUAZIONI[-1]]     # (0.31: + the groups, the bank of 9-12 on the grid: its mutes, an LFO on a group, LOOP without the drums)
+                                            sit_di("0.28 "),    # (0.28: + twelve tracks - the bank of 9-12 -, six notes, eight lanes)
+                                            sit_di("0.29 "),    # (0.29: + BALANI and the balafon, a new scale, PROG 7, ROLL and ACCENT)
+                                            sit_di("0.30 "),    # (0.30: + scenes 17-32, the song past 64, snapshots 9-16, the tablet and the grid)
+                                            sit_di("0.31 "),    # (0.31: + the groups, the bank of 9-12 on the grid: its mutes, an LFO on a group, LOOP without the drums)
+                                            sit_di("0.32 "),    # (0.32: + the keys and the pads that did nothing)
+                                            sit_di("0.32.1 ")]  # (0.32.1: + the tablet's banks of scenes and snapshots. By name: counted from the
+                                                                #  end, each new situation pushed the oldest one out - the 0.28 one, with 0.32)
     if a.solo:
         sits = [x for x in SITUAZIONI if x.name == a.solo] or [x for x in SITUAZIONI if a.solo in x.name]   # (0.23: or every one with this in its name)
         if not sits:
@@ -1791,6 +1853,11 @@ def main(argv):
             print("nessun gesto si chiama cosi'. Qualcuno: " + "; ".join(g.name for g in gestures[:40])); return 2
         if a.vedi:
             vedi(sits[0], gs[0]); return 0
+        gestures = [niente()] + gs
+    if a.gesti:                                      # 0.32.1: some of them (a round of the new ones alone, under the sanitizers)
+        gs = [g for g in gestures if g.name != "niente" and re.search(a.gesti, g.name)]
+        if not gs:
+            print("nessun gesto ha '%s' nel nome" % a.gesti); return 2
         gestures = [niente()] + gs
     # the empty row's hash (a pattern with nothing written), from the empty machine
     base, _ = parse_run(run_script(script_for(SITUAZIONI[0], [])[0])[0])

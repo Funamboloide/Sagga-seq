@@ -914,7 +914,10 @@ class Control:
         if raw[:5] != SX_HEAD + [SX_POS] or len(raw) < 5 + 8 + 32 + 1:
             return False
         b = raw[5:-1]
-        d = dict(playing=b[0], scene=b[1], song=-1 if b[2] == 127 else b[2], clock=get7(b[3:6]), bpm=get7(b[6:8]),
+        # (0.32.1: 127 is "no song" and, since 0.30's 128 entries, the song's last one - the FM-1 0.32.1 says the song is
+        #  on in the sixteenth place's step, which no track uses; an older FM-1: 127 is no song, as before)
+        song_on = b[2] != 127 or bool(b[8 + 2 * 15] & 1)
+        d = dict(playing=b[0], scene=b[1], song=b[2] if song_on else -1, clock=get7(b[3:6]), bpm=get7(b[6:8]),
                  steps=[b[8 + 2 * t] for t in range(16)], pats=[b[9 + 2 * t] for t in range(16)], at=round(time.time(), 3))
         try:
             p = os.path.join(self.folder, "pos.json")

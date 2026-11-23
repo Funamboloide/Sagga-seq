@@ -13,9 +13,9 @@ changes them.
 
 * **SAGGA Remote** (channel 14): PLAY / STOP, CONTINUE, STOP @BAR, RESTART; FILL, RELOAD, TEMP, PANIC; LOOP 1/4 1/8
   1/16 1/32 (a tap: the loop stays) and REP 1/4 .. 1/32 (on until pressed again: a REPEAT that lands in time when
-  switched off); EXIT LOOP, UNDO, KEEP DICE, MUTE QUEUE; scene - / + (0.30: all 32), EVOLVE, FREEZE, scenes 1-8; MORPH (fader) and
-  MORPH TO; the macros INTENSITY, GATE, SWING, FILTER (64 = 0); TRANSPOSE (0 in the middle), QUANTISE, EVOLVE amount,
-  heat; tempo -1 / +1, TAP, REVERT; the snapshots (1-8; 9-16 on the FM-1 and the grid); HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
+  switched off); EXIT LOOP, UNDO, KEEP DICE, MUTE QUEUE; scene - / + (0.30: all 32), EVOLVE, FREEZE, scenes 1-8 and **SCENES** (0.32.1: which eight they are - 1-8, 9-16,
+  17-24, 25-32); MORPH (fader) and MORPH TO (0.32.1: any of the 32 scenes); the macros INTENSITY, GATE, SWING, FILTER (64 = 0); TRANSPOSE (0 in the middle), QUANTISE, EVOLVE amount,
+  heat; tempo -1 / +1, TAP, REVERT; the snapshots (SNAP and STORE 1-8, and **SNAPS**, 0.32.1: which eight - 1-8 or 9-16; the two banks are the tablet's own, on channel 12 CC 37 / 39: with an FM-1 0.32.1, and REMOTE 13 + 14); HARMONY, ECHO, WRITE LIVE; 0.12: **TAKE** (channel 13).
 * **SAGGA Mutes** (channel 14): MUTE 1-12, KILL 1-12 (silent while on), RETRIG 1-12 (the track from its first step);
   0.31: under each, the four GROUPS - MUTE DRUMS / BASS / MELODIC and ALL ON, KILL DRUMS / BASS / MELODIC and ALL BUT T
   (every track but the tablet's), RETRIG DRUMS / BASS / MELODIC / ALL (the CCs of tracks 13-16: 60-63, 76-79, 102-105).

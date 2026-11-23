@@ -1,4 +1,4 @@
-# SAGGA SEQ 0.32
+# SAGGA SEQ 0.32.1
 
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
@@ -29,14 +29,14 @@ over USB MIDI (and listens on the TRS input). It cannot read the projects or sam
 * To leave SAGGA SEQ, install another firmware the same way. If anything goes wrong, hold **OCT-** while switching
   the FM-1 on: the USB rescue always takes a new firmware.
 
-The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`, 0.26 is `FM-1_976`, 0.27 is `FM-1_977`, 0.28 and 0.28.1 are `FM-1_978`, 0.29 is `FM-1_979`, 0.30 is `FM-1_980`, 0.31 is `FM-1_981`, 0.32 is `FM-1_982`.
+The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 0.10 is `FM-1_960`, 0.11 is `FM-1_961`, 0.12 is `FM-1_962` ... 0.18 and 0.18.1 are `FM-1_968`, 0.19 is `FM-1_969`, 0.20 is `FM-1_970`, 0.21 is `FM-1_971`, 0.22 is `FM-1_972`, 0.23, 0.23.1 and 0.23.2 are `FM-1_973`, 0.24 is `FM-1_974`, 0.25 is `FM-1_975`, 0.26 is `FM-1_976`, 0.27 is `FM-1_977`, 0.28 and 0.28.1 are `FM-1_978`, 0.29 is `FM-1_979`, 0.30 is `FM-1_980`, 0.31 is `FM-1_981`, 0.32 and 0.32.1 are `FM-1_982`.
 
 ## Docs
 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.32.md](RELEASE-NOTES-0.32.md): what changed in this version (Italian): the keys and pads that did nothing since before have a job - EDIT + black 8-11 (a step's force, its place, its extras), ENV + black (the lane, its ramps, CLEAR), LFO + black (the page, COPY, PASTE, all off, the next free one, RESET), SAVE + white 11-15 (EXPORT, the pattern and the progression to the Pi, the setlist), the MASTER knob on the ENERGY; on the grid the lane's tools, the key's fifths and relatives, the project's switches, the tempi, the song's entries moved, the programs in every scene, the loops' playheads, 112 files on LIB and the ones loaded last, the MOSSE's phrase and MOVES AT, REGIA with the MOSSE's rows, FOLLOW past the black keys. 0.31's: [docs/storia/RELEASE-NOTES-0.31.md](docs/storia/RELEASE-NOTES-0.31.md): the keys and pads that did nothing since the tracks are twelve have a job - the groups (drums, bass, melodic, all) on PERF's white keys 13-16, the grid's pads 13-16 and the remote's CCs of tracks 13-16, an LFO on a group, the mutes of 9-12 on their bank's black keys, the page of steps on HOME + white 13-16, the grid's rows 5-8 in the bank of 9-12 (the scenes, the snapshots, the force of the steps, the rotation); two fixes on the grid (BEAT's HARMONY pads, CC's lanes 7-8). 0.30's: [docs/storia/RELEASE-NOTES-0.30.md](docs/storia/RELEASE-NOTES-0.30.md): 32 scenes, 16 snapshots, a song of 128 entries, the tapes 3072 events, UNDO 32 rows; the name VIAGGIO gone (MOSSE); a power-on brings back the mutes and the scene. 0.29's: [docs/storia/RELEASE-NOTES-0.29.md](docs/storia/RELEASE-NOTES-0.29.md): 22 genres (AMAPIANO into REGGAETON, BASSLINE into UK GARAGE, GRIME into DUBSTEP, AFRO HOUSE into GQOM and BATIDA; BALANI new, with the BALAFON), eight progressions a genre, REGGAETON and BALANI's THEORY rules written by hand, ROLL and ACCENT, five scales, three grooves, four chord shapes. 0.28.1's (the SAGGA Mod page with all eight lanes): [docs/storia/RELEASE-NOTES-0.28.1.md](docs/storia/RELEASE-NOTES-0.28.1.md). 0.28's (twelve tracks, chords of six notes, eight CC lanes a track): [docs/storia/RELEASE-NOTES-0.28.md](docs/storia/RELEASE-NOTES-0.28.md); the earlier ones are beside it, in [docs/storia/](docs/storia/).
+* [RELEASE-NOTES-0.32.1.md](RELEASE-NOTES-0.32.1.md): what changed in this version (Italian): 0.32 on a real FM-1 (the bench's 69 sessions: the FM-1 is the simulator in every one), and everything since 0.27 read again - the tablet reaches the 32 scenes and the 16 snapshots (SAGGA Remote's SCENES and SNAPS), the grid's pads that change every track or every scene ask twice, the LFO's RESET asks for the LFO chosen, HOME's and GLO's key maps say their whites 13-16, the bench's comparison no longer calls timing an error. [docs/storia/](docs/storia/) keeps the notes of every version before (0.32: the keys and pads that did nothing since before).
 * [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what was joined and hidden in 0.27 (RANDOM a roll of the dice, DRIFT inside EVOLVE, who is acting, the profile SEMPLICE).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 16 genres, counted from the library (Italian).
@@ -66,7 +66,7 @@ Everything on the Pi and the Bricks is optional: the FM-1 alone is a complete se
 ## Build
 
 ```sh
-./build.sh --release 0.32         # identity FM-1_982
+./build.sh --release 0.32.1       # identity FM-1_982
 ```
 
 Needs the JieLi toolchain and the AC79 SDK (`tools/get_toolchain.sh`; `build.sh` says what is missing). Install with

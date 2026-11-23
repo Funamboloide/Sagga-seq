@@ -37,7 +37,9 @@ static void link_pos_send(void)
     *q++ = (uint8_t)(clk & 127u); *q++ = (uint8_t)((clk >> 7) & 127u); *q++ = (uint8_t)((clk >> 14) & 127u);
     *q++ = (uint8_t)(bpm & 127u); *q++ = (uint8_t)((bpm >> 7) & 127u);
     for (t = 0; t < LINK_TRACKS; t++) {                /* playing: the step sounding (tr[].step is the next one by now) */
-        *q++ = t < SQ_TRACKS ? (uint8_t)((playing ? ev[t].step_index : tr[t].step) & 127u) : 0u;
+        *q++ = t < SQ_TRACKS ? (uint8_t)((playing ? ev[t].step_index : tr[t].step) & 127u)
+             : t == LINK_TRACKS - 1u && song_on ? 1u : 0u;   /* 0.32.1: the sixteenth place says the song is on - since 0.30 a
+                                                              * song has 128 entries, and its last one is 127, as "no song" is */
         *q++ = t < SQ_TRACKS ? (uint8_t)(tr[t].pattern & 127u) : 0u;
     }
     *q++ = 0xF7u;
