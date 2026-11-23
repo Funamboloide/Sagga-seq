@@ -8,7 +8,9 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.32 — Il manuale" (vale per la 0.32.1); il riferimento
+I due file vanno **della stessa versione**, con una eccezione: **la 0.32.2 è solo del Pi**. L'FM-1 resta alla 0.32.1
+(`sagga-0.32.1.fwsc`, quello che hai già dentro) e sul Pi va `sagga-hub-0.32.2.zip`. Il manuale d'uso è il documento
+"SAGGA SEQ 0.32 — Il manuale" (vale per la 0.32.1); il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
 in `tools/hub/LEGGIMI.md` (nello zip: `LEGGIMI.md`).
 
@@ -46,6 +48,11 @@ progetti di prima si aprono come erano. Se torni alla 0.31, apre i progetti dell
 la trova sul TEMPO. La libreria del Pi mostra sul grid fino a 112 file (erano 64): aggiorna il Pi insieme all'FM-1.
 **Dalla 0.32.1** la pagina SAGGA Remote arriva alle 32 scene e alle 16 snapshot (le manopole SCENES e SNAPS): mandano
 numeri che solo l'FM-1 0.32.1 capisce, quindi aggiorna tutti e due. I progetti non cambiano.
+**La 0.32.2 è solo del Pi**: fai solo il passo 1 (`sagga-hub-0.32.2.zip`); l'FM-1 non si tocca. Il bridge del grid si
+ferma sempre quando deve (una prova del banco poteva lasciarlo fermo, con il grid spento fino al riavvio del Pi), la
+domanda `PC TEST? SEL = YES` della prova resta sullo schermo, e le prove non lasciano più un progetto in più nella
+libreria. Durante questo aggiornamento il Pi può metterci fino a un quarto di minuto in più: sta fermando il bridge
+vecchio.
 
 ## La prima volta sul Pi
 
@@ -112,7 +119,8 @@ spenti, il bridge è fermo: succede durante la prova del banco (alla fine ripart
 * Le pagine non comandano l'FM-1, o l'FM-1 non muove le pagine: **LE CELLE DELL'FM-1** sulla pagina del Pi dice quali
   collegamenti ci sono e quali ha rimesso; sull'FM-1 controlla USB PORTS 2 e REMOTE 13 + 14.
 * Il grid non si accende, o fa cose strane: sulla pagina del Pi premi **Controlla la matrice** (qualche secondo). Il
-  suo file dice anche cosa ha detto il bridge: le porte che ha preso, se aspetta l'FM-1, perché si è fermato.
+  suo file dice anche cosa ha detto il bridge: le porte che ha preso, se aspetta l'FM-1, perché si è fermato. Dalla
+  0.32.2, se il bridge è fermo lo fa ripartire, e lo dice: non serve riavviare il Pi.
 * Un'installazione dell'FM-1 interrotta (il cavo staccato, il Pi spento): l'FM-1 resta in modalità di aggiornamento
   finché non è finita. Ricollega il cavo e premi di nuovo **Installa**: riprende da capo e finisce.
 * L'FM-1 non parte più: spegnilo, tieni **OCT-** mentre lo accendi. È il soccorso USB: prende sempre un firmware nuovo

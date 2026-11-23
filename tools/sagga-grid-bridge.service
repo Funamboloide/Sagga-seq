@@ -23,6 +23,10 @@ ExecStart=/usr/bin/python3 -u /opt/sagga/sagga_grid_bridge.py --model mini --fra
 # its whole matrix again, with the notes that sound cut)
 Restart=always
 RestartSec=2
+# 0.32.2: told to stop, the bridge is gone in a tenth of a second, and by itself within 8 s whatever it runs into
+# (sagga_grid_bridge.py, the way out). Should even that fail, systemd ends it after 15 s, not its usual 90: a
+# bridge that did not end kept the banco's `systemctl stop` waiting until the prova gave up, and was left failed
+TimeoutStopSec=15
 
 [Install]
 WantedBy=multi-user.target

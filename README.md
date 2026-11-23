@@ -1,5 +1,7 @@
 # SAGGA SEQ 0.32.1
 
+(The Pi's side - the hub's page, the banco, the grid's bridge - is 0.32.2; the FM-1's firmware is 0.32.1.)
+
 ![SAGGA SEQ on the FM-1's screen](docs/screen.png)
 
 SAGGA SEQ turns the M-VAVE FM-1 into a MIDI-only performance sequencer: 12 tracks on 16 MIDI channels (0.28: chords of
@@ -36,7 +38,7 @@ The package identity is `FM-1_9` + (50 + the minor version): 0.9 is `FM-1_959`, 
 * [docs/SAGGA-SEQ.md](docs/SAGGA-SEQ.md): the reference (every control, the SysEx, the remote's CCs).
 * [docs/SAGGA-GRID.md](docs/SAGGA-GRID.md): the grid, the bridge on the Pi, the snapshot patches.
 * [docs/INSTALLA.md](docs/INSTALLA.md): install and update the three parts, the FM-1, the Pi and the grid (Italian).
-* [RELEASE-NOTES-0.32.1.md](RELEASE-NOTES-0.32.1.md): what changed in this version (Italian): 0.32 on a real FM-1 (the bench's 69 sessions: the FM-1 is the simulator in every one), and everything since 0.27 read again - the tablet reaches the 32 scenes and the 16 snapshots (SAGGA Remote's SCENES and SNAPS), the grid's pads that change every track or every scene ask twice, the LFO's RESET asks for the LFO chosen, HOME's and GLO's key maps say their whites 13-16, the bench's comparison no longer calls timing an error. [docs/storia/](docs/storia/) keeps the notes of every version before (0.32: the keys and pads that did nothing since before).
+* [RELEASE-NOTES-0.32.2.md](RELEASE-NOTES-0.32.2.md): what changed in this version (Italian) - **the Pi's side only, the FM-1's firmware stays 0.32.1**: 0.32.1 on a real FM-1 (the bench's 71 sessions: the FM-1 is the simulator in every one), and what those logs showed of the Pi - the grid's bridge that did not end when the banco stopped it (python-rtmidi locks up closing an input as a message comes in: the bridge now says its goodbye and is gone, no port closed; Controlla la matrice starts a bridge that is down), the banco's question that SAVED ON THE PI covered on the FM-1's screen, a project more in the library at every prova. [docs/storia/](docs/storia/) keeps the notes of every version before (0.32.1: 0.32 on a real FM-1 (the bench's 69 sessions: the FM-1 is the simulator in every one), and everything since 0.27 read again - the tablet reaches the 32 scenes and the 16 snapshots (SAGGA Remote's SCENES and SNAPS), the grid's pads that change every track or every scene ask twice, the LFO's RESET asks for the LFO chosen, HOME's and GLO's key maps say their whites 13-16, the bench's comparison no longer calls timing an error; 0.32: the keys and pads that did nothing since before).
 * [docs/MAPPA-GENERATORI.md](docs/MAPPA-GENERATORI.md): the map of the generators (Italian) - who makes a pattern, who changes it, who moves it while it plays; where two ways do the same thing; what was joined and hidden in 0.27 (RANDOM a roll of the dice, DRIFT inside EVOLVE, who is acting, the profile SEMPLICE).
 * [docs/TEORIA.md](docs/TEORIA.md): the THEORY engines - what each does, why, which instrument it is like - and
   [docs/TEORIA-GENERI.md](docs/TEORIA-GENERI.md): the rules of 16 genres, counted from the library (Italian).

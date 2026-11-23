@@ -746,6 +746,9 @@ def lib_label(name):
     return "".join(c if 32 <= ord(c) < 127 else "?" for c in base)[:LIB_NAME]
 
 
+MINE_S = 15.0                     # an image is the library's for this long after it was asked for (SAVE on the grid, the editor)
+
+
 class Library:
     """The FM-1's side of the files (docs/SAGGA-GRID.md, the LIB view): the list, a file sent to the FM-1 (an import),
     an export written as a new file or over one. fm1_sysex() every SysEx message from the FM-1, tick() the time.
@@ -757,6 +760,8 @@ class Library:
         self.receiver = DumpReceiver()
         self.sender = None
         self.target = None                       # where the next export goes: a file name, or None (a new file)
+        self.mine_until = -1e9                   # 0.32.2: an image that comes before this was asked for the library
+        self.elsewhere = lambda: False           # ... and one that was not: is it another program's? (Control.export_elsewhere)
         self.files = []
         self.saved_n, self.saved_path, self.export_error = 0, None, None   # 0.14: what Control (the hub's editor) waits for
         self.sent_n, self.sent_error = 0, None
@@ -827,13 +832,18 @@ class Library:
             idx = get7(body[0:2])
             files = self.files or library_files(self.folder)
             self.target = files[idx] if idx != LIB_NEW and idx < len(files) else None
+            self.mine_until = now + MINE_S
         elif cmd == SX_STATUS and self.sender is not None and self.sender.state == "sending":
             self.sender.feed(msg, now)
             self._sender_done()
         else:
             got = self.receiver.feed(msg)
             if got and got[0] == "image":
-                self.save(got[1])
+                mine, self.mine_until = now < self.mine_until, -1e9
+                if not mine and self.elsewhere():        # 0.32.2: the banco's copy before a prova, an --export by hand
+                    self.log("project from the FM-1: asked for by another program on the Pi (%d bytes), not saved in the library" % len(got[1]))
+                else:
+                    self.save(got[1])
             elif got:
                 self.export_error = got[1]
                 self.log("export: %s" % got[1])
@@ -852,6 +862,26 @@ class Library:
 
 
 CONTROL_DIR = os.environ.get("SAGGA_CONTROL", "/run/sagga")
+ELSEWHERE = "export-elsewhere"    # 0.32.2: in CONTROL_DIR - "the project the FM-1 is about to give is mine, not the library's"
+ELSEWHERE_S = 20.0                # ... said no longer ago than this
+
+
+def export_elsewhere_mark(folder=None, clock=time.monotonic):
+    """0.32.2: a program that asks the FM-1 for its project for itself (the banco's copy before a prova, --export) says
+    so here first, for the bridge that may be running: it hears the same image, and until now saved it in the library
+    as a new file - one more sagga-NNN.sgq at every prova - and told the FM-1 SAVED ON THE PI, which took the banco's
+    question (PC TEST? SEL = YES) off the FM-1's screen a second after it came: the first asking of every prova went
+    unanswered. The file holds this computer's monotonic clock (the same for every program; the Pi's date can jump when
+    the network gives it the time). True when it is written (no CONTROL_DIR: no bridge has run - nothing to tell)"""
+    folder = CONTROL_DIR if folder is None else folder
+    try:
+        p = os.path.join(folder, ELSEWHERE)
+        with open(p + ".part", "w") as f:
+            f.write("%.3f\n" % clock())
+        os.replace(p + ".part", p)
+        return True
+    except OSError:
+        return False
 
 
 class Control:
@@ -877,6 +907,18 @@ class Control:
         except OSError as e:
             self.log("control: %s: %s (the hub's editor will use --export / --import)" % (self.folder, e))
 
+    def export_elsewhere(self, clock=time.monotonic):
+        """0.32.2: True, once, when another program has just said the FM-1's next project is its own
+        (export_elsewhere_mark): the Library asks before it saves an image nobody asked it for"""
+        p = os.path.join(self.folder, ELSEWHERE)
+        try:
+            with open(p) as f:
+                text = f.read()
+            os.unlink(p)                         # (once: the image after this one is the library's again)
+            return 0.0 <= clock() - float(text.strip()) < ELSEWHERE_S
+        except (OSError, ValueError):
+            return False
+
     def _answer(self, rid, ok, msg):
         try:
             p = os.path.join(self.folder, "bridge-ans-%s.json" % re.sub(r"[^0-9A-Za-z-]", "", str(rid))[:40])
@@ -894,6 +936,7 @@ class Control:
             return self._answer(rid, False, "a project is already going to the FM-1")
         if op == "export":
             self.lib.target, self.lib.export_error = name, None
+            self.lib.mine_until = now + self.TIMEOUT
             self.job = (rid, op, now + self.TIMEOUT, self.lib.saved_n)
             self.lib.send(export_request(None))
             self.log("control: the FM-1's project -> %s" % name)
@@ -1723,7 +1766,112 @@ def plan_ports(ins, outs, left=None, right=None, exclude="DAW|DIN", pattern="Lau
     return [(pick_port(g_in[i]), pick_port(g_out[i])) for i in (0, 1)]
 
 
-def one_shot(a, mido, ins, outs):
+# ------------------------------------------------------------------------------------------------ the way out
+# 0.32.2. python-rtmidi (under mido) calls every function of its driver with the Python interpreter in its hand (the
+# GIL), and gives the driver a Python callback for what comes in. Closing an input, it waits - interpreter in hand - for
+# the port's thread to end; that thread, when a message has just come in, is waiting for the interpreter to hand it to
+# the callback. Each waits for the other, for ever, and nothing in Python runs again: no signal handler, no other thread.
+# It takes a message in the milliseconds before the closing. On the Pi, 0.32.1, the banco stopped the bridge and the
+# bridge never ended: `systemctl stop` waited its 90 s, systemd killed it - its main thread and one port's thread were
+# all that was left of it, which is this lock-up as far as a journal can show - and left the service failed, the grid
+# dark until the Pi was started again. (The first run of the FM-1's test on Windows stopped the same way, 0.11: the
+# test's tools have asked the driver themselves, with no callback, ever since; tests/sagga_lockup.py has the lock-up
+# in forty lines of C.) So:
+#   - the program told to stop says its goodbye (Launchpads dark, the FM-1 told) and is gone: hard_exit(), no port
+#     closed - the kernel closes them with the process, and that cannot wait for anybody;
+#   - from the moment it is told, it is gone within WAY_OUT_S whatever it runs into (arm_way_out);
+#   - a port that must be closed while the program goes on (a synth's, a test's) is closed by close_inputs().
+SETTLE_S = 0.05                   # between an input's callback taken out and its port closed
+BEFORE_S = 0.002                  # ... and before that: a callback already asked for runs now
+GOODBYE_S = 0.1                   # the last messages on their way before the process ends
+WAY_OUT_S = 8.0                   # told to stop, the bridge is gone within this
+SPARE = []                        # (close_inputs: the tuples that take the place of python-rtmidi's)
+
+
+def _nothing(*a, **kw):
+    return None
+
+
+def close_inputs(ports, sleep=time.sleep, before=BEFORE_S, settle=SETTLE_S):
+    """Inputs closed so that the closing does not lock up (see above): a moment for a callback already asked for to
+    get the interpreter and end; at once every callback taken out of the driver itself (mido's `callback = None` puts
+    its own wrapper straight back in); a moment more; and only then the ports closed - by the driver: mido's close()
+    would put the callback back in for the instant before it closes. A message that comes in the microseconds between
+    the first moment and the taking out is still one too many: python-rtmidi then frees the tuple (callback, data) its
+    thread holds a bare pointer to - a tuple of the same size made at once takes that very place (CPython's free
+    list), so the callback on its way finds a function that does nothing instead of freed memory.
+    A port without that driver under it (another backend, a test's stand-in) is closed with its own close(); one that
+    is closed already is left alone (python-rtmidi's object must not be touched once it is freed)."""
+    ports = [p for p in ports if p is not None and not getattr(p, "closed", False)]
+    rts = [getattr(p, "_rt", None) for p in ports]
+    live = [rt for rt in rts if hasattr(rt, "cancel_callback") and hasattr(rt, "close_port") and hasattr(rt, "delete")]
+    if live:
+        sleep(before)
+        for rt in live:
+            try:
+                rt.cancel_callback()
+                SPARE.append((_nothing, None))
+            except Exception:
+                pass
+        sleep(settle)
+    for p, rt in zip(ports, rts):
+        try:
+            if any(rt is x for x in live):
+                rt.close_port()
+                rt.delete()
+                p.closed = True                  # (mido: closed already - its close() and its __del__ do nothing more)
+            else:
+                p.close()
+        except Exception:
+            pass
+    del SPARE[:-64]                              # (the callbacks that could meet them are long over)
+
+
+def arm_way_out(seconds=None, out=None):
+    """From now the process is over within `seconds` (WAY_OUT_S) whatever its way out runs into: a thread of C's that
+    needs no interpreter (faulthandler's) writes where every Python thread stands - on stderr: the journal, the banco
+    shows it - and ends the process with code 1. True when it is armed"""
+    try:
+        import faulthandler
+        faulthandler.dump_traceback_later(WAY_OUT_S if seconds is None else seconds, exit=True,
+                                          file=out if out is not None else sys.__stderr__)
+        return True
+    except Exception:
+        return False
+
+
+def hard_exit(rc):
+    """The program's end, at once: what is written is out, then the process ends - no port closed, no Python object
+    taken apart (the interpreter's own way out closes the ports still open with the closing that can lock up)"""
+    for f in (sys.stdout, sys.stderr):
+        try:
+            f.flush()
+        except Exception:
+            pass
+    os._exit(rc if isinstance(rc, int) else 1)
+
+
+def program(argv=None, leave=None):
+    """the bridge as a program (the service, the command line): main() ended with hard_exit(). Where main() ends with
+    an exception, the end comes inside the handler: the exception still holds main()'s ports - once it is over Python
+    lets go of them, and mido closes a port it is let go of, its own way"""
+    leave = leave or hard_exit
+    try:
+        rc = main(argv, leave=leave)
+    except SystemExit as e:                      # (argparse; sys.exit("no port matches ..."): its words, then 1)
+        if e.code is not None and not isinstance(e.code, int):
+            print(e.code, file=sys.stderr)
+        return leave(e.code if isinstance(e.code, int) else 0 if e.code is None else 1)
+    except KeyboardInterrupt:                    # (told to stop while it was starting: nothing lit yet, nothing wrong)
+        return leave(0)
+    except BaseException:
+        import traceback
+        traceback.print_exc()
+        return leave(1)
+    return leave(rc)
+
+
+def one_shot(a, mido, ins, outs, leave=None):
     """--export / --import: only the FM-1's ports, no Launchpads (the bridge may be running too: ALSA shares ports)"""
     names_in, names_out = fm1_ports(ins, a.fm1), fm1_ports(outs, a.fm1)
     if not names_in or not names_out:
@@ -1742,7 +1890,7 @@ def one_shot(a, mido, ins, outs):
             return None
         return raw if raw and raw[0] == 0xF0 else None
 
-    try:
+    def work():
         if a.import_file:
             with open(a.import_file, "rb") as f:
                 image = f.read()
@@ -1764,6 +1912,7 @@ def one_shot(a, mido, ins, outs):
             print("imported %s (%d bytes): it is the FM-1's project now; SAVE on the FM-1 keeps it" % (a.import_file, len(image)))
             return 0
         rcv = DumpReceiver()
+        export_elsewhere_mark()                  # (0.32.2: a bridge that runs hears this image too: it is not its library's)
         send(export_request(None if a.export == 0 else a.export - 1))
         deadline = time.monotonic() + 10.0
         while time.monotonic() < deadline:
@@ -1781,9 +1930,16 @@ def one_shot(a, mido, ins, outs):
                 return 1
         print("no answer from the FM-1 (is it SAGGA SEQ 0.3 or later?)", file=sys.stderr)
         return 1
+
+    try:
+        rc = work()
+        if leave is not None:                    # 0.32.2: the program itself ends HERE, while this function still holds
+            leave(rc)                            # the FM-1's ports: let go of, mido closes them at once, its own way
+        return rc
     finally:
-        inp.close()
-        out.close()
+        if leave is None:
+            close_inputs([inp])
+            out.close()
 
 
 IDLE_S = 0.02                     # the loop's turn when nothing comes (0.22: it was 5 ms: 200 wakeups a second for nothing)
@@ -1812,7 +1968,10 @@ def pump(q, handle, lights_changing, idle=IDLE_S, linger=LINGER_S, limit=64):
             return n
 
 
-def main(argv=None):
+def main(argv=None, leave=None):
+    """leave: the program's own end (program(): hard_exit) - given, the bridge told to stop says its goodbye and calls
+    it, with no port closed (the way out, above); without (a test that calls main()): the ports are closed, and main
+    returns"""
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--list", action="store_true", help="show the MIDI ports and exit")
     ap.add_argument("--model", choices=sorted(DRIVERS), default="mk3")
@@ -1852,8 +2011,10 @@ def main(argv=None):
         return mido.get_input_names(), mido.get_output_names()
 
     def on_term(signum, frame):                  # 0.23.2: stopped (systemctl stop, the banco, a shutdown): as Ctrl-C - the
-        raise KeyboardInterrupt                  # Launchpads go dark and the FM-1 is told. Until now the process just
-    try:                                         # died: the grid stayed lit and still, looking alive
+        if leave is not None:                    # Launchpads go dark and the FM-1 is told. Until now the process just
+            arm_way_out()                        # died: the grid stayed lit and still, looking alive
+        raise KeyboardInterrupt                  # (0.32.2: and from now it is gone within WAY_OUT_S whatever happens)
+    try:
         signal.signal(signal.SIGTERM, on_term)
     except (ValueError, OSError, AttributeError):   # (not the main thread: a test)
         pass
@@ -1866,7 +2027,7 @@ def main(argv=None):
         return 0
 
     if a.export is not None or a.import_file:
-        return one_shot(a, mido, ins, outs)
+        return one_shot(a, mido, ins, outs, leave)
 
     def fm1_there(i, o):
         return bool(fm1_ports(i, a.fm1) and fm1_ports(o, a.fm1))
@@ -1936,6 +2097,7 @@ def main(argv=None):
     lib = Library(dump_dir, send_fm1, log=lambda text: print(text, file=sys.stderr if "could not" in text or "cannot" in text else sys.stdout))
     print("library: %s (%d files)" % (dump_dir, len(library_files(dump_dir))))
     control = Control(lib, log=lambda text: print(text, file=sys.stderr if "cannot" in text else sys.stdout))   # 0.14: the hub's editor
+    lib.elsewhere = control.export_elsewhere     # 0.32.2: the banco's copy of the project is not the library's
     try:
         synths, send_playing = load_patch_config(a.patches or os.path.join(dump_dir, "patches.json"))
     except (ValueError, OSError) as e:
@@ -1947,7 +2109,8 @@ def main(argv=None):
         return (lambda msg: p.send(mido.Message.from_bytes(msg))), p.close
 
     def synth_in(name, on_bytes):
-        return mido.open_input(name, callback=lambda m: on_bytes(m.bytes())).close
+        port = mido.open_input(name, callback=lambda m: on_bytes(m.bytes()))
+        return lambda: close_inputs([port])          # (0.32.2: closed while the bridge goes on - the way out, above)
     synth_ports = SynthPorts(look, synth_out, synth_in, a.fm1, lambda name, raw: q.put(("syn", 0, name, raw)))   # 0.23.2: kept open
     keeper = PatchKeeper(dump_dir, synths, send_fm1, synth_ports.open, send_while_playing=send_playing,
                          log=lambda text: print(text, file=sys.stderr if "could not" in text else sys.stdout))
@@ -2024,11 +2187,17 @@ def main(argv=None):
         print("bridge stopped: %s: %s" % (type(e).__name__, e), file=sys.stderr)
         rc = 1
     finally:
+        if leave is not None:
+            arm_way_out()                        # (Ctrl-C, an error: the same bound as a stop's)
         try:
             br.stop()
         except Exception:
             pass
-        for p in opened + lp_out + ([fm1_out] if fm1_out is not None else []):
+        if leave is not None:                    # 0.32.2: the program itself: the goodbye is on its way, and it is gone -
+            time.sleep(GOODBYE_S)                # no port closed (the way out, above)
+            leave(rc)
+        close_inputs(opened)
+        for p in lp_out + ([fm1_out] if fm1_out is not None else []):
             try:
                 p.close()
             except Exception:
@@ -2038,4 +2207,4 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
-    sys.exit(main())
+    program()

@@ -183,6 +183,81 @@ def services_state(run=None):
     return out
 
 
+# ---------------------------------------------------------------------------------------- the grid's bridge, stopped and back
+BRIDGE = "sagga-grid-bridge"
+SYSTEM_S = 20                      # how long a systemctl / journalctl may take (the service's TimeoutStopSec is shorter: 15)
+
+
+def service_is(system, svc=BRIDGE):
+    """systemd's word for the service now - active, inactive, failed, deactivating ...; "?" when it cannot be asked"""
+    try:
+        return ((system(["systemctl", "is-active", svc]).stdout or "").strip() or "?")
+    except Exception:
+        return "?"
+
+
+def bridge_stop(system, say, wait=time.sleep):
+    """0.32.2: the grid's bridge stopped for the prova -> True when it is not running any more. `systemctl stop` waits
+    for the bridge to end by itself, and one that does not end makes it wait: on the Pi, 0.32.1, the bridge locked up
+    as it closed the FM-1's port (sagga_grid_bridge.py, the way out), systemctl was still waiting after this program's
+    20 s, and the prova ended there with a Python error, the bridge stopped for good and the grid dark until the Pi
+    was started again. Now: a stop that does not come back, or a bridge still there after it, is ended by the kernel
+    (systemctl kill -s KILL: nothing can refuse that), and the prova goes on"""
+    try:
+        system(["systemctl", "stop", BRIDGE])
+    except Exception as e:
+        say("il bridge del grid non si ferma da solo (%s): lo chiudo io" % type(e).__name__)
+    st = "?"
+    for k in range(12):
+        st = service_is(system)
+        if st in ("inactive", "failed"):
+            return True
+        if st != "?" and k in (0, 6):                    # (still active, or deactivating: systemd is waiting for it)
+            try:
+                system(["systemctl", "kill", "-s", "KILL", BRIDGE])
+            except Exception:
+                pass
+        wait(0.5)
+    return st == "?"                                     # (systemctl cannot be asked: as before 0.32.2, the prova goes on)
+
+
+def bridge_start(system, say):
+    """... and started again; never an error of this program's (it runs in the last lines of a prova, after everything)"""
+    try:
+        system(["systemctl", "start", BRIDGE])
+        say("il bridge del grid riparte")
+        return True
+    except Exception as e:
+        say("il bridge del grid NON riparte (%s: %s): premi Controlla la matrice, che lo fa ripartire" % (type(e).__name__, e))
+        return False
+
+
+def bridge_revive(system, wait=time.sleep):
+    """0.32.2: a bridge that should be running and is not - failed (it did not end when it was stopped and systemd
+    killed it: systemd does not start such a one again by itself), or stopped while its service is enabled (a prova that
+    was cut before its last lines) - is started again. No prova is running when this is asked (the page starts one at a
+    time), so nobody stopped it on purpose. Until 0.32.1 the page only said "il servizio sagga-grid-bridge e' failed",
+    and the grid stayed dark until the Pi was started again. -> what to say, or None (it runs, or it is not wanted)"""
+    st = service_is(system)
+    if st not in ("failed", "inactive"):
+        return None
+    if st == "inactive":
+        try:
+            if (system(["systemctl", "is-enabled", BRIDGE]).stdout or "").strip() != "enabled":
+                return None
+        except Exception:
+            return None
+    try:
+        system(["systemctl", "start", BRIDGE])
+    except Exception as e:
+        return "Il bridge del grid era fermo (%s) e non riparte (%s: %s): riavvia il Pi." % (st, type(e).__name__, e)
+    wait(3.0)
+    now = service_is(system)
+    if now == "active":
+        return "Il bridge del grid era fermo (%s): l'ho fatto ripartire, il grid torna." % st
+    return "Il bridge del grid era fermo (%s) e non riparte (ora e' %s): riavvia il Pi." % (st, now)
+
+
 # ---------------------------------------------------------------------------------------- the synths, away and back
 def keep_file(path, data):
     """the cells' file where a power cut does not take it: /boot/firmware is read-only, sagga_fw's BootWriter opens it"""
@@ -861,6 +936,8 @@ def report_md(path, audit_f, facts, rows, out_json):
         lines += ["* **%s**: %s" % x for x in audit_f]
     else:
         lines.append("Tutto a posto: le pagine vanno all'FM-1 e tornano, i Launchpad non hanno celle, la porta 2 non va ai synth.")
+    if facts.get("bridge_ripartito"):                   # 0.32.2
+        lines += ["", facts["bridge_ripartito"]]
     lines += ["", "## Le sessioni", ""]
     if rows:
         lines += ["| sessione | sonde | per le pagine | per il grid | diretti | subito |", "| --- | --- | --- | --- | --- | --- |"]
@@ -876,7 +953,7 @@ def report_md(path, audit_f, facts, rows, out_json):
         f.write("\n".join(lines) + "\n")
 
 
-def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=K.SYSFS_USB):
+def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=K.SYSFS_USB, control=None):
     ap = argparse.ArgumentParser(description="SAGGA HUB: l'esploratore del banco")
     ap.add_argument("--piano", default=os.path.join(HERE, "banco_piano.json"), help="il piano: banco_piano.json (il banco), "
                     "fm1_piano.json (l'FM-1 completo: ogni situazione, come l'esploratore dal PC)")
@@ -893,7 +970,7 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
     a = ap.parse_args(argv)
     a.progetti = a.progetti or os.path.dirname(os.path.dirname(os.path.abspath(a.celle)))
     api = api or HubAPI(a.hub)
-    system = system or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True, timeout=20))
+    system = system or (lambda cmd: subprocess.run(cmd, capture_output=True, text=True, timeout=SYSTEM_S))
     os.makedirs(a.out, exist_ok=True)
     ts = time.strftime("%Y%m%d-%H%M%S")
     status = os.path.join(a.out, "banco.json")
@@ -918,12 +995,16 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
         if not left and not load_cells(a.celle):
             say("Nessuna cella da rimettere.")
         return finish(1 if left else 0)
+    revived = bridge_revive(system, wait)               # 0.32.2: a bridge that should be running and is not: started
     audit_f, facts = audit(api, version_file=os.path.join(HERE, "VERSION"), services=services_state(system))
     say("LA MATRICE")
     for lv, txt in audit_f:
         say("  %s: %s" % (lv, txt))
     if not audit_f:
         say("  tutto a posto")
+    if revived:
+        say(revived)
+        facts["bridge_ripartito"] = revived
     bl = bridge_lines(system)                           # 0.23.2
     if bl:
         say("IL BRIDGE DEL GRID (le sue ultime righe)")
@@ -969,7 +1050,8 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
                 say("L'FM-1 sta suonando: fermalo (PLAY) e rilancia.")
                 rc = 1
                 return rc
-            img, st = HT.export(hub.ctl)
+            B.export_elsewhere_mark(control)             # 0.32.2: the bridge hears this image too: it is not its library's,
+            img, st = HT.export(hub.ctl)                 # and its SAVED ON THE PI would cover the question that follows
             if img:
                 backup = os.path.join(a.out, "backup-%s.sgq" % ts)
                 with open(backup, "wb") as f:
@@ -997,8 +1079,11 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
                 return rc
             say("Si'. Si comincia: non toccare l'FM-1 fino alla fine.")
         if bridge_was:
-            system(["systemctl", "stop", "sagga-grid-bridge"])
-            bridge_stopped = True
+            bridge_stopped = True                        # (0.32.2: said first - whatever the stop does, it is started again at the end)
+            if not bridge_stop(system, say, wait):
+                say("Il bridge del grid non si ferma (%s): niente prova. Riavvia il Pi e riprova." % service_is(system))
+                rc = 1
+                return rc
             say("il bridge del grid e' fermo per la prova: i Launchpad si spengono e l'FM-1 dice GRID LOST, e' giusto (riparte alla fine)")
         try:                                            # 0.20.9: the FM-1's cells now, to have them back after each reboot
             by0, conns0, fm0 = fm1_now(api)
@@ -1140,10 +1225,13 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
             if left:
                 rc = rc or 1
                 say("%d celle non sono tornate: Rimetti le celle (pagina del hub) quando i dispositivi ci sono" % left)
+        try:                                            # (0.32.2: the word left for a bridge that did not hear the image)
+            os.unlink(os.path.join(B.CONTROL_DIR if control is None else control, B.ELSEWHERE))
+        except OSError:
+            pass
         t_bridge = time.time()
         if bridge_stopped:
-            system(["systemctl", "start", "sagga-grid-bridge"])
-            say("il bridge del grid riparte")
+            bridge_start(system, say)
         T.save(out_json, out)
         report_md(out_md, audit_f, facts, rows, out_json)
         say("")
@@ -1156,6 +1244,9 @@ def main(argv=None, backend=None, api=None, system=None, wait=time.sleep, sysfs=
                     say("IL BRIDGE DEL GRID (ripartito)")
                     for ln in bl:
                         say("  " + ln)
+                st = service_is(system)                 # 0.32.2
+                if st not in ("active", "?"):
+                    say("ATTENZIONE: il bridge del grid non e' ripartito (%s): premi Controlla la matrice, che lo fa ripartire" % st)
             except Exception:
                 pass
         finish(rc)

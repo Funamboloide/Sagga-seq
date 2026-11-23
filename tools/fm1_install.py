@@ -139,6 +139,41 @@ def model_of(text):
 
 # ------------------------------------------------------------------ MIDI ---
 
+SPARE = []
+
+
+def _nothing(*a, **kw):
+    return None
+
+
+def close_input(port, sleep=time.sleep):
+    """0.32.2: a mido input closed so that the closing cannot lock up. python-rtmidi (under mido) closes a port with the
+    Python interpreter in its hand (the GIL) and waits there for the port's thread to end; that thread, when a message
+    has just come in, is waiting for the interpreter to hand it to mido's callback: each waits for the other, for ever
+    (seen on Windows as the FM-1 rebooted with its All Notes Off on the way, and on the Pi when the grid's bridge was
+    stopped as the FM-1 answered). So: a moment for a callback already asked for to run; at once the callback taken
+    out of the driver itself (mido's `callback = None` puts its own wrapper back in); a moment more; then the port
+    closed by the driver - mido's close() would put the callback back in for the instant before it closes. A tuple
+    made as the callback is taken out takes the place of the one python-rtmidi frees there (its thread holds a bare
+    pointer to it). The same as sagga_grid_bridge.close_inputs; a port without that driver: its own close()"""
+    if getattr(port, "closed", False):  # (closed already: python-rtmidi's object must not be touched once it is freed)
+        return None
+    rt = getattr(port, "_rt", None)
+    if not (hasattr(rt, "cancel_callback") and hasattr(rt, "close_port") and hasattr(rt, "delete")):
+        return port.close()
+    sleep(0.002)
+    try:
+        rt.cancel_callback()
+        SPARE.append((_nothing, None))
+    except Exception:
+        pass
+    sleep(0.05)
+    rt.close_port()
+    rt.delete()
+    port.closed = True                 # (mido: closed already - its close() and its __del__ do nothing more)
+    del SPARE[:-64]
+
+
 class MidoLink:
     """one MIDI in/out pair with a SysEx queue"""
 
@@ -150,7 +185,7 @@ class MidoLink:
         try:
             self.out = mido.open_output(out_name)
         except Exception:
-            self.inp.close()
+            close_input(self.inp)
             raise
         time.sleep(DELAY["open"])   # CoreMIDI may drop a message sent just after opening
 
@@ -180,11 +215,17 @@ class MidoLink:
             self.q.get_nowait()
 
     def close(self):
-        for p in (self.inp, self.out):
+        for close in (lambda: close_input(self.inp), self.out.close):
             try:
-                p.close()
+                close()
             except Exception:
                 pass
+
+    def __del__(self):                 # (0.32.2: let go of without a close(): closed here, before mido closes the
+        try:                           #  input its own way - it closes every port Python lets go of)
+            self.close()
+        except Exception:
+            pass
 
 
 class MidoBackend:

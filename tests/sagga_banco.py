@@ -717,6 +717,50 @@ def prova_tempo(seed):
                 press is not None and bool(said) and said[-1][0] < press
                 and [x[1] for x in fv1 if x[0] == "VALORI"] == ["VISTO"] and [x[1] for x in fv2 if x[0] == "VALORI"] == ["ERRORE"]
                 and [x[1] for x in fv3 if x[0] == "VALORI"] == ["VISTO"]))
+    # (6) 0.32.2, 0.32.1 on the real FM-1: a probe the FM-1 read before the work of its pass was done (a THROW gliding
+    #     back: FILTER 27 where the simulator, at that ms, says 26). Read by the simulator that many ms earlier it is
+    #     the same: timing, and said. Read 300 ms earlier than it says, no lag explains it: an error
+    out.append(("0.32.2: a probe is read again no earlier than the FM-1's own lag and four ms (and never more than fourteen)",
+                [H.reread_span(x) for x in (9, None, 1, 0, 40)] == [13, 13, 5, 4, 14]))
+    gs = [by["grid BEAT pad 1,2"], pg["pagina mod th_filt 127"], by["grid BEAT pad 2,2"], by["grid BEAT pad 3,2"]]
+    rt = run_like_banco(session_plan(sit, gs, "t004"), random.Random(seed))
+    ft, _ = compare(rt)
+    hw = rt["fm1"]
+    rp0 = {int(k): tuple(v) for k, v in hw["presi"].items()}
+    key = lambda d_, i: i if i in d_ else str(i)        # (a record just made has numbers for keys, one read from a file has text)
+    hp = {int(k): T.probe_dict(v) for k, v in hw["sonde"].items()}
+    gliding = [i for i, r in H.probe_events(rt) if i in hp and hp[i].get("G", {}).get("mac", "0/0/0/0").split("/")[-1] != "0"]
+
+    def as_read(i, ms):                                 # (the probe as the simulator shows it `ms` earlier)
+        rp = dict(rp0)
+        rp[i] = (rp[i][0] - ms,) + tuple(rp[i][1:])
+        sim2, _ = H.session_replay(rt, rp, hw.get("sentiti"))
+        return sim2["sonde"].get(key(sim2["sonde"], i))
+    made = None
+    for i in gliding:
+        for ms in (5, 4, 3):                            # (within the stand-in's lag, 1 ms, and four)
+            raw = as_read(i, ms)
+            if raw is not None and H.pdiff(T.probe_dict(raw), hp[i]):
+                made = (i, ms, raw)
+                break
+        if made:
+            break
+    f8 = f9 = []
+    far = False
+    if made:
+        i, ms, raw = made
+        r8 = copy.deepcopy(rt)
+        r8["fm1"]["sonde"][key(r8["fm1"]["sonde"], i)] = raw
+        f8, _ = compare(r8)
+        raw9 = as_read(i, 300)
+        far = raw9 is not None and bool(H.pdiff(T.probe_dict(raw9), hp[i]))
+        r9 = copy.deepcopy(rt)
+        r9["fm1"]["sonde"][key(r9["fm1"]["sonde"], i)] = raw9
+        f9, _ = compare(r9)
+    tempo = [x[2][-70:] for x in f8 if x[0] == "TEMPO" and "prima di finire il suo giro" in x[2]]
+    out.append(("0.32.2: a probe the FM-1 read before its pass's work (a THROW gliding, %s ms): TEMPO, said, no error; read 300 ms early: an error (%s | %s | %s)"
+                % (made[1] if made else "-", len(gliding), tempo, [x[0] for x in errs(f9)]),
+                not errs(ft) and bool(made) and not errs(f8) and len(tempo) == 1 and far and [x[0] for x in errs(f9)] == ["SIMULATORE"]))
     return out
 
 
