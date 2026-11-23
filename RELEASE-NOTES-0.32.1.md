@@ -163,4 +163,6 @@ Dopo l'aggiornamento del Pi, la pagina SAGGA Remote ha una riga in più: le due 
 
 ## La dimensione
 
-DIMENSIONE
+Il firmware cresce di 860 byte: 499.324 su 581.564 (la 0.32: 498.464). La RAM fissa resta uguale: 84.992 su 98.304 byte
+(la 0.32: 84.992). Lo spazio grande, dove sta il progetto, non cambia: 341.980 su 344.064 byte, restano 2.084 byte
+liberi.
