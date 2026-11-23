@@ -1774,7 +1774,7 @@ def plan_ports(ins, outs, left=None, right=None, exclude="DAW|DIN", pattern="Lau
 # It takes a message in the milliseconds before the closing. On the Pi, 0.32.1, the banco stopped the bridge and the
 # bridge never ended: `systemctl stop` waited its 90 s, systemd killed it - its main thread and one port's thread were
 # all that was left of it, which is this lock-up as far as a journal can show - and left the service failed, the grid
-# dark until the Pi was started again. (The first run of the FM-1's test on Windows stopped the same way, 0.11: the
+# dark until the Pi was started again. (The first run of the FM-1's test on Windows had stopped the same way: the
 # test's tools have asked the driver themselves, with no callback, ever since; tests/sagga_lockup.py has the lock-up
 # in forty lines of C.) So:
 #   - the program told to stop says its goodbye (Launchpads dark, the FM-1 told) and is gone: hard_exit(), no port

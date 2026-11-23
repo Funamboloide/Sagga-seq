@@ -54,8 +54,8 @@ def close_input(port, sleep=time.sleep):
     """0.32.2: a mido input closed so that the closing cannot lock up. python-rtmidi (under mido) closes a port with the
     Python interpreter in its hand (the GIL) and waits there for the port's thread to end; that thread, when a message
     has just come in, is waiting for the interpreter to hand it to mido's callback: each waits for the other, for ever
-    (0.11: the first run on Windows, as the FM-1 rebooted with its All Notes Off on the way - the explorer has asked
-    the driver itself, with no callback, ever since: sagga_hw_explore.RtLink; 0.32.1: the grid's bridge on the Pi, as
+    (the first run on Windows, as the FM-1 rebooted with its All Notes Off on the way - the explorer has asked the
+    driver itself, with no callback, ever since: sagga_hw_explore.RtLink; 0.32.1: the grid's bridge on the Pi, as
     the banco stopped it). So: a moment for a callback already asked for to run; at once the callback taken out of
     the driver itself (mido's `callback = None` puts its own wrapper back in); a moment more; then the port closed by
     the driver - mido's close() would put the callback back in for the instant before it closes. A tuple made as the

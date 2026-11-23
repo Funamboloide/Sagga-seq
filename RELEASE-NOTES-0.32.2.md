@@ -54,8 +54,8 @@ prova dopo è andata.
 **Perché.** La libreria MIDI che usa il bridge (python-rtmidi) ha un difetto nel modo di chiudere una porta
 d'ingresso: se un messaggio arriva proprio mentre la porta si chiude, la chiusura aspetta il filo che ascolta la porta,
 e quel filo aspetta la chiusura. Per sempre. Il registro del sistema lo mostra: quando ha ucciso il bridge erano
-rimasti solo il programma e un filo. Lo stesso blocco aveva fermato la prima prova dal tuo PC, alla 0.11; allora avevo
-sistemato gli strumenti della prova, ma **il bridge no**. È capitato una volta su cinque perché serve un messaggio
+rimasti solo il programma e un filo. Lo stesso blocco aveva già fermato la prima prova dal tuo PC, tempo fa; allora
+avevo sistemato gli strumenti della prova, ma **il bridge no**. È capitato una volta su cinque perché serve un messaggio
 dell'FM-1 in quei pochi millisecondi.
 
 **Cosa cambia.**

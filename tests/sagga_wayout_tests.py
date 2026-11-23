@@ -501,6 +501,9 @@ def t_unit():
           "the bridge gives itself %.0f s, systemd gives it %.0f, the banco's `systemctl stop` waits %.0f: each longer "
           "than the one before" % (B.WAY_OUT_S, stop_s, R.SYSTEM_S))
     check(unit.get("Restart") == "always", "the service still starts the bridge again when it ends with an error")
+    with open(os.path.join(ROOT, "tools", "sagga-grid-bridge-zynthian.service")) as f:
+        zyn = dict(ln.strip().split("=", 1) for ln in f if "=" in ln and not ln.lstrip().startswith("#"))
+    check(zyn.get("TimeoutStopSec") == unit.get("TimeoutStopSec"), "the Zynthian's service file: the same time (%s)" % zyn.get("TimeoutStopSec"))
     with open(os.path.join(ROOT, "tools", "hub", "install_hub.sh")) as f:
         sh = f.read()
     check("sagga-grid-bridge.service" in sh and "daemon-reload" in sh, "an update of the hub installs the service file again")
