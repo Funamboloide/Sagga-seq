@@ -12067,6 +12067,81 @@ def t0281_mod_page():
     check(pads2[6 * 16 + 11] == GL_WHITE and pads2[6 * 16] == GL_DIM, "... pad 12: track 12 (%s %s)" % (pads2[6 * 16 + 11], pads2[6 * 16]))
 
 
+def t0321_tablet_banks():
+    group("0.32.1: the tablet reaches the 32 scenes and the 16 snapshots - channel 12 CC 37 is the bank of eight that SAGGA "
+          "Remote's SCENE 1-8 (channel 14 CC 40-47) are, CC 39 the bank its SNAP and STORE 1-8 (CC 106-113, 12-19) are; MORPH "
+          "TO goes back to the page past scene 8; the banks go back too; with REMOTE 14 alone: the first eight, as before")
+    s = Script()
+    t = remote13_on(s, 100)
+    t = usb2(s, t)
+    n = [0]
+    marks = {}
+    def P(name):
+        nonlocal t
+        s.at(t, "probe"); marks[name] = n[0]; n[0] += 1; t += 40
+    def midi(st, d1, d2, name=None):
+        nonlocal t
+        s.raw(t, "midi 0x%02X %d %d 2" % (st, d1, d2)); t += 60
+        if name:
+            P(name)
+    def tap(cc, name):                                                    # a page's button on channel 14: 127, then 0
+        nonlocal t
+        s.raw(t, "midi 0xBD %d 127 2" % cc); s.raw(t + 10, "midi 0xBD %d 0 2" % cc); t += 70
+        P(name)
+    t0 = t
+    tap(42, "sc3")                                                        # SCENE 3, the bank 1-8: scene 3
+    midi(0xBB, 37, 1, "bank")                                             # SCENES 9-16
+    tap(42, "sc11")                                                       # SCENE 3: scene 11
+    midi(0xBB, 37, 3)                                                     # SCENES 25-32
+    tap(47, "sc32")                                                       # SCENE 8: scene 32
+    midi(0xBB, 37, 127)                                                   # (a value over the four: the last bank)
+    tap(40, "sc25")                                                       # SCENE 1: scene 25
+    tap(13, "st2")                                                        # STORE 2, the bank 1-8: snapshot 2
+    midi(0xBB, 39, 1, "sbank")                                            # SNAPS 9-16
+    tap(13, "st10")                                                       # STORE 2: snapshot 10
+    tap(108, "sn11")                                                      # SNAP 3: snapshot 11, empty
+    midi(0xBB, 39, 0)                                                     # SNAPS 1-8
+    tap(107, "sn2")                                                       # SNAP 2: snapshot 2
+    midi(0xBB, 39, 1)
+    tap(107, "sn10")                                                      # SNAP 2: snapshot 10
+    t1 = t + 600
+    t = pg(s, t1, GLO, 0, [(K2, 19)]); t += 60; P("morph")                # the panel: MORPH TO from scene 2 up nineteen
+    s.at(t, "dump", 0); t += 40
+    log = run(s, t + 700)
+    G = [p["G"] for p in probes(log)]
+    ok = len(G) == n[0] and bool(log.x30)
+    check(ok, "%d probes and the dump (%d %d)" % (n[0], len(G), len(log.x30)))
+    if not ok:
+        return
+    def g(name, *ks):
+        v = tuple(G[marks[name]].get(k) for k in (ks or ("msg",)))
+        return v[0] if len(v) == 1 else v
+    check(g("sc3", "scene") == "2" and g("sc11", "scene") == "10" and g("sc32", "scene") == "31" and g("sc25", "scene") == "24",
+          "SCENE 3 is scene 3, with SCENES 9-16 scene 11; SCENE 8 with 25-32 scene 32; a value over the four: the last bank (%s %s %s %s)"
+          % (g("sc3", "scene"), g("sc11", "scene"), g("sc32", "scene"), g("sc25", "scene")))
+    check(g("bank").endswith("SCENES 9-16: THE TABLET'S SCENE 1-8") and g("bank", "sbank") == g("sc3", "sbank"),
+          "the screen says the bank; the panel's own bank of scenes stays where it is (%s, sbank %s)" % (g("bank"), g("bank", "sbank")))
+    x = log.x30[-1]
+    check(g("st2", "snap") == "1" and g("st10", "snap") == "9" and g("sbank").endswith("SNAPSHOTS 9-16: THE TABLET'S SNAP AND STORE 1-8"),
+          "STORE 2 is snapshot 2, with SNAPS 9-16 snapshot 10 (%s %s; %s)" % (g("st2", "snap"), g("st10", "snap"), g("sbank")))
+    check("EMPTY" in g("sn11") and g("sn11").endswith("11") and g("sn2", "snap") == "1" and g("sn10", "snap") == "9",
+          "SNAP 3 with 9-16: snapshot 11, empty; SNAP 2 with 1-8: snapshot 2; with 9-16: snapshot 10 (%s | %s %s)" % (g("sn11"), g("sn2", "snap"), g("sn10", "snap")))
+    check(x["snaps"] == ".x.......x......", "... the snapshots stored are 2 and 10 (%s)" % x["snaps"])
+    back = [(m[2], m[3]) for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBB and m[2] in (37, 39) and m[0] < t0 + 400]
+    check((37, 0) in back and (39, 0) in back, "the banks go back to the page from the start: CC 37 and 39 on channel 12, 0 (%s)" % back[:4])
+    mt = [m[3] for m, p in zip(log.msgs, log.port) if p == 2 and m[1] == 0xBD and m[2] == 2 and m[0] > t1]
+    check(mt[-1:] == [20], "MORPH TO turned on the panel to scene 21 goes back to the page (0.30-0.32: nothing past scene 8) (%s)" % mt)
+    # REMOTE 14 alone: channel 12 is a track's then - the banks are not heard, SCENE 3 is scene 3
+    s = Script()
+    t = usb2(s, 100)
+    s.raw(t, "midi 0xBB 37 2 2"); t += 60
+    s.raw(t, "midi 0xBD 42 127 2"); s.raw(t + 10, "midi 0xBD 42 0 2"); t += 70
+    s.at(t, "probe")
+    log = run(s, t + 200)
+    G = [p["G"] for p in probes(log)]
+    check(len(G) == 1 and G[0].get("scene") == "2", "REMOTE 14 alone: the bank's CC is not heard, SCENE 3 is scene 3 (%s)" % [x.get("scene") for x in G])
+
+
 def t0281_proposal_start():
     group("0.28.1: a PROPOSAL enters a track whose loop starts later (HOME + ALG: START 2, a loop of 15): its settings put the "
           "start back on step 1 and the track goes where the bar says, with QUANTISE AUTO and NOW (the explorer found it a step off)")
@@ -12473,8 +12548,10 @@ def t031_grid():
     s.pad(t, 9, 1); t += 100                                               # DEST VEL
     s.pad(t, 14, 6); t += 100; P("lfo")                                    # row 7 pad 15: the melodic ones
     t = view(s, t, GC_REC, alt=True)                                       # PROJ
-    s.pad(t, 13, 3); t += 100; P("ch10")                                   # row 4 pad 14: the drums on channel 10
-    s.pad(t, 12, 3); t += 100; P("chown")                                  # pad 13: each on its own
+    s.pad(t, 13, 3); t += 100; P("ch10a")                                  # row 4 pad 14: the drums on channel 10 - 0.32.1: asked
+    s.pad(t, 13, 3); t += 100; P("ch10")                                   # ... again: done
+    s.pad(t, 12, 3); t += 100; P("chowna")                                 # pad 13: each on its own - asked
+    s.pad(t, 12, 3); t += 100; P("chown")                                  # ... again
     s.pad(t, 15, 3); t += 100; P("chp")                                    # pad 16: T10 channel +
     t_proj = t
     t = view(s, t, GC_VSTEP, alt=True)                                     # CC
@@ -12538,6 +12615,9 @@ def t031_grid():
     check(g("lfo", "lfot", "lfod", "msg") == ("18", "1", "LFO ON MELODIC"), "LFO row 7 pad 15: VEL on the melodic ones (%s)" % (g("lfo", "lfot", "lfod", "msg"),))
     check(g("ch10", "chs") == "9999996789AB" and g("chown", "chs") == "0123456789AB" and g("chp", "chs") == "012345678AAB" and g("chp", "msg") == "T10 CHANNEL 11",
           "PROJ row 4 pad 14: the drums on channel 10; 13: each on its own; 16: T10 on 11 (%s %s %s)" % (g("ch10", "chs"), g("chown", "chs"), g("chp", "chs")))
+    check(g("ch10a", "chs", "msg") == ("0123456789AB", "THE DRUM TRACKS ON CHANNEL 10? AGAIN: YES")
+          and g("chowna", "chs", "msg") == ("9999996789AB", "EVERY TRACK ON ITS OWN CHANNEL? AGAIN: YES"),
+          "0.32.1: pads 13 and 14 change every track's channel - the first tap only asks, the channels as they were (%s %s)" % (g("ch10a", "chs", "msg"), g("chowna", "chs", "msg")))
     p, _ = log.leds(until=t_proj)
     check(p.get(3 * 16 + 12) == GL_DIM and p.get(3 * 16 + 14) == GL_VIOLET, "... pad 13 dim (T10 not on its own any more), 15 violet (%s %s)" % (p.get(3 * 16 + 12), p.get(3 * 16 + 14)))
     p, _ = log.leds(until=t_cc)
@@ -12642,6 +12722,10 @@ def t032_panel():
     hold(LFO, bk(9)); P("free")                          # black 10: the next free one (LFO 3)
     t = pg(s, t, LFO, 1, [(K1, 2), (K2, 5)]); P("l3set")   # (LFO 3: something to reset - its RATE SEQ too)
     t = pg(s, t, LFO, 3, [(K1, 2)])
+    hold(LFO, bk(10)); P("rst0")                         # black 11: asks, for LFO 3 ...
+    hold(LFO, wk(1)); hold(LFO, wk(1))                   # (0.32.1: LFO 2 chosen meanwhile - off and on again, as it was)
+    hold(LFO, bk(10)); P("rst0b"); X("rst0b")            # ... black 11 again within the 3 s: it ASKS for LFO 2, nothing reset
+    hold(LFO, wk(2)); hold(LFO, wk(2))                   # (LFO 3 again)
     hold(LFO, bk(10)); P("rst1")                         # black 11: asks
     hold(LFO, bk(10)); P("rst2"); X("rst")               # again: LFO 3 as a new project has it
     s.press(t, SAVE); s.enc(t + 30, K1, 3); s.release(t + 100, SAVE); t += 160; P("mk")   # SAVE + K1: MASTER KNOB ENERGY
@@ -12713,6 +12797,9 @@ def t032_panel():
           and g("l3set", "lfod") != g("rst2", "lfod") and r["lfo"][2] == new["lfo"][2]
           and r["lfox"][2] == new["lfox"][2] and r["lfoe"][2] == new["lfoe"][2] and r["lfo"][0]["dest"] == 1,
           "black 10: the next LFO that is off; black 11 twice: that LFO as a new project has it, the others as they were (%s %s %s)" % (g("free"), g("rst1"), g("rst2")))
+    r0 = e("rst0b")
+    check(g("rst0") == "RESET LFO? AGAIN: 3" and g("rst0b") == "RESET LFO? AGAIN: 2" and r0["lfo"][1] == e("paste")["lfo"][1] and r0["lfo"][2] != new["lfo"][2],
+          "0.32.1: RESET asked for LFO 3, LFO 2 chosen, black 11 again: it asks for LFO 2 - neither is reset (0.32: LFO 2 was) (%s %s)" % (g("rst0"), g("rst0b")))
     check(g("mk") == "MASTER KNOB: ENERGY" and g("e50") == "ENERGY 50: THE WHOLE SET" and g("e50", "en") == "50" and g("e100", "en") == "100",
           "the MASTER knob's fourth job: the ENERGY of the MOSSE, 0-100 (%s %s %s)" % (g("mk"), g("e50"), g("e100", "en")))
     check(g("exp") == "EXPORT: THE PROJECT TO THE PI" and E[-1]["live"]["master_fn"] == 3,
@@ -12761,7 +12848,8 @@ def t032_grid():
     pad(0, 6, "v1")                                                        # row 7 pad 1: T1's VEL OFFSET
     s.ctl(t, GC_TRK0 + 1); t += 80                                         # T2
     pad(14, 6, "v2"); mark("vo")                                           # row 7 pad 15: T2's
-    pad(15, 6, "v0"); X("v0"); mark("vo0")                                 # pad 16: every track's to 0
+    pad(15, 6, "v0a"); X("v0a")                                            # pad 16: every track's to 0 - 0.32.1: asked
+    pad(15, 6, "v0"); X("v0"); mark("vo0")                                 # ... again: done
     pad(0, 7, "nu"); mark("nu")                                            # row 8 pad 1: T2 step 1's nudge (it comes on)
     pad(15, 7, "nu0"); X("nu0"); mark("nu0")                               # pad 16: every step of the pattern on the grid
     t = view(s, t, GC_VSTEP, alt=True)                                     # CC (T2, lane 1)
@@ -12801,6 +12889,8 @@ def t032_grid():
           "TRACK row 7: T1's and T2's VEL OFFSET; pad 16 orange - some track has one (%s %s %s)" % (g("v1"), g("v2"), L("vo", 15, 6)))
     check(g("v0") == "EVERY TRACK: VEL OFFSET 0" and [x["vel_offset"] for x in e("v0")["track"]] == [0] * 12 and L("vo0", 15, 6) == GL_FAINT,
           "row 7 pad 16: every track's VEL OFFSET back to 0, the pad faint (%s %s)" % (g("v0"), [x["vel_offset"] for x in e("v0")["track"]]))
+    check(g("v0a") == "EVERY TRACK'S VEL OFFSET TO 0? AGAIN: YES" and [x["vel_offset"] for x in e("v0a")["track"]][:2] != [0, 0],
+          "0.32.1: the first tap only asks - T1's and T2's offsets still there (%s %s)" % (g("v0a"), [x["vel_offset"] for x in e("v0a")["track"]][:3]))
     st = step_of(e("nu0"), 1, 0, 0)
     check(g("nu").startswith("NUDGE -") and L("nu", 15, 7) == GL_ORANGE and g("nu0") == "EVERY STEP ON THE GRID: NO NUDGE" and st["nudge"] == 0
           and st["flags"] & 1 and L("nu0", 15, 7) == GL_FAINT,
@@ -12988,9 +13078,11 @@ def t032_grid2():
     marks, n, ex, at = {}, [0], {}, {}
     pad(9, 4, "bank"); pad(0, 4, "s9")                                     # row 5 pad 10: scenes 9-16; pad 1: scene 9
     pad(4, 3); mark("pc")                                                  # row 4 pad 5: scene 9's program 5 (channel 1)
-    pad(12, 4, "all"); X("all")                                            # pad 13: these programs in every scene
-    pad(13, 4, "none"); X("none")                                          # pad 14: this scene's none
-    pad(6, 3); pad(14, 4, "ch"); X("ch")                                   # program 7; pad 15: channel 1's in every scene
+    pad(12, 4, "alla"); X("alla")                                          # pad 13: these programs in every scene - 0.32.1: asked
+    pad(12, 4, "all"); X("all")                                            # ... again: done
+    pad(13, 4, "none"); X("none")                                          # pad 14: this scene's none (one scene: at once)
+    pad(6, 3); pad(14, 4, "cha"); X("cha")                                 # program 7; pad 15: channel 1's in every scene - asked
+    pad(14, 4, "ch"); X("ch")                                              # ... again
     pad(5, 5, "far"); pad(0, 6, "nov")                                     # row 6 pad 6: past the loop of 4; row 7: no velocity loop
     for k in range(1100, t + 3000, 900):
         s.raw(k, "hb")
@@ -13014,6 +13106,9 @@ def t032_grid2():
     check(g("all") == "THE PROGRAMS OF SCENE 9 IN EVERY SCENE" and pcs("all") == [4] * 32 and g("none") == "SCENE 9: NO PROGRAM"
           and pcs("none") == [4] * 8 + [255] + [4] * 23 and g("ch") == "CHANNEL 1'S PROGRAM IN EVERY SCENE" and pcs("ch") == [6] * 32,
           "pad 13: scene 9's programs in all 32 scenes; 14: scene 9 without; 15: channel 1's program everywhere (%s %s %s)" % (pcs("all")[:10], pcs("none")[:10], pcs("ch")[:10]))
+    check(g("alla") == "THESE PROGRAMS IN EVERY SCENE? AGAIN: YES" and pcs("alla") == [255] * 8 + [4] + [255] * 23
+          and g("cha") == "THIS CHANNEL'S PROGRAM IN EVERY SCENE? AGAIN: YES" and pcs("cha") == [4] * 8 + [6] + [4] * 23,
+          "0.32.1: pads 13 and 15 write all 32 scenes - the first tap only asks, the scenes as they were (%s %s | %s %s)" % (g("alla"), pcs("alla")[:10], g("cha"), pcs("cha")[:10]))
     nt = [d1 for _, d1, _ in log.notes(ch=0, after=p0 - 2)]
     check(g("far") == "NOTE LOOP 4 STEPS" and g("nov") == "VELOCITY LOOP = THE TRACK'S (ROW 2 GIVES IT ONE)" and g("jump") == "NOTE LOOP FROM STEP 3"
           and nt[:7] == [60, 62, 64, 64, 65, 60, 62],
@@ -13178,6 +13273,14 @@ def t032_maps():
     ok = len(sc) == 5 and all(w is None or [x.strip() for x in sc[k]] == w for k, w in enumerate(want))
     check(ok and sc[1][0].strip() == want[0][0] and sc[1][1].strip().startswith("SEL+"),
           "EDIT, ENV, LFO, SAVE held: the new keys in the map; EDIT + SEL: PICK's line as before (%s)" % sc)
+    # 0.32.1: HOME and GLO say what 0.31 gave their whites 13-16 - the page of steps, the groups (0.31-0.32: not said)
+    s = Script()
+    t = 6800
+    for b in (HOME, GLO):
+        s.press(t, b); s.at(t + 700, "ui"); s.release(t + 760, b); t += 900
+    log = run(s, t + 100)
+    sc = [x["lines"][3].strip() for x in log.screens()]
+    check(sc == ["W TRK 13-16 STEP PG  B TRACKS", "W MUTE 13-16 GROUPS  B SCENES"], "0.32.1: HOME and GLO held: their whites 13-16 in the map (%s)" % sc)
 
 
 
@@ -13203,7 +13306,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
     t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig,
-    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps]
+    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps, t0321_tablet_banks]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 

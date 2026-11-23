@@ -31,6 +31,7 @@ CH13_CCS = set(range(1, 33)) | set(range(33, 49)) | set(range(49, 65)) | set(ran
            set(range(101, 107)) | set(range(107, 119))
 CH12_CCS = set(range(1, 33)) | set(range(40, 62))                      # 0.18: the LIVE page (sagga_tablet.c); 0.23: 56-59, the THEORY engines; 0.25: 60, 61 SHORTER / LONGER
 MOD_CH12 = {62, 63}                                                     # 0.28.1: SAGGA Mod's lanes 7 and 8 (sagga_tablet.c), on the tablet's channel
+REMOTE_CH12 = {37, 39}                                                  # 0.32.1: SAGGA Remote's banks of scenes and snapshots (sagga_tablet.c)
 PLUGINS = ("sagga_remote", "sagga_mutes", "sagga_motori", "sagga_break", "sagga_mod", "sagga_live")
 
 
@@ -182,9 +183,10 @@ def structural():
         bad = [(c.param.name, c.channel, c.cc) for c in cells if not ((c.channel == 13 and c.cc in CH14_CCS) or (c.channel == 12 and c.cc in CH13_CCS)
                                                                         or (c.channel == 11 and c.cc in CH12_CCS and name == "sagga_live")
                                                                         or (c.channel == 11 and c.cc in MOD_CH12 and name == "sagga_mod")
+                                                                        or (c.channel == 11 and c.cc in REMOTE_CH12 and name == "sagga_remote")
                                                                         or (c.channel == 12 and c.cc == 0 and c.param.name.startswith("lfo_sw")))]   # (the LFO switches send notes)
         check(not bad, "%s: every cell a CC the FM-1 answers on channel 13 or 14 (%s)" % (name, bad[:4]))
-        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29", "0.30", "0.31") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
+        check(cls.VERSION in ("0.8", "0.12", "0.13", "0.18", "0.20", "0.23", "0.25", "0.28", "0.28.1", "0.29", "0.30", "0.31", "0.32.1") and cls.NAME.startswith("SAGGA ") and len(cls.HELP) > 100, "%s: name, version, help" % name)
         p = cls()
         trig = [c for c in cells if c.param.__class__.__name__ == "Button" and c.param.trigger]
         if trig:
@@ -255,6 +257,28 @@ def structural():
               for a, b in re.findall(r"\{(TB_CH|\d+), (\d+|FB_E_\w+), (?:0|FBF_SCALED)\}", tb))
     held = {(c.channel, c.cc) for c in mc.values() if c.param.__class__.__name__ in ("Knob", "Fader") or (c.param.__class__.__name__ == "Button" and c.cc)}
     check(held - fbm == {(12, cc) for cc in range(108, 112)}, "SAGGA Mod: every knob, lane and switch gets the FM-1's value back, the THROWS spring back on their own (%s)" % sorted(held - fbm))
+    # 0.32.1: SAGGA Remote reaches the 32 scenes and the 16 snapshots
+    m, cls = load_plugin("sagga_remote")
+    rc = {c.param.name: c for c in [q for q in cls.params if q.__class__.__name__ == "LayoutGrid"][0].cells}
+    lv = open(os.path.join(ROOT, "firmware", "src", "sagga_live.c")).read()
+    hdr2 = open(os.path.join(ROOT, "firmware", "src", "sagga_seq_core.h")).read()
+    scenes, snaps = int(re.search(r"#define SQ_SCENES\s+(\d+)u", hdr2).group(1)), int(re.search(r"#define SQ_SNAPS\s+(\d+)u", hdr2).group(1))
+    check(rc["morph_to"].param.max == scenes - 1 and len(m.SCENE_LABELS) == scenes and m.SCENE_LABELS[-1] == "SC%d" % scenes,
+          "SAGGA Remote: MORPH TO holds the FM-1's %d scenes (%s, %s)" % (scenes, rc["morph_to"].param.max, m.SCENE_LABELS[-1]))
+    check((rc["scene_bank"].channel, rc["scene_bank"].cc, rc["scene_bank"].param.max) == (11, 37, scenes // 8 - 1) and len(m.SCENE_BANKS) == scenes // 8
+          and (rc["snap_bank"].channel, rc["snap_bank"].cc, rc["snap_bank"].param.max) == (11, 39, snaps // 8 - 1) and len(m.SNAP_BANKS) == snaps // 8,
+          "SAGGA Remote: SCENES on channel 12 CC 37 (a bank of eight for each of the %d scenes), SNAPS on CC 39 (of the %d snapshots)" % (scenes, snaps))
+    check(re.search(r"case 37u:.*?tab_scene_bank = ", tb, re.S) is not None and re.search(r"case 39u:.*?tab_snap_bank = ", tb, re.S) is not None
+          and "scene_recall((uint8_t)(tab_scene_bank * 8u + cc - 40u))" in lv and "snap_recall((uint8_t)(tab_snap_bank + cc - 106u))" in lv
+          and "snap_store((uint8_t)(tab_snap_bank + cc - 12u))" in lv,
+          "SAGGA Remote: the FM-1 takes the banks on channel 12 CC 37 / 39, and SCENE, SNAP and STORE 1-8 are the bank's")
+    check({(11, 37), (11, 39), (13, 2)} <= fbm and "project.live.morph_b < SQ_SCENES ? project.live.morph_b : 255u" in tb,
+          "SAGGA Remote: the banks and MORPH TO (every scene) come back from the FM-1")
+    p = cls()
+    p.on_param_change("scene_bank", 2); p.on_param_change("snap_bank", 1); p.on_param_change("morph_to", 31)
+    p.on_cc(11, 37, 1); p.on_cc(11, 39, 0); p.on_cc(13, 2, 20)
+    check(p.ccs == [(11, 37, 2), (11, 39, 1), (13, 2, 31)] and (p.get_param("scene_bank"), p.get_param("snap_bank"), p.get_param("morph_to")) == (1, 0, 20),
+          "SAGGA Remote: SCENES, SNAPS and MORPH TO send their value and take the FM-1's (%s %s)" % (p.ccs, (p.get_param("scene_bank"), p.get_param("snap_bank"), p.get_param("morph_to"))))
     m, cls = load_plugin("sagga_motori")
     p = cls()
     p.on_param_change("p3", 5)

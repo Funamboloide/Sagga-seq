@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.32"
+#define SQ_VERSION "0.32.1"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -349,6 +349,9 @@ static uint8_t live_ghost[SQ_TRACKS];       /* DENSITY: the step playing is a hi
 /* SNAPSHOTS (sagga_live.c) */
 static uint8_t snap_cur = 255u;             /* the snapshot playing, or stored last (255: none) */
 static uint8_t snap_bank;                   /* 0.30: the eight snapshots the keys and pads reach: 0 = 1-8, 8 = 9-16 */
+static uint8_t tab_scene_bank, tab_snap_bank;   /* 0.32.1: the tablet's own banks - the eight scenes (0-3: 1-8 .. 25-32) and the
+                                             * eight snapshots (0 or 8) SAGGA Remote's SCENE 1-8, SNAP 1-8 and STORE 1-8 are
+                                             * (channel 12 CC 37 / 39, sagga_tablet.c; 0.30-0.32: the first eight only) */
 static uint8_t snap_pend = 255u;            /* recalled, waiting for the QUANTISE moment */
 static uint8_t snap_capture;                /* CC CAPTURE on: the CCs that come in go into snapshot snap_cur */
 static uint8_t snap_tx_on;                  /* a snapshot's sound is being sent */
@@ -3600,8 +3603,9 @@ static void lfo_black(int bi)
         }
         if (i > SQ_LFOS) status_msg("ALL 16 LFOS ARE ON");
     } else if (bi == 10) {
-        if (!(lfo_reset_ask && !time_due(fm1_ms, lfo_reset_until))) {
-            lfo_reset_ask = 1u; lfo_reset_until = fm1_ms + 3000u;   /* (as SQ_ASK_MS) */
+        if (!(lfo_reset_ask == lfo_sel + 1u && !time_due(fm1_ms, lfo_reset_until))) {   /* (0.32.1: asked for THIS LFO - another one
+                                                                                         * chosen since is asked again) */
+            lfo_reset_ask = (uint8_t)(lfo_sel + 1u); lfo_reset_until = fm1_ms + 3000u;   /* (as SQ_ASK_MS) */
             status_num("RESET LFO? AGAIN: ", (uint32_t)lfo_sel + 1u);
             return;
         }
@@ -5314,7 +5318,7 @@ static void update_leds(void)
         if (lfo_clip_ok) fm1_led_key(KEY_LED(black_key[7]), 1);
         fm1_led_key_dim(KEY_LED(black_key[8]), 1);
         fm1_led_key_dim(KEY_LED(black_key[9]), 1);
-        if (lfo_reset_ask && !time_due(fm1_ms, lfo_reset_until)) fm1_led_key(KEY_LED(black_key[10]), blink); else fm1_led_key_dim(KEY_LED(black_key[10]), 1);
+        if (lfo_reset_ask == lfo_sel + 1u && !time_due(fm1_ms, lfo_reset_until)) fm1_led_key(KEY_LED(black_key[10]), blink); else fm1_led_key_dim(KEY_LED(black_key[10]), 1);
     } else if ((held & (1u << BTN_ARP)) && track_break(selected_track)) {   /* 0.12: the chops on the whites (the pattern's blinks), the moves */
         for (i = 0; i < 16u; i++) fm1_led_key(KEY_LED(white_key[i]), i == project.track[selected_track].brk_chop ? blink : (brk_live_key == white_key[i]));
         fm1_led_key(KEY_LED(black_key[0]), brk_roll_held == 1u);

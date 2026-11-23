@@ -280,7 +280,7 @@ def t_units():
     group("the pieces: a page's cells and the user's bindings, the Launchpad's message of each grid press, the values back")
     data = {"params": {"cell_bindings": {"fill": {"channel": 12, "cc": 99, "on": 100}}}, "params_schema": schema_of("sagga_remote")}
     b = R.page_bindings(data)
-    check(b["fill"] == (12, 99, "button", 100, 0) and b["play"][2] == "trigger" and b["morph"][2] == "fader" and len(b) == 69,
+    check(b["fill"] == (12, 99, "button", 100, 0) and b["play"][2] == "trigger" and b["morph"][2] == "fader" and len(b) == 71,   # (0.32.1: + SCENES, SNAPS)
           "page_bindings: the schema's cells, the user's binding over one (%s %s)" % (b.get("fill"), len(b)))
     bad = []
     for st, d1, d2 in [(0x9F, y * 16 + x, v) for y in range(8) for x in range(16) for v in (100, 0)] + \

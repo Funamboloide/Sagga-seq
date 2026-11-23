@@ -301,6 +301,27 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
   banco: 32 sessioni; l'FM-1 completo: 37 (con una sessione per ogni situazione della 0.28, della 0.29, della 0.30,
   della 0.31 e della 0.32).
 
+* **La 0.32 sull'FM-1 vero** (fra il 20 e il 22 novembre 2026; i file portano ancora la data del 26 ottobre, l'orologio del Pi): il
+  banco (32 sessioni) e l'FM-1 completo (37). **In tutte e 69 l'FM-1 fa quello che fa il simulatore.** Il confronto aveva
+  segnato quattro cose, e tutte e quattro erano sue, non dell'FM-1. Corrette nella 0.32.1:
+  * **SIMULATORE, s024**: a 128 BPM le sonde (una ogni 700 ms) cadono 36 tick di clock una dall'altra quasi al
+    millisecondo, e restano sul confine di un tick per sei sonde di fila. L'FM-1 ne ha letta una un tick prima del
+    simulatore, proprio sulla battuta dove atterrava una scena in coda (con i suoi mute); la sonda dopo era ancora un
+    tick prima, uguale tranne gli step. La regola voleva la sonda dopo tutta uguale: adesso le basta che abbia solo gli
+    step, letta anche lei un tick prima o dopo. È TEMPO.
+  * **PERSI, b012**: una nota (canale 2) quattro millisecondi prima di un KILL arrivato dalle pagine. Per far tornare
+    una sonda più avanti il confronto aveva spostato tutti i tasti di 2 ms, e spostato così il simulatore quella nota la
+    suona; con i millisecondi che l'FM-1 ha detto non la suona nemmeno lui. Adesso una nota è persa solo se la mandano
+    tutti e due i replay (quello spostato e quello con i millisecondi dell'FM-1); se no è vista, con TEMPO. (I conti
+    dell'FM-1, CONTI, lo dicevano già: quello che ha mandato il Pi l'ha sentito tutto.)
+  * **VALORI, b030**: un pad del grid (PROJ) aveva spento il REMOTE: da lì l'FM-1 non ascolta le pagine e non rimanda
+    niente, e due celle premute dopo restavano sulla pagina con il valore del Pi. **VALORI, b032**: il SEED di SAGGA
+    Live su un pattern che non è dei motori: l'FM-1 lì non ha un valore da mostrare, e tace. Adesso una cella si
+    confronta solo se l'FM-1 ha parlato dopo l'ultima pressione del Pi (il programma del Pi tiene i tempi; per le
+    raccolte di prima il confronto li ricava da quello che la raccolta tiene).
+  * Con le regole nuove le due raccolte danno **0 errori**. Resta, vista: in 7 riavvii su 32 l'FM-1 ha risposto dopo i
+    12 secondi, e il Pi lo ha fatto ritrovare all'USB (come dalla 0.20.9); la corsa è durata 31 minuti invece di 26.
+
 * **Il banco della 0.27 sull'FM-1 vero** (19 novembre 2026; i file portano la data del 26 ottobre, quella dell'orologio
   del Pi): il banco, 27 sessioni, e l'FM-1 completo, 32. Nessun blocco, nessuna nota appesa, nessun messaggio perso
   dall'FM-1, il clock giusto. Al primo confronto 6 cose diverse dal simulatore e un comando di una pagina mai arrivato;
@@ -392,7 +413,7 @@ con quei messaggi negli stessi punti, come gli eventi del test. In più del rapp
 | GRID | un messaggio del bridge che l'FM-1 non ha mai sentito |
 | PONTE | un pad o un bottone che il bridge ha tradotto male |
 | LUCI | le luci del bridge diverse da quelle che l'FM-1 aveva mandato; da guardare: le luci ferme dell'FM-1 diverse da quelle del simulatore |
-| VALORI | un valore che l'FM-1 rimanda e che la cella della pagina non segue |
+| VALORI | un valore che l'FM-1 rimanda e che la cella della pagina non segue. Dalla 0.32.1 si confronta solo se l'FM-1 ha parlato per ultimo: una cella che il Pi ha premuto DOPO l'ultima parola dell'FM-1 su di lei è vista, non un errore (il REMOTE spento da un gesto: l'FM-1 non ascolta più le pagine e non rimanda niente; una cella che lì non ha un valore, come il SEED di un pattern che non è dei motori) |
 | SENTITI | l'FM-1 che non ascolta (firmware vecchio), pezzi di quello che ha sentito persi per strada, messaggi da un altro dispositivo |
 | CELLE | 0.20.9: le celle dell'FM-1 che RaspiMIDIHub ha perso in un riavvio (il suo salvataggio automatico mentre l'FM-1 non c'era) e che il Pi ha rimesso (visto), o che non sono tornate (errore: allora VALORI è da guardare) |
 

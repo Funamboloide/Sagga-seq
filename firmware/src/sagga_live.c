@@ -259,11 +259,13 @@ static void learn_service(void)
  *   7 INTENSITY   8 GATE   9 SWING   10 FILTER (the macros, 64 = 0)   11 TRANSPOSE (12 = 0: 0..24 = -12..+12)
  *   20 PLAY / STOP   21 CONTINUE   22 RELOAD   23 FILL (held)   24-27 LOOP / REPEAT 1/4 1/8 1/16 1/32 (tap / hold)
  *   28 scene -1   29 scene +1   30 tempo -1   31 tempo +1   32 TAP   33 EVOLVE   34 FREEZE   35 REVERT   36 UNDO
- *   37 TEMP (held)   38 PANIC   39 MUTE QUEUE on / off   40-47 scene 1-8   48-63 mute track 1-16 (0.28: 1-12)
+ *   37 TEMP (held)   38 PANIC   39 MUTE QUEUE on / off   40-47 scene 1-8 (0.32.1: of the tablet's bank of eight -
+ *   channel 12 CC 37, sagga_tablet.c: 1-8, 9-16, 17-24, 25-32)   48-63 mute track 1-16 (0.28: 1-12)
  *   64-79 kill track 1-16 (held; 0.28: 1-12)   80-84 dice SEQ CC LFO GROOVE ALL   85 keep the dice   86 put it back
  *   87 STOP at the end of the bar   88 RESTART   89 EXIT the loop   90-105 RETRIG track 1-16 (0.28: 1-12)
  *   0.8: 106-113 SNAPSHOT 1-8   114 CC CAPTURE on / off   115 SEND the snapshot's sound   116 PATCHES (the Pi)
  *   117 HARMONY on / off   118 the global ECHO on / off   119 WRITE LIVE   12-19 store SNAPSHOT 1-8
+ *   (0.32.1: the snapshots 1-8 of the tablet's bank - channel 12 CC 39: 1-8 or 9-16)
  *   (120-127 are the channel mode messages of MIDI: never commands; a PANIC's CC 123 on every channel must not store) */
 static uint8_t remote_temp;
 
@@ -340,8 +342,8 @@ static void remote_cc(uint8_t cc, uint8_t v)
     case 118u: echo_global ^= 1u; status_msg(echo_global ? "ECHO: EVERY TRACK, A DOTTED EIGHTH" : "ECHO OFF"); break;
     case 119u: live_write(); break;
     default:
-        if (cc >= 106u && cc < 114u) snap_recall((uint8_t)(cc - 106u));
-        else if (cc >= 12u && cc < 20u) snap_store((uint8_t)(cc - 12u));
+        if (cc >= 106u && cc < 114u) snap_recall((uint8_t)(tab_snap_bank + cc - 106u));     /* (0.32.1: the tablet's bank) */
+        else if (cc >= 12u && cc < 20u) snap_store((uint8_t)(tab_snap_bank + cc - 12u));
         else if (cc >= 90u && cc < 90u + SQ_TRACKS) track_retrig((uint8_t)(cc - 90u));
         else if (cc >= 90u + SQ_TRACKS && cc < 106u) {  /* 0.31: 102-105 RETRIG a group (drums, bass, melodic, all) */
             uint32_t k;
@@ -356,7 +358,7 @@ static void remote_cc(uint8_t cc, uint8_t v)
                 status_msg(msg_buf);
             }
         }
-        else if (cc >= 40u && cc < 48u) scene_recall((uint8_t)(cc - 40u));
+        else if (cc >= 40u && cc < 48u) scene_recall((uint8_t)(tab_scene_bank * 8u + cc - 40u));   /* (0.32.1: the tablet's bank) */
         else if (cc >= 48u && cc < 48u + SQ_TRACKS) toggle_mute((uint8_t)(cc - 48u));
         else if (cc >= 48u + SQ_TRACKS && cc < 64u) mute_group((uint8_t)(cc - 48u - SQ_TRACKS));   /* 0.31: 60-63 the groups' mutes */
         else if (cc >= 80u && cc < 85u) dice_roll((uint8_t)(DICE_SEQ + cc - 80u));

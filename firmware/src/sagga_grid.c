@@ -460,6 +460,25 @@ static void gr_perf_set(uint8_t x, uint8_t y)
     ui_dirty = grid_dirty = 1u;
 }
 
+
+/* 0.32.1: a pad that changes every track or every scene in one go, with no UNDO, asks first: the same pad again within
+ * three seconds does it (as CLEAR and a NEW PROJECT). 0.31 and 0.32 gave such pads a single tap: every track's MIDI
+ * channel (PROJ row 4, pads 13 and 14), every track's VEL OFFSET (TRACK row 7 pad 16), the programs of every scene
+ * (TRACK 2 row 5, pads 13 and 15) - a finger one pad off, on stage, and the set played other synths. */
+static uint8_t g_ask_id;                    /* the pad that asked (0: none): the view * 16 + its place, + 1 */
+static uint32_t g_ask_until;
+static uint8_t gr_twice(uint8_t id, const char *what)
+{
+    char *p = msg_buf;
+    if (g_ask_id == id && !time_due(fm1_ms, g_ask_until)) { g_ask_id = 0u; return 1u; }
+    g_ask_id = id; g_ask_until = fm1_ms + SQ_ASK_MS;
+    p = put_s(p, what); p = put_s(p, "? AGAIN: YES"); finish(p);
+    status_msg(msg_buf);
+    ui_dirty = grid_dirty = 1u;
+    return 0u;
+}
+enum { GA_VOFF = 1, GA_CH_OWN, GA_CH_DRUM, GA_PC_ALL, GA_PC_CH };
+
 /* PERF: a row per track of the bank: mute, solo, patterns 1-8, RETRIG, KILL (held; SHIFT: latched), where it plays */
 static void gr_pad_perf(uint8_t x, uint8_t y, uint8_t down)
 {
@@ -530,7 +549,11 @@ static void gr_pad_track(uint8_t x, uint8_t y)
         break;
     case 6:
         if (x < 15u) { cfg->vel_offset = GR_VOFF[x]; { char *p = msg_buf; p = put_s(p, "VEL "); p = put_i(p, cfg->vel_offset); finish(p); status_msg(msg_buf); } }
-        else { uint32_t k; for (k = 0; k < SQ_TRACKS; k++) project.track[k].vel_offset = 0; status_msg("EVERY TRACK: VEL OFFSET 0"); }   /* 0.32: pad 16 */
+        else if (gr_twice(GA_VOFF, "EVERY TRACK'S VEL OFFSET TO 0")) {   /* 0.32: pad 16 (0.32.1: asked twice) */
+            uint32_t k;
+            for (k = 0; k < SQ_TRACKS; k++) project.track[k].vel_offset = 0;
+            status_msg("EVERY TRACK: VEL OFFSET 0");
+        }
         break;
     default:
         if (x < 15u) {
@@ -1220,12 +1243,16 @@ static void gr_proj_channels(uint8_t x)
 {
     uint32_t t, n = 0u;
     char *p = msg_buf;
-    if (x == 12u) {
+    if (x == 12u) {                                     /* (0.32.1: these two ask twice - every track's channel in one tap) */
+        if (!gr_twice(GA_CH_OWN, "EVERY TRACK ON ITS OWN CHANNEL")) return;
         for (t = 0; t < SQ_TRACKS; t++) if (project.track[t].channel != t) { track_all_off(t); project.track[t].channel = (uint8_t)t; n++; }
         status_msg("EVERY TRACK ON ITS OWN CHANNEL: T1 ON 1 ... T12 ON 12");
     } else if (x == 13u) {
-        for (t = 0; t < SQ_TRACKS; t++) if (track_drum(t)) { if (project.track[t].channel != 9u) track_all_off(t); project.track[t].channel = 9u; n++; }
-        status_msg(n ? "THE DRUM TRACKS ON CHANNEL 10 (GENERAL MIDI)" : "NO DRUM TRACK");
+        for (t = 0; t < SQ_TRACKS; t++) if (track_drum(t)) n++;
+        if (!n) { status_msg("NO DRUM TRACK"); ui_dirty = grid_dirty = 1u; return; }
+        if (!gr_twice(GA_CH_DRUM, "THE DRUM TRACKS ON CHANNEL 10")) return;
+        for (t = 0; t < SQ_TRACKS; t++) if (track_drum(t)) { if (project.track[t].channel != 9u) track_all_off(t); project.track[t].channel = 9u; }
+        status_msg("THE DRUM TRACKS ON CHANNEL 10 (GENERAL MIDI)");
     } else {
         sq_track_cfg_t *c = &project.track[selected_track];
         int32_t ch = (int32_t)c->channel + (x == 14u ? -1 : 1);
@@ -1388,6 +1415,9 @@ static void gr_pad_track2(uint8_t x, uint8_t y)
         } else if (x < 15u) {                           /* 0.32: 13 these programs in every scene, 14 none here, 15 the track's in every scene */
             uint32_t sc, c2;
             char *p = msg_buf;
+            /* (0.32.1: the two that write every scene ask twice) */
+            if (x == 12u && !gr_twice(GA_PC_ALL, "THESE PROGRAMS IN EVERY SCENE")) return;
+            if (x == 14u && !gr_twice(GA_PC_CH, "THIS CHANNEL'S PROGRAM IN EVERY SCENE")) return;
             for (sc = 0; sc < SQ_SCENES; sc++) {
                 if (x == 13u) { if (sc == g_pc_scene) for (c2 = 0; c2 < SQ_CHANNELS; c2++) project.scene[sc].pc[c2] = SQ_PC_NONE; }
                 else if (sc != g_pc_scene) {

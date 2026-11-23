@@ -21,6 +21,9 @@
  *   (seeds 1-128)   58 the SEED of the pattern its track plays 0-127 (made again at once)   59 its VARIATION 0-99
  *   CC 60 SHORTER   61 LONGER (0.25: every track, at the bar)   62 / 63 LANE 7 / 8 the base value, sent at once (0.28.1:
  *   SAGGA Mod's; lanes 1-6 are channel 13 CC 101-106)
+ *   CC 37 the tablet's bank of SCENES 0-3 (0.32.1: the eight scenes SAGGA Remote's SCENE 1-8 are - 1-8, 9-16, 17-24,
+ *   25-32)   39 its bank of SNAPSHOTS 0-1 (the eight its SNAP 1-8 and STORE 1-8 are - 1-8, 9-16). The tablet's own, as
+ *   its track: the panel's and the grid's banks stay where they are. (38 is a Data Entry in MIDI 2.0: left alone.)
  *
  *   back to the hub (two USB ports, on port 2, once the hub has said something there - 0.20.8: anything, the grid
  *   bridge's keep-alive too, so the pages follow from the start; before, a page's command): what the hub's pages show, as it
@@ -213,6 +216,16 @@ static void live12_cc(uint8_t cc, uint8_t v)
     case 58u: th_knobs(t, 0, 0, (int32_t)v - (int32_t)project.th.pat[t][tr[t].pattern].seed, 0, 1, 1); ui_dirty = grid_dirty = 1u; return;
     case 59u: th_knobs(t, 0, 0, 0, (int32_t)(v > 99u ? 99u : v) - (int32_t)project.th.pat[t][tr[t].pattern].var, 1, 1); ui_dirty = grid_dirty = 1u; return;
     case 62u: case 63u: tab_lane_base(t, cc - 56u, v); return;   /* 0.28.1: lanes 7 and 8 (SAGGA Mod; 1-6: channel 13 CC 101-106) */
+    case 37u:                                          /* 0.32.1: the tablet's bank of scenes (0-3, or 0-127 over the four) */
+        tab_scene_bank = (uint8_t)(v < SQ_SCENES / 8u ? v : (uint32_t)v * (SQ_SCENES / 8u) / 128u);
+        p = put_s(p, "SCENES "); p = put_u(p, (uint32_t)tab_scene_bank * 8u + 1u); p = put_s(p, "-"); p = put_u(p, (uint32_t)tab_scene_bank * 8u + 8u);
+        p = put_s(p, ": THE TABLET'S SCENE 1-8"); finish(p);
+        status_msg(msg_buf);
+        return;
+    case 39u:                                          /* ... of snapshots (0: 1-8, 1: 9-16; a switch's "on": 9-16) */
+        tab_snap_bank = (v == 1u || v >= 64u) ? 8u : 0u;
+        status_msg(tab_snap_bank ? "SNAPSHOTS 9-16: THE TABLET'S SNAP AND STORE 1-8" : "SNAPSHOTS 1-8: THE TABLET'S SNAP AND STORE 1-8");
+        return;
     default: break;
     }
     if (!on) return;                                    /* the taps: at the press */
@@ -248,6 +261,7 @@ static const fb_one_t FB_ONES[] = {
     {TB_CH, 24, 0}, {TB_CH, 25, 0},
     {TB_CH, 56, 0}, {TB_CH, 57, 0}, {TB_CH, 58, 0}, {TB_CH, 59, 0},      /* 0.23 THEORY: the SOURCE, the next seed, the track's seed and variation */
     {TB_CH, 62, 0}, {TB_CH, 63, 0},                                      /* 0.28.1: lanes 7 and 8 of the tablet's track */
+    {TB_CH, 37, 0}, {TB_CH, 39, 0},                                      /* 0.32.1: the tablet's banks of scenes and snapshots */
     {12, 92, 0}, {12, 93, 0}, {12, 94, 0}, {12, 95, 0}, {12, 96, 0}, {12, 97, 0},
     {TB_CH, FB_E_LANE1, 0}, {12, 102, 0}, {12, 103, 0}, {12, 104, 0}, {12, 105, 0}, {12, 106, 0},
     {12, 112, 0}, {12, 113, 0}, {12, 114, FBF_SCALED}, {12, 115, 0}, {12, 116, 0}, {12, 117, 0}, {12, 118, 0},
@@ -318,6 +332,8 @@ static uint8_t fb_value(uint32_t k)
         case 58: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].seed) : 255u;
         case 59: return project.th.pat[tt][tr[tt].pattern].style ? u7(project.th.pat[tt][tr[tt].pattern].var) : 255u;
         case 62: case 63: return c->lane_base[num - 56u] <= 127u ? c->lane_base[num - 56u] : 255u;
+        case 37: return tab_scene_bank;
+        case 39: return tab_snap_bank ? 1u : 0u;
         case FB_E_SWING: return c->swing;
         case FB_E_QUANT: return project.live.remote_ch == SQ_REMOTE_OFF ? 255u : project.live.quant;
         case FB_E_LANE1: return c->lane_base[0] <= 127u ? c->lane_base[0] : 255u;
@@ -349,7 +365,8 @@ static uint8_t fb_value(uint32_t k)
     if (project.live.remote_ch == SQ_REMOTE_OFF) return 255u;
     switch (num) {                                      /* channel 14 */
     case 1: return morph_pos;
-    case 2: return project.live.morph_b < 8u ? project.live.morph_b : 255u;   /* (the page's MORPH TO: scenes 1-8) */
+    case 2: return project.live.morph_b < SQ_SCENES ? project.live.morph_b : 255u;   /* (0.32.1: the page's MORPH TO holds the 32
+                                                                               *  scenes; 0.30-0.32: 1-8, and nothing sent past them) */
     case 4: return u7(((int32_t)project.gen.evo_amount - 1) * 127 / 99);
     case 5: return u7(((int32_t)project.gen.heat - 1) * 127 / 99);
     case 7: return u7((int32_t)mac_vel + 64);

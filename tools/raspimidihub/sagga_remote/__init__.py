@@ -9,6 +9,10 @@ port 2 ("Felucca MIDI 2"), where the FM-1 listens for the remote then.
 0.8: the SNAPSHOTS (1-8 recall at the QUANTISE moment, STORE 1-8), CC CAPTURE, SEND, PATCHES (the Pi keeps the
 synths' patches), HARMONY on / off, the global ECHO, WRITE LIVE.
 
+0.32.1: the 32 scenes and the 16 snapshots from here too - SCENES picks the eight that SCENE 1-8 are (1-8, 9-16, 17-24,
+25-32), SNAPS the eight that SNAP 1-8 and STORE 1-8 are (1-8, 9-16): the tablet's own banks, on channel 12 (CC 37 / 39;
+they need REMOTE 13 + 14); MORPH TO reaches scene 32.
+
 0.5.1: LOOP (a tap: it stays) and REPEAT (on while the button is on, it lands in time when you switch it off) share
 their CC, as on the FM-1, where a tap is a LOOP and a hold is a REPEAT; EXIT, RESTART, STOP at the bar; the four
 macros (INTENSITY, GATE, SWING, FILTER: 64 = 0) and TRANSPOSE (12 = 0).
@@ -20,9 +24,12 @@ from raspimidihub.controller_base import ControllerBase
 from raspimidihub.plugin_api import Button, Fader, Knob, LayoutCell, LayoutGrid, Radio
 
 CH = 13                                   # MIDI channel 14 (0-based), where the FM-1 listens for the remote
+CH12 = 11                                 # channel 12: the tablet's own banks of scenes and snapshots (0.32.1)
 
 QUANT_LABELS = ["AUTO", "NOW", "BEAT", "BAR", "2 BAR", "4 BAR", "8 BAR"]
-SCENE_LABELS = ["SC1", "SC2", "SC3", "SC4", "SC5", "SC6", "SC7", "SC8"]
+SCENE_LABELS = ["SC%d" % (i + 1) for i in range(32)]            # 0.32.1: MORPH TO holds the 32 scenes (0.30-0.32: eight)
+SCENE_BANKS = ["1-8", "9-16", "17-24", "25-32"]                 # 0.32.1: the eight scenes SCENE 1-8 are
+SNAP_BANKS = ["1-8", "9-16"]                                    # ... the eight snapshots SNAP 1-8 and STORE 1-8 are
 TRANS_LABELS = ["%+d" % (i - 12) if i != 12 else "0" for i in range(25)]
 LOOPS = [("4", "1/4", 24), ("8", "1/8", 25), ("16", "1/16", 26), ("32", "1/32", 27)]
 
@@ -37,8 +44,8 @@ def hold(name, label, cc, col, row, color="yellow"):
     return LayoutCell(Button(name, label, color=color), col=col, row=row, channel=CH, cc=cc)
 
 
-def knob(name, label, cc, col, row, lo=0, hi=127, default=64, labels=None):
-    return LayoutCell(Knob(name, label, min=lo, max=hi, default=default, labels=labels or []), col=col, row=row, channel=CH, cc=cc)
+def knob(name, label, cc, col, row, lo=0, hi=127, default=64, labels=None, ch=CH):
+    return LayoutCell(Knob(name, label, min=lo, max=hi, default=default, labels=labels or []), col=col, row=row, channel=ch, cc=cc)
 
 
 CELLS = [
@@ -66,34 +73,36 @@ CELLS = [
     tap("freeze", "FREEZE", 34, 4, 6),
 
     *[tap("sc%d" % i, "SCENE %d" % (i + 1), 40 + i, (i % 4) + 1, 7 + i // 4, "blue") for i in range(8)],
+    knob("scene_bank", "SCENES", 37, 1, 9, 0, 3, 0, SCENE_BANKS, ch=CH12),          # 0.32.1: which eight SCENE 1-8 are
 
-    LayoutCell(Fader("morph", "MORPH", min=0, max=127, default=0), col=1, row=9, span_cols=3, channel=CH, cc=1),
-    knob("morph_to", "MORPH TO", 2, 4, 9, 0, 7, 1, SCENE_LABELS),
+    LayoutCell(Fader("morph", "MORPH", min=0, max=127, default=0), col=1, row=10, span_cols=3, channel=CH, cc=1),
+    knob("morph_to", "MORPH TO", 2, 4, 10, 0, 31, 1, SCENE_LABELS),
 
-    knob("intensity", "INTENSITY", 7, 1, 10),
-    knob("gate", "GATE", 8, 2, 10),
-    knob("swing", "SWING", 9, 3, 10),
-    knob("filter", "FILTER", 10, 4, 10),
+    knob("intensity", "INTENSITY", 7, 1, 11),
+    knob("gate", "GATE", 8, 2, 11),
+    knob("swing", "SWING", 9, 3, 11),
+    knob("filter", "FILTER", 10, 4, 11),
 
-    knob("transpose", "TRANSPOSE", 11, 1, 11, 0, 24, 12, TRANS_LABELS),
-    knob("quant", "QUANTISE", 6, 2, 11, 0, 6, 0, QUANT_LABELS),
-    knob("evo_amt", "EVOLVE AMT", 4, 3, 11, default=32),
-    knob("heat", "HEAT", 5, 4, 11, default=50),
+    knob("transpose", "TRANSPOSE", 11, 1, 12, 0, 24, 12, TRANS_LABELS),
+    knob("quant", "QUANTISE", 6, 2, 12, 0, 6, 0, QUANT_LABELS),
+    knob("evo_amt", "EVOLVE AMT", 4, 3, 12, default=32),
+    knob("heat", "HEAT", 5, 4, 12, default=50),
 
-    tap("bpm_dn", "TEMPO -1", 30, 1, 12),
-    tap("bpm_up", "TEMPO +1", 31, 2, 12),
-    tap("taptempo", "TAP", 32, 3, 12),
-    tap("revert", "REVERT", 35, 4, 12),
+    tap("bpm_dn", "TEMPO -1", 30, 1, 13),
+    tap("bpm_up", "TEMPO +1", 31, 2, 13),
+    tap("taptempo", "TAP", 32, 3, 13),
+    tap("revert", "REVERT", 35, 4, 13),
 
-    *[tap("snap%d" % i, "SNAP %d" % (i + 1), 106 + i, (i % 4) + 1, 13 + i // 4, "green") for i in range(8)],
-    *[tap("store%d" % i, "STORE %d" % (i + 1), 12 + i, (i % 4) + 1, 15 + i // 4, "red") for i in range(8)],
-    tap("capture", "CC CAPTURE", 114, 1, 17, "yellow"),
-    tap("snd", "SEND SOUND", 115, 2, 17, "yellow"),
-    tap("patches", "PATCHES", 116, 3, 17, "yellow"),
-    tap("harmony", "HARMONY", 117, 4, 17, "blue"),
-    tap("echo", "ECHO", 118, 1, 18, "blue"),
-    tap("write", "WRITE LIVE", 119, 2, 18, "red"),
-    LayoutCell(Button("take", "TAKE", color="red", trigger=True), col=3, row=18, channel=12, cc=107),   # 0.12: on channel 13
+    *[tap("snap%d" % i, "SNAP %d" % (i + 1), 106 + i, (i % 4) + 1, 14 + i // 4, "green") for i in range(8)],
+    *[tap("store%d" % i, "STORE %d" % (i + 1), 12 + i, (i % 4) + 1, 16 + i // 4, "red") for i in range(8)],
+    tap("capture", "CC CAPTURE", 114, 1, 18, "yellow"),
+    tap("snd", "SEND SOUND", 115, 2, 18, "yellow"),
+    tap("patches", "PATCHES", 116, 3, 18, "yellow"),
+    tap("harmony", "HARMONY", 117, 4, 18, "blue"),
+    tap("echo", "ECHO", 118, 1, 19, "blue"),
+    tap("write", "WRITE LIVE", 119, 2, 19, "red"),
+    LayoutCell(Button("take", "TAKE", color="red", trigger=True), col=3, row=19, channel=12, cc=107),   # 0.12: on channel 13
+    knob("snap_bank", "SNAPS", 39, 4, 19, 0, 1, 0, SNAP_BANKS, ch=CH12),            # 0.32.1: which eight SNAP / STORE 1-8 are
 ]
 
 
@@ -103,7 +112,7 @@ class SaggaRemote(ControllerBase):
     NAME = "SAGGA Remote"
     DESCRIPTION = "SAGGA SEQ (M-VAVE FM-1): transport, LOOP / REPEAT, scenes, snapshots, MORPH, macros, TRANSPOSE on ch 14"
     AUTHOR = "SAGGA SEQ"
-    VERSION = "0.30"
+    VERSION = "0.32.1"
     HELP = """\
 The live commands of SAGGA SEQ 0.8 on the M-VAVE FM-1, as Control Changes on MIDI channel 14. Wire this plugin's
 OUT to the FM-1 in the matrix (with USB PORTS 2: to its port 2, "Felucca MIDI 2").
@@ -113,11 +122,14 @@ moment). FILL and TEMP are on until you press them again (on = held); RELOAD, PA
 LOOP 1/4 .. 1/32: a loop that stays (the same LOOP again, or EXIT LOOP: off). REP 1/4 .. 1/32: the same CC held: a
 REPEAT while the button is on; switch it off and the music lands where it would have been.
 UNDO (a dice waiting: back), KEEP DICE, MUTE QUEUE. SCENE - / + (all 32: 0.30) and 1-8 (QUANTISE decides when), EVOLVE,
-FREEZE, REVERT. MORPH glides the CC values from the scene playing to MORPH TO.
+FREEZE, REVERT. SCENES (0.32.1): which eight scenes SCENE 1-8 are - 1-8, 9-16, 17-24, 25-32 (on 9-16, SCENE 3 is scene
+11; the FM-1's screen says the scene). MORPH glides the CC values from the scene playing to MORPH TO (any of the 32).
 The macros act on every track (64 = 0): INTENSITY (velocity), GATE, SWING, FILTER (the CC lane 1 of every track).
 TRANSPOSE moves the key (the tracks in key), 0 in the middle, at the QUANTISE moment. QUANTISE, EVOLVE AMT, HEAT.
 TEMPO -1 / +1, TAP.
-SNAP 1-8: a snapshot comes back (at the QUANTISE moment); STORE 1-8 keeps what plays now in it. CC CAPTURE: the CCs
+SNAP 1-8: a snapshot comes back (at the QUANTISE moment); STORE 1-8 keeps what plays now in it; SNAPS (0.32.1): which
+eight they are - 1-8 or 9-16. SCENES and SNAPS are the tablet's own (the FM-1's keys and the grid keep their banks), on
+channel 12: they need SAVE K2 = REMOTE 13 + 14 on the FM-1 (with REMOTE 14 alone: the first eight). CC CAPTURE: the CCs
 your synths send go into the snapshot playing (again: off). SEND SOUND: its CC values out again. PATCHES: the Pi keeps
 the synths' patches for it (patches.json on the Pi). HARMONY on / off, ECHO (every track), WRITE LIVE (what the live
 EUCLID and algorithms play goes into the patterns). TAKE (0.12, channel 13): what was played on the keys or the pads
@@ -128,11 +140,11 @@ SAGGA Break (the slices of a drum break) and SAGGA Mod (LFOs, lanes, throws, the
 
     params = [
         Radio("bg", "Background", ControllerBase.BG_OPTIONS, default="Slate", config_only=True),
-        LayoutGrid("controller", "", cols=4, rows=18, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
+        LayoutGrid("controller", "", cols=4, rows=19, labels_param="cell_labels", bindings_param="cell_bindings", cells=CELLS),
     ]
 
     cc_outputs = sorted({c.cc for c in CELLS})
-    outputs = ["CC on ch 14 (TAKE on ch 13): the commands of SAGGA SEQ 0.12"]
+    outputs = ["CC on ch 14 (TAKE on ch 13; SCENES and SNAPS on ch 12): the commands of SAGGA SEQ"]
 
     TRIGGERS = frozenset(c.param.name for c in CELLS if isinstance(c.param, Button) and c.param.trigger)
 

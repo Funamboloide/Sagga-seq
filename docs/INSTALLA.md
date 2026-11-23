@@ -8,7 +8,7 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.32 — Il manuale"; il riferimento
+I due file vanno **della stessa versione**. Il manuale d'uso è il documento "SAGGA SEQ 0.32 — Il manuale" (vale per la 0.32.1); il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
 in `tools/hub/LEGGIMI.md` (nello zip: `LEGGIMI.md`).
 
@@ -44,6 +44,8 @@ messo su un gruppo lo trova spento, sulla traccia 1.
 **Dalla 0.32** i tasti e i pad che non facevano niente hanno un lavoro, e la manopola MASTER può muovere l'ENERGIA: i
 progetti di prima si aprono come erano. Se torni alla 0.31, apre i progetti della 0.32; la manopola messa sull'ENERGIA
 la trova sul TEMPO. La libreria del Pi mostra sul grid fino a 112 file (erano 64): aggiorna il Pi insieme all'FM-1.
+**Dalla 0.32.1** la pagina SAGGA Remote arriva alle 32 scene e alle 16 snapshot (le manopole SCENES e SNAPS): mandano
+numeri che solo l'FM-1 0.32.1 capisce, quindi aggiorna tutti e due. I progetti non cambiano.
 
 ## La prima volta sul Pi
 

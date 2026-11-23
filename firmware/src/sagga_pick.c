@@ -455,8 +455,8 @@ static const char *pick_kind_help(const pick_t *d)
 static void pick_map_lines(int g, char *l1, char *l2)
 {
     static const char *const L1[PG_COUNT] = {
-        "W TRACK  B TRK BANK MUTE SOLO",                /* HOME */
-        "W MUTE/SOLO  B SCENES ALL INV",                /* GLO */
+        "W TRK 13-16 STEP PG  B TRACKS",                /* HOME (0.32.1: 0.31's whites 13-16, the page of steps) */
+        "W MUTE 13-16 GROUPS  B SCENES",                /* GLO (0.32.1: 0.31's whites 13-16, the groups) */
         "W TOOLS  B DICE SCOPE KIT EVO",                /* SEQ */
         "KEYS PLAY TRACK, REC WRITES",                  /* ARP */
         "W CURSOR  B LOCK COPY PASTE..",                /* EDIT */
