@@ -121,7 +121,38 @@ delle dodici tracce sono a posto dappertutto, e sullo schermo non c'è più ness
 
 ## Come è stato provato
 
-PROVE_QUI
+Non ho un FM-1 in mano. **Sull'FM-1 vero è passata la 0.32** (i tuoi log, sezione 1). La 0.32.1 è provata nel
+simulatore (lo stesso codice del firmware, sul computer), con i test e con l'esploratore.
+
+| la prova | il risultato |
+| --- | --- |
+| le tue due raccolte dell'FM-1 vero (0.32), con il confronto corretto | 0 errori tutte e due |
+| il cuore: progetti, immagini, i nomi di ogni forma di accordo su ogni radice | 44.570.144 controlli, 0 errori |
+| le tabelle del firmware contate dal compilatore (nuova) | 243 tabelle, nessuna corta (la 244ª è quella dei nomi degli accordi: adesso si conta da sola, a ogni costruzione); tre accorciate apposta: trovate |
+| i motori THEORY | 200.798.646 controlli, 0 errori |
+| il simulatore del pannello e del grid | 1.736 controlli, 0 errori, con le prove nuove: le banche del tablet, i nomi degli accordi (`ARP 5`, `ARP 3`), le manopole girate lontano, i pad che chiedono, il RESET dell'LFO, la mappa dei tasti, la song |
+| l'editor dei progetti sul Pi | 276 controlli, 0 errori |
+| le pagine SAGGA, il bridge del grid, il hub | 101, 328 e 179 controlli, 0 errori |
+| il banco con il simulatore al posto dell'FM-1: il programma del Pi e il confronto | 79 controlli, 0 errori; ogni regola nuova del confronto ha la sua prova |
+| la fuzz con AddressSanitizer e UndefinedBehaviorSanitizer | 26 giri, 0 errori |
+| l'esploratore, il giro completo, con ogni manopola girata anche fino in fondo | 168.925 gesti da soli in 35 situazioni, 14.000 coppie, 200 sessioni da 60 gesti: 0 errori, niente da guardare |
+| lo stesso giro completo sotto AddressSanitizer e UndefinedBehaviorSanitizer (la prima volta tutto intero) | 166.412 gesti da soli, 14.000 coppie, 200 sessioni, più i controller del remoto al massimo (2.534 gesti): 0 errori |
+| 51 rotture fatte apposta nel firmware, nella pagina, nel bridge, nel programma del Pi e nel confronto | trovate tutte |
+
+Al primo giro due delle rotture erano passate: le prove di quei due punti erano deboli. Le ho rinforzate, e adesso le
+trovano.
+
+L'esploratore ha una situazione nuova, con SCENES e SNAPS sulle banche 9-16, nove gesti nuovi del tablet, e le manopole
+girate fino in fondo (sezione 2). Rileggendolo ho trovato una svista sua: il giro veloce (quello che gira con i test)
+sceglieva le situazioni delle ultime versioni contando dalla fine dell'elenco. Quando è arrivata la situazione della
+0.32, quella della 0.28 è uscita dal giro senza che niente lo dicesse. Adesso le sceglie per nome, e ci sono tutte:
+0.28, 0.29, 0.30, 0.31, 0.32, 0.32.1. (Il giro completo le ha sempre provate tutte.)
+
+**Sull'FM-1 vero** la 0.32.1 la provi come le altre, con il banco, dalla pagina del Pi (porta 8090): **Avvia la prova**
+(33 sessioni, circa ventisette minuti) e, nella tendina, **l'FM-1 completo** (38 sessioni, circa 38 minuti). I piani
+nuovi sono dentro `sagga-hub-0.32.1.zip`: hanno una sessione con le manopole nuove del tablet. Le manopole girate fino in
+fondo nei piani non ci sono: sull'FM-1 vero cambierebbero troppo i tempi (il tempo a 300, il clock esterno), e quello
+che cercano lo trova il simulatore. Se il rapporto segna qualcosa, mandami la raccolta come questa volta.
 
 ## Installare
 

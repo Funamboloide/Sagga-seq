@@ -636,6 +636,9 @@ def t_update_delete():
     check(st and st['rc'] == 0 and 'fake install --no-pc' in st['log'] and 'sagga_sgqmid built' in st['log'] and st['log'][-1] == 'exit 0',
           'the installer ran with --no-pc, its lines in the log, exit 0 (%s)' % (st and st['log']))
     check(any(ln.startswith('pwd ') and ln.endswith('/sagga-hub-9.9') for ln in st['log']), 'from the zip\'s folder, as install_hub.sh wants')
+    end = time.time() + 5.0                             # (0.32.1: the update's shell writes "exit 0" and THEN removes the folder - a
+    while time.time() < end and [n for n in os.listdir(up) if n.startswith('stage-')]:   # moment later: on a busy computer the
+        time.sleep(0.05)                                # check came first, and failed with nothing wrong)
     check(not [n for n in os.listdir(up) if n.startswith('stage-')], 'the unpacked zip is cleaned up after')
     # a new page process (what install_hub.sh's restart makes) reads the same files
     st2 = FW.State(fw, pr, writer=state.writer, upd_dir=up).update_status()

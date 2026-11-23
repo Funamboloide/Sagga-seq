@@ -336,11 +336,16 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
     dell'elenco, e ogni situazione nuova spingeva fuori la più vecchia: con la 0.32 era uscita quella della 0.28, e
     niente lo diceva. Adesso le prende per nome: 0.28, 0.29, 0.30, 0.31, 0.32 e 0.32.1.
   * **Sotto i controllori della memoria.** Il giro completo è stato fatto anche con il simulatore costruito con
-    AddressSanitizer e UndefinedBehaviorSanitizer (`SAGGA_SIM_CFLAGS`), per la prima volta tutto intero: GIRO_ASAN_QUI.
+    AddressSanitizer e UndefinedBehaviorSanitizer (`SAGGA_SIM_CFLAGS`), per la prima volta tutto intero: **166.412
+    gesti da soli in 35 situazioni, 14.000 coppie, 200 sessioni da 60 gesti, nessun errore** (un'ora e dieci con due
+    processori), più i controller del remoto al massimo nelle sette situazioni con il tablet (2.534 gesti, nessun
+    errore). Una lettura oltre la fine di una tabella, messa apposta dietro `GLO 3 K4 -127`, sotto i controllori
+    è `MORTO`; senza, non si vede.
     Con il firmware di prima AddressSanitizer conferma anche un errore più vecchio, sulla pagina ARP 3: lo spazio per
     l'accordo che suona teneva 12 byte, e un nome di nove lettere con un posto a due cifre (`bVII9sus4 10`) ne scriveva
     13. Adesso ne tiene 16.
-  * Il giro completo: **GIRO_QUI**. Le prove fisse della 0.32.1 (`t0321_tablet_banks`, `t0321_chord_names` e
+  * Il giro completo: **168.925 gesti da soli in 35 situazioni, 14.000 coppie, 200 sessioni da 60 gesti, nessun errore, niente da
+    guardare** (14 minuti con due processori). Le prove fisse della 0.32.1 (`t0321_tablet_banks`, `t0321_chord_names` e
     `t0321_knobs_far` nuove; `t031_grid`, `t032_grid`, `t032_grid2`, `t032_panel`, `t032_maps` e `t015_link` con i casi
     nuovi; i nomi degli accordi nel cuore; le pagine; il programma del banco; le tre regole nuove del confronto) sono
     state provate rompendo il firmware, la pagina, il bridge, il programma del Pi e il confronto in cinquantuno punti,
