@@ -74,6 +74,14 @@ ro
 The log: `journalctl -u sagga-grid-bridge -e`. (The unit runs as root like the hub's own; to run it as yourself, add
 `User=<you>` and `SupplementaryGroups=audio` to it.)
 
+Stopped (`systemctl stop`, the banco's prova, the Pi shutting down), the bridge turns the Launchpads dark, tells the
+FM-1 (GRID LOST) and is gone in a tenth of a second. **0.32.2**: it ends there, without closing its MIDI ports one by
+one - closing an input as a message comes in can lock python-rtmidi up for ever, and on the Pi with 0.32.1 a stop did
+just that: systemd killed the bridge after 90 s and left it `failed`, the grid dark until the Pi was started again.
+Should the goodbye itself get stuck, the bridge ends by itself after 8 s and its log says where it stood; the unit
+gives it 15 s (`TimeoutStopSec`). A bridge left `failed`, or stopped while its unit is enabled: **Controlla la
+matrice** on the Pi's page starts it again.
+
 * The FM-1 is found by its USB name (Felucca-based firmware, which SAGGA SEQ is, calls itself **"Felucca"**); the
   default pattern is `FM-1|Felucca`. If `--list` shows another name, give it with `--fm1 REGEX`.
 * **USB PORTS 2** (0.8, the FM-1's USB page): the FM-1 has two ports, "Felucca MIDI 1" (the synths) and "Felucca MIDI
@@ -89,7 +97,9 @@ program with `pip install mido python-rtmidi`.
 ### 1.1b Projects saved on the Pi: the LIBRARY
 
 While the bridge runs, the EXPORT pad (PROJ view, FM-1 stopped) sends the project over and the bridge saves it as
-`sagga-001.sgq`, `sagga-002.sgq` ... in `/boot/firmware/sagga/`: RaspiMIDIHub keeps the root file system read-only,
+`sagga-001.sgq`, `sagga-002.sgq` ... in `/boot/firmware/sagga/` (0.32.2: not a project another program on the Pi asked
+the FM-1 for - the banco's copy before a prova, `--export` by hand: until 0.32.1 each of those became one more file
+here, and its `SAVED ON THE PI` covered the banco's question on the FM-1's screen): RaspiMIDIHub keeps the root file system read-only,
 and the boot partition is where it keeps what must survive (`--dump-dir` chooses another folder; the journal shows the
 path). The hub mounts that partition read-only as well, so the bridge (0.5) opens it for writing only while it writes
 a file, then closes it again, under the hub's own lock (0.4 could not save there). Put the SD card (or the SSD) in a

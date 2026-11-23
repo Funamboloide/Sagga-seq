@@ -182,11 +182,7 @@ def close_input(link):
         return link.close_input()
     inp = getattr(link, "inp", None)
     if inp is not None:
-        try:
-            inp.callback = None
-        except Exception:
-            pass
-        inp.close()
+        HT.close_input(inp)                    # (0.32.2: mido's `callback = None` puts its wrapper straight back in)
 
 
 class Hub:

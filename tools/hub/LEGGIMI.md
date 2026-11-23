@@ -75,10 +75,14 @@ L'FM-1, il Pi e il grid provati insieme, per le strade vere (`docs/SAGGA-ESPLORA
 
 * **Controlla la matrice**: le celle che servono (ogni pagina SAGGA verso la porta 2 dell'FM-1 e ritorno), quelle che
   non devono esserci (un Launchpad nella matrice, la porta 2 dell'FM-1 verso un synth), il Default routing, i servizi.
-  Non cambia niente.
+  Nella matrice non cambia niente. **Dalla 0.32.2, se il bridge del grid è fermo e non dovrebbe (il grid è spento),
+  lo fa ripartire** e lo dice: `Il bridge del grid era fermo (failed): l'ho fatto ripartire, il grid torna.` Fino alla
+  0.32.1 diceva solo che era fermo, e per riaverlo bisognava riavviare il Pi.
 * **Avvia la prova** (tutte le sessioni - 33 dalla 0.32.1, circa ventisette minuti - o 4): serve SAGGA SEQ 0.20.3 sull'FM-1, fermo. La
   pagina chiede di premere SEL sull'FM-1 (0.20.4: il bridge resta acceso finché non dici sì, così lo schermo
-  mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
+  mostra la domanda; se nessuno risponde la domanda torna, fino a tre volte; **0.32.2: la domanda resta sullo schermo
+  per tutti i suoi venti secondi** - fino alla 0.32.1 spariva dopo un secondo, coperta da `SAVED ON THE PI`, e la
+  prima richiesta andava sempre a vuoto: vedi sotto, "La copia del progetto"); poi l'FM-1 si riavvia nel suo test a ogni sessione (non toccarlo). Il Pi
   preme le pagine SAGGA dentro RaspiMIDIHub (con la sua API, come il tablet), fa girare il bridge del grid (il codice
   installato, con due Launchpad finti: il servizio del bridge è fermo durante la prova e riparte alla fine - **i
   Launchpad veri in quel tempo sono spenti (dalla 0.23.2; prima restavano accesi e fermi) e l'FM-1 dice GRID LOST: è
@@ -167,6 +171,35 @@ matrice, e il bridge riparte. È di RaspiMIDIHub, e succede in un momento in cui
 **Come sta il bridge.** *Controlla la matrice* (qualche secondo) e la prova del banco scrivono nel loro file anche le
 ultime righe del bridge: le porte che ha preso, se aspetta l'FM-1, se gira senza i Launchpad, perché si è fermato. Alla
 fine della prova, anche quello che dice quando riparte. Se il grid fa qualcosa di strano, quel file dice cosa.
+
+**Il bridge che non si fermava (0.32.2).** Con la 0.32.1 sul Pi vero, una prova su cinque: il banco ferma il bridge
+(`systemctl stop`), il bridge non finisce, dopo 90 secondi il sistema lo uccide e lo lascia `failed`. La prova
+finiva con un errore di Python e il grid restava spento fino al riavvio del Pi. La causa è nel modo in cui la
+libreria MIDI (python-rtmidi, sotto mido) chiude una porta d'ingresso: se un messaggio arriva proprio in quel momento,
+la chiusura aspetta il filo della porta e il filo della porta aspetta la chiusura, per sempre. Tre cose, una dietro
+l'altra:
+
+* **il bridge, quando gli dici di fermarsi, saluta e se ne va**: spegne i Launchpad, avvisa l'FM-1, e il programma
+  finisce lì, in un decimo di secondo, senza chiudere le porte una per una (le chiude il sistema, che non aspetta
+  nessuno). Se anche il saluto si piantasse, dopo 8 secondi il programma finisce da solo e scrive nel suo registro
+  dov'era fermo;
+* **il sistema gli dà 15 secondi, non 90** (`TimeoutStopSec` nel file del servizio);
+* **il banco non si fida**: se lo stop non torna, o il bridge c'è ancora, lo fa chiudere dal sistema e va avanti con
+  la prova; alla fine lo fa ripartire sempre, e se non riparte lo dice (`ATTENZIONE: il bridge del grid non e'
+  ripartito`) insieme a cosa premere: *Controlla la matrice*.
+
+Lo stesso modo sicuro di chiudere una porta è nell'installatore (`fm1_install.py`) e nel test dell'FM-1.
+
+**La copia del progetto (0.32.2).** Prima della prova il banco chiede all'FM-1 il progetto che ha in memoria, per
+rimetterglielo alla fine. Il bridge sentiva passare quel progetto e lo salvava anche lui nella libreria, come se
+avessi premuto EXPORT: **un file `sagga-NNN.sgq` in più a ogni prova**. E rispondeva all'FM-1 `SAVED ON THE PI`,
+che copriva la domanda `PC TEST? SEL = YES` un secondo dopo che era comparsa: per questo la prima richiesta di
+premere SEL non riceveva mai risposta, e la prova partiva alla seconda, venti secondi dopo. Adesso il banco avvisa il
+bridge prima di chiedere (`/run/sagga/export-elsewhere`), e il bridge quella copia la lascia passare: niente file,
+niente scritta. Lo stesso per `sagga_grid_bridge.py --export` lanciato a mano mentre il servizio gira. Il SAVE dal grid
+(vista LIB), l'EXPORT dai tasti dell'FM-1 e l'editor della pagina salvano come prima. I file in più lasciati dalle
+prove già fatte restano dove sono (uno per prova: copie del progetto che l'FM-1 aveva in memoria quel giorno); la
+pagina non ha un bottone per cancellare un progetto: si tolgono mettendo la SD nel PC, cartella `sagga`.
 
 **L'orologio del Pi.** Un Pi non ha orologio: senza internet resta indietro (i file della prova del 17 novembre 2026
 portano la data del 26 ottobre), e dopo uno spegnimento può ripartire da un'ora già passata. I file della prova e le

@@ -69,6 +69,10 @@ cc -O2 -w -Ifirmware/src -Ifirmware/hal tests/usb_desc_test.c -o build/usb_desc_
 step "usb descriptors" tail 1 build/usb_desc_test
 if python3 tools/gen_progs.py --check; then echo "gen_progs: the stock progressions are up to date"; else echo "FAIL: gen_progs"; FAILED="$FAILED [gen_progs]"; fi
 step "bridge" tail 1 python3 tests/sagga_bridge_tests.py
+# 0.32.2: the bridge's way out. Stopped by the banco on the Pi it never ended (python-rtmidi closes an input holding the
+# interpreter and waits for the port's thread, which waits for the interpreter): the lock-up itself in forty lines of C,
+# the closings that do not lock up, the real program told to stop with ports that never finish closing
+step "way out" tail 1 python3 tests/sagga_wayout_tests.py
 step "plugins" tail 1 python3 tests/sagga_plugin_tests.py    # (RMH=<a RaspiMIDIHub checkout>: in the hub's own plugin host too)
 step "m8 link" tail 1 python3 tools/m8link/test_link.py
 step "hub" tail 1 python3 tests/sagga_hub_tests.py

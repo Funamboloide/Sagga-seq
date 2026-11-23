@@ -15,6 +15,9 @@ Wants=zynthian.service
 ExecStart=/usr/bin/python3 -u /zynthian/sagga/sagga_grid_bridge.py --model mini --frame --dump-dir /zynthian/sagga/projects
 Restart=always
 RestartSec=2
+# 0.32.2: as on the Raspberry Pi with RaspiMIDIHub (sagga-grid-bridge.service): told to stop the bridge is gone at
+# once, by itself within 8 s whatever happens; systemd ends it after 15 s, not its usual 90
+TimeoutStopSec=15
 
 [Install]
 WantedBy=multi-user.target

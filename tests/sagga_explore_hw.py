@@ -447,6 +447,32 @@ def lost_in_both(lost, lost0, extra0):
     return both, sum(n_ for _, n_, _ in lost) - sum(n_ for _, n_, _ in both)
 
 
+REREAD_MS = 14                                         # a probe read again by the simulator at most this much earlier ...
+REREAD_OVER = 4                                        # ... and no more than the FM-1's own lag (its H.lag) and these ms
+
+
+def reread_span(lag):
+    """0.32.2: how many ms earlier the simulator may read a probe again to be where the FM-1 was. The FM-1 does a
+    pass's work up to its lag after the ms (the probe says it, H.lag: 8-9 ms with the screen); the simulator, a ms a
+    pass, has done it already. lag: the FM-1's, None when the probe does not say it"""
+    lag = 9 if lag is None else max(0, int(lag))
+    return min(REREAD_MS, lag + REREAD_OVER)
+
+
+def session_replay(session, rp, heard=None):
+    """the simulator with the session's events where rp says ({index: (ms, gc)}) and what the FM-1 heard from its ports
+    (heard) -> (its record, how many events it got)"""
+    hw = session["fm1"]
+    hp = hw.get("hello_prima") or {}
+    settings = (hp.get("usb_ports", 1), hp.get("profile", 0)) if "usb_ports" in hp else None
+    if heard:
+        evs, orig = with_heard(session["eventi"], rp, heard, hw["go_ms"])
+        text, _ = sim_script(evs, hw["go_ms"])
+        return remap(collect(run_sim(text, settings=settings)), orig), sum(1 for o in orig if o is not None)
+    text, n = sim_script(session["eventi"], hw["go_ms"], replay=rp)
+    return collect(run_sim(text, settings=settings)), n
+
+
 def compare(session, heard=None):
     """-> (findings [(rule, level, what)], the replay's record). 0.20.3 heard: [[ms, gc, st, d1, d2, cable]], what the FM-1
     heard from its ports (the banco), replayed where it heard it"""
@@ -469,13 +495,7 @@ def compare(session, heard=None):
     budget = [260]                                     # (0.23.1: the replays the two new searches may spend on a session)
 
     def replay_sim(rp, hd=None):
-        hd = heard if hd is None else hd
-        if hd:
-            evs, orig = with_heard(session["eventi"], rp, hd, hw["go_ms"])
-            text, _ = sim_script(evs, hw["go_ms"])
-            return remap(collect(run_sim(text, settings=settings)), orig), sum(1 for o in orig if o is not None)
-        text, n = sim_script(session["eventi"], hw["go_ms"], replay=rp)
-        return collect(run_sim(text, settings=settings)), n
+        return session_replay(session, rp, heard if hd is None else hd)
 
     sim, n = replay_sim(replay)
     sim0 = sim                                         # (0.32.1: the replay with every event at the ms the FM-1 said)
@@ -521,6 +541,7 @@ def compare(session, heard=None):
     first = None
     timing = 0
     shifted = []                                       # (the gesture, ms): the FM-1 read its keys that much later
+    reread = []                                        # 0.32.2 (the probe, ms): read that much earlier, the simulator is the FM-1
     diffs = diffs_of(sim_p)
     n_ = 0
     while n_ < len(diffs):
@@ -550,6 +571,35 @@ def compare(session, heard=None):
         if not d:
             n_ += 1
             continue
+        # 0.32.2 (0.32.1 on the real FM-1): the probe alone, read by the simulator some ms EARLIER. The FM-1 does a
+        # pass's work up to its lag after the ms (H.lag: 9 with the screen) - a clock tick that is due, a THROW's glide
+        # a step on, are not done yet when it reads the probe; the simulator, a ms a pass, has done them. Read that
+        # much earlier the simulator is where the FM-1 was, or it is not: nothing is let through unseen.
+        # (the FM-1 completo's s024: a bar of three 16ths, a chord a bar, the probes 36 ticks apart - two in a row
+        #  with the next chord a tick early, equal 6 and 3 ms earlier; the banco's b014: FILTER thrown and gliding
+        #  back, 27 and 26 on the same tick, equal 5 ms earlier)
+        if len(reread) < 24:
+            try:
+                lag = int(hw_p[i]["H"]["lag"])
+            except (KeyError, TypeError, ValueError):
+                lag = None
+            floor = max([replay[j][0] for j in replay if j < i] or [hw["go_ms"]])
+            again = None
+            for ms in range(1, reread_span(lag) + 1):
+                if replay[i][0] - ms <= floor:         # (never before the event before it: events are taken in order)
+                    break
+                rp = dict(replay)
+                rp[i] = (rp[i][0] - ms,) + tuple(rp[i][1:])
+                sim2, _ = replay_sim(rp)
+                sp2 = {int(k): T.probe_dict(v) for k, v in sim2["sonde"].items()}
+                if i in sp2 and not [x for x in pdiff(sp2[i], hw_p[i]) if x[0] not in systematic and not msg_expiry(x)]:
+                    again = (ms, rp, sim2, sp2)
+                    break
+            if again:
+                ms, replay, sim, sim_p = again
+                reread.append((role, ms))
+                diffs = diffs_of(sim_p)
+                continue
         # a difference: the gesture before this probe, its events a few ms later or earlier (the FM-1 reads the keys
         # on its scan, REC and TAKE write at the ms): one that makes this probe the FM-1's is timing, and stays
         prev = max([j for j, _ in probes if j < i] or [-1])
@@ -658,10 +708,15 @@ def compare(session, heard=None):
             continue
         first = (i, role, d)
         break
-    if shifted or timing:
-        found.append(("TEMPO", "VISTO", "%s%s" % (
+    if shifted or timing or reread:
+        found.append(("TEMPO", "VISTO", "%s%s%s" % (
             ("%d sonde sul confine di uno step (gli step soli, poi di nuovo uguali); " % timing) if timing else "",
-            ("tasti letti dall'FM-1 qualche ms dopo (o prima), e con quello uguali: " + ", ".join("%s %+d ms" % x for x in shifted)) if shifted else "")))
+            ("tasti letti dall'FM-1 qualche ms dopo (o prima), e con quello uguali: " + ", ".join("%s %+d ms" % x for x in shifted)
+             + ("; " if reread else "")) if shifted else "",
+            ("%s dall'FM-1 prima di finire il suo giro (un tick, un passo di un THROW: li fa fino a 9 ms dopo il loro "
+             "momento) - %s quei ms prima anche dal simulatore, %s: %s" % (
+                 (("1 sonda letta", "letta", "uguale") if len(reread) == 1 else ("%d sonde lette" % len(reread), "lette", "uguali"))
+                 + (", ".join("%s -%d ms" % x for x in reread),))) if reread else "")))
     if first:
         i, role, d = first
         k = role.split()[-1] if role.startswith("gesto") else None

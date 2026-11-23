@@ -8,6 +8,7 @@ through the hub (the user's own binding of a cell followed; a page missing: stra
 Launchpads of ours (every pad and button translated, the lights drawn), what the FM-1 heard matched with what the Pi
 sent, the bridge's service stopped and started again, the project back in memory."""
 import os
+import subprocess
 import sys
 import tempfile
 import time
@@ -48,6 +49,7 @@ class BancoFM1(HX.FakeFM1):
         self.sysm = None
         self.reboots, self.hellos = 0, 0
         self.deaf_after, self.deaf_now = None, False
+        self.control, self.told_at_export = None, []      # 0.32.2: the bridge's control folder when the project was asked for
 
     def out2(self, data):
         link = self.links.get(1)
@@ -66,6 +68,8 @@ class BancoFM1(HX.FakeFM1):
 
     def rx(self, data):
         m = list(data)
+        if m[:5] == T.HEAD + [0x01] and self.control:       # EXPORT: was the bridge told first?
+            self.told_at_export.append(sorted(os.listdir(self.control)))
         if m and m[0] != 0xF0:
             self.got.append(m)
             if self.go_t is not None and self.listen:
@@ -205,15 +209,36 @@ class FakeAPI:
 
 
 class FakeSystem:
-    def __init__(self, bridge="active", kernel="", journal=""):
+    """systemctl and journalctl. 0.32.2: the bridge's service as systemd keeps it - `bridge` its state now; stop: "ends"
+    (inactive), "hangs" (systemctl does not come back: deactivating, as on the Pi with 0.32.1), "deaf" (it stays
+    active); kill: "kills" (failed) or "deaf"; start: "starts" (active), "fails" (systemctl's error), "deaf"; enabled"""
+    def __init__(self, bridge="active", kernel="", journal="", stop="ends", kill="kills", start="starts", enabled="enabled"):
         self.calls, self.bridge, self.kernel, self.journal = [], bridge, kernel, journal
+        self.stop, self.kill, self.start, self.enabled = stop, kill, start, enabled
 
     def __call__(self, cmd):
         self.calls.append(cmd)
+        mine = "sagga-grid-bridge" in cmd
         if cmd[0] == "journalctl":                           # (0.23.2: -k the kernel's, -u sagga-grid-bridge the bridge's own)
             out = self.kernel if "-k" in cmd else self.journal
+        elif mine and cmd[:2] == ["systemctl", "is-enabled"]:
+            out = self.enabled + "\n"
+        elif mine and cmd[:2] == ["systemctl", "stop"]:
+            if self.stop == "hangs":
+                self.bridge = "deactivating"
+                raise subprocess.TimeoutExpired(cmd, 20)
+            self.bridge = "inactive" if self.stop == "ends" else self.bridge
+            out = ""
+        elif mine and cmd[:2] == ["systemctl", "kill"]:
+            self.bridge = "failed" if self.kill == "kills" else self.bridge
+            out = ""
+        elif mine and cmd[:2] == ["systemctl", "start"]:
+            if self.start == "fails":
+                raise subprocess.TimeoutExpired(cmd, 20)
+            self.bridge = "active" if self.start == "starts" else self.bridge
+            out = ""
         else:
-            out = (self.bridge if "sagga-grid-bridge" in cmd else "active") + "\n"
+            out = (self.bridge if mine else "active") + "\n"
 
         class R_:
             stdout = out
@@ -255,13 +280,20 @@ def mini_plan(n=2):
     return {"versione": 1, "firmware": "0.20.3", "seme": 1, "banco": True, "sessioni": ses}
 
 
-def run_main(dev, api, system, args=(), plan=None, sysfs=None, library=None):
+def run_main(dev, api, system, args=(), plan=None, sysfs=None, library=None, control=None, wait=None):
+    """control: a list that gets the bridge's control folder as it was left (the names in it)"""
     with tempfile.TemporaryDirectory() as d:
         pp = os.path.join(d, "piano.json")
         T.save(pp, plan or mini_plan())
         cells = os.path.join(d, "sd", "banco", "celle-staccate.json")
+        ctl = os.path.join(d, "control")                     # (0.32.2: where the bridge is told things - never /run/sagga)
+        os.makedirs(ctl)
+        if dev is not None:
+            dev.control = ctl
         rc = R.main([*args, "--piano", pp, "--out", d, "--celle", cells], backend=HX.FakeBackend(dev), api=api, system=system,
-                    wait=lambda s: time.sleep(min(s, 1.2)), sysfs=sysfs or os.path.join(d, "no-sysfs"))
+                    wait=wait or (lambda s: time.sleep(min(s, 1.2))), sysfs=sysfs or os.path.join(d, "no-sysfs"), control=ctl)
+        if control is not None:
+            control.extend(sorted(os.listdir(ctl)))
         if library is not None:
             lib = os.path.join(d, "sd")
             library.extend((n, open(os.path.join(lib, n), "rb").read()) for n in os.listdir(lib) if n.endswith(".sgq"))
@@ -590,8 +622,116 @@ def t_lost_fm1():
     check(api.conns >= {(PAGE_CLIENT["sagga_remote"], 0, FM1, 1)} and not left, "the synths' cells back all the same (%s)" % left)
 
 
+def bridge_calls(sysm):
+    return [c[1:] for c in sysm.calls if c[0] == "systemctl" and c[1] in ("stop", "kill", "start")]
+
+
+def t_bridge_stop():
+    group("0.32.2: a bridge that does not end when the banco stops it (the Pi, 0.32.1: a Python error, the grid dark until a restart)")
+    BR = "sagga-grid-bridge"
+    dev = BancoFM1()
+    api = FakeAPI(dev)
+    before = set(api.conns)
+    sysm = FakeSystem(stop="hangs")
+    rc, data, report, log, status, left = run_main(dev, api, sysm)
+    check(rc == 0 and data and len(data["sessioni"]) == 2 and "ERRORE del programma" not in log and "Traceback" not in log,
+          "systemctl stop does not come back: no error of the program's, the prova is made (rc %s)\n%s" % (rc, log[-600:] if rc else ""))
+    check(bridge_calls(sysm) == [["stop", BR], ["kill", "-s", "KILL", BR], ["start", BR]] and sysm.bridge == "active"
+          and "non si ferma da solo (TimeoutExpired): lo chiudo io" in log and "il bridge del grid riparte" in log,
+          "... the bridge ended by the kernel, said, and started again at the end (%s, now %s)" % (bridge_calls(sysm), sysm.bridge))
+    check(api.conns == before and not left and status.get("rc") == 0, "... the cells back, banco.json with its rc (%s)" % status.get("rc"))
+    said = []
+    quick = FakeSystem(stop="deaf")                            # the stop comes back, the bridge is still there
+    check(R.bridge_stop(quick, said.append, wait=lambda s: None) is True and bridge_calls(quick) == [["stop", BR], ["kill", "-s", "KILL", BR]],
+          "a stop that comes back with the bridge still there: ended by the kernel too (%s)" % bridge_calls(quick))
+    never = FakeSystem(stop="deaf", kill="deaf")
+    check(R.bridge_stop(never, said.append, wait=lambda s: None) is False and bridge_calls(never).count(["kill", "-s", "KILL", BR]) == 2,
+          "one that nothing ends: said so (False), after trying twice (%s)" % bridge_calls(never))
+
+    def no_systemctl(cmd):
+        raise OSError("no systemctl here")
+    check(R.bridge_stop(no_systemctl, said.append, wait=lambda s: None) is True and R.service_is(no_systemctl) == "?",
+          "systemctl cannot be asked at all: as before 0.32.2, the prova goes on")
+    dev = BancoFM1()
+    api = FakeAPI(dev)
+    before = set(api.conns)
+    sysm = FakeSystem(stop="deaf", kill="deaf")
+    rc, data, report, log, status, left = run_main(dev, api, sysm, wait=lambda s: time.sleep(min(s, 0.02)))
+    check(rc == 1 and "Il bridge del grid non si ferma (active): niente prova" in log and not (data or {}).get("sessioni") and dev.boots == 0
+          and api.conns == before and bridge_calls(sysm)[-1] == ["start", BR] and "ERRORE del programma" not in log,
+          "... in a prova: nothing done to the FM-1 or the matrix, rc 1, the start asked all the same (%s %s)" % (rc, bridge_calls(sysm)))
+    dev = BancoFM1()
+    sysm = FakeSystem(start="fails")
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), sysm)
+    check(rc == 0 and status.get("rc") == 0 and "il bridge del grid NON riparte (TimeoutExpired" in log and "ERRORE del programma" not in log
+          and "ATTENZIONE: il bridge del grid non e' ripartito (inactive)" in log and "Controlla la matrice" in log,
+          "the start at the end fails: said, with what to press; the prova's result and banco.json are whole (rc %s %s)" % (rc, status.get("rc")))
+    group("0.32.2: a bridge that should be running and is not is started again (the page only said it was failed)")
+    sysm = FakeSystem(bridge="failed")
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check(bridge_calls(sysm) == [["start", BR]] and sysm.bridge == "active" and "Il bridge del grid era fermo (failed): l'ho fatto ripartire" in log
+          and "e' failed" not in log and "era fermo (failed)" in report,
+          "Controlla la matrice with the bridge failed: started, said in the log and in the report, no warning left (%s)" % bridge_calls(sysm))
+    sysm = FakeSystem(bridge="inactive")
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check(bridge_calls(sysm) == [["start", BR]] and "era fermo (inactive): l'ho fatto ripartire" in log,
+          "... stopped while its service is enabled (a prova cut before its end): started (%s)" % bridge_calls(sysm))
+    sysm = FakeSystem(bridge="inactive", enabled="disabled")
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check(not bridge_calls(sysm) and "DA GUARDARE: il servizio sagga-grid-bridge e' inactive" in log and "era fermo" not in log,
+          "... stopped and not enabled (somebody does not want it): left alone, said as before (%s)" % bridge_calls(sysm))
+    sysm = FakeSystem(bridge="failed", start="deaf")
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check("era fermo (failed) e non riparte (ora e' failed): riavvia il Pi" in log and "il servizio sagga-grid-bridge e' failed" in log,
+          "... one that does not start: said, with what is left to do")
+    sysm = FakeSystem()
+    rc, data, report, log, status, left = run_main(None, FakeAPI(None), sysm, args=("--solo-matrice",))
+    check(not bridge_calls(sysm) and "era fermo" not in log, "a bridge that runs: nothing done")
+    dev = BancoFM1()
+    sysm = FakeSystem(bridge="failed")
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), sysm)
+    check(rc == 0 and bridge_calls(sysm) == [["start", BR], ["stop", BR], ["start", BR]] and sysm.bridge == "active",
+          "a prova that finds it failed: started, then stopped for the prova and started at the end as always (%s)" % bridge_calls(sysm))
+    with tempfile.TemporaryDirectory() as d:                   # --rimetti touches nothing of the bridge's
+        cells = os.path.join(d, "celle.json")
+        sysm = FakeSystem(bridge="failed")
+        R.main(["--rimetti", "--out", d, "--celle", cells], api=FakeAPI(None), system=sysm)
+        check(not bridge_calls(sysm), "--rimetti: the cells only (%s)" % bridge_calls(sysm))
+
+
+def t_backup_not_library():
+    group("0.32.2: the copy of the project the banco takes is its own - the bridge is told before the FM-1 is asked")
+    dev = BancoFM1()
+    left_there = []
+    rc, data, report, log, status, left = run_main(dev, FakeAPI(dev), FakeSystem(), control=left_there)
+    check(rc == 0 and dev.told_at_export == [[B.ELSEWHERE]],
+          "when the FM-1 is asked for its project the word is already in the bridge's folder (%s)" % dev.told_at_export)
+    check(B.ELSEWHERE not in left_there, "... and it is not left there after the prova (a bridge that did not hear the project): %s" % left_there)
+    # the bridge's side of it, with the banco's own word: the same project heard by a bridge that runs
+    with tempfile.TemporaryDirectory() as d:
+        ctl, lib_dir = os.path.join(d, "control"), os.path.join(d, "lib")
+        os.makedirs(lib_dir)
+        to_fm1, said = [], []
+        lib = B.Library(lib_dir, to_fm1.append, log=said.append)
+        lib.elsewhere = B.Control(lib, folder=ctl, log=said.append).export_elsewhere
+        frames = B.dump_frames(B.PROJECT_MAGIC + bytes(range(200)) * 30)        # (a project in several pieces)
+        B.export_elsewhere_mark(ctl)                           # (what the banco does, a line before its EXPORT)
+        for f in frames:
+            lib.fm1_sysex(f, 1.0)
+        check(not os.listdir(lib_dir) and not to_fm1 and any("another program" in x for x in said),
+              "the bridge hears that project: no file in the library, and no SAVED ON THE PI to cover the question (%s %s)" % (os.listdir(lib_dir), to_fm1))
+        for f in frames:
+            lib.fm1_sysex(f, 2.0)
+        check(len(os.listdir(lib_dir)) == 1 and to_fm1 and to_fm1[-1][:6] == B.SX_HEAD + [B.SX_LIB_ANSWER, 0],
+              "... once: the next project the FM-1 gives by itself (EXPORT on its keys) is the library's, as always (%s)" % os.listdir(lib_dir))
+
+
 def main():
-    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes, t_lost_cells, t_deaf_reboot, t_conti, t_lost_fm1):
+    only = os.environ.get("SAGGA_ONLY")                      # (0.32.2: a few of them by name, as the simulator's tests)
+    for t in (t_units, t_audit, t_prova, t_interrupted, t_fm1_plan, t_old_firmware, t_no_yes, t_lost_cells, t_deaf_reboot, t_conti, t_lost_fm1,
+              t_bridge_stop, t_backup_not_library):
+        if only and not any(o and o in t.__name__ for o in only.split(",")):
+            continue
         try:
             t()
         except Exception as e:

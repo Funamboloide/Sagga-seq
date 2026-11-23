@@ -355,6 +355,36 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
     buttato a 300 o a 30, un clock passato a EXT, un PANIC fanno dei tempi di una sessione un'altra faccenda), e sono
     byte per byte quelli di prima più la situazione nuova. Il piano del banco: 33 sessioni; l'FM-1 completo: 38.
 
+* **La 0.32.1 sull'FM-1 vero** (23 novembre 2026; i file portano ancora la data del 26 ottobre, l'orologio del Pi): il
+  banco (33 sessioni) e l'FM-1 completo (38). **In tutte e 71 l'FM-1 fa quello che fa il simulatore**, con le correzioni
+  della 0.32.1 dentro (i nomi delle quattro forme d'accordo, le banche del tablet, i pad che chiedono due volte). Il
+  confronto aveva segnato una cosa per raccolta, e tutte e due erano tempo. Corrette nella 0.32.2 (il firmware non
+  cambia: la 0.32.2 è solo del Pi e di questi strumenti):
+  * **SIMULATORE, s024** (l'accordo che suona: `iv9` dove il simulatore diceva `i7`) e **SIMULATORE, b014**
+    (un THROW sul FILTER che torna indietro: 27 dove il simulatore diceva 26). L'FM-1 fa il lavoro di un millisecondo
+    fino a 9 ms dopo, nel giro del suo programma (lo dice lui stesso: ogni sonda porta il suo ritardo più lungo, `lag`),
+    e queste sonde sono cadute lì in mezzo: lette prima che quel tick di clock, o quel passo del THROW, fosse fatto. Il
+    simulatore fa tutto al millisecondo. Rilette dal simulatore 6 e 5 ms prima sono identiche (e così una terza, in
+    b013, 3 ms prima: quella il confronto la spiegava già, spostando i tasti). È la regola nuova di
+    TEMPO (la tabella più sotto); una sonda che per tornare uguale andrebbe letta 300 ms prima resta un errore, e la
+    prova del confronto lo controlla.
+  * Con la regola nuova le due raccolte danno **0 errori, niente da guardare**. Restano, visti: in 9 riavvii su 33 e in
+    8 su 38 l'FM-1 ha risposto dopo i 12 secondi, e il Pi lo ha fatto ritrovare all'USB (come dalla 0.20.9); in un
+    riavvio RaspiMIDIHub ha perso 15 celle dell'FM-1, e il Pi le ha rimesse.
+  * **Quello che i log hanno mostrato del Pi**, non dell'FM-1 (corretto nella 0.32.2, `tools/hub/LEGGIMI.md`): una
+    prova su cinque il bridge del grid non si è fermato quando il banco lo ha fermato, e la prova è finita lì con il grid
+    spento fino al riavvio del Pi; in tutte e cinque (e nelle due della 0.32) la prima richiesta di premere SEL è andata
+    a vuoto, perché `SAVED ON THE PI` copriva la domanda sullo schermo dell'FM-1; ogni prova ha lasciato un progetto in
+    più nella libreria.
+  * Le prove della 0.32.2 (`tests/sagga_wayout_tests.py` e `tests/sagga_lockup.py` nuove: il blocco della libreria MIDI
+    rifatto in quaranta righe di C, il bridge vero con porte finte che non finiscono mai di chiudersi; `t0322_elsewhere`
+    nel bridge; `t_bridge_stop` e `t_backup_not_library` nel programma del banco; il sesto caso di `prova_tempo`) sono
+    state provate rompendo il bridge, il programma del banco, l'installatore, gli strumenti del test, il file del servizio
+    e il confronto in cinquantanove punti, uno alla volta. Al primo giro due rotture erano passate: la controfigura di
+    mido non chiudeva le porte da sola quando Python le lascia, come fa mido vero. Resa fedele, ha mostrato un altro
+    punto dove il blocco poteva tornare (un programma che finisce dopo aver lasciato le porte): corretto. Adesso le
+    trovano tutte. **Sul Pi vero niente di questo è stato provato**: qui non ci sono né porte MIDI né systemd.
+
 * **La 0.32 sull'FM-1 vero** (fra il 20 e il 22 novembre 2026; i file portano ancora la data del 26 ottobre, l'orologio del Pi): il
   banco (32 sessioni) e l'FM-1 completo (37). **In tutte e 69 l'FM-1 fa quello che fa il simulatore.** Il confronto aveva
   segnato quattro cose, e tutte e quattro erano sue, non dell'FM-1. Corrette nella 0.32.1:
@@ -432,7 +462,7 @@ due macchine devono essere uguali sonda per sonda, anche se il PC o l'FM-1 sono 
 | CONTI | 0.23.1, con SAGGA SEQ 0.23.1 sull'FM-1: quello che l'FM-1 **dice di aver mandato** (lo conta lui, per porta e per tipo, e tiene i conti della sua coda USB) contro quello che il computer ha sentito e quello che ha ricevuto il suo driver USB. Dice dove un messaggio si è perso: dentro l'FM-1, per strada, o nel computer |
 | NOTE, CLOCK | le note e i tick che escono dall'USB contro quelli del simulatore: nessuno perso per strada (0.18: non le luci del grid sul canale 16, ne' gli interruttori degli LFO che tornano al tablet, note 100-115 sul canale 13) |
 | CICLO | il ciclo principale fermo più di 60 ms |
-| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo). 0.23.1, due prove in più quando quelle non bastano: i messaggi che l'FM-1 ha **sentito dalle porte** prima di quella sonda (un pad del grid, un comando di una pagina) presi 1-3 ms prima o dopo; e **un solo evento di uno dei cinque gesti prima**, fino a 20 ms dopo, perché quello che un gesto mette in moto a volte si vede solo più tardi (il tasto di un loop tenuto a cavallo di un tick a 300 BPM, un THROW che finisce di scivolare una battuta dopo). Se una prova toglie una parte delle differenze senza farne di nuove, la tiene e cerca il resto da capo. Dal banco della 0.27: una sonda letta un tick di clock prima o dopo, **qualunque cosa mostri**, se alla sonda dopo è di nuovo uguale (il tick che cambia il pattern sulla battuta, un THROW che scivola); il passo di un **poliritmo** uno step avanti o indietro anche per più sonde di fila, se torna uguale mentre suona (l'FM-1 lo fa al suo giro del ciclo); i messaggi sentiti dalle porte spostati **fino a 9 ms** (l'FM-1 li lavora nel suo giro, fino a 8-9 ms dopo averli presi) |
+| TEMPO | visto, non un errore: una sonda presa sul tick in cui comincia uno step (gli step soli, di uno, e di nuovo uguali entro tre sonde; con loro il pattern che una coda cambia alla fine del loop), un messaggio che su una macchina è appena scaduto, o un gesto che l'FM-1 ha letto pochi ms dopo: il confronto prova a spostare gli eventi di quel gesto di 1-15 ms e se con uno spostamento il simulatore fa la stessa cosa lo tiene e va avanti (REC e TAKE scrivono le note al millisecondo). 0.23.1, due prove in più quando quelle non bastano: i messaggi che l'FM-1 ha **sentito dalle porte** prima di quella sonda (un pad del grid, un comando di una pagina) presi 1-3 ms prima o dopo; e **un solo evento di uno dei cinque gesti prima**, fino a 20 ms dopo, perché quello che un gesto mette in moto a volte si vede solo più tardi (il tasto di un loop tenuto a cavallo di un tick a 300 BPM, un THROW che finisce di scivolare una battuta dopo). Se una prova toglie una parte delle differenze senza farne di nuove, la tiene e cerca il resto da capo. Dal banco della 0.27: una sonda letta un tick di clock prima o dopo, **qualunque cosa mostri**, se alla sonda dopo è di nuovo uguale (il tick che cambia il pattern sulla battuta, un THROW che scivola); il passo di un **poliritmo** uno step avanti o indietro anche per più sonde di fila, se torna uguale mentre suona (l'FM-1 lo fa al suo giro del ciclo); i messaggi sentiti dalle porte spostati **fino a 9 ms** (l'FM-1 li lavora nel suo giro, fino a 8-9 ms dopo averli presi). 0.32.2, dalla 0.32.1 sull'FM-1 vero: **una sonda letta prima che l'FM-1 avesse finito il suo giro** - il lavoro di un millisecondo (un tick di clock, un passo di un THROW che scivola) l'FM-1 lo fa fino a 9 ms dopo, e una sonda può cadere lì in mezzo. Prima di ogni altra prova il confronto la fa rileggere al simulatore 1, 2, ... ms prima, fino al ritardo più lungo che l'FM-1 dice di sé in quella sonda (`lag`) più 4, mai più di 14: se così è uguale la tiene, e il rapporto dice quale sonda e di quanti ms |
 
 Le note e il clock si contano solo fin dove il PC ha ascoltato (chiude le porte quando riavvia l'FM-1 per la sessione dopo);
 dal banco della 0.27: se le note non tornano, si contano di nuovo senza gli ultimi 40 ms, il bordo di quella finestra.

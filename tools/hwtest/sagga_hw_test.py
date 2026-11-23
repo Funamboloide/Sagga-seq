@@ -43,6 +43,42 @@ CHUNK = 256
 
 
 # ------------------------------------------------------------------------------------------------ MIDI backends
+SPARE = []
+
+
+def _nothing(*a, **kw):
+    return None
+
+
+def close_input(port, sleep=time.sleep):
+    """0.32.2: a mido input closed so that the closing cannot lock up. python-rtmidi (under mido) closes a port with the
+    Python interpreter in its hand (the GIL) and waits there for the port's thread to end; that thread, when a message
+    has just come in, is waiting for the interpreter to hand it to mido's callback: each waits for the other, for ever
+    (the first run on Windows, as the FM-1 rebooted with its All Notes Off on the way - the explorer has asked the
+    driver itself, with no callback, ever since: sagga_hw_explore.RtLink; 0.32.1: the grid's bridge on the Pi, as
+    the banco stopped it). So: a moment for a callback already asked for to run; at once the callback taken out of
+    the driver itself (mido's `callback = None` puts its own wrapper back in); a moment more; then the port closed by
+    the driver - mido's close() would put the callback back in for the instant before it closes. A tuple made as the
+    callback is taken out takes the place of the one python-rtmidi frees there (its thread holds a bare pointer to
+    it). The same as sagga_grid_bridge.close_inputs; a port without that driver: its own close()"""
+    if getattr(port, "closed", False):  # (closed already: python-rtmidi's object must not be touched once it is freed)
+        return None
+    rt = getattr(port, "_rt", None)
+    if not (hasattr(rt, "cancel_callback") and hasattr(rt, "close_port") and hasattr(rt, "delete")):
+        return port.close()
+    sleep(0.002)
+    try:
+        rt.cancel_callback()
+        SPARE.append((_nothing, None))
+    except Exception:
+        pass
+    sleep(0.05)
+    rt.close_port()
+    rt.delete()
+    port.closed = True                 # (mido: closed already - its close() and its __del__ do nothing more)
+    del SPARE[:-64]
+
+
 class MidoLink:
     """one in/out pair; every message in goes to on_message(bytes, t) with t = time.perf_counter()"""
     def __init__(self, in_name, out_name):
@@ -68,12 +104,24 @@ class MidoLink:
         else:
             self.out.send(self.mido.Message.from_bytes(list(data)))
 
+    def close_input(self):
+        close_input(self.inp)
+
+    def close_output(self):
+        self.out.close()
+
     def close(self):
-        for p in (self.inp, self.out):
+        for close in (self.close_input, self.close_output):
             try:
-                p.close()
+                close()
             except Exception:
                 pass
+
+    def __del__(self):                 # (0.32.2: let go of without a close(): closed here, before mido closes the
+        try:                           #  input its own way - it closes every port Python lets go of)
+            self.close()
+        except Exception:
+            pass
 
 
 class MidoBackend:

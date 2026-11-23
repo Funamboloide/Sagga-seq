@@ -1691,14 +1691,134 @@ def t032_library_112():
     check(len(sent) == 2 and sent[0][5:7] == [0, 112] and sent[1][5:7] == [111, 112] and bytes(sent[1][7:-1]) == b"112-set",
           "the list: 112 files; entry 112 (its index 111) is there, one past it is not answered (%s)" % [x[5:7] for x in sent])
 
+def t0322_elsewhere():
+    """0.32.2: a project another program on the Pi asked the FM-1 for (the banco's copy before a prova, an --export by
+    hand) is not the library's - no file, and no SAVED ON THE PI on the FM-1's screen (it covered the banco's question:
+    the first asking of every prova went unanswered). The grid's own SAVE and the editor's export always are."""
+    import contextlib
+    import io
+    import json
+    import tempfile
+    import types
+    d = tempfile.mkdtemp()
+    ctl, lib_dir = os.path.join(d, "control"), os.path.join(d, "lib")
+    os.makedirs(lib_dir)
+    word = os.path.join(ctl, B.ELSEWHERE)
+    sent, said = [], []
+    w = B.BootWriter(lib_dir, run=lambda c: None, mounts=lambda: [("/", ["rw"])])
+    lib = B.Library(lib_dir, sent.append, writer=w, log=said.append)
+    control = B.Control(lib, folder=ctl, log=said.append)
+    lib.elsewhere = control.export_elsewhere
+    frames = B.dump_frames(B.PROJECT_MAGIC + bytes(range(256)) * 20)
+
+    def dump(now):
+        for f in frames:
+            lib.fm1_sysex(f, now)
+
+    def files():
+        return sorted(n for n in os.listdir(lib_dir) if n.endswith(".sgq"))
+    answers = lambda: [m for m in sent if m[:5] == B.SX_HEAD + [B.SX_LIB_ANSWER]]
+    check(len(frames) > 3, "(a project in several messages: %d)" % len(frames))
+    dump(1.0)
+    check(len(files()) == 1 and len(answers()) == 1 and answers()[-1][5] == 0,
+          "nobody said anything: a project the FM-1 gives by itself (EXPORT on its keys) is saved and answered, as always (%s)" % files())
+    check(B.export_elsewhere_mark(ctl) is True and os.path.exists(word), "another program says the next project is its own: the word is in the bridge's folder")
+    dump(2.0)
+    check(len(files()) == 1 and len(answers()) == 1 and not os.path.exists(word) and "another program" in said[-1] and "not saved" in said[-1],
+          "... that project: no file, no answer to the FM-1 (no SAVED ON THE PI), said in the log; the word is used up (%s; %r)" % (files(), said[-1]))
+    dump(3.0)
+    check(len(files()) == 2 and len(answers()) == 2, "... once: the project after it is the library's again (%s)" % files())
+    # the grid's own SAVE while a word waits: the library's - and the word still waits for the image it was said for
+    B.export_elsewhere_mark(ctl)
+    lib.fm1_sysex(B.SX_HEAD + [B.SX_LIB_SAVE] + B.put7(B.LIB_NEW, 2) + [0xF7], 4.0)
+    dump(4.5)
+    check(len(files()) == 3 and os.path.exists(word), "SAVE on the grid (a new file) with a word waiting: saved; the word is not used (%s)" % files())
+    dump(5.0)
+    check(len(files()) == 3 and not os.path.exists(word), "... the next one, which nobody asked the library for, is the other program's")
+    names = B.library_files(lib_dir)
+    B.export_elsewhere_mark(ctl)
+    lib.files = []
+    lib.fm1_sysex(B.SX_HEAD + [B.SX_LIB_SAVE] + B.put7(1, 2) + [0xF7], 6.0)
+    dump(6.5)
+    check(len(files()) == 3 and lib.saved_path and os.path.basename(lib.saved_path) == names[1] and os.path.exists(word),
+          "SAVE on the grid over a file, a word waiting: written over (%s)" % os.path.basename(lib.saved_path or ""))
+    # the hub's editor (the control folder's own request)
+    with open(os.path.join(ctl, "bridge-req.json"), "w") as f:
+        f.write(json.dumps({"id": "e1", "op": "export", "file": "from-the-editor.sgq"}))
+    control.tick(10.0)
+    check(sent[-1] == B.export_request(None), "the editor asks for the FM-1's project: the bridge asks the FM-1")
+    dump(10.5)
+    control.tick(10.6)
+    ans = json.loads(open(os.path.join(ctl, "bridge-ans-e1.json")).read())
+    check("from-the-editor.sgq" in files() and ans["ok"] is True and os.path.exists(word),
+          "... the image is saved under the editor's name, a word waiting or not (%s %s)" % (ans, files()))
+    os.unlink(word)
+    # a SAVE whose project never came (the FM-1 was busy), long ago: it does not make a later image the library's
+    lib.fm1_sysex(B.SX_HEAD + [B.SX_LIB_SAVE] + B.put7(B.LIB_NEW, 2) + [0xF7], 20.0)
+    B.export_elsewhere_mark(ctl)
+    n = len(files())
+    dump(20.0 + B.MINE_S + 1.0)
+    check(len(files()) == n and not os.path.exists(word), "a SAVE whose project never came, MINE_S ago: the image that comes now is the other program's")
+    # the word's age, by this computer's monotonic clock
+    B.export_elsewhere_mark(ctl, clock=lambda: 500.0)
+    check(control.export_elsewhere(clock=lambda: 500.0 + B.ELSEWHERE_S - 1.0) is True and not os.path.exists(word), "a word said %.0f s ago still counts" % (B.ELSEWHERE_S - 1))
+    B.export_elsewhere_mark(ctl, clock=lambda: 500.0)
+    check(control.export_elsewhere(clock=lambda: 500.0 + B.ELSEWHERE_S + 1.0) is False and not os.path.exists(word), "... an older one does not, and is taken away")
+    B.export_elsewhere_mark(ctl, clock=lambda: 500.0)
+    check(control.export_elsewhere(clock=lambda: 20.0) is False and not os.path.exists(word), "... nor one from before this start of the Pi (the clock began again)")
+    with open(word, "w") as f:
+        f.write("not a number")
+    check(control.export_elsewhere() is False and not os.path.exists(word), "a word that says nothing: taken away, not counted")
+    check(control.export_elsewhere() is False, "no word: no")
+    check(B.export_elsewhere_mark(os.path.join(d, "no-such-folder")) is False, "no bridge has run on this computer (no folder): nothing to tell, no error")
+    n = len(files())
+    dump(30.0)
+    check(len(files()) == n + 1, "and after all that, a project the FM-1 gives by itself is saved")
+    # --export by hand says the word before it asks (a bridge that runs hears the same image)
+    lp = "Felucca 2:Felucca 2 MIDI 1 36:0"
+
+    class Msg:
+        def __init__(self, b): self.b = list(b)
+        def bytes(self): return self.b
+        @classmethod
+        def from_bytes(cls, b): return cls(b)
+    seen = []
+
+    class Port:
+        def __init__(self, cb=None): self.cb = cb
+        def send(self, m):
+            seen.append((os.path.exists(word), m.bytes()))
+        def close(self): pass
+    fake = types.SimpleNamespace(get_input_names=lambda: [lp], get_output_names=lambda: [lp], Message=Msg,
+                                 open_input=lambda name, callback=None: Port(callback), open_output=lambda name: Port())
+    a = types.SimpleNamespace(fm1=B.FM1_PATTERN, port="auto", import_file=None, export=0, out=None, dump_dir=lib_dir)
+    real_dir, real_time = B.CONTROL_DIR, B.time.monotonic
+    B.CONTROL_DIR = ctl
+    t = [0.0]
+
+    def fast():                                                  # (--export waits ten seconds for the FM-1: not here)
+        t[0] += 1.0
+        return real_time() + t[0]
+    B.time.monotonic = fast
+    try:
+        with contextlib.redirect_stderr(io.StringIO()):
+            rc = B.one_shot(a, fake, [lp], [lp])
+    finally:
+        B.CONTROL_DIR, B.time.monotonic = real_dir, real_time
+    check(rc == 1 and seen and seen[0] == (True, B.export_request(None)), "--export: the word is said before the FM-1 is asked (%s %s)" % (rc, seen[:1]))
+
+
 TESTS = [t_roles_match_firmware, t_start_stop, t_pads_in, t_buttons_in, t_leds_out, t_batching, t_pump, t_blink,
          t_swap_and_guard, t_mk2, t_mini, t_heal, t_ports, t_portwatch, t_main, t_quiet_wait, t_synth_ports, t_end_to_end,
          t_dump_codec, t_dump_receiver, t_dump_sender, t_dump_files, t_dump_cli, t_dump_firmware, t_bootwriter, t_library,
          t_library_firmware, t_fm1_port, t_patch_keeper, t_patch_firmware, t_regista, t_regista_firmware, t_patterns, t_progressions,
-         t032_library_112]
+         t032_library_112, t0322_elsewhere]
 
 if __name__ == "__main__":
+    ONLY = os.environ.get("SAGGA_ONLY")                          # (0.32.2: a few of them by name, as the simulator's tests)
     for t in TESTS:
+        if ONLY and not any(o and o in t.__name__ for o in ONLY.split(",")):
+            continue
         print(t.__name__)
         try:
             t()
