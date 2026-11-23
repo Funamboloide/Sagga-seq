@@ -91,8 +91,9 @@ scritta, la domanda resta. **Dovresti poter premere SEL alla prima richiesta**, 
 ## 4. Un progetto in più nella libreria a ogni prova
 
 È la stessa causa della sezione 3: il bridge salvava nella libreria la copia del progetto che il banco chiede. **Ogni
-prova lasciava un file in più** (`sagga-009.sgq` ... `sagga-013.sgq` sono delle ultime cinque prove; le prove di prima
-ne hanno lasciati altri). Adesso non succede più.
+prova lasciava un file in più**: nelle ultime cinque la libreria è passata da 8 a 13 file (nel registro del bridge se ne
+vede uno, `sagga-012.sgq`, salvato proprio durante la quarta). Forse anche qualcuno degli 8 di prima viene da prove più
+vecchie. Adesso non succede più.
 
 Il SAVE dal grid, l'EXPORT dai tasti dell'FM-1 e l'editor della pagina salvano come prima.
 
@@ -102,8 +103,8 @@ non ha un bottone per cancellare un progetto.
 
 ## 5. Due cose più piccole
 
-* **L'installatore e il test dell'FM-1** chiudono le porte MIDI nello stesso modo sicuro. Lì il blocco non si è mai
-  visto, ma il difetto della libreria è lo stesso.
+* **L'installatore e il test dell'FM-1** adesso chiudono le porte MIDI nello stesso modo sicuro: il difetto della
+  libreria è lo stesso.
 * **`sagga_grid_bridge.py --export`** lanciato a mano mentre il servizio gira non lascia più due file (uno suo, uno del
   servizio).
 
@@ -121,7 +122,13 @@ L'FM-1 vero non c'entra: il suo firmware non è cambiato. Quello che ho potuto f
 | il banco con un bridge che non si ferma, uno che non riparte, uno trovato fermo | la prova va avanti, il bridge riparte, tutto detto nel log; nessun errore di Python |
 | la domanda sullo schermo, nel simulatore con il firmware 0.32.1 | coperta dopo un secondo con la risposta del bridge; resta venti secondi senza |
 | il progetto chiesto da un altro programma | il bridge non lo salva e non risponde; il SAVE del grid e l'editor salvano come prima |
-PROVE_QUI
+| le prove nuove dell'uscita del bridge e delle chiusure | 51 controlli, 0 errori |
+| il bridge del grid (con la libreria e l'avviso del banco) | 347 controlli, 0 errori |
+| il programma del banco, con FM-1, RaspiMIDIHub e servizio finti | 98 controlli, 0 errori |
+| la pagina del Pi e le pagine SAGGA | 179 e 101 controlli, 0 errori |
+| tutte le altre prove di sempre (il cuore, il simulatore, l'esploratore, la fuzz) | tutte a 0 errori: il firmware non è cambiato |
+| i piani delle prove che vanno sul Pi (33 e 38 sessioni) | byte per byte quelli della 0.32.1 |
+| 59 rotture fatte apposta nel bridge, nel banco, nell'installatore, negli strumenti di prova, nel file del servizio e nel confronto | trovate tutte. Al primo giro due erano passate: erano le prove a essere deboli, e le ho rinforzate (una mi ha fatto trovare un altro punto dove il blocco poteva tornare) |
 
 ## Installare
 

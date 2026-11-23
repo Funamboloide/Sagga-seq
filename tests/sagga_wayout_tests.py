@@ -277,10 +277,11 @@ def open_output(name, virtual=False):
 IN_PROCESS = ("import sys; sys.path.insert(0, %r); import sagga_grid_bridge as B; " % os.path.join(ROOT, "tools"))
 
 
-def run_program(cmd, mode="", sig=signal.SIGTERM, patience=4.0, wait_for="bridge running", before=None, linger=0.3, library=None):
+def run_program(cmd, mode="", sig=signal.SIGTERM, patience=4.0, wait_for="bridge running", before=None, linger=0.3, library=None, until=None):
     """the bridge started with the stand-in for mido; once it runs (and `linger` s more), the signal; -> (exit code or
     None when it had to be killed, seconds from the signal to its end, what the ports were sent / asked, stdout,
-    stderr). before(folder, env): things to put there first; library: a list that gets the library's files"""
+    stderr). before(folder, env): things to put there first; library: a list that gets the library's files; until:
+    words the ports' log must hold before the signal (waited for, on a computer however busy)"""
     with tempfile.TemporaryDirectory() as d:
         with open(os.path.join(d, "mido.py"), "w") as f:
             f.write(FAKE_MIDO)
@@ -304,6 +305,15 @@ def run_program(cmd, mode="", sig=signal.SIGTERM, patience=4.0, wait_for="bridge
         t_sig = None
         if sig is not None:
             running.wait(15.0)
+            t_until = time.time()
+            while until and time.time() - t_until < 30.0:
+                try:
+                    with open(log) as f:
+                        if until in f.read():
+                            break
+                except OSError:
+                    pass
+                time.sleep(0.05)
             time.sleep(linger)                                # (a few turns of its loop)
             t_sig = time.time()
             p.send_signal(sig)
@@ -388,7 +398,8 @@ def t_program_library():
         env["FAKE_MIDO_DUMP"] = os.path.join(d, "dump.json")
         B.export_elsewhere_mark(os.path.join(d, "control"))   # (the banco, a line before it asks the FM-1)
     lib = []
-    rc, took, said, out, err, ran = run_program([sys.executable, "-u", BRIDGE], before=before, linger=2.0, library=lib)
+    rc, took, said, out, err, ran = run_program([sys.executable, "-u", BRIDGE], before=before, linger=0.5, library=lib,
+                                                until='["gave", "Felucca", 1]')
     answers = [x[2] for x in said if x[0] == "send" and x[1].startswith("Felucca") and x[2][:5] == B.SX_HEAD + [B.SX_LIB_ANSWER]]
     check(ran and rc == 0 and [x[2] for x in said if x[0] == "gave"] == [0, 1], "(the FM-1 gave its project twice: %s, rc %s; %r)" % ([x for x in said if x[0] == "gave"], rc, err[-200:]))
     check(len(lib) == 1 and out.count("asked for by another program") == 1 and out.count("project from the FM-1 saved") == 1 and len(answers) == 1,

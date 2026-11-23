@@ -209,7 +209,10 @@ def in_flight(port):
     sys.setswitchinterval(1000.0)
     port._rt.feed(1)
     t = time.perf_counter()
-    while time.perf_counter() - t < 0.05:
+    while port._rt.called < 1 and time.perf_counter() - t < 10.0:      # (however busy the computer is)
+        pass
+    t = time.perf_counter()
+    while time.perf_counter() - t < 0.02:              # (from its count to its call: a few instructions)
         pass
     return port._rt.called                              # 1: the thread is in its call, waiting for the interpreter
 

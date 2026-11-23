@@ -376,6 +376,14 @@ Quattrocento sessioni da 60 gesti girano in circa 30 secondi.
     spento fino al riavvio del Pi; in tutte e cinque (e nelle due della 0.32) la prima richiesta di premere SEL è andata
     a vuoto, perché `SAVED ON THE PI` copriva la domanda sullo schermo dell'FM-1; ogni prova ha lasciato un progetto in
     più nella libreria.
+  * Le prove della 0.32.2 (`tests/sagga_wayout_tests.py` e `tests/sagga_lockup.py` nuove: il blocco della libreria MIDI
+    rifatto in quaranta righe di C, il bridge vero con porte finte che non finiscono mai di chiudersi; `t0322_elsewhere`
+    nel bridge; `t_bridge_stop` e `t_backup_not_library` nel programma del banco; il sesto caso di `prova_tempo`) sono
+    state provate rompendo il bridge, il programma del banco, l'installatore, gli strumenti del test, il file del servizio
+    e il confronto in cinquantanove punti, uno alla volta. Al primo giro due rotture erano passate: la controfigura di
+    mido non chiudeva le porte da sola quando Python le lascia, come fa mido vero. Resa fedele, ha mostrato un altro
+    punto dove il blocco poteva tornare (un programma che finisce dopo aver lasciato le porte): corretto. Adesso le
+    trovano tutte. **Sul Pi vero niente di questo è stato provato**: qui non ci sono né porte MIDI né systemd.
 
 * **La 0.32 sull'FM-1 vero** (fra il 20 e il 22 novembre 2026; i file portano ancora la data del 26 ottobre, l'orologio del Pi): il
   banco (32 sessioni) e l'FM-1 completo (37). **In tutte e 69 l'FM-1 fa quello che fa il simulatore.** Il confronto aveva
