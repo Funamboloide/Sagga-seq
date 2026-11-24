@@ -30,7 +30,8 @@ static int16_t sc_rr[SC_ROLL_N] __attribute__ ((section (".sdram")));
 static float sc_rv[SC_RV_TOTAL] __attribute__ ((section (".sdram")));
 hw_setup();
 sc_init(sc_el, sc_er, sc_rl, sc_rr, sc_rv);
-routing = attr_routing;'''
+routing = attr_routing;
+sc_rt = (uint32_t)(attr_anticipo * 48.f + 0.5f);'''
 
 KRATE = '''sc_block(inlet_inl, inlet_inr, outlet_outl, outlet_outr);
 outlet_l1 = line[0];
@@ -69,7 +70,10 @@ La manopola si riprende il controllo appena la muovi.
 in ritardo di 1-2 ms farebbe un effetto phaser). Escono il rumore, l'eco e il riverbero, e i loop di ROLL, FREEZE e
 dei fill dalla loro prima ripetizione (il primo passaggio e' il pulito). Filtro e crush agiscono su quello che va
 nell'eco e nel riverbero, e sui loop; il pulito sul mixer resta com'e'. Al centro il ritorno e' muto: sul display
-MANDATA al posto di PULITO.'''
+MANDATA al posto di PULITO.
+<br>anticipo (attributo, solo in aux): i loop ripetono 1.5 ms prima, quanto il suono impiega ad andare dalla Gills al
+mixer e a tornare: cosi' cadono sulla griglia del pulito al mixer. Se le ripetizioni di una cassa dritta fanno flam o
+effetto phaser, prova un altro valore.'''
 
 
 def read(name):
@@ -87,6 +91,9 @@ def cdata(s):
 
 
 ROUTINGS = ('insert', 'aux')
+# aux: the way to the mixer and back (the Gills' converters and buffers): the loops repeat that early
+ANTICIPI = [('1.5 ms', '1.5f'), ('0 ms', '0.0f'), ('0.5 ms', '0.5f'), ('1.0 ms', '1.0f'), ('2.0 ms', '2.0f'),
+            ('2.5 ms', '2.5f'), ('3.0 ms', '3.0f')]
 
 
 def axp(routing='insert'):
@@ -111,6 +118,7 @@ def axp(routing='insert'):
     o.append('      <params/>')
     o.append('      <attribs>')
     o.append('         <combo attributeName="routing" selection="%s"/>' % routing)
+    o.append('         <combo attributeName="anticipo" selection="%s"/>' % ANTICIPI[0][0])
     o.append('      </attribs>')
     o.append('      <object id="patch/object" uuid="%s">' % OBJ_UUID)
     o.append('         <sDescription>SCENA: one knob from break-down to build-up (Pioneer RMX-1000 Scene FX, Octatrack scenes)</sDescription>')
@@ -127,6 +135,16 @@ def axp(routing='insert'):
     o.append('               <CEntries>')
     for i in range(len(ROUTINGS)):
         o.append('                  <string>%d</string>' % i)
+    o.append('               </CEntries>')
+    o.append('            </combo>')
+    o.append('            <combo name="anticipo" description="aux: the way to the mixer and back; the loops repeat that early">')
+    o.append('               <MenuEntries>')
+    for m, _ in ANTICIPI:
+        o.append('                  <string>%s</string>' % m)
+    o.append('               </MenuEntries>')
+    o.append('               <CEntries>')
+    for _, v in ANTICIPI:
+        o.append('                  <string>%s</string>' % v)
     o.append('               </CEntries>')
     o.append('            </combo>')
     o.append('         </attribs>')
@@ -196,7 +214,8 @@ extern "C" void scena_entry(void) {
     scena_i.dsp(t_in_l, t_in_r, t_out_l, t_out_r, t_l1, t_l2, t_l3, t_l4);
     scena_i.MidiInHandler(MIDI_DEVICE_DIN, 0, 0xF8, 0, 0);
 }
-''' % (declaration(), INIT.replace('attr_routing', str(ROUTINGS.index(routing))), ', '.join(args), KRATE, MIDI)
+''' % (declaration(), INIT.replace('attr_routing', str(ROUTINGS.index(routing))).replace('attr_anticipo', ANTICIPI[0][1]),
+       ', '.join(args), KRATE, MIDI)
 
 
 def main(argv):

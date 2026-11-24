@@ -8,6 +8,7 @@
       <params/>
       <attribs>
          <combo attributeName="routing" selection="insert"/>
+         <combo attributeName="anticipo" selection="1.5 ms"/>
       </attribs>
       <object id="patch/object" uuid="b7a1c0de-5ce9-4a00-8000-000000005ce9">
          <sDescription>SCENA: one knob from break-down to build-up (Pioneer RMX-1000 Scene FX, Octatrack scenes)</sDescription>
@@ -36,6 +37,26 @@
                <CEntries>
                   <string>0</string>
                   <string>1</string>
+               </CEntries>
+            </combo>
+            <combo name="anticipo" description="aux: the way to the mixer and back; the loops repeat that early">
+               <MenuEntries>
+                  <string>1.5 ms</string>
+                  <string>0 ms</string>
+                  <string>0.5 ms</string>
+                  <string>1.0 ms</string>
+                  <string>2.0 ms</string>
+                  <string>2.5 ms</string>
+                  <string>3.0 ms</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>1.5f</string>
+                  <string>0.0f</string>
+                  <string>0.5f</string>
+                  <string>1.0f</string>
+                  <string>2.0f</string>
+                  <string>2.5f</string>
+                  <string>3.0f</string>
                </CEntries>
             </combo>
          </attribs>
@@ -845,7 +866,8 @@ static int16_t sc_rr[SC_ROLL_N] __attribute__ ((section (".sdram")));
 static float sc_rv[SC_RV_TOTAL] __attribute__ ((section (".sdram")));
 hw_setup();
 sc_init(sc_el, sc_er, sc_rl, sc_rr, sc_rv);
-routing = attr_routing;]]></code.init>
+routing = attr_routing;
+sc_rt = (uint32_t)(attr_anticipo * 48.f + 0.5f);]]></code.init>
          <code.krate><![CDATA[sc_block(inlet_inl, inlet_inr, outlet_outl, outlet_outr);
 outlet_l1 = line[0];
 outlet_l2 = line[1];
@@ -937,7 +959,10 @@ La manopola si riprende il controllo appena la muovi.
 in ritardo di 1-2 ms farebbe un effetto phaser). Escono il rumore, l'eco e il riverbero, e i loop di ROLL, FREEZE e
 dei fill dalla loro prima ripetizione (il primo passaggio e' il pulito). Filtro e crush agiscono su quello che va
 nell'eco e nel riverbero, e sui loop; il pulito sul mixer resta com'e'. Al centro il ritorno e' muto: sul display
-MANDATA al posto di PULITO.]]></notes>
+MANDATA al posto di PULITO.
+<br>anticipo (attributo, solo in aux): i loop ripetono 1.5 ms prima, quanto il suono impiega ad andare dalla Gills al
+mixer e a tornare: cosi' cadono sulla griglia del pulito al mixer. Se le ripetizioni di una cassa dritta fanno flam o
+effetto phaser, prova un altro valore.]]></notes>
    <windowPos>
       <x>40</x>
       <y>40</y>
