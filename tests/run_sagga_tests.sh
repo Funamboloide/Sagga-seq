@@ -80,6 +80,7 @@ step "hwtest" tail 1 python3 tests/sagga_hwtest_tests.py
 step "sgqmid" tail 1 python3 tests/sagga_sgqmid_tests.py
 step "slicer" tail 1 python3 tests/sagga_slicer_tests.py               # 0.13 a break into slices (the hub page)
 step "editor" tail 1 python3 tests/sagga_editor_tests.py               # 0.14 the projects' web editor (converter, hub, bridge, page)
+step "ableton" tail 1 python3 tests/sagga_ableton_tests.py             # 0.32.3 DA ABLETON: the clips -> a project of steps, played by the firmware
 # the live effects of the set: FIGO on norns (a fake norns, softcut modelled), SCENA on the Ksoloti Gills
 if command -v texlua >/dev/null 2>&1; then step "figo" tail 1 texlua tools/norns/test_figo.lua; else echo "figo: skipped (no texlua)"; fi
 c++ -std=c++11 -O2 tools/gills/test_scena.cpp -o build/test_scena

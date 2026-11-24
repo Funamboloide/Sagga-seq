@@ -657,17 +657,27 @@ def compare(session, heard=None):
             # 0.27's banco: and up to 9 ms later - the FM-1 stamps a message when it takes it from the USB, and works it in its
             # pass of the loop, up to its lag (8-9 ms with the screen) later: the banco's b027, a dice of the engines'
             # page 5 ms after the ms it said, is the FM-1's dice
-            for ms in ((1, -1, 2, -2, 3, -3, 4, 5, 6, 7, 8, 9, -4, -5) if mine else ()):
+            # 0.32.3 (the banco of 0.32.2, b031): and at a ms without its clock tick. The replay puts a message between
+            # the same two ticks the FM-1 took it between - a ms early, when the next tick is due, so that it does not
+            # land after it - and a message the FM-1 took just before a tick may be WORKED after it: the pass ran past
+            # the tick (SAGGA Break's DICE, taken a ms before tick 579 on tick 578, rolled after the tick with the
+            # numbers of the next ms - moved with its tick it lands back before it; only without it can the replay put
+            # it there). Tried after the ticks kept
+            tries = [(ms, False) for ms in (1, -1, 2, -2, 3, -3, 4, 5, 6, 7, 8, 9, -4, -5)]
+            tries += [(ms, True) for ms in (0, 1, -1, 2, -2, 3, -3, 4, 5, 6, 7, 8, 9)]
+            for ms, notick in (tries if mine else ()):
                 hd = [list(h) for h in heard]
                 for k in mine:
                     hd[k][0] += ms
+                    if notick:
+                        hd[k][1] = T.NOGC
                 budget[0] -= 1
                 sim2, _ = replay_sim(replay, hd)
                 sp2 = {int(k): T.probe_dict(v) for k, v in sim2["sonde"].items()}
                 if clean_upto(sp2):
                     hit = (ms, replay, sim2, sp2)
                     heard = hd
-                    role = "%s (i messaggi sentiti dalle porte)" % role
+                    role = "%s (i messaggi sentiti dalle porte%s)" % (role, ", senza il loro tick" if notick else "")
                     break
         if not hit and len(shifted) < 8:
             # 0.23.1: ONE event of an earlier gesture read later or earlier: what it started shows only now (a loop's

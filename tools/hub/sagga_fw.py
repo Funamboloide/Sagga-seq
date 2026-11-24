@@ -8,7 +8,9 @@ bridge exported (.sgq) for download. 0.13: BREAK, a drum loop (WAV) cut into sli
 back as a zip. 0.20.1: a package away (Elimina), and the Pi updates itself from a sagga-hub-X.zip uploaded here
 (checked, unpacked in /run, install_hub.sh run in a unit of its own: it restarts this page). 0.20.3: the ESPLORATORE
 DEL BANCO (sagga_banco.py, in a unit of its own too): the matrix checked, the FM-1, the pages and the grid tested
-together; its log here, its files to download. Standard library only.
+together; its log here, its files to download. 0.32.3: DA ABLETON, the MIDI clips exported from Ableton made a project of
+steps in the library (sagga_ableton.py), each part on the channel of its machine (the table on the page). Standard library
+only.
 
     sudo python3 sagga_fw.py [--dir /boot/firmware/sagga/firmware] [--projects /boot/firmware/sagga] [--port 8090]
 """
@@ -39,6 +41,10 @@ import sagga_patterns                                                           
 import sagga_progs                                                               # noqa: E402  (0.11: the Pi's progressions)
 import sagga_slicer                                                              # noqa: E402  (0.13: a break into slices)
 import sagga_editor                                                              # noqa: E402  (0.14: the projects' web editor)
+try:
+    import sagga_ableton                                                         # noqa: E402  (0.32.3: Ableton's clips -> steps)
+except ImportError:                                                              # (never the page down for it)
+    sagga_ableton = None
 try:
     import sagga_celle                                                           # noqa: E402  (0.20.9: the FM-1's cells kept)
 except ImportError:                                                              # (never the page down for it)
@@ -665,6 +671,11 @@ input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small
 <div class="row" style="flex-wrap:wrap"><input id="np" placeholder="nome del progetto" size="18"><button onclick="newp()">Nuovo</button><button class="sec" onclick="recv()">Ricevi dall'FM-1</button><small id="npm"></small></div>
 <small>Nuovo: un progetto vuoto nella libreria, che si apre nell'editor. Ricevi: il progetto che l'FM-1 ha adesso (fermo), con quel nome. Dall'editor: <b>Manda all'FM-1</b>.</small>
 <form method="post" action="/api/upload" enctype="multipart/form-data" class="row"><span><small>un .sgq (torna nella libreria) o un .mid (diventa un progetto di tracce TAPE)</small></span><input type="file" name="f" accept=".sgq,.mid,.midi" required><button>Carica</button></form>
+<h2>DA ABLETON</h2>
+<form method="post" action="/api/ableton" enctype="multipart/form-data" class="row" style="flex-wrap:wrap"><input name="nome" placeholder="nome del progetto" size="16" required><input type="file" name="f" accept=".mid,.midi" multiple required><label><small>BPM</small> <input name="bpm" size="5" placeholder="dai clip"></label><button>Fai il progetto</button></form>
+<small>I clip MIDI esportati da Ableton (tasto destro sul clip, <b>Export MIDI Clip</b>), anche tutti insieme: diventano un progetto <b>a passi</b> nella libreria, una traccia per parte, un pattern per clip; la scena N suona il clip N di ogni parte. Il nome del file dice la parte e il pattern: <b>A-basso-2.mid</b> &egrave; il basso, pattern 2. Un clip di tutta la batteria (drums, batteria, beat) si divide da solo. Lo swing del clip resta (il NUDGE dei passi). Le parti, la macchina che le suona e il canale MIDI (cambialo e salva):</small>
+<div id="abl"></div>
+<div class="row"><button onclick="ablsave()">Salva i canali</button><small id="ablm"></small></div>
 <h2>BREAK IN SLICE</h2>
 <form method="post" action="/api/slice" enctype="multipart/form-data" class="row" style="flex-wrap:wrap"><input type="file" name="f" accept=".wav" required>
 <label><small>slice</small> <select name="slices"><option>8</option><option selected>16</option><option>32</option></select></label>
@@ -721,7 +732,12 @@ document.getElementById('ql').innerHTML=l.map(([x,i])=>`<div class="row"><span c
 async function pdel(g,i){if(!confirm('Eliminare la progressione '+(i+1)+' di '+g+'?'))return;await fetch('/api/progressions/delete?genre='+g+'&i='+i,{method:'POST'});progs();}
 async function padd(){const g=document.getElementById('qg').value||'TECHNO',m=document.getElementById('am').value||'ANY',c=document.getElementById('ac').value;
 const r=await fetch('/api/progressions/add?genre='+g+'&mood='+m+'&chords='+encodeURIComponent(c),{method:'POST'});if(!r.ok){alert(await r.text());return;}document.getElementById('ac').value='';progs();}
-tick();setInterval(tick,2000);pats();progs();</script></body></html>'''
+async function abl(){const r=await fetch('/api/ableton/canali');if(!r.ok)return;const s=await r.json();
+document.getElementById('abl').innerHTML=s.parti.map(p=>`<div class="row"><span class="mono">${p.track}. ${h(p.name)} <small>${h(p.machine)} &middot; ${h(p.words.join(' '))}</small></span><label><small>canale</small> <input type="number" min="1" max="16" style="width:4em" data-k="${p.key}" value="${p.canale}"></label></div>`).join('');}
+async function ablsave(){const it=[...document.querySelectorAll('#abl input')].map(i=>({key:i.dataset.k,canale:parseInt(i.value,10)}));
+const r=await fetch('/api/ableton/canali',{method:'POST',headers:{'Content-Type':'application/json','X-Sagga-Hub':'1'},body:JSON.stringify(it)});
+document.getElementById('ablm').textContent=r.ok?'salvati: valgono dal prossimo progetto':await r.text();}
+tick();setInterval(tick,2000);pats();progs();abl();</script></body></html>'''
 
 
 def multipart_file(content_type, body):
@@ -754,6 +770,56 @@ def multipart_form(content_type, body):
             if name:
                 fields[name] = (part.get_payload(decode=True) or b'').decode('utf-8', 'replace').strip()
     return fields, f
+
+
+def multipart_files(content_type, body):
+    """0.32.3: the fields and EVERY file of a multipart/form-data body -> ({name: text}, [(filename, bytes)])"""
+    head = ('Content-Type: %s\r\nMIME-Version: 1.0\r\n\r\n' % content_type).encode()
+    msg = email.parser.BytesParser(policy=email.policy.default).parsebytes(head + body)
+    fields, files = {}, []
+    if not msg.is_multipart():
+        return fields, files
+    for part in msg.iter_parts():
+        fn = part.get_filename()
+        if fn:
+            files.append((os.path.basename(fn), part.get_payload(decode=True) or b''))
+        else:
+            name = part.get_param('name', header='content-disposition')
+            if name:
+                fields[name] = (part.get_payload(decode=True) or b'').decode('utf-8', 'replace').strip()
+    return fields, files
+
+
+def esc(t):
+    return str(t).replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;').replace('"', '&quot;')
+
+
+def ableton_page(file_name, rep):
+    """0.32.3: what DA ABLETON made, as a page: the tracks, the files, what to look at"""
+    rows = ''.join('<tr><td>%d</td><td>%s</td><td>%s</td><td>%d</td><td>%s %s</td></tr>%s' % (
+        t['track'], esc(t['name']), esc(t['machine']), t['channel'], esc(t['mode']), esc(' '.join(t['patterns'])),
+        '<tr><td></td><td colspan="4"><small>%s</small></td></tr>' % esc(t['note']) if t.get('note') else '')
+        for t in rep['tracks'])
+    files = ''.join('<li><span class="mono">%s</span> <small>%s%s</small></li>' % (
+        esc(f['file']), esc(f['part'] or '') + (' &middot; pattern ' + esc(', '.join(f['patterns'])) if f['patterns'] else ''),
+        ''.join('<br><b>%s</b>' % esc(w) for w in f['warnings'])) for f in rep['files'])
+    warns = ''.join('<li><b>%s</b></li>' % esc(w) for w in rep['warnings'])
+    bpm = ('%g BPM' % rep['bpm']) if rep['bpm'] else '128 BPM (il tempo non era nei clip)'
+    q = urllib.parse.quote(file_name)
+    return ('<!doctype html><html lang="it"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>DA ABLETON</title><style>body{font:16px/1.4 system-ui,sans-serif;margin:0;background:#111;color:#eee}'
+            'main{padding:12px 16px;max-width:720px;margin:auto}h2{font-size:14px;letter-spacing:.1em;color:#9cf;margin:20px 0 8px}'
+            'table{border-collapse:collapse;width:100%%}td{padding:6px 4px;border-bottom:1px solid #333;vertical-align:top}'
+            'small{color:#999}b{color:#fc6}a{color:#9cf}.mono{font-family:ui-monospace,monospace;font-size:13px;overflow-wrap:anywhere}'
+            'li{margin:6px 0}</style></head><body><main>'
+            '<h2>DA ABLETON: %s</h2><p>Nella libreria: <span class="mono">%s</span>, %s, %d scene.</p>'
+            '<p><a href="/edit/%s"><b>Apri nell\'editor</b></a> (da l&igrave;: Manda all\'FM-1) &middot; <a href="/projects/%s">scarica il .sgq</a>'
+            ' &middot; <a href="/">torna al Pi</a></p>'
+            '<h2>LE TRACCE</h2><table><tr><td><small>traccia</small></td><td></td><td><small>macchina</small></td>'
+            '<td><small>canale</small></td><td><small>pattern</small></td></tr>%s</table>'
+            '<h2>I FILE</h2><ul>%s</ul>%s</main></body></html>'
+            % (esc(rep['name']), esc(file_name), bpm, rep.get('scenes', 0), q, q, rows, files,
+               ('<h2>DA GUARDARE</h2><ul>%s</ul>' % warns) if warns else ''))
 
 
 def slice_request(fields, name, data):
@@ -797,6 +863,11 @@ def make_handler(state):
                 return self.send(200, PAGE)
             if u.path == '/api/state':
                 return self.send(200, json.dumps(state.snapshot()), 'application/json')
+            if u.path == '/api/ableton/canali' and sagga_ableton:   # 0.32.3: the parts and their channels
+                parts = sagga_ableton.rig(sagga_ableton.load_config(state.proj_dir))
+                return self.send(200, json.dumps(dict(parti=[dict(key=p.key, name=p.name, track=p.track + 1, machine=p.machine,
+                                                                  canale=p.channel + 1, words=list(p.words[:5])) for p in parts])),
+                                 'application/json')
             if u.path == '/api/patterns':                         # 0.11: the patterns of a genre, part by part
                 q = urllib.parse.parse_qs(u.query)
                 g = q.get('genre', ['TECHNO'])[0].upper()
@@ -877,7 +948,7 @@ def make_handler(state):
             origin = self.headers.get('Origin')
             if origin is not None and urllib.parse.urlparse(origin).netloc != self.headers.get('Host', ''):
                 return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
-            if u.path in ('/api/update', '/api/package/delete', '/api/banco') and self.headers.get(GUARD) != '1':
+            if u.path in ('/api/update', '/api/package/delete', '/api/banco', '/api/ableton/canali') and self.headers.get(GUARD) != '1':
                 return self.send(403, 'solo dalla pagina del hub', 'text/plain; charset=utf-8')
             if u.path == '/api/banco':                            # 0.20.3: the banco's explorer starts
                 q = urllib.parse.parse_qs(u.query)
@@ -993,6 +1064,51 @@ def make_handler(state):
                 except sagga_slicer.SliceError as e:
                     return self.send(400, 'non riesco a tagliarlo: %s' % e, 'text/plain; charset=utf-8')
                 return self.send(200, zipb, 'application/zip', {'Content-Disposition': 'attachment; filename="%s"' % zname})
+            if u.path.startswith('/api/ableton') and not sagga_ableton:
+                return self.send(500, 'sagga_ableton.py non installato: rilancia install_hub.sh', 'text/plain; charset=utf-8')
+            if u.path == '/api/ableton/canali':                    # 0.32.3: the channels of the parts, kept in the library
+                n = int(self.headers.get('Content-Length', '0') or 0)
+                try:
+                    cfg = sagga_ableton.config_from_page(json.loads(self.rfile.read(min(n, 65536)).decode('utf-8') or 'null'))
+                except (ValueError, sagga_ableton.AbletonError) as e:
+                    return self.send(400, 'canali non validi: %s' % e, 'text/plain; charset=utf-8')
+                try:
+                    state.writer.write(os.path.join(state.proj_dir, sagga_ableton.CONFIG), json.dumps(cfg, indent=1).encode())
+                except Exception as e:
+                    return self.send(500, 'non riesco a scrivere: %s' % e, 'text/plain; charset=utf-8')
+                return self.send(200, json.dumps(dict(ok=True)), 'application/json')
+            if u.path == '/api/ableton':                           # 0.32.3: Ableton's clips -> a project of steps
+                n = int(self.headers.get('Content-Length', '0') or 0)
+                if n <= 0 or n > 16 * 1024 * 1024:
+                    return self.send(400, 'upload vuoto o troppo grande', 'text/plain; charset=utf-8')
+                fields, files = multipart_files(self.headers.get('Content-Type', ''), self.rfile.read(n))
+                files = [f for f in files if f[0].lower().endswith(('.mid', '.midi'))]
+                if not files:
+                    return self.send(400, 'servono i file .mid dei clip', 'text/plain; charset=utf-8')
+                try:
+                    name = sagga_editor.clean_name(fields.get('nome', ''))
+                except sagga_editor.EditorError as e:
+                    return self.send(400, str(e), 'text/plain; charset=utf-8')
+                bpm = None
+                if fields.get('bpm'):
+                    try:
+                        bpm = float(fields['bpm'].replace(',', '.'))
+                    except ValueError:
+                        bpm = 0
+                    if not 20 <= bpm <= 300:
+                        return self.send(400, 'BPM: un numero da 20 a 300 (vuoto: dai clip)', 'text/plain; charset=utf-8')
+                try:
+                    data, rep = sagga_ableton.build(files, name[:-4], sagga_ableton.load_config(state.proj_dir), bpm)
+                except sagga_ableton.AbletonError as e:
+                    return self.send(400, 'non riesco a fare il progetto: %s' % e, 'text/plain; charset=utf-8')
+                p = os.path.join(state.proj_dir, name)
+                try:
+                    if os.path.exists(p):                         # (the one that was there stays among its versions)
+                        state.editor._keep_version(p)
+                    state.writer.write(p, data)
+                except Exception as e:
+                    return self.send(500, 'non riesco a scrivere: %s' % e, 'text/plain; charset=utf-8')
+                return self.send(200, ableton_page(name, rep))
             if u.path == '/api/upload':
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 if n <= 0 or n > 4 * 1024 * 1024:

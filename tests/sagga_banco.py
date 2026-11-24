@@ -761,6 +761,52 @@ def prova_tempo(seed):
     out.append(("0.32.2: a probe the FM-1 read before its pass's work (a THROW gliding, %s ms): TEMPO, said, no error; read 300 ms early: an error (%s | %s | %s)"
                 % (made[1] if made else "-", len(gliding), tempo, [x[0] for x in errs(f9)]),
                 not errs(ft) and bool(made) and not errs(f8) and len(tempo) == 1 and far and [x[0] for x in errs(f9)] == ["SIMULATORE"]))
+    # (7) 0.32.3, the banco of 0.32.2 (b031): a page's DICE the FM-1 took a ms before a clock tick and rolled after it
+    #     (its pass ran past the tick; the dice takes its numbers from the ms). The replay puts a message between the
+    #     ticks the FM-1 took it between - a ms early when the next tick is due - so moved with its tick it can never
+    #     land after that tick: only without it. Rolled 40 ms after the tick, no pass explains it: an error
+    gs = [by["grid BEAT pad 1,2"], pg["pagina break dice"], by["grid BEAT pad 2,2"], by["grid BEAT pad 3,2"]]
+    rd = run_like_banco(session_plan(sit, gs, "t005"), random.Random(seed))
+    fd, _ = compare(rd)
+    hw = rd["fm1"]
+    rp0 = {int(k): tuple(v) for k, v in hw["presi"].items()}
+    heard = hw.get("sentiti") or []
+    dice = [k for k, h in enumerate(heard) if h[2] == 0xBC and h[3] == 69]
+    f10 = f11 = []
+    apart = []
+    if dice:
+        sim0, _ = H.session_replay(rd, rp0, heard)
+        press = heard[dice[0]]
+        t_tick = min([m[0] for m in sim0["midi"] if m[1] == 0xF8 and m[0] > press[0]] or [0])
+        delta = (t_tick - 1) - press[0]
+
+        def stamps(later, notick):                      # (the dice's messages a ms before the tick, + later ms)
+            hd = [list(h) for h in heard]
+            for k in dice:
+                hd[k][0] += delta + later
+                hd[k][1] = T.NOGC if notick else press[1] + (1 if hd[k][0] >= t_tick else 0)
+            return hd
+        said = stamps(0, False)                         # (what the FM-1 says it heard: a ms before the tick)
+
+        def rolled(later):                              # (the FM-1 as the simulator is with the dice rolled then)
+            sim, _ = H.session_replay(rd, rp0, stamps(later, True))
+            r = copy.deepcopy(rd)
+            r["fm1"]["sentiti"] = said
+            r["fm1"]["sonde"] = {str(k): v for k, v in sim["sonde"].items()}
+            r["fm1"]["midi"] = [[m[0] - hw["go_ms"]] + list(m[1:]) for m in sim["midi"] if m[0] - hw["go_ms"] <= hw["midi"][-1][0]]
+            return r, sim
+        r10, sim10 = rolled(1)
+        simk, _ = H.session_replay(rd, rp0, said)
+        key = lambda d_, i: i if i in d_ else str(i)
+        apart = [r for i, r in H.probe_events(rd) if key(sim10["sonde"], i) in sim10["sonde"] and key(simk["sonde"], i) in simk["sonde"]
+                 and H.pdiff(T.probe_dict(sim10["sonde"][key(sim10["sonde"], i)]), T.probe_dict(simk["sonde"][key(simk["sonde"], i)]))]
+        f10, _ = compare(r10)
+        f11, _ = compare(rolled(41)[0])
+    notick = [x for x in f10 if x[0] == "TEMPO" and "senza il loro tick" in x[2]]
+    out.append(("0.32.3: a page's DICE taken a ms before a clock tick and rolled after it: TEMPO, by what was heard without its tick; "
+                "rolled 40 ms later: an error (%d messages; the probes it changes: %s; %s | %s)" % (len(dice), ", ".join(apart[:3]),
+                [x[0] for x in errs(f10)], [x[0] for x in errs(f11)]),
+                not errs(fd) and bool(dice) and bool(apart) and not errs(f10) and len(notick) == 1 and "SIMULATORE" in [x[0] for x in errs(f11)]))
     return out
 
 
