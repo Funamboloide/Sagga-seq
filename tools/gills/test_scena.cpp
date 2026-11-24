@@ -375,6 +375,163 @@ int main(int argc, char **argv) {
         check(S->src == 1 && fabs(S->beat_len - 28800) < 200, fmt("100 bpm tapped (%.0f samples a beat)", S->beat_len));
     }
 
+    printf("aux (routing 1, for a send and return): in the middle nothing at all comes out, whatever goes in\n");
+    {
+        boot();
+        S->routing = 1;
+        for (int i = 1; i < 10; i++) pot(i, (i * 37 % 100) / 100.0);
+        pot(1, 0.8);
+        std::vector<float> o;
+        nseed = 7;
+        run(48000 * 3, [](long t, float &l, float &r) { (void)t; l = wnoise() * 0.7f; r = wnoise() * 0.7f; }, &o);
+        double peak = 0;
+        for (float x : o) peak = std::max(peak, (double)fabsf(x));
+        check(peak == 0.0, fmt("silence (peak %.6f)", peak));
+        S->screen();
+        check(std::string(S->line[0]).find("MANDATA") != std::string::npos, std::string("the screen says MANDATA: ") + S->line[0]);
+    }
+
+    printf("aux: build-up with no echo and no reverb: what comes out does not depend on what goes in (only the hiss)\n");
+    {
+        std::vector<float> oa, ob;
+        for (int k = 0; k < 2; k++) {
+            boot();
+            S->routing = 1;
+            pot(4, 1.0); pot(6, 1.0); pot(3, 0.0); pot(9, 0.0); pot(8, 0.0);
+            pot(0, 1.0);
+            if (k == 0) run(48000, [](long t, float &l, float &r) { l = r = 0.5f * sinf(2 * 3.14159265f * 440 * t / 48000.f); }, &oa);
+            else run(48000, [](long t, float &l, float &r) { l = r = 0.4f * sinf(2 * 3.14159265f * 97 * t / 48000.f + 1.f); }, &ob);
+        }
+        double d = 0;
+        for (size_t i = 0; i < oa.size(); i++) d = std::max(d, (double)fabsf(oa[i] - ob[i]));
+        check(d == 0.0, fmt("two inputs, the same output (max diff %.6f)", d));
+        check(rms(oa, 24000, 48000) > 0.01, fmt("the hiss is there (rms %.3f)", rms(oa, 24000, 48000)));
+        boot();
+        S->routing = 1;
+        pot(4, 1.0); pot(6, 0.0); pot(3, 0.0); pot(9, 0.0); pot(8, 0.0); pot(0, 1.0);
+        std::vector<float> oc;
+        run(48000, [](long t, float &l, float &r) { l = r = 0.5f * sinf(2 * 3.14159265f * 440 * t / 48000.f); }, &oc);
+        double pk = 0;
+        for (float x : oc) pk = std::max(pk, (double)fabsf(x));
+        check(pk == 0.0, fmt("and without the hiss, nothing (peak %.6f)", pk));
+    }
+
+    printf("aux: the echo: a click goes in, it does not come out, its repeat a beat later does\n");
+    {
+        boot();
+        S->routing = 1;
+        start_clock(120);
+        pot(2, 3.5 / 7);                  // 1/4
+        pot(3, 0.5); pot(9, 1.0); pot(4, 0.0); pot(6, 0.0); pot(8, 0.0);
+        pot(0, 0.85);
+        run(48000 * 2, silence);
+        std::vector<float> o;
+        long t0 = T;
+        run(48000 * 2, [t0](long t, float &l, float &r) { l = r = (t - t0 < 48) ? 0.8f : 0.f; }, &o);
+        float c0 = 0;
+        for (size_t i = 0; i < 2000; i++) c0 = std::max(c0, fabsf(o[i]));
+        size_t best = 0; float bv = 0;
+        for (size_t i = 20000; i < 28000; i++) if (fabsf(o[i]) > bv) { bv = fabsf(o[i]); best = i; }
+        check(c0 < 0.01, fmt("no click (%.4f)", c0));
+        check(bv > 0.05 && labs((long)best - 24000) < 200, fmt("its repeat after a beat (at %.0f, %.3f)", (double)best, bv));
+    }
+
+    printf("aux: ROLL: the first pass (the dry) silent, then the slice over and over; let go: silence again\n");
+    {
+        boot();
+        S->routing = 1;
+        start_clock(120);
+        pot(3, 0.0); pot(9, 0.0);
+        run(48000, silence);
+        auto ramp = [](long t, float &l, float &r) { l = r = (float)((t % 40000) / 40000.0 - 0.5); };
+        std::vector<float> o, in;
+        g_btn[0] = 1;
+        run(48000, ramp, &o, nullptr, &in);
+        check(S->lp == 2 && S->lp_kind == 1, "rolling");
+        // it starts on a 16th, the slice is 1/8 beat... 12000 samples: find where the loop came in
+        size_t first = 0;
+        for (size_t i = 0; i < o.size(); i++) if (fabsf(o[i]) > 0.01f) { first = i; break; }
+        size_t start = 0;                                         // where the roll began: 12000 before it comes in
+        double quiet = 0;
+        if (first >= 12000) { start = first - 12000; for (size_t i = start; i + 200 < first; i++) quiet = std::max(quiet, (double)fabsf(o[i])); }
+        check(first >= 12000 && quiet == 0.0, fmt("silent for the first pass (comes in at %.0f, %.4f before)", (double)first, quiet));
+        double err = 0, dif = 0; int n = 0;
+        for (size_t i = first + 200; i < first + 11000 && i < o.size(); i++) {
+            err += fabs(o[i] - in[i - 12000]); dif += fabs(o[i] - in[i]); n++;
+        }
+        check(n > 1000 && err / n < 0.002, fmt("then the slice that passed (mean diff %.4f)", err / n));
+        check(dif / n > 0.05, fmt("not the dry of now (mean diff %.4f)", dif / n));
+        g_btn[0] = 0;
+        std::vector<float> o2;
+        run(24000, ramp, &o2);
+        double pk = 0;
+        for (size_t i = 12000; i < 24000; i++) pk = std::max(pk, (double)fabsf(o2[i]));
+        check(pk < 1e-6 && S->lp == 0, fmt("let go: silence (%.6f)", pk));
+    }
+
+    printf("aux: FREEZE: the beat just gone, from the next beat at once; the filter shapes it on the break side\n");
+    {
+        boot();
+        S->routing = 1;
+        start_clock(120);
+        pot(3, 0.0); pot(9, 0.0); pot(1, 0.0);
+        auto ramp = [](long t, float &l, float &r) { l = r = (float)((t % 70000) / 70000.0 - 0.5); };
+        run(48000 * 2, ramp);
+        g_btn[1] = 1; run(48 * 16, ramp); g_btn[1] = 0;
+        std::vector<float> o;
+        run(48000 * 2, ramp, &o);
+        check(S->lp == 2 && S->lp_kind == 2, "frozen");
+        double err = 0; int n = 0;
+        for (size_t i = 60000; i < 90000; i++) { err += fabs(o[i] - o[i - 24000]); n++; }
+        check(err / n < 0.01 && rms(o, 60000, 90000) > 0.1, fmt("the output repeats every beat (mean diff %.4f)", err / n));
+        g_btn[1] = 1; run(48 * 16, ramp); g_btn[1] = 0;
+        std::vector<float> o2;
+        run(48000, ramp, &o2);
+        double pk = 0;
+        for (size_t i = 30000; i < 48000; i++) pk = std::max(pk, (double)fabsf(o2[i]));
+        check(pk < 1e-6 && S->lp == 0, fmt("pressed again: silence from the next beat (%.6f)", pk));
+        // a 5 kHz tone frozen, clean and then on the break side with the filter all the way: the low pass cuts it
+        double lv[2];
+        for (int k = 0; k < 2; k++) {
+            boot();
+            S->routing = 1;
+            start_clock(120);
+            pot(3, 0.0); pot(9, 0.0); pot(1, 0.0); pot(4, 1.0); pot(5, 0.0); pot(7, 0.0); pot(8, 0.0);
+            pot(0, k ? 0.0 : 0.5);
+            auto tone = [](long t, float &l, float &r) { l = r = 0.5f * sinf(2 * 3.14159265f * 5000 * t / 48000.f); };
+            run(48000, tone);
+            g_btn[1] = 1; run(48 * 16, tone); g_btn[1] = 0;
+            std::vector<float> o3;
+            run(48000 * 2, tone, &o3);
+            lv[k] = rms(o3, 48000, 96000);
+        }
+        check(lv[0] > 0.2 && db(lv[1] / lv[0]) < -30, fmt("frozen tone %.3f clean, %.1f dB on the break side", lv[0], db(lv[1] / lv[0])));
+    }
+
+    printf("aux: no blow-up, everything up, white noise in, twenty seconds; again with ROLL and FREEZE pressed\n");
+    {
+        for (int btn = 0; btn < 2; btn++) {
+            boot();
+            S->routing = 1;
+            start_clock(140);
+            for (int i = 1; i < 10; i++) pot(i, 1.0);
+            double peak = 0, sum = 0; long n = 0; bool nan = false;
+            for (int side = 0; side < 2; side++) {
+                pot(0, side ? 1.0 : 0.0);
+                std::vector<float> o;
+                nseed = 11;
+                if (btn) { g_btn[0] = side; g_btn[1] = 1 - side; }
+                run(48000 * 10, [](long t, float &l, float &r) { (void)t; l = wnoise() * 0.9f; r = wnoise() * 0.9f; }, &o);
+                g_btn[0] = g_btn[1] = 0;
+                for (float x : o) { if (std::isnan(x)) nan = true; peak = std::max(peak, (double)fabsf(x)); sum += x * x; n++; }
+            }
+            check(!nan, btn ? "no NaN with the loops" : "no NaN");
+            check(peak <= 1.0, fmt("never past full scale (%.3f)", peak));
+            // (a loop of white noise at full scale through all of it at the top sticks there, in insert as well)
+            if (!btn) check(std::sqrt(sum / n) < 0.9, fmt("not stuck at full scale (rms %.3f)", std::sqrt(sum / n)));
+        }
+    }
+
     printf("scena: %d checks, %d failures\n", CHECKS, FAILS);
     return FAILS ? 1 : 0;
 }

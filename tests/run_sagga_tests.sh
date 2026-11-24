@@ -86,7 +86,9 @@ if command -v texlua >/dev/null 2>&1; then step "figo" tail 1 texlua tools/norns
 c++ -std=c++11 -O2 tools/gills/test_scena.cpp -o build/test_scena
 step "scena" tail 1 build/test_scena
 python3 tools/gills/make_scena.py build/scena.axp >/dev/null
-if cmp -s build/scena.axp tools/gills/scena.axp; then echo "scena.axp: made from the engine, up to date"; else echo "scena.axp: FAIL, run python3 tools/gills/make_scena.py"; exit 1; fi
+for f in scena scena_aux; do
+    if cmp -s build/$f.axp tools/gills/$f.axp; then echo "$f.axp: made from the engine, up to date"; else echo "$f.axp: FAIL, run python3 tools/gills/make_scena.py"; exit 1; fi
+done
 if [ -n "$KSOLOTI" ]; then sh tools/gills/armcheck/check_arm.sh; else echo "scena arm: skipped (KSOLOTI= a ksoloti checkout)"; fi
 if python3 -c "import numpy, scipy" 2>/dev/null && command -v ffmpeg >/dev/null; then step "strati" tail 1 python3 tests/strati_tests.py; else echo "strati: skipped (needs numpy, scipy, ffmpeg)"; fi
 if [ -n "$SANITIZE" ]; then export SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g"; fi

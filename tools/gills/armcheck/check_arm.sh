@@ -18,14 +18,16 @@ for d in os/hal/include os/hal/osal/rt os/rt/include os/rt/ports/ARMCMx os/rt/po
 for l in ADCv2 CANv1 DACv1 DMAv2 EXTIv1 GPIOv2 I2Cv1 MACv1 OTGv1 RTCv2 SDIOv1 SPIv1 TIMv1 USARTv1 xWDGv1; do
     INC="$INC -I$K/chibios/os/hal/ports/STM32/LLD/$l"; done
 INC="$INC -I$K/firmware/STM32F4xx_HAL_Driver/Inc"
+for V in scena scena_aux; do                    # the two routings: insert and aux
 clang++ --target=thumbv7em-none-eabihf -mcpu=cortex-m4 -mfpu=fpv4-sp-d16 -mfloat-abi=hard -std=c++11 -O3 \
     -ffast-math -fno-math-errno -fno-rtti -fno-exceptions -DBOARD_KSOLOTI_CORE -DARM_MATH_CM4 -DCORTEX_USE_FPU=TRUE \
     -DTHUMB -DTHUMB_NO_INTERWORKING -DTHUMB_PRESENT -D__FPU_PRESENT -Werror=return-type -Wno-everything \
-    -isystem "$HERE/libc" $INC -include "$HERE/xpatch_lite.h" -c "$T/scena.cpp" -o "$T/scena.o"
-TEXT=$(llvm-size "$T/scena.o" | awk 'NR==2{print $1}')
-UNDEF=$(llvm-nm --undefined-only "$T/scena.o" | awk '{print $2}' | tr '\n' ' ')
-echo "scena arm: compiles for the Cortex-M4 against the firmware headers, code $TEXT bytes, needs: $UNDEF"
-[ "$TEXT" -lt 40000 ] || { echo "scena arm: FAIL, the code is too big for the patch's 44 kB"; exit 1; }
+    -isystem "$HERE/libc" $INC -include "$HERE/xpatch_lite.h" -c "$T/$V.cpp" -o "$T/$V.o"
+TEXT=$(llvm-size "$T/$V.o" | awk 'NR==2{print $1}')
+UNDEF=$(llvm-nm --undefined-only "$T/$V.o" | awk '{print $2}' | tr '\n' ' ')
+echo "$V arm: compiles for the Cortex-M4 against the firmware headers, code $TEXT bytes, needs: $UNDEF"
+[ "$TEXT" -lt 40000 ] || { echo "$V arm: FAIL, the code is too big for the patch's 44 kB"; exit 1; }
 for s in $UNDEF; do
-    case "$s" in adcvalues|_pal_lld_setgroupmode|memset|memcpy|__aeabi_*) ;; *) echo "scena arm: FAIL, needs $s"; exit 1;; esac
+    case "$s" in adcvalues|_pal_lld_setgroupmode|memset|memcpy|__aeabi_*) ;; *) echo "$V arm: FAIL, needs $s"; exit 1;; esac
+done
 done
