@@ -13,7 +13,7 @@ aux). The panel gets an inlet `page`: while the variations' page is on it leaves
 when you come back every knob takes its value back when it passes it. The effect patches are not in this repository:
 pass yours. --cpp also writes, next to each patch, the C++ the Ksoloti Patcher would make of it (all its objects, the
 nets, the root), for the checks in tests/run_sagga_tests.sh: with -DHOST_TEST it runs on a computer with the Gills'
-knobs, buttons, screen and LEDs faked; for the Cortex-M4, tools/gills/armcheck/check_bus.sh.
+knobs, buttons, screen and LEDs faked; for the Cortex-M4, tools/gills/armcheck/check_bus.py.
 """
 import os
 import re

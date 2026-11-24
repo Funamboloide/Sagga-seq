@@ -2,7 +2,7 @@
 // (scena_engine.h, figo_engine.h, var_engine.h) in two classes, alone and beside an effect, with fake knobs, buttons
 // and MIDI. The input tells, sample by sample, when it came in (two ramps, L slow and R fast): every sample of the
 // output says which moment of the input it plays, to a tenth of a sample, or that it is none (a crossfade, a level).
-//     c++ -std=c++11 -O2 -Itools/gills tools/gills/test_variazioni.cpp -o build/test_variazioni && build/test_variazioni
+//     c++ -std=c++14 -O2 -Itools/gills tools/gills/test_variazioni.cpp -o build/test_variazioni && build/test_variazioni
 // SPDX-License-Identifier: GPL-3.0-only
 #include <cmath>
 #include <cstdint>
@@ -153,7 +153,6 @@ template <class V> struct Rig {
     }
 };
 static void when(long t, double &l, double &r) { l = inL((double)t); r = inR((double)t); }
-static void silence(long, double &l, double &r) { l = r = 0; }
 
 // what the output plays at time t (-1 none): the input's moment, the one of the ramps' turns that is before t (or
 // a little after: aux plays ahead)
@@ -176,6 +175,19 @@ template <class R> static double src_at(R &g, long t) {
     return x;
 }
 static double pmod(double a, double m) { double x = fmod(a, m); return x < 0 ? x + m : x; }
+// FIGO's random numbers (xorshift32, as fg_rand): a state whose next two give sixteenth 15 and "backwards"
+static uint32_t xs32(uint32_t &x) { x ^= x << 13; x ^= x >> 17; x ^= x << 5; return x; }
+static uint32_t seed_last_backwards() {
+    for (uint32_t s = 1; s < 1000000; s++) {
+        uint32_t x = s;
+        float a = (float)(xs32(x) >> 8) * (1.f / 16777216.f);
+        int j = (int)(a * 16.f); if (j >= 16) j = 15;
+        float b = (float)(xs32(x) >> 8) * (1.f / 16777216.f);
+        if (j == 15 && b < 0.15f) return s;
+    }
+    return 0;
+}
+static void sine2(long t, double &l, double &r) { l = 0.5 * sin(2 * M_PI * 110 * t / 48000.0); r = 0.5 * sin(2 * M_PI * 165 * t / 48000.0); }
 
 int main() {
     const double BL = 24000;             // a beat at 120 BPM
@@ -725,6 +737,38 @@ int main() {
         check(ok && best < 48 && fabs(got - want) < 32 && fabs(heard - got) < 2,
               fmt("4 bars back: %.0f samples from the beat that was, heard %.0f (by the tempo alone: %.0f)",
                   got - want, heard - want, tempo - want));
+        double b4 = (double)(int32_t)(A.v->fg_back(t0, 4) - t0), b16 = (double)(int32_t)(A.v->fg_back(t0, 16) - t0);
+        double w4 = B >= 4 ? A.tick_t[24 * (B - 4)] - A.tick_t[24 * B] : 1e9;
+        check(fabs(b4 - w4) < 32 && fabs(b16 - want) < 32,
+              fmt("asked again two beats on (as SHUFFLE does): 1 bar back %.0f, 4 bars back %.0f samples from the beats", b4 - w4, b16 - want));
+    }
+
+    printf("a START in the middle of a beat: INDIETRO 4 bars back, across it, lands on a beat that was there\n");
+    {
+        A.boot(0);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.5); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 12.5), when);
+        std::vector<double> old = A.tick_t;
+        A.start_clock(120);                                   // START again, half a beat on
+        A.run((long)(BL * 8), when);
+        uint32_t t0 = A.to_beat(when);
+        bool ok = false;
+        for (int g = 0; g < 50 && !ok; g++) { ok = A.v->fg_start(VarA::FG_SKIP, t0, 1.f) && A.v->fg_last_n == 4; if (!ok) A.v->fg_ev = 0; }
+        A.run((long)(BL * 2), when);                          // (the tick of t0's beat comes)
+        long B = -1; double best = 1e18;
+        for (size_t k = 0; 24 * k < A.tick_t.size(); k++) {
+            double d = fabs(A.tick_t[24 * k] - (double)t0);
+            if (d < best) { best = d; B = (long)k; }
+        }
+        long m = (long)((old.size() - 1) / 24);               // the last beat before the START
+        long j = m - 15 + B;                                  // 16 beats back, the START's short one among them
+        // (relative to t0: the engine's beats are a block or two before the ticks, its t0 too)
+        double want = j >= 0 ? old[24 * j] - A.tick_t[24 * B] : -1e9, got = (double)(int32_t)(A.v->fg_ls - t0),
+               tempo = -16.0 * A.v->fg_bl;
+        check(ok && best < 48 && fabs(got - want) < 32,
+              fmt("on beat %.0f of before the START: %.0f samples from it (by the tempo it would be %.0f, off the grid)",
+                  (double)j, got - want, tempo - want));
     }
 
     printf("MEMORIA at double speed (glitch, at times): never a frame not on the tape yet\n");
@@ -803,6 +847,85 @@ int main() {
         check(ok && n > 5000 && bad == 0, fmt("1/8, then GATE: the GATE cuts the dry, the repeat is gone (%.0f of %.0f not the dry)", bad, n));
     }
 
+    printf("MEMORIA left and right swapped; ECO quieter each time, the last one to nothing; PULITO takes MEMORIA too\n");
+    {
+        // a tone on the left only: MEMORIA's is louder on the right
+        auto toneL = [](long t, double &l, double &r) { l = 0.3 * sin(2 * M_PI * (200.0 + 37.0 * ((t / 96000) % 13)) * t / 48000.0); r = 0; };
+        A.boot(0);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.2); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 4 * 6), toneL);
+        uint32_t t0 = A.to_beat(toneL);
+        bool ok = A.v->fg_start_b(VarA::FG_MEMO, t0, 4.f);
+        A.run((long)(BL * 5), toneL);
+        double el = 0, er = 0;
+        for (long t = (long)t0 + (long)BL; t < (long)t0 + (long)(BL * 3); t++) {
+            double l, r; toneL(t, l, r);
+            el += (A.ol[t] - l) * (A.ol[t] - l); er += (A.orr[t] - r) * (A.orr[t] - r);
+        }
+        check(ok && er > 1e-3 && er > 9 * el, fmt("a tone on the left only: MEMORIA %.1f times louder on the right", sqrt(er / std::max(el, 1e-12))));
+        // ECO in aux (what comes out is ECO alone): every repeat quieter, the last fades to nothing
+        A.boot(1);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.2); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 4 * 3), sine2);
+        t0 = A.to_beat(sine2);
+        ok = A.v->fg_start_b(VarA::FG_ECO, t0, 4.f);
+        A.run((long)(BL * 6), sine2);
+        double bh = A.v->fg_bh, rt = 72;
+        int reps = A.v->fg_breps;
+        std::vector<double> rms;
+        for (int k = 1; k <= reps + 1; k++) {
+            double e = 0; long n = 0;
+            for (long t = (long)(t0 + k * bh - rt) + 300; t < (long)(t0 + (k + 1) * bh - rt) - 300; t++) { e += A.ol[t] * A.ol[t]; n++; }
+            rms.push_back(sqrt(e / std::max(n, 1L)));
+        }
+        double tail = 0; long tn = 0;
+        for (long t = (long)(t0 + (reps + 1.75) * bh - rt); t < (long)(t0 + (reps + 2) * bh - rt) - 120; t++) { tail += A.ol[t] * A.ol[t]; tn++; }
+        tail = sqrt(tail / std::max(tn, 1L));
+        int down = 0;
+        for (int k = 1; k < reps; k++) if (rms[k] < rms[k - 1] * 0.9) down++;
+        check(ok && reps >= 2 && rms[0] > 0.05 && down == reps - 1 && tail < 0.05 * rms[0],
+              fmt("ECO: %.0f repeats, %.0f each quieter, the end of the last at %.3f of the first", reps, down, tail / std::max(rms[0], 1e-9)));
+        // PULITO (going out dry here) during a long MEMORIA: it fades with FIGO
+        A.boot(1, 1.5f, 16, 3);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.2); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 4 * 6), sine2);
+        t0 = A.to_beat(sine2);
+        ok = A.v->fg_start_b(VarA::FG_MEMO, t0, 8.f);
+        A.run((long)(BL * 2), sine2);
+        float during = 0;
+        for (long t = (long)t0 + (long)BL; t < (long)A.T; t++) during = std::max(during, std::max(fabsf(A.ol[t]), fabsf(A.orr[t])));
+        A.v->vr_pulito();
+        A.run((long)(BL * 8), sine2);
+        float pk = 0;
+        for (long t = (long)t0 + (long)(BL * 3) + 14400; t < (long)t0 + (long)(BL * 9); t++) pk = std::max(pk, std::max(fabsf(A.ol[t]), fabsf(A.orr[t])));
+        check(ok && during > 0.05f && pk < 0.002f, fmt("PULITO during MEMORIA (%.2f): 0.3 s after its beat, peak %.4f", during, pk));
+    }
+
+    printf("SHUFFLE never plays backwards a sixteenth whose end is not on the tape yet\n");
+    {
+        A.boot(0);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 1.0); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 12), when);
+        uint32_t t0 = A.to_beat(when);
+        bool ok = A.v->fg_start(VarA::FG_SHUF, t0, 1.f);
+        uint32_t seed = seed_last_backwards();
+        A.v->fg_rng = seed;                                    // (the first step: the bar's last sixteenth, backwards)
+        A.run((long)(BL * 3), when);
+        int fw = 0, n = 0;
+        for (long t = (long)t0 + 200; t < (long)t0 + (long)(BL / 4) - LEAD - 4; t++) {
+            double x = src_at(A, t), y = src_at(A, t + 1);
+            if (x < 0 || y < 0) continue;
+            n++;
+            if (fabs((y - x) - 1.0) < 0.05) fw++;
+        }
+        check(ok && seed && n > 4000 && fw == n && A.v->fg_test_ahead == 0,
+              fmt("the last sixteenth asked backwards at the first step: forwards (%.0f of %.0f), %.0f reads not on the tape", fw, n, A.v->fg_test_ahead));
+    }
+
     printf("no blow-up: everything up, white noise, FIGO and MEMORIA 100, SCENA all over, ROLL and FREEZE\n");
     {
         for (int routing = 0; routing < 2; routing++) {
@@ -878,13 +1001,25 @@ int main() {
         F.start_clock(120);
         auto fx = [](long, double &l, double &r) { l = r = 0; };
         F.run2(48000, when, fx);
-        F.esw = true; F.run2(48 * 500, when, fx); F.esw = false; F.run2(48 * 60, when, fx);
-        check(F.page_out == 0, "half a second: still the effect's page");
+        F.esw = true; F.run2(48 * 800, when, fx); F.esw = false; F.run2(48 * 60, when, fx);
+        check(F.page_out == 0, "0.8 seconds: still the effect's page");
         F.esw = true; F.run2(48 * 1100, when, fx);
         check(std::string(F.ln[3]).find("LASCIA: VARIAZIONI") == 0, std::string("held a second: the screen says so: ") + F.ln[3]);
         F.esw = false; F.run2(48 * 60, when, fx);
         check(F.page_out == 1, "a second alone and let go: the variations' page");
         check(F.ln[0] == F.v->vr_ln[0] && std::string(F.ln[0]).find("FIGO") == 0, std::string("its screen: ") + F.ln[0]);
+        auto press = [&](int k) { F.btn[k] = true; F.run2(48 * 60, when, fx); F.btn[k] = false; F.run2(48 * 60, when, fx); };
+        press(3);
+        check(F.v->fg_req_hold || F.v->fg_hold, "button 4 on the page: HOLD");
+        press(3);
+        press(1);
+        bool fr = F.v->freeze_on;
+        press(1);
+        check(fr && !F.v->freeze_on, "button 2: FREEZE, and off again");
+        press(2);
+        bool pu = !F.v->fg_on;
+        press(2);
+        check(pu && F.v->fg_on, "button 3: PULITO, and FIGO back");
         F.run2(48 * 400, when, fx);
         F.esw = true; F.run2(48 * 300, when, fx);
         F.knob(4, 0.7); F.run2(48 * 900, when, fx);
@@ -927,6 +1062,10 @@ int main() {
         F.esw = false; F.run2(48 * 60, when, fx);
         check(fabsf(F.v->vr_val[11] - 0.9f) < 0.02f && F.page_out == 1, fmt("SHIFT + knob 7: RUMORE %.2f, still on the page", F.v->vr_val[11]));
         check(fabsf(F.v->vr_val[6] - 0.4f) < 1e-6f, fmt("and FEEDBACK (knob 7 without SHIFT) as it was (%.2f)", F.v->vr_val[6]));
+        F.knob(6, 0.2); F.run2(48 * 300, when, fx);
+        F.esw = true; F.run2(48 * 200, when, fx);
+        check(fabsf(F.v->vr_val[11] - 0.9f) < 0.02f, fmt("SHIFT again, knob 7 now at 0.2: RUMORE waits at %.2f", F.v->vr_val[11]));
+        F.esw = false; F.run2(48 * 60, when, fx);
         // back to the effect: the values stay
         float fg = F.v->vr_val[1];
         F.esw = true; F.run2(48 * 1100, when, fx); F.esw = false; F.run2(48 * 60, when, fx);
@@ -944,6 +1083,9 @@ int main() {
         F.v->vr_midi(0xB0, 115, 127); F.v->vr_midi(0xB2, 116, 64); F.v->vr_midi(0xB0, 117, 0);
         F.run2(480, when, fx);
         check(fabsf(F.v->fg_figo - 1.f) < 1e-6f && fabsf(F.v->fg_car - 64.f / 127) < 1e-6f, "CC 115 FIGO, 116 CARATTERE (any channel)");
+        for (int k = 1; k <= 16; k++) F.v->vr_midi(0xB0, 117, (uint8_t)k);
+        F.run2(480, when, fx);
+        check(fabsf(F.v->fg_mem - 16.f / 127) < 1e-6f, fmt("16 CCs between two blocks: all, in order (MEMORIA %.0f of 127)", F.v->fg_mem * 127));
         F.v->vr_midi(0xB0, 110, 127);
         F.run2(48000, when, fx);
         check(F.v->scene > 0.8f, fmt("CC 110: SCENA to the build-up (%.2f)", F.v->scene));

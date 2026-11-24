@@ -215,6 +215,36 @@ int main() {
         check(md < 0.01, fmt("FIGO 0 again: in aux the effect alone again (the largest difference %.5f)", md));
     }
 
+#ifndef MICROCOSM
+    printf("a GESTURE of the Chroma goes on while the variations' page is on, and after it until its knob moves\n");
+    {
+        // recorded on both (SHIFT + button 3, knob 1 from 0.3 to 0.8 in a second, SHIFT + button 3): it plays back.
+        // (the encoder held with a button: SHIFT for the effect, never the page)
+        auto shift_b3 = [&]() {
+            HA.esw = HB.esw = true; run(0.1);
+            HA.btn[2] = HB.btn[2] = true; run(0.1); HA.btn[2] = HB.btn[2] = false; run(0.1);
+            HA.esw = HB.esw = false; run(0.1);
+        };
+        HA.pot[0] = HB.pot[0] = 0.3; run(0.5);
+        shift_b3();
+        for (int k = 0; k <= 30; k++) { HA.pot[0] = HB.pot[0] = 0.3 + 0.5 * k / 30.0; run(1.0 / 30); }
+        shift_b3();
+        run(0.5);
+        // (since the knobs came back from the page, the two differ by float dust: the sound to within 1e-3)
+        bool playing = pa.gPlay && pb.gPlay;
+        HA.esw = HB.esw = true; double md = run_diff(1.1); HA.esw = HB.esw = false; md = std::max(md, run_diff(0.2));
+        float p0 = pb.prim[0];
+        md = std::max(md, run_diff(1.0));
+        bool moved = fabsf(pb.prim[0] - p0) > 0.02f;
+        check(playing && vb.vr_page && pb.gPlay && moved, fmt("it plays on the variations' page (knob 1's value moves: %.2f to %.2f)", p0, pb.prim[0]));
+        check(md < 1e-3 && near(pa.prim[0], pb.prim[0]), fmt("as on the effect alone (the largest difference %.6f)", md));
+        HA.esw = HB.esw = true; md = run_diff(1.1); HA.esw = HB.esw = false; md = std::max(md, run_diff(1.0));
+        check(!vb.vr_page && pb.gPlay && md < 1e-3, fmt("back on the effect it goes on (the largest difference %.6f)", md));
+        HA.pot[0] = HB.pot[0] = 0.1; run(0.5);
+        check(!pb.gPlay && !pa.gPlay, "and the knob moved stops it, on both");
+    }
+#endif
+
     printf("%s+variazioni: %d checks, %d failures\n", NAME, CHECKS, FAILS);
     return FAILS ? 1 : 0;
 }

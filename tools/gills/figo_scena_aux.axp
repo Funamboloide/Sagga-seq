@@ -1327,23 +1327,17 @@ FG_COLD void fg_init(uint32_t *tape) {
 #endif
 }
 
-/* the first frame of the beat k beats before the beat at frame nt: where it really was (the ring of the beats gone;
-   nt may be in it already: SHUFFLE asks again after its beat), even if the tempo moved since, if every beat since then
-   is a beat (no START, no jump) and the tape has it; else as the tempo says */
+/* the first frame of the beat k beats before the beat at frame nt: where it really was, from the ring of the beats
+   gone (nt may be in it already: SHUFFLE asks again after its beat). The beats as they were counted, even if the
+   tempo moved since or a START came in the middle of one: what played k beats ago, on its grid. As the tempo says only
+   if the ring is not that long yet, or the tape no longer has it */
 FG_COLD uint32_t fg_back(uint32_t nt, int k) {
     float bl = fg_bl;
     uint32_t n = fg_nbt > 64u ? 64u : fg_nbt, s = 1;
     while (s <= n && s <= 8u && (float)(int32_t)(nt - fg_bts[(fg_nbt - s) & 63u]) < 0.5f * bl) s++;
     if (k >= 1 && s <= 8u && s + (uint32_t)k - 1u <= n) {
-        uint32_t prev = nt;
-        bool ok = true;
-        for (uint32_t j = s; j < s + (uint32_t)k && ok; j++) {
-            uint32_t e = fg_bts[(fg_nbt - j) & 63u];
-            float d = (float)(int32_t)(prev - e);
-            ok = d > 0.6f * bl && d < 1.7f * bl;
-            prev = e;
-        }
-        if (ok && fg_has((float)(int32_t)(nt - prev))) return prev;
+        uint32_t f = fg_bts[(fg_nbt - (s + (uint32_t)k - 1u)) & 63u];
+        if (fg_has((float)(int32_t)(nt - f))) return f;
     }
     return nt - (uint32_t)((float)k * bl + 0.5f);
 }
