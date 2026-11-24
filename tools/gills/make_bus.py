@@ -6,12 +6,12 @@ scena_engine.h), alone or beside an effect.
     python3 tools/gills/make_bus.py [--fx EFFECT.axp ...] [--out DIR] [--cpp]
 
 It always writes figo_scena.axp (insert) and figo_scena_aux.axp (aux, for a mixer's send and return): FIGO and SCENA
-alone, the Gills' knobs and buttons theirs. With --fx it reads an effect patch for the Gills (the Microcosm or the
-Chroma Console one: a `panel` object reads the knobs, the effect object makes the sound) and writes, next to it or in
-DIR, <name>_figo_scena.axp: the same patch with the variations added, for a bus (the effect and the variations in
-aux). The panel gets an inlet `page`: while the variations' page is on it leaves the knobs and the buttons alone, and
-when you come back every knob takes its value back when it passes it. The effect patches are not in this repository:
-pass yours. --cpp also writes, next to each patch, the C++ the Ksoloti Patcher would make of it (all its objects, the
+alone, the Gills' knobs and buttons theirs. Then it reads the effect patches for the Gills (the Microcosm and the
+Chroma Console ones: a `panel` object reads the knobs, the effect object makes the sound), those in
+tools/gills/effetti/ or the ones given with --fx, and writes <name>_figo_scena.axp: the same patch with the variations
+added, for a bus (the effect and the variations in aux), in DIR, else here (with --fx: next to the effect patch). The
+panel gets an inlet `page`: while the variations' page is on it leaves the knobs and the buttons alone, and when you
+come back every knob takes its value back when it passes it. --cpp also writes, next to each patch, the C++ the Ksoloti Patcher would make of it (all its objects, the
 nets, the root), for the checks in tests/run_sagga_tests.sh: with -DHOST_TEST it runs on a computer with the Gills'
 knobs, buttons, screen and LEDs faked; for the Cortex-M4, tools/gills/armcheck/check_bus.py.
 """
@@ -598,6 +598,9 @@ def patcher_cpp(root, objdefs):
     return '\n'.join(out) + '\n'
 
 
+EFFETTI = os.path.join(HERE, 'effetti')
+
+
 def main(argv):
     out_dir = None
     fxs = []
@@ -615,6 +618,9 @@ def main(argv):
             raise SystemExit(__doc__)
     od = out_dir or HERE
     os.makedirs(od, exist_ok=True)
+    mine = not fxs                                 # (the effects of this repository: the merged ones go here)
+    if mine and os.path.isdir(EFFETTI):
+        fxs = sorted(os.path.join(EFFETTI, f) for f in os.listdir(EFFETTI) if f.endswith('_gills.axp'))
     written = []
     for routing, fn in (('insert', 'figo_scena.axp'), ('aux', 'figo_scena_aux.axp')):
         p = os.path.join(od, fn)
@@ -626,7 +632,7 @@ def main(argv):
         kind, root = merge(fx)
         base = os.path.splitext(os.path.basename(fx))[0]
         base = re.sub(r'_gills$', '', base)
-        p = os.path.join(out_dir or os.path.dirname(os.path.abspath(fx)), base + '_figo_scena.axp')
+        p = os.path.join(out_dir or (HERE if mine else os.path.dirname(os.path.abspath(fx))), base + '_figo_scena.axp')
         with open(p, 'w') as f:
             f.write(serialize(root))
         written.append(p)

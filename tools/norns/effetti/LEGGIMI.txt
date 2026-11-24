@@ -1,0 +1,112 @@
+TRE SCRIPT PER NORNS (shield XL compreso) dai patch Ksoloti Gills
+===================================================================
+ caramello/    autotune da pulitissimo a hyperpop (una voce o due cantanti)
+ chroma/       multieffetto stile Chroma Console: 4 moduli x 5 effetti
+ microcosmo/   granulare / micro-loop / glitch / multidelay stile Microcosm, looper 60 s
+Ogni cartella ha il suo README.txt con controlli, MIDI e ricette.
+
+INSTALLAZIONE
+ 1. Collega norns alla rete e apri la cartella "dust" (SMB: \\norns.local\dust,
+    utente we, password sleep) oppure usa Maiden (http://norns.local).
+ 2. Se avevi gia' copiato le bozze precedenti di caramello o chroma, cancella prima le
+    loro cartelle: gli engine hanno cambiato nome.
+ 3. Copia le tre cartelle in dust/code/
+ 4. SYSTEM > RESTART (serve ogni volta che arriva un engine SuperCollider nuovo)
+ 5. SELECT > caramello, chroma o microcosmo
+
+COSE COMUNI AI TRE SCRIPT
+ - Monitor, riverbero e compressore di norns vengono spenti all'avvio dello script (il dry,
+   quando serve, lo gestisce l'engine) e rimessi come prima quando cambi script.
+ - Ingressi e uscite dello shield XL sono di linea. Un microfono vuole un preamp o la
+   mandata di un canale del mixer.
+ - Chroma e Microcosmo: MIX e' un vero dry/wet (a zero solo dry, a 100 solo effetto). Per
+   un bus (mandata/ritorno del mixer) tieni MIX a 100: sul ritorno non c'e' dry. Il vecchio
+   comportamento (mai dry, MIX = livello del ritorno) e' PARAMETERS > routing = aux.
+   Nel Chroma routing = insert mette i moduli in serie come sul pedale (uso in serie).
+   Ingresso mono L per un aux mono; uscita stereo o mono.
+ - CLOCK SLAVE (Chroma e Microcosmo): PARAMETERS > CLOCK > source = midi per il clock MIDI
+   dalla porta TRS dello shield o da USB, source = link per Ableton Link via Ethernet (o
+   Wi-Fi). Lo schermo scrive CLK oppure LINK con il numero di peer collegati.
+   Con il clock interno il TAP cambia il tempo di norns.
+ - MIDI: PARAMETERS > MIDI > porta e canale (omni o 1-16). La porta MIDI dello shield o una
+   pedaliera/tastiera USB si assegnano a una porta in SYSTEM > DEVICES > MIDI.
+   CC e Program Change sono gli stessi dei patch per Gills (elenco nei README): Chroma e
+   Microcosmo rispondono anche alla tabella MIDI dei pedali originali.
+   Ogni parametro si puo' anche mappare a un CC con PARAMETERS > MAP.
+ - PARAMETERS > PSET salva il setup; all'avvio ogni script ricarica l'ultimo PSET salvato.
+ - K1 con un tocco breve apre il menu di norns; per usarlo come tasto "shift" tienilo
+   premuto un attimo (circa un quarto di secondo) prima di girare o premere.
+
+PRIMA DEL CONCERTO
+ - Guarda la CPU nel menu di norns con l'effetto piu' pesante che userai (Microcosmo con
+   HAZE o PATTERN, Caramello con due cantanti e armonie). Su un Raspberry Pi 4 dovrebbe
+   restare comoda; su un Pi 3 tienila d'occhio.
+ - Latenza: quella di norns (alcuni ms) piu', per Caramello, circa 1-2 periodi della nota
+   cantata. Per delay, riverberi e granulari in mandata non conta.
+
+STATO DEL LAVORO
+ Nessuno dei tre script e' stato provato su un norns vero ne' dentro SuperCollider: qui non
+ avevo ne' l'uno ne' l'altro. Ho controllato:
+ - gli script Lua su una simulazione delle API di norns (parametri, pagine, tasti, MIDI,
+   clock, PSET, schermo) usando i moduli veri di norns per parametri e controlspec;
+ - gli engine con un controllo statico contro la libreria di classi di SuperCollider
+   (classi, metodi, argomenti, precedenze, dichiarazioni, controlli dei SynthDef);
+ - l'algoritmo di Caramello rifatto in Python su un cantante sintetico (hard tune: 95.6% dei
+   frame entro 5 cent) e l'inviluppo delle voci di Microcosmo contro il codice del Gills;
+ - il riverbero plate e l'eco di SPACE degli engine rifatti in C++ con le regole di
+   SuperCollider (blocchi, LocalIn, AllpassN, DelayL, Lag): stessa coda, stessi tempi delle
+   ripetizioni e stesso volume del Gills.
+ Al primo avvio apri Maiden: se un engine non compila o qualcosa va storto, l'errore e'
+ scritto li'. Mandami il testo e lo sistemo.
+
+NOVITA' DI QUESTA VERSIONE (revisione 3)
+ - MIX e' un vero dry/wet in Microcosmo e Chroma (prima, col routing aux di default, a MIX 0
+   non usciva niente e il dry non c'era mai). In bypass il dry resta dove lo mette MIX.
+   Un PSET salvato prima richiama il routing vecchio (aux): cambialo in PARAMETERS se serve.
+ - Dai video dei tutorial: la scheda riassuntiva del Microcosm mostrata nel video conferma
+   le varianti della patch; GLIDE B ora scende dal doppio alla meta' (x2 -> x1/2).
+
+REVISIONE 2 (audio dei tre tutorial, trascritto e misurato)
+ - Microcosmo: SEQ B rimbalza tra velocita' normale e meta' e ACTIVITY decide ogni quanto;
+   SEQ C: ACTIVITY aggiunge strati; GLIDE con SQUARE scivola e si ferma invece di saltare;
+   HAZE A con campioni "stirati" (i grani ripercorrono gli ultimi istanti a meta' velocita');
+   multidelay: con SQUARE i tap calano un poco (delay normale), primo tap a destra.
+ - Chroma: il FILTER parte come LOW-PASS (ordine del pedale: LOW-PASS, TILT, HIGH-PASS) e il
+   LOW-PASS non fa nulla con AMOUNT a zero e chiude salendo, come si sente nel tutorial.
+   I PSET salvati prima hanno lo stile del filtro con un altro numero: ricontrollalo.
+ - Confermati dal tutorial, senza modifiche: PITCH continuo da -12 a +12 semitoni con
+   AMOUNT = dry/wet, TREMOLO che a fondo corsa chiude del tutto, PATTERN A a tap regolari.
+
+REVISIONE 1 (manuali e tabelle MIDI dei pedali)
+ - Microcosmo: preset nell'ordine del pedale; SHAPE con le quattro forme del pedale
+   (SQUARE, RAMP, TRIANGLE, SAW) al posto del morph continuo; GLIDE, TUNNEL e multidelay
+   usano SHAPE come figura del glissato, forma di ogni giro, profilo dei tap; Program
+   Change come nella tabella del pedale (prima 0-43 in un altro ordine); tabella CC del
+   pedale accanto ai CC da palco; space echo = spento.
+ - Chroma: due DRIFT (MOVEMENT e DIFFUSION) come sul pedale; PITCH continuo con dry/wet e
+   DRIFT lo-fi; DOUBLER con salti d'intonazione casuali; PHASER e TREMOLO con DRIFT sulla
+   forma d'onda; SPACE e REVERSE fino al 100% wet; REVERSE con TIME = velocita' e DRIFT;
+   COLLAGE con pieghe d'intonazione e grani a velocita' doppia / dimezzata; FILTER tilt
+   che taglia soltanto; DRIVE che sente TILT prima della saturazione; SWELL senza click;
+   tabella CC del pedale (parametro "mappa MIDI" live / pedale).
+ - Caramello: CC120 (all sound off) azzera le note tenute come CC123.
+ - Attenzione: i PSET salvati con la versione precedente hanno SHAPE (Microcosmo) e DRIFT
+   (Chroma) in un formato diverso: ricontrolla quei due valori dopo averli caricati.
+
+VERSIONE PRECEDENTE
+ - Clock: su norns anche Ableton Link via Ethernet (LINK e numero di peer sullo schermo,
+   battute allineate alla sessione); sul Gills il clock arriva da MIDI IN, USB dal
+   computer e USB host, una porta alla volta, e l'OLED dice quale.
+ - Microcosmo: SPACE ora mescola riverbero ed eco stereo (ping-pong a tempo, opzione
+   space echo = libero), come dice il manuale del pedale. Stesso volume di prima.
+ - Collage di algoritmi open source molto usati (licenza MIT, riscritti, crediti nei
+   README): riverbero plate dal Rings di Mutable Instruments in SPACE (Microcosmo e
+   Chroma), pezzi di nastro di Airwindows in REELS / CASSETTE / BROKEN (Chroma), finestre
+   dei grani di Mutable Instruments Clouds in HAZE (Microcosmo). Stessi volumi di prima.
+ - Microcosmo: REVERSE dell'effetto, HOLD bloccato mentre il looper gira, INTERRUPT senza
+   dry a MIX 100, opzioni del looper (FADE, QUANTIZE, BURST, LOOPER ONLY), CC85 / CC86.
+ - Microcosmo: corretto un errore che impediva al multidelay (PATTERN / WARP) di compilare
+   nell'engine della versione precedente.
+ - Chroma: TREMOLO fino all'onda quadra, DOUBLER fino allo slapback, DRIFT del VIBRATO
+   (forma d'onda e apertura stereo), CAPTURE che riregistra tenendo premuto mentre suona,
+   GESTURE che segue il tempo.
