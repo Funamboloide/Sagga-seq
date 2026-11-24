@@ -8,6 +8,7 @@
       <params/>
       <attribs>
          <combo attributeName="routing" selection="aux"/>
+         <combo attributeName="anticipo" selection="1.5 ms"/>
       </attribs>
       <object id="patch/object" uuid="b7a1c0de-5ce9-4a00-8000-000000005ce9">
          <sDescription>SCENA: one knob from break-down to build-up (Pioneer RMX-1000 Scene FX, Octatrack scenes)</sDescription>
@@ -36,6 +37,26 @@
                <CEntries>
                   <string>0</string>
                   <string>1</string>
+               </CEntries>
+            </combo>
+            <combo name="anticipo" description="aux: the way to the mixer and back; the loops repeat that early">
+               <MenuEntries>
+                  <string>1.5 ms</string>
+                  <string>0 ms</string>
+                  <string>0.5 ms</string>
+                  <string>1.0 ms</string>
+                  <string>2.0 ms</string>
+                  <string>2.5 ms</string>
+                  <string>3.0 ms</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>1.5f</string>
+                  <string>0.0f</string>
+                  <string>0.5f</string>
+                  <string>1.0f</string>
+                  <string>2.0f</string>
+                  <string>2.5f</string>
+                  <string>3.0f</string>
                </CEntries>
             </combo>
          </attribs>
@@ -87,22 +108,40 @@ static void hw_setup() {
  *
  * Platform: hw_adc(i), hw_btn(i), hw_led(i, on), hw_setup() come from the patch (scena_platform.h) or the test.
  * No libm, no printf, no doubles: the Cortex-M4 has a single-precision FPU and the patch links almost nothing.
+ * SC_COLD marks the code that does not run sample by sample: the patches that hold SCENA beside another effect put
+ * it in the Gills' second RAM (SRAM3). SC_ECHO_BITS: the echo's length (18: 5.46 s).
  * SPDX-License-Identifier: GPL-3.0-only */
+
+#ifndef SC_COLD
+#define SC_COLD
+#endif
+#ifndef SC_HOT
+#define SC_HOT                           /* (the sample loop: where the patch wants it) */
+#endif
+#ifndef SC_FN
+#define SC_FN                            /* (the small ones: where the patch wants them, if not inlined) */
+#endif
+#ifndef SC_RO
+#define SC_RO                            /* (the tables) */
+#endif
+#ifndef SC_ECHO_BITS
+#define SC_ECHO_BITS 18
+#endif
 
 enum {
     SC_SR = 48000,
     SC_BS = 16,                          /* BUFSIZE */
-    SC_ECHO_N = 1 << 18,                 /* 5.46 s a channel */
+    SC_ECHO_N = 1 << SC_ECHO_BITS,       /* 5.46 s a channel (17: 2.73 s) */
     SC_ROLL_N = 1 << 17,                 /* 2.73 s a channel: the last beats, for ROLL and FREEZE */
     SC_RV_TOTAL = 2 * (1214 + 1293 + 1389 + 1475 + 605 + 480 + 4 * 23 + 2 * 23),
     SC_FADE = 96                         /* 2 ms at every loop wrap */
 };
 
 /* ---------------------------------------------------------------------------------------------- small maths */
-static inline float sc_clamp(float x, float a, float b) { return x < a ? a : (x > b ? b : x); }
-static inline float sc_abs(float x) { return x < 0.f ? -x : x; }
+SC_FN static inline float sc_clamp(float x, float a, float b) { return x < a ? a : (x > b ? b : x); }
+SC_FN static inline float sc_abs(float x) { return x < 0.f ? -x : x; }
 /* 2^x, x in [-24, 24] (error ~1e-4) */
-static inline float sc_exp2(float x) {
+SC_FN static inline float sc_exp2(float x) {
     x = sc_clamp(x, -24.f, 24.f);
     int i = (int)x;
     if ((float)i > x) i--;
@@ -113,12 +152,12 @@ static inline float sc_exp2(float x) {
     return p * s;
 }
 /* tan(x) for x in [0, 1.45]: Pade, good to 1.5 % at the top */
-static inline float sc_tan(float x) {
+SC_FN static inline float sc_tan(float x) {
     float x2 = x * x;
     return x * (15.f - x2) / (15.f - 6.f * x2);
 }
 /* a soft clip that stays near 1:1 below 0.5 and never passes 1 */
-static inline float sc_soft(float x) {
+SC_FN static inline float sc_soft(float x) {
     x = sc_clamp(x, -3.f, 3.f);
     return x * (27.f + x * x) / (27.f + 9.f * x * x);
 }
@@ -126,7 +165,7 @@ static inline float sc_soft(float x) {
 /* the zero-delay-feedback state variable filter (Simper) */
 struct ScSvf { float ic1, ic2; };
 struct ScSvfC { float k, a1, a2, a3; };
-static inline void sc_svf_set(ScSvfC &c, float fc, float q) {
+SC_FN static inline void sc_svf_set(ScSvfC &c, float fc, float q) {
     fc = sc_clamp(fc, 10.f, 0.45f * SC_SR);
     float g = sc_tan(3.14159265f * fc / SC_SR);
     c.k = 1.f / q;
@@ -135,7 +174,7 @@ static inline void sc_svf_set(ScSvfC &c, float fc, float q) {
     c.a3 = g * c.a2;
 }
 /* returns the low pass; band and high through the pointers */
-static inline float sc_svf(ScSvf &s, const ScSvfC &c, float v0, float *band, float *high) {
+SC_FN static inline float sc_svf(ScSvf &s, const ScSvfC &c, float v0, float *band, float *high) {
     float v3 = v0 - s.ic2;
     float v1 = c.a1 * s.ic1 + c.a2 * v3;
     float v2 = s.ic2 + c.a2 * s.ic1 + c.a3 * v3;
@@ -222,7 +261,8 @@ int lp;                                  /* 0 off, 1 waiting for its start, 2 pl
 int lp_kind;                             /* 1 roll, 2 freeze, 3 fill */
 uint32_t lp_start;
 float lp_len, lp_full, lp_pos, lp_rate, lp_gain, lp_gain_t;
-float lp_open;                           /* aux: 0 in the loop's first pass (the dry), 1 from its first repeat */
+float lp_cut;                            /* aux: the first pass (the dry) this much shorter: the way back */
+uint32_t sc_rt;                          /* aux: the way to the mixer and back, samples (the loops repeat that early) */
 int lp_passes;
 int32_t lp_end16;
 int roll_div;                            /* sixteenths of a beat: 2 = 1/8, 1 = 1/16; 0 = 1/32 */
@@ -234,14 +274,14 @@ char line[4][12];
 uint32_t disp_at;
 
 /* ------------------------------------------------------------------------------------------------- helpers */
-inline uint32_t sc_rand() {
+SC_FN inline uint32_t sc_rand() {
     rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
     return rng;
 }
-inline float sc_frand() { return (float)(sc_rand() >> 8) * (1.f / 16777216.f); }       /* 0..1 */
-inline float sc_noise() { return (float)(int32_t)sc_rand() * (1.f / 2147483648.f); }   /* -1..1 */
+SC_FN inline float sc_frand() { return (float)(sc_rand() >> 8) * (1.f / 16777216.f); }       /* 0..1 */
+SC_FN inline float sc_noise() { return (float)(int32_t)sc_rand() * (1.f / 2147483648.f); }   /* -1..1 */
 
-inline float roll_get(const int16_t *b, float pos) {      /* linear interpolation on the roll buffer */
+SC_FN inline float roll_get(const int16_t *b, float pos) {      /* linear interpolation on the roll buffer */
     int i = (int)pos;
     if ((float)i > pos) i--;
     float f = pos - (float)i;
@@ -249,7 +289,7 @@ inline float roll_get(const int16_t *b, float pos) {      /* linear interpolatio
     return (a + f * (c - a)) * (1.f / 32768.f);
 }
 
-inline float echo_get(const int16_t *b, float back) {     /* `back` samples behind the write head */
+SC_FN inline float echo_get(const int16_t *b, float back) {     /* `back` samples behind the write head */
     float pos = (float)echo_w - back;
     int i = (int)pos;
     if ((float)i > pos) i--;
@@ -258,13 +298,13 @@ inline float echo_get(const int16_t *b, float back) {     /* `back` samples behi
     return (a + f * (c - a)) * (1.f / 32768.f);
 }
 
-static inline int16_t sc_s16(float x) {
+SC_FN static inline int16_t sc_s16(float x) {
     x = sc_clamp(x * 32767.f, -32767.f, 32767.f);
     return (int16_t)x;
 }
 
 /* the echo divisions on knob 3, in beats */
-static float sc_div(int i) {
+SC_FN static float sc_div(int i) {
     switch (i) {
         case 0: return 0.25f;   /* 1/16 */
         case 1: return 0.5f;    /* 1/8 */
@@ -275,21 +315,21 @@ static float sc_div(int i) {
         default: return 4.f;    /* 1 bar */
     }
 }
-static const char *sc_div_name(int i) {
+SC_FN static const char *sc_div_name(int i) {
     switch (i) {
         case 0: return "1/16"; case 1: return "1/8"; case 2: return "1/8."; case 3: return "1/4";
         case 4: return "1/4."; case 5: return "1/2"; default: return "1 BAR";
     }
 }
-inline int echo_div_idx() { int i = (int)(pot[2] * 7.f); return i > 6 ? 6 : i; }
+SC_FN inline int echo_div_idx() { int i = (int)(pot[2] * 7.f); return i > 6 ? 6 : i; }
 
 /* ------------------------------------------------------------------------------------------------ the setup */
-void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
+SC_COLD void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
     echo_l = el; echo_r = er; roll_l = rl; roll_r = rr; rv = rvb;
     for (int i = 0; i < SC_ECHO_N; i++) { echo_l[i] = 0; echo_r[i] = 0; }
     for (int i = 0; i < SC_ROLL_N; i++) { roll_l[i] = 0; roll_r[i] = 0; }
     for (int i = 0; i < SC_RV_TOTAL; i++) rv[i] = 0.f;
-    static const int lens[6] = {1214, 1293, 1389, 1475, 605, 480};
+    SC_RO static const int lens[6] = {1214, 1293, 1389, 1475, 605, 480};
     int base = 0;
     for (int ch = 0; ch < 2; ch++) {
         for (int k = 0; k < 6; k++) {
@@ -320,7 +360,8 @@ void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
     routing = 0;
     f2_l = f2_r = z;
     crush2_hl = crush2_hr = 0.f;
-    lp_open = 0.f;
+    lp_cut = 0.f;
+    sc_rt = 0;
     sc_svf_set(f_c, 20000.f, 0.707f); sc_svf_set(fb_c, 8000.f, 0.707f); sc_svf_set(n_c, 1000.f, 0.707f);
     filt_mix = filt_mix_t = 0.f; filt_hp = false;
     crush_amt = 0.f; crush_rate = 1.f; crush_q = 0.f; crush_ph = 0.f; crush_hl = crush_hr = 0.f;
@@ -336,7 +377,7 @@ void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
 }
 
 /* ------------------------------------------------------------------------------------------------------ MIDI */
-void sc_midi(uint8_t status, uint8_t d1, uint8_t d2) {
+SC_COLD void sc_midi(uint8_t status, uint8_t d1, uint8_t d2) {
     if (status == 0xF8) {                                    /* clock */
         uint32_t now = blocks;
         if (tick_seen && now > tick_at) {
@@ -368,7 +409,7 @@ void sc_midi(uint8_t status, uint8_t d1, uint8_t d2) {
 }
 
 /* ------------------------------------------------------------------------------------------- knobs, buttons */
-void read_hw() {
+SC_COLD void read_hw() {
     for (int i = 0; i < 10; i++) {
         float v = hw_adc(i) * (1.f / 4095.f);
         if (pot_raw[i] < 0.f) { pot_raw[i] = pot[i] = pot_last_move[i] = v; continue; }
@@ -398,7 +439,7 @@ void read_hw() {
 }
 
 /* ------------------------------------------------------------------------------------------------ the clock */
-void clock_block() {
+SC_COLD void clock_block() {
     bool midi = tick_seen && (blocks - tick_seen) < 1500;             /* a tick in the last half second */
     int32_t prev16 = last16;
     if (midi) {
@@ -432,7 +473,7 @@ void clock_block() {
     onbeat = on16 && (last16 % 4 == 0);
 }
 
-void tap() {
+SC_COLD void tap() {
     uint32_t now = blocks;
     float dt = (float)(now - tap_last) * SC_BS;
     if (tap_last && dt > SC_SR * 0.2f && dt < SC_SR * 2.f) {
@@ -446,19 +487,24 @@ void tap() {
 }
 
 /* ----------------------------------------------------------------------------------------- the loop player */
-void loop_start(int kind, float len, bool past) {
+/* past: the beat just gone, at once; else from now: the first pass is the input (the dry), then it repeats. In aux the
+   repeats come sc_rt early, what the way to the mixer and back takes: they land on the dry's grid there */
+SC_COLD void loop_start(int kind, float len, bool past) {
     lp_kind = kind;
-    lp_len = lp_full = sc_clamp(len, 64.f, (float)(SC_ROLL_N / 2));
+    lp_len = lp_full = sc_clamp(len, 256.f, (float)(SC_ROLL_N / 2));
     lp_start = past ? (roll_w - (uint32_t)lp_len) : roll_w;           /* past: the beat just gone; else from now */
-    lp_pos = 0.f; lp_rate = 1.f; lp_passes = past ? 1 : 0;
+    float rt = routing ? (float)sc_rt : 0.f;
+    if (rt > lp_len * 0.5f) rt = lp_len * 0.5f;
+    lp_pos = past ? rt : 0.f;
+    lp_cut = past ? 0.f : rt;
+    lp_rate = 1.f; lp_passes = past ? 1 : 0;
     lp_gain_t = 1.f;
-    lp_open = 0.f;
     lp = 2;
 }
-void loop_stop() { lp_gain_t = 0.f; lp = 3; }
+SC_COLD void loop_stop() { lp_gain_t = 0.f; lp = 3; }
 
 /* ------------------------------------------------------------------------------------------ the controls */
-void control_block() {
+SC_COLD void control_block() {
     /* the scene: the knob (or CC 20), a dead zone in the middle; RELEASE holds it clean until the knob comes back */
     float raw = cc_scene_on ? cc_scene : (pot[0] * 2.f - 1.f);
     if (released) {
@@ -607,7 +653,7 @@ void control_block() {
 }
 
 /* ---------------------------------------------------------------------------------------------- the reverb */
-inline float rv_comb(int i, float x, float fb, float damp) {
+SC_FN inline float rv_comb(int i, float x, float fb, float damp) {
     float *b = rv + rv_base[i];
     int &ix = rv_idx[i];
     float y = b[ix];
@@ -617,7 +663,7 @@ inline float rv_comb(int i, float x, float fb, float damp) {
     if (++ix >= rv_len[i]) ix = 0;
     return y;
 }
-inline float rv_ap(int i, float x) {
+SC_FN inline float rv_ap(int i, float x) {
     float *b = rv + rv_base[i];
     int &ix = rv_idx[i];
     float y = b[ix];
@@ -627,11 +673,20 @@ inline float rv_ap(int i, float x) {
 }
 
 /* ------------------------------------------------------------------------------------------- the audio block */
-void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
+/* once a block, before the audio: the knobs and buttons, the clock, what the controls say */
+SC_COLD void sc_krate() {
     blocks++;
     read_hw();
     clock_block();
     control_block();
+}
+SC_FN void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
+    sc_krate();
+    sc_audio(inl, inr, outl, outr);
+    leds();
+    if (blocks - disp_at >= 150) { disp_at = blocks; screen(); }          /* 20 times a second */
+}
+SC_HOT void sc_audio(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
     const float IN = 1.f / 134217728.f, OUT = 134217728.f;
     for (int j = 0; j < SC_BS; j++) {
         float xl = inl[j] * IN, xr = inr[j] * IN;
@@ -642,30 +697,33 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
             roll_l[roll_w] = sc_s16(xl);
             roll_r[roll_w] = sc_s16(xr);
         }
-        /* the loop player */
+        /* the loop player. At the end of every pass (the first too, the dry) it crossfades into the audio before the
+           loop's start: at the wrap the start plays whole, the attack is not cut. In aux the first pass is silent and
+           the crossfade fades the start in; the first pass is lp_cut shorter (the way to the mixer and back) */
         if (lp) {
             float p = (float)lp_start + lp_pos;
             float yl = roll_get(roll_l, p), yr = roll_get(roll_r, p);
-            if (lp_passes > 0) {                                     /* crossfade into the audio before the start */
-                if (lp_rate > 0.f && lp_pos > lp_len - SC_FADE) {
-                    float w = (lp_pos - (lp_len - SC_FADE)) * (1.f / SC_FADE);
-                    float q = p - lp_len;
-                    yl += w * (roll_get(roll_l, q) - yl); yr += w * (roll_get(roll_r, q) - yr);
-                } else if (lp_rate < 0.f && lp_pos < SC_FADE) {
-                    float w = 1.f - lp_pos * (1.f / SC_FADE);
-                    float q = p + lp_len;
-                    yl += w * (roll_get(roll_l, q) - yl); yr += w * (roll_get(roll_r, q) - yr);
-                }
+            float end = lp_passes > 0 ? lp_len : lp_len - lp_cut;
+            float w = 0.f, ql = 0.f, qr = 0.f;
+            if (lp_rate > 0.f && lp_pos > end - SC_FADE) {
+                w = (lp_pos - (end - SC_FADE)) * (1.f / SC_FADE);
+                if (w > 1.f) w = 1.f;
+                float q = p - end;
+                ql = roll_get(roll_l, q); qr = roll_get(roll_r, q);
+            } else if (lp_passes > 0 && lp_rate < 0.f && lp_pos < SC_FADE) {
+                w = 1.f - lp_pos * (1.f / SC_FADE);
+                float q = p + lp_len;
+                ql = roll_get(roll_l, q); qr = roll_get(roll_r, q);
             }
+            yl += w * (ql - yl); yr += w * (qr - yr);
             lp_gain += (lp_gain_t - lp_gain) * 0.02f;
             xl += lp_gain * (yl - xl); xr += lp_gain * (yr - xr);   /* (aux: what goes to the echo and the reverb) */
-            if (routing) {                                           /* aux: out from its first repeat (1 ms in) */
-                lp_open += ((lp_passes > 0 ? 1.f : 0.f) - lp_open) * 0.02f;
-                float g = lp_gain * lp_open;
-                wl = g * yl; wr = g * yr;
+            if (routing) {                                           /* aux: the first pass silent, then the loop */
+                if (lp_passes > 0) { wl = lp_gain * yl; wr = lp_gain * yr; }
+                else { wl = lp_gain * w * ql; wr = lp_gain * w * qr; }
             }
             lp_pos += lp_rate;
-            if (lp_pos >= lp_len) { while (lp_pos >= lp_len) lp_pos -= lp_len; lp_passes++; }
+            if (lp_pos >= end) { lp_pos -= end; while (lp_pos >= lp_len) lp_pos -= lp_len; lp_passes++; }
             else if (lp_pos < 0.f) { while (lp_pos < 0.f) lp_pos += lp_len; lp_passes++; }
             if (lp_passes > 0) roll_rec = false;
             if (lp == 3 && lp_gain < 0.001f) { lp = 0; lp_kind = 0; roll_rec = true; }
@@ -737,15 +795,13 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
         outl[j] = (int32_t)(sc_clamp(ol, -1.f, 0.9999999f) * OUT);
         outr[j] = (int32_t)(sc_clamp(orr, -1.f, 0.9999999f) * OUT);
     }
-    leds();
-    if (blocks - disp_at >= 150) { disp_at = blocks; screen(); }          /* 20 times a second */
 }
 int32_t rv_tail;
-inline bool b_side() { return scene > 0.f; }
+SC_FN inline bool b_side() { return scene > 0.f; }
 
 /* ------------------------------------------------------------------------------------------------ the LEDs */
 uint32_t pwm;
-void leds() {
+SC_COLD void leds() {
     pwm = (pwm + 1) & 15;
     float b = scene > 0.f ? scene : 0.f, k = scene < 0.f ? -scene : 0.f;
     hw_led(0, (float)pwm < b * 16.f);                                   /* LED 3 blue: build */
@@ -755,10 +811,10 @@ void leds() {
 }
 
 /* ---------------------------------------------------------------------------------------------- the screen */
-static void sc_puts(char *d, const char *s, int at) {      /* writes s at column `at`, line is 11 wide */
+SC_FN static void sc_puts(char *d, const char *s, int at) {      /* writes s at column `at`, line is 11 wide */
     while (*s && at < 11) d[at++] = *s++;
 }
-static void sc_num(char *d, int v, int right) {             /* an integer, right-aligned ending at column `right` */
+SC_FN static void sc_num(char *d, int v, int right) {             /* an integer, right-aligned ending at column `right` */
     char tmp[8];
     int n = 0;
     bool neg = v < 0;
@@ -767,9 +823,9 @@ static void sc_num(char *d, int v, int right) {             /* an integer, right
     if (neg) tmp[n++] = '-';
     for (int i = 0; i < n && right - i >= 0; i++) d[right - i] = tmp[i];
 }
-static void sc_clear(char *d) { for (int i = 0; i < 11; i++) d[i] = ' '; d[11] = 0; }
+SC_FN static void sc_clear(char *d) { for (int i = 0; i < 11; i++) d[i] = ' '; d[11] = 0; }
 
-void screen() {
+SC_COLD void screen() {
     for (int i = 0; i < 4; i++) sc_clear(line[i]);
     int s = (int)(scene * 100.f + (scene >= 0.f ? 0.5f : -0.5f));
     if (released) sc_puts(line[0], "RELEASE", 0);
@@ -780,8 +836,8 @@ void screen() {
     line[1][3] = '.';
     line[1][4] = (char)('0' + bpm10 % 10);
     sc_puts(line[1], src == 2 ? "MIDI" : (src == 1 ? "TAP" : "INT"), 6);
-    static const char *names[10] = {"SCENA", "MOTO", "ECO", "FEEDBACK", "FILTRO", "RISON", "RUMORE", "CRUSH",
-                                    "RIVERB", "RITORNI"};
+    SC_RO static const char *const names[10] = {"SCENA", "MOTO", "ECO", "FEEDBACK", "FILTRO", "RISON", "RUMORE", "CRUSH",
+                                          "RIVERB", "RITORNI"};   /* (const: read-only, with the code) */
     if (last_pot >= 0 && blocks - pot_moved_at[last_pot] < 6000) {
         sc_puts(line[2], names[last_pot], 0);
         if (last_pot == 2) { const char *n = sc_div_name(echo_div_idx()); int l = 0; while (n[l]) l++; sc_puts(line[2], n, 11 - l); }
@@ -810,7 +866,8 @@ static int16_t sc_rr[SC_ROLL_N] __attribute__ ((section (".sdram")));
 static float sc_rv[SC_RV_TOTAL] __attribute__ ((section (".sdram")));
 hw_setup();
 sc_init(sc_el, sc_er, sc_rl, sc_rr, sc_rv);
-routing = attr_routing;]]></code.init>
+routing = attr_routing;
+sc_rt = (uint32_t)(attr_anticipo * 48.f + 0.5f);]]></code.init>
          <code.krate><![CDATA[sc_block(inlet_inl, inlet_inr, outlet_outl, outlet_outr);
 outlet_l1 = line[0];
 outlet_l2 = line[1];
@@ -902,7 +959,10 @@ La manopola si riprende il controllo appena la muovi.
 in ritardo di 1-2 ms farebbe un effetto phaser). Escono il rumore, l'eco e il riverbero, e i loop di ROLL, FREEZE e
 dei fill dalla loro prima ripetizione (il primo passaggio e' il pulito). Filtro e crush agiscono su quello che va
 nell'eco e nel riverbero, e sui loop; il pulito sul mixer resta com'e'. Al centro il ritorno e' muto: sul display
-MANDATA al posto di PULITO.]]></notes>
+MANDATA al posto di PULITO.
+<br>anticipo (attributo, solo in aux): i loop ripetono 1.5 ms prima, quanto il suono impiega ad andare dalla Gills al
+mixer e a tornare: cosi' cadono sulla griglia del pulito al mixer. Se le ripetizioni di una cassa dritta fanno flam o
+effetto phaser, prova un altro valore.]]></notes>
    <windowPos>
       <x>40</x>
       <y>40</y>

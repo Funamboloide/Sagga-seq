@@ -90,6 +90,31 @@ for f in scena scena_aux; do
     if cmp -s build/$f.axp tools/gills/$f.axp; then echo "$f.axp: made from the engine, up to date"; else echo "$f.axp: FAIL, run python3 tools/gills/make_scena.py"; exit 1; fi
 done
 if [ -n "$KSOLOTI" ]; then sh tools/gills/armcheck/check_arm.sh; else echo "scena arm: skipped (KSOLOTI= a ksoloti checkout)"; fi
+# 0.32.5: VARIAZIONI on the Gills (FIGO and SCENA in one object), alone and beside Microcosm or Chroma for a bus.
+# The effect patches are not in this repository: GILLS_FX= the folder with microcosm_gills.axp, chroma_console_gills.axp
+c++ -std=c++14 -O2 -Itools/gills tools/gills/test_variazioni.cpp -o build/test_variazioni
+step "variazioni" tail 1 build/test_variazioni
+mkdir -p build/bus
+python3 tools/gills/make_bus.py --out build/bus >/dev/null
+for f in figo_scena figo_scena_aux; do
+    if cmp -s build/bus/$f.axp tools/gills/$f.axp; then echo "$f.axp: made from the engines, up to date"; else echo "$f.axp: FAIL, run python3 tools/gills/make_bus.py"; exit 1; fi
+done
+BUS_FX=""
+for e in microcosm chroma_console; do
+    if [ -n "$GILLS_FX" ] && [ -f "$GILLS_FX/${e}_gills.axp" ]; then BUS_FX="$BUS_FX --fx $GILLS_FX/${e}_gills.axp"; fi
+done
+if [ -n "$BUS_FX" ]; then
+    python3 tools/gills/make_bus.py $BUS_FX --out build/bus --cpp >/dev/null
+    for e in microcosm:MICROCOSM chroma_console:CHROMA; do
+        b=${e%%:*}; d=${e##*:}
+        [ -f build/bus/${b}_figo_scena.cpp ] || continue
+        c++ -std=c++14 -O2 -w -DHOST_TEST -DEFFECT="\"$PWD/build/bus/${b}_effect.cpp\"" -DMERGED="\"$PWD/build/bus/${b}_figo_scena.cpp\"" -D$d tools/gills/test_bus.cpp -o build/test_bus_$b
+        step "bus $b" tail 1 build/test_bus_$b
+    done
+else
+    echo "bus: skipped (GILLS_FX= the folder with your microcosm_gills.axp and chroma_console_gills.axp)"
+fi
+if [ -n "$KSOLOTI" ]; then step "bus arm" tail 14 python3 tools/gills/armcheck/check_bus.py $BUS_FX; else echo "bus arm: skipped (KSOLOTI= a ksoloti checkout)"; fi
 if python3 -c "import numpy, scipy" 2>/dev/null && command -v ffmpeg >/dev/null; then step "strati" tail 1 python3 tests/strati_tests.py; else echo "strati: skipped (needs numpy, scipy, ffmpeg)"; fi
 if [ -n "$SANITIZE" ]; then export SAGGA_SIM_CFLAGS="-fsanitize=address,undefined -fno-sanitize-recover=undefined -g"; fi
 step "sim" tail 1 python3 tests/sagga_sim_tests.py
