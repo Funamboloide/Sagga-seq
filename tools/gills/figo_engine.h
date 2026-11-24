@@ -46,14 +46,18 @@ enum {
 };
 
 struct FgHead { uint32_t i; float f, r; bool dry; };
+/* a change while a crossfade is still going (a loop's own turn, then a step; two steps close): what was fading out
+   goes on fading out as p, what was coming in fades out as o, the new one comes in. Nothing is cut */
 struct FgVoice {
-    FgHead h, o;                         /* the head heard, and the one fading out */
-    int xf;                              /* samples of the crossfade left */
-    float xr;                            /* 1 / its length */
+    FgHead h, o, p;                      /* the head heard; the one fading out; an older one fading out too */
+    int xf, pxf;                         /* samples of their fades left (pxf <= xf) */
+    float xr, pxr;                       /* their weight: xf * xr, pxf * pxr */
+    float og, pg;                        /* their level, as it was when they went */
     bool loop;                           /* h loops [ls, ls + len) */
     uint32_t ls;
     float len;
     float g, gt, gk;                     /* the level of the tape: now, target, slew a sample */
+    float gn;                            /* the level the next head comes in at (< 0: as it is) */
     float rt, rk;                        /* the speed: target, slew a sample (0: none) */
 };
 
@@ -128,7 +132,8 @@ FG_FN static inline uint32_t fg_pack(int32_t l, int32_t r) {
 }
 /* frame i: from the tape, or the input itself if it is the frame now (or not there yet) */
 #ifdef FG_TEST
-uint32_t fg_test_ahead;                  /* (the test: reads of frames not on the tape yet) */
+uint32_t fg_test_ahead;                  /* (the test: reads of frames not on the tape yet; changes in a crossfade; in two) */
+uint32_t fg_test_nested, fg_test_third;
 #endif
 FG_FN inline void fg_frame(uint32_t i, float &l, float &r) {
     if ((int32_t)(i - fg_now) >= 0) {
@@ -163,23 +168,47 @@ FG_FN inline void fg_adv(FgHead &h) {
 }
 
 /* --------------------------------------------------------------------------------- the voices, sample by sample */
-/* what voice v gives now: the dry (dg: how much of it is heard) or the tape (at its level), crossfaded */
+/* what a head gives now: the dry (dg: how much of it is heard) or the tape at level g */
+FG_FN inline void fg_head(const FgHead &h, float g, float dg, float &l, float &r) {
+    if (h.dry) { l = fg_xl * dg; r = fg_xr * dg; }
+    else { fg_read(h, l, r); l *= g; r *= g; }
+}
+/* what voice v gives now: its head, crossfaded with the ones fading out */
 FG_FN inline void fg_out(FgVoice &v, float dg, float &l, float &r) {
     v.g += (v.gt - v.g) * v.gk;
-    if (v.h.dry) { l = fg_xl * dg; r = fg_xr * dg; }
-    else { fg_read(v.h, l, r); l *= v.g; r *= v.g; }
+    fg_head(v.h, v.g, dg, l, r);
     if (v.xf > 0) {
-        float w = (float)v.xf * v.xr, l2, r2;
-        if (v.o.dry) { l2 = fg_xl * dg; r2 = fg_xr * dg; }
-        else { fg_read(v.o, l2, r2); l2 *= v.g; r2 *= v.g; }
-        l += w * (l2 - l); r += w * (r2 - r);
+        float hl = l, hr = r, l2, r2, w = (float)v.xf * v.xr;
+        fg_head(v.o, v.og, dg, l2, r2);
+        l += w * (l2 - hl); r += w * (r2 - hr);
+        if (v.pxf > 0) {
+            w = (float)v.pxf * v.pxr;
+            fg_head(v.p, v.pg, dg, l2, r2);
+            l += w * (l2 - hl); r += w * (r2 - hr);
+        }
     }
+}
+/* a new head comes in over n samples: the one heard goes out (and, if a crossfade is still going, the one going out
+   goes on with what it has left, no longer than n). The weights add up to what was heard: no step */
+FG_FN inline void fg_push(FgVoice &v, int n) {
+#ifdef FG_TEST
+    if (v.xf > 0) fg_test_nested++;
+    if (v.pxf > 0) fg_test_third++;
+#endif
+    if (v.xf > 0) {
+        float wo = (float)v.xf * v.xr, wp = v.pxf > 0 ? (float)v.pxf * v.pxr : 0.f;
+        int m = v.xf < n ? v.xf : n;
+        v.p = v.o; v.pg = v.og; v.pxf = m; v.pxr = (wo + wp) / (float)m;   /* (a third one going: rare, it goes with o) */
+        v.o = v.h; v.og = v.g; v.xf = n; v.xr = (1.f - wo - wp) / (float)n;
+    } else {
+        v.o = v.h; v.og = v.g; v.xf = n; v.xr = 1.f / (float)n; v.pxf = 0;
+    }
+    if (v.gn >= 0.f) { v.g = v.gt = v.gn; v.gk = 1.f; v.gn = -1.f; }
 }
 /* the loop: the head lands back on its start in FG_XF samples, so the start plays whole (reverse: on its end) */
 FG_FN inline void fg_wrap(FgVoice &v, float rel_after, float r) {
-    v.o = v.h;
+    fg_push(v, FG_XF);
     fg_place(v.h, v.ls, rel_after - (float)FG_XF * r, r);
-    v.xf = FG_XF; v.xr = 1.f / (float)FG_XF;
 }
 /* after the sample: the heads on, the speed's slew, the loop. rd: where the dry is, ahead of the head (aux: fg_rt) */
 FG_FN inline void fg_next(FgVoice &v, uint32_t rd) {
@@ -187,7 +216,11 @@ FG_FN inline void fg_next(FgVoice &v, uint32_t rd) {
         if (v.rk != 0.f) v.h.r += (v.rt - v.h.r) * v.rk;
         fg_adv(v.h);
     }
-    if (v.xf > 0) { fg_adv(v.o); v.xf--; return; }          /* (no wrap while it crossfades: loops are longer) */
+    if (v.xf > 0) {                                          /* (no wrap while it crossfades: loops are longer) */
+        fg_adv(v.o); v.xf--;
+        if (v.pxf > 0) { fg_adv(v.p); v.pxf--; }
+        return;
+    }
     if (!v.loop) return;
     float r = v.h.dry ? 1.f : v.h.r;
     float rel = v.h.dry ? (float)(int32_t)(fg_now + 1 + rd - v.ls) : (float)(int32_t)(v.h.i - v.ls) + v.h.f;
@@ -207,17 +240,15 @@ FG_FN static inline int fg_xlen(int32_t d) { return d > 16 ? (int)d : 16; }
    (the caller sets one after) */
 FG_COLD void fg_go(FgVoice &v, uint32_t T, uint32_t P, float pf, float r) {
     int32_t d = (int32_t)(T - fg_now);
-    v.o = v.h;
+    fg_push(v, fg_xlen(d));
     fg_place(v.h, P, pf - (float)d * r, r);                  /* (late: further on, where it would be) */
-    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
     v.rk = 0.f; v.loop = false;
 }
 /* v plays from the head (what was just recorded) at speed r, whole by time T */
 FG_COLD void fg_go_head(FgVoice &v, uint32_t T, float r) {
     int32_t d = (int32_t)(T - fg_now);
-    v.o = v.h;
+    fg_push(v, fg_xlen(d));
     fg_place(v.h, fg_now - 2u, 0.f, r);
-    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
     v.rk = 0.f; v.loop = false;
 }
 /* v back to the dry by time T (B: to silence) */
@@ -225,9 +256,8 @@ FG_COLD void fg_go_dry(FgVoice &v, uint32_t T) {
     v.loop = false; v.rk = 0.f;
     if (v.h.dry) return;
     int32_t d = (int32_t)(T - fg_now);
-    v.o = v.h;
+    fg_push(v, fg_xlen(d));
     v.h.dry = true; v.h.i = fg_now; v.h.f = 0.f; v.h.r = 1.f;
-    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
 }
 /* v's loop from now: [ls, ls + len). If at T the head would be past the new end it lands on its start then */
 FG_COLD void fg_loop_at(FgVoice &v, uint32_t T, uint32_t ls, float len) {
@@ -262,8 +292,9 @@ FG_COLD void fg_init(uint32_t *tape) {
     for (uint32_t i = 0; i < (uint32_t)FG_N; i++) fg_tape[i] = 0u;
     fg_now = 0; fg_fill = 0; fg_xl = fg_xr = 0.f;
     FgHead d = {0u, 0.f, 1.f, true};
-    fg_a.h = fg_a.o = d; fg_a.xf = 0; fg_a.xr = 1.f; fg_a.loop = false; fg_a.ls = 0; fg_a.len = 1.f;
-    fg_a.g = fg_a.gt = 1.f; fg_a.gk = 1.f; fg_a.rt = 1.f; fg_a.rk = 0.f;
+    fg_a.h = fg_a.o = fg_a.p = d; fg_a.xf = fg_a.pxf = 0; fg_a.xr = fg_a.pxr = 1.f; fg_a.og = fg_a.pg = 1.f;
+    fg_a.loop = false; fg_a.ls = 0; fg_a.len = 1.f;
+    fg_a.g = fg_a.gt = 1.f; fg_a.gk = 1.f; fg_a.gn = -1.f; fg_a.rt = 1.f; fg_a.rk = 0.f;
     fg_b = fg_a;
     fg_b.g = fg_b.gt = 0.f;
     fg_bon = false;
@@ -288,19 +319,29 @@ FG_COLD void fg_init(uint32_t *tape) {
     for (int i = 0; i < 64; i++) fg_bts[i] = 0;
     fg_nbt = 0;
 #ifdef FG_TEST
-    fg_test_ahead = 0;
+    fg_test_ahead = fg_test_nested = fg_test_third = 0;
 #endif
 }
 
-/* the first frame of the beat k beats before frame nt (the next beat): where it really was, if the beats since then
-   kept the tempo; else as the tempo says */
+/* the first frame of the beat k beats before the beat at frame nt: where it really was (the ring of the beats gone;
+   nt may be in it already: SHUFFLE asks again after its beat), even if the tempo moved since, if every beat since then
+   is a beat (no START, no jump) and the tape has it; else as the tempo says */
 FG_COLD uint32_t fg_back(uint32_t nt, int k) {
-    if (k >= 1 && k <= 64 && (uint32_t)k <= fg_nbt) {
-        uint32_t f = fg_bts[(fg_nbt - (uint32_t)k) & 63u];
-        float d = (float)(int32_t)(nt - f) - (float)k * fg_bl;
-        if (d < 0.03f * fg_bl && d > -0.03f * fg_bl) return f;
+    float bl = fg_bl;
+    uint32_t n = fg_nbt > 64u ? 64u : fg_nbt, s = 1;
+    while (s <= n && s <= 8u && (float)(int32_t)(nt - fg_bts[(fg_nbt - s) & 63u]) < 0.5f * bl) s++;
+    if (k >= 1 && s <= 8u && s + (uint32_t)k - 1u <= n) {
+        uint32_t prev = nt;
+        bool ok = true;
+        for (uint32_t j = s; j < s + (uint32_t)k && ok; j++) {
+            uint32_t e = fg_bts[(fg_nbt - j) & 63u];
+            float d = (float)(int32_t)(prev - e);
+            ok = d > 0.6f * bl && d < 1.7f * bl;
+            prev = e;
+        }
+        if (ok && fg_has((float)(int32_t)(nt - prev))) return prev;
     }
-    return nt - (uint32_t)((float)k * fg_bl + 0.5f);
+    return nt - (uint32_t)((float)k * bl + 0.5f);
 }
 
 /* ------------------------------------------------------------------------------------- what can happen */
@@ -421,9 +462,10 @@ FG_COLD bool fg_start(int k, uint32_t t0, float L) {
     fg_ev = k; fg_t0 = t0; fg_L = L; fg_t1 = t0 + (uint32_t)(dur + 0.5f);
     fg_step = 0; fg_tn = t0; fg_lead = FG_LEAD;
     fg_last = k;
-    fg_a.g = fg_a.gt = fg_lv; fg_a.gk = 1.f;
+    if (fg_a.h.dry && fg_a.xf == 0) { fg_a.g = fg_a.gt = fg_lv; fg_a.gk = 1.f; fg_a.gn = -1.f; }
+    else fg_a.gn = fg_lv;                                    /* (what still plays keeps its level: from the first change) */
     if (k == FG_ROLL) fg_x = (fg_car > 0.6f && fg_figo > 0.5f) ? 1 : 0;
-    if (k == FG_GATE) { fg_x = (int)(fg_rand() & 255u) | 0x11; fg_lead = 0; }
+    if (k == FG_GATE) fg_x = (int)(fg_rand() & 255u) | 0x11;
     return true;
 }
 /* the end of what A does: the dry, or the next event if it starts right here (it goes there from what plays); one
@@ -521,13 +563,15 @@ FG_COLD void fg_step_a() {
             break;
         }
         case FG_GATE: {
-            /* the dry cut in sixteenths: the first of each beat always plays */
+            /* the dry cut in sixteenths: the first of each beat always plays (so the first step, a crossfade early,
+               only takes A back to the dry if a repeat ended right here) */
             float sx = bl * 0.25f;
+            if (fg_step == 0) fg_go_dry(fg_a, T);
             fg_gate_t = ((fg_x >> (fg_step % 8)) & 1) ? 1.f : 0.f;
             fg_step++;
             int steps = (int)(fg_L * 4.f + 0.5f);
             fg_tn = fg_step < steps ? fg_t0 + (uint32_t)((float)fg_step * sx + 0.5f) : fg_t1;
-            if (fg_tn == fg_t1) fg_lead = 256;                   /* (the dry whole again by the end: 5 ms before) */
+            fg_lead = fg_tn == fg_t1 ? 256 : 0;                  /* (the dry whole again by the end: 5 ms before) */
             break;
         }
         case FG_SKIP:
@@ -724,7 +768,9 @@ FG_COLD void fg_krate() {
         fg_step_b();
     }
     if (fg_bon && !fg_bev && fg_b.h.dry && fg_b.xf == 0) fg_bon = false;
-    if (fg_bon && !fg_bev && fg_b.g < 0.0005f && fg_b.gt == 0.f) { fg_go_dry(fg_b, fg_now + 16); fg_b.xf = 0; fg_bon = false; }
+    if (fg_bon && !fg_bev && fg_b.g < 0.0005f && fg_b.gt == 0.f && fg_b.xf == 0) {   /* (faded out: off at once) */
+        fg_go_dry(fg_b, fg_now + 16); fg_b.xf = fg_b.pxf = 0; fg_bon = false;
+    }
 }
 
 /* HOLD (toggle), PULITO / VIA (toggle), the phrase from here */

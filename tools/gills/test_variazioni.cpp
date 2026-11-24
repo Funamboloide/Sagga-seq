@@ -65,6 +65,7 @@ template <class V> struct Rig {
     std::vector<uint32_t> tape;
     long T = 0;
     double clock_at = -1, clock_step = 0;
+    std::vector<double> tick_t;                       // when each clock tick was due (beat k: tick_t[24 k])
     int32_t pot[10];
     bool btn[4];
     int32_t enc = 0;
@@ -106,11 +107,11 @@ template <class V> struct Rig {
         evs.clear(); bevs.clear(); last_ev = 0; last_t0 = 0; last_bev = 0; last_bt0 = 0;
     }
     void knob(int i, double x) { pot[i] = (int32_t)(x * 134217727.0); }
-    void start_clock(double bpm) { clock_step = 48000.0 * 60 / bpm / 24; clock_at = (double)T; v->vr_midi(0xFA, 0, 0); }
+    void start_clock(double bpm) { clock_step = 48000.0 * 60 / bpm / 24; clock_at = (double)T; tick_t.clear(); v->vr_midi(0xFA, 0, 0); }
     void tempo(double bpm) { clock_step = 48000.0 * 60 / bpm / 24; }
     // one block; in(t, l, r) gives the input, fx(t, l, r) the effect's out (beside an effect)
     template <class F, class G> void block(F in, G fx) {
-        if (clock_at >= 0) while (clock_at <= T + 16) { v->vr_midi(0xF8, 0, 0); clock_at += clock_step; }
+        if (clock_at >= 0) while (clock_at <= T + 16) { v->vr_midi(0xF8, 0, 0); tick_t.push_back(clock_at); clock_at += clock_step; }
         int32_t a[16], b[16], c[16], d[16], o1[16], o2[16];
         for (int j = 0; j < 16; j++) {
             double l, r;
@@ -520,6 +521,7 @@ int main() {
     }
 
     // the brain, FIGO up: what happens, where, and that it plays only the tape that is there
+    int stop_wrong = 0, aux_wrong = 0;                // (set by brain: TAPE STOP off a bar's end; in aux GATE, lone slices)
     auto brain = [&](auto &R, int routing, double car, double figo, long beats, double bpm, int &events, int &bad_grid,
                      int &past_phrase, int &ahead, int &stale, int &gap_bad, int &kinds) {
         R.boot(routing);
@@ -538,6 +540,10 @@ int main() {
             long beat = (long)floor(b + 0.5);
             double inph = (double)(beat % 16) + e.L;
             if (inph > 16.001) past_phrase++;
+            if (e.kind == VarA::FG_STOP && fmod(inph, 4.0) > 0.001) stop_wrong++;
+            if (routing && e.kind == VarA::FG_GATE) aux_wrong++;
+            static const double DIV[5] = {0, 1, 0.5, 0.25, 0.125};
+            if (routing && e.kind >= VarA::FG_R4 && e.kind <= VarA::FG_R32 && e.L < 2 * DIV[e.kind] - 1e-6) aux_wrong++;
         }
         kinds = 0;
         for (int k = 0; k < 64; k++) kinds += seen[k];
@@ -583,6 +589,9 @@ int main() {
                     check(grid == 0 && past == 0, w + fmt("on the beat (%.0f not), not past the phrase (%.0f)", grid, past));
                     check(ahead == 0 && stale == 0, w + fmt("never a frame not on the tape yet (%.0f reads), never an old one (%.0f)", ahead, stale));
                     check(gap == 0, w + fmt("the dry between the events (%.0f samples not)", gap));
+                    check(stop_wrong == 0, w + fmt("TAPE STOP only at the end of a bar or phrase (%.0f not)", stop_wrong));
+                    if (routing) check(aux_wrong == 0, w + fmt("no GATE, no repeat with only its first slice (%.0f)", aux_wrong));
+                    stop_wrong = aux_wrong = 0;
                 }
     }
 
@@ -689,6 +698,109 @@ int main() {
         check(on_bar == memo + eco, fmt("on the first beat of a bar (%.0f of %.0f)", on_bar, memo + eco));
         check(memo == 0 || good >= memo * 3 / 4, fmt("MEMORIA plays the bar of n bars ago (%.0f of %.0f)", good, memo));
         check(eco == 0 || eco_good >= eco * 3 / 4, fmt("ECO repeats the half beat, quieter each time (%.0f of %.0f)", eco_good, eco));
+    }
+
+    printf("the tempo drifts (120 to 123 BPM in 16 beats): INDIETRO 4 bars back starts on the beat that was there\n");
+    {
+        A.boot(0);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.5); A.knob(3, 0.0);
+        A.start_clock(120);
+        A.run((long)(BL * 8), when);
+        double bpm = 120;
+        for (int b = 0; b < 16; b++) { bpm += 3.0 / 16; A.tempo(bpm); A.run((long)(48000.0 * 60 / bpm), when); }
+        uint32_t t0 = A.to_beat(when);
+        bool ok = false;
+        for (int g = 0; g < 50 && !ok; g++) { ok = A.v->fg_start(VarA::FG_SKIP, t0, 1.f) && A.v->fg_last_n == 4; if (!ok) A.v->fg_ev = 0; }
+        double got = (double)(int32_t)(A.v->fg_ls - t0), tempo = -16.0 * A.v->fg_bl;
+        A.run((long)(BL * 2), when);
+        // the beat at t0 and the one 16 before it, by the clock's ticks (beat k: its 24 k-th tick)
+        long B = -1; double best = 1e18;
+        for (size_t k = 0; 24 * k < A.tick_t.size(); k++) {
+            double d = fabs(A.tick_t[24 * k] - (double)t0);
+            if (d < best) { best = d; B = (long)k; }
+        }
+        double want = B >= 16 ? A.tick_t[24 * (B - 16)] - A.tick_t[24 * B] : 1e9;
+        double heard = 1e9;                                   // and what is heard, past the crossfade
+        for (long t = (long)t0 + 200; t < (long)t0 + 3000 && heard > 1e8; t++) { double x = src_at(A, t); if (x >= 0) heard = x - (double)t; }
+        check(ok && best < 48 && fabs(got - want) < 32 && fabs(heard - got) < 2,
+              fmt("4 bars back: %.0f samples from the beat that was, heard %.0f (by the tempo alone: %.0f)",
+                  got - want, heard - want, tempo - want));
+    }
+
+    printf("MEMORIA at double speed (glitch, at times): never a frame not on the tape yet\n");
+    {
+        A.boot(0);
+        A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.95); A.knob(3, 1.0);
+        A.start_clock(120);
+        A.run((long)(BL * 4 * 64), when);
+        int doubles = 0;
+        for (auto &e : A.bevs) if (e.kind == VarA::FG_MEMO && e.h > 1.5f) doubles++;
+        check(doubles > 0 && A.v->fg_test_ahead == 0, fmt("%.0f at double speed, %.0f reads not on the tape", doubles, A.v->fg_test_ahead));
+    }
+
+    printf("no clicks: a sine in, FIGO 100 and MEMORIA 100, dub and glitch, insert and aux: every step a small one\n");
+    {
+        double nested = 0;
+        for (int routing = 0; routing < 2; routing++)
+            for (int ci = 0; ci < 2; ci++) {
+                A.boot(routing);
+                A.knob(0, 0.5); A.knob(1, 1.0); A.knob(2, ci ? 0.9 : 0.1); A.knob(3, 1.0);
+                A.start_clock(128);
+                auto sine = [](long t, double &l, double &r) { l = 0.5 * sin(2 * M_PI * 110 * t / 48000.0); r = 0.5 * sin(2 * M_PI * 165 * t / 48000.0); };
+                A.run((long)(48000.0 * 60 / 128 * 64), sine);
+                double worst = 0; long at = 0;
+                for (size_t i = 1; i < A.ol.size(); i++) {
+                    double d = std::max(fabs(A.ol[i] - A.ol[i - 1]), fabs(A.orr[i] - A.orr[i - 1]));
+                    if (d > worst) { worst = d; at = (long)i; }
+                }
+                // a 165 Hz sine at 0.5 moves 0.011 a sample at most; a crossfade of 96 samples between any two of its
+                // moments, 0.5 / 96 more; a hard jump would be up to 1
+                check(worst < 0.04, std::string(routing ? "aux " : "insert ") + (ci ? "glitch" : "dub") +
+                      fmt(": the largest step %.4f (at %.0f), %.0f changes in a crossfade (%.0f in two)", worst, (double)at,
+                          A.v->fg_test_nested, A.v->fg_test_third));
+                nested += A.v->fg_test_nested;
+            }
+        check(nested > 0, fmt("(and the case is there: %.0f changes came in a crossfade)", nested));
+    }
+
+    printf("one event right where the one before ends: a TAPE STOP, then a repeat; a repeat, then GATE\n");
+    {
+        auto sine = [](long t, double &l, double &r) { l = 0.5 * sin(2 * M_PI * 110 * t / 48000.0); r = 0.5 * sin(2 * M_PI * 165 * t / 48000.0); };
+        // k1 on a beat, k2 right at its end (8 samples on, as the brain does it), FIGO 0 otherwise
+        auto pair = [&](int k1, float L1, int k2, float L2, bool use_sine, uint32_t &t0, uint32_t &t0b) {
+            A.boot(0);
+            A.knob(0, 0.5); A.knob(1, 0.0); A.knob(2, 0.5); A.knob(3, 0.0);
+            A.start_clock(120);
+            if (use_sine) A.run((long)(BL * 12), sine); else A.run((long)(BL * 12), when);
+            t0 = use_sine ? A.to_beat(sine) : A.to_beat(when);
+            bool ok = A.v->fg_start(k1, t0, L1);
+            A.v->fg_nx = k2; A.v->fg_nx_t0 = A.v->fg_t1 + 8; A.v->fg_nx_L = L2;
+            t0b = A.v->fg_nx_t0;
+            if (use_sine) A.run((long)(BL * (L1 + L2 + 2)), sine); else A.run((long)(BL * (L1 + L2 + 2)), when);
+            return ok;
+        };
+        uint32_t t0, t0b;
+        bool ok = pair(VarA::FG_STOP, 1.f, VarA::FG_R8, 1.f, true, t0, t0b);
+        double worst = 0;
+        for (long t = (long)t0 - 2000; t < (long)t0b + (long)BL + 2000; t++)
+            worst = std::max(worst, (double)std::max(fabs(A.ol[t] - A.ol[t - 1]), fabs(A.orr[t] - A.orr[t - 1])));
+        check(ok && worst < 0.04, fmt("TAPE STOP, then 1/8: no click where the stopped tape goes (largest step %.4f)", worst));
+        ok = pair(VarA::FG_STOP, 1.f, VarA::FG_R8, 1.f, false, t0, t0b);
+        double s = 0.5 * A.v->fg_bl;
+        int n = 0, bad = 0;
+        for (long t = (long)t0b + (long)s + 200; t < (long)t0b + (long)(2 * s) - LEAD - 4; t++) {
+            double x = src_at(A, t);
+            n++;
+            if (fabs(x - ((double)t0b + pmod((double)(t - (long)t0b), s))) > 0.3) bad++;
+        }
+        check(ok && n > 10000 && bad == 0, fmt("and the 1/8 repeats at its level, not the stopped tape's (%.0f of %.0f off)", bad, n));
+        ok = pair(VarA::FG_R8, 1.f, VarA::FG_GATE, 1.f, false, t0, t0b);
+        n = 0; bad = 0;
+        for (long t = (long)t0b + 2; t < (long)t0b + (long)(0.25 * A.v->fg_bl) - 300; t++) {
+            n++;
+            if (src_at(A, t) != (double)t) bad++;
+        }
+        check(ok && n > 5000 && bad == 0, fmt("1/8, then GATE: the GATE cuts the dry, the repeat is gone (%.0f of %.0f not the dry)", bad, n));
     }
 
     printf("no blow-up: everything up, white noise, FIGO and MEMORIA 100, SCENA all over, ROLL and FREEZE\n");
