@@ -290,6 +290,64 @@ tornava di quattro, con le note ripetute (e una nota che cambiavi restava quella
 premere *Salva*, anche senza toccare niente. La scheda **Tape** dell'editor fa le stesse cose e scrive le note così
 come l'FM-1 le tiene, traccia per traccia. Un vecchio indirizzo `/roll/...` apre l'editor sulla scheda Tape.
 
+## DA ABLETON (0.32.3)
+
+Nella pagina (porta 8090), sotto PROGETTI, la sezione **DA ABLETON**: i clip MIDI esportati da Ableton diventano un
+progetto **a passi** nella libreria, già pronto per il set. Una traccia per parte, un pattern per clip, ogni traccia sul
+canale della macchina che suona quella parte. Da lì: **editor**, **Manda all'FM-1**, SAVE sull'FM-1.
+
+**In Ableton**: tasto destro su un clip MIDI, **Export MIDI Clip**. Il nome del file dice la parte e il pattern:
+`palette-parte-numero`, per esempio `A-basso-2.mid` (il basso, pattern 2) o `A-kick-1.mid`. Senza numero il clip va nel
+primo pattern libero; un numero già preso va nel primo libero dopo, e il rapporto lo dice. Le parole sono in italiano
+e in inglese:
+
+| traccia | parte | parole nel nome | macchina | canale |
+| --- | --- | --- | --- | --- |
+| 1 | CASSA | kick, cassa, bd | M8 1 | 1 |
+| 2 | BASSO | basso, bass, bassline, sub, 808, reese | M8 1 | 2 |
+| 3 | BASSO 2 | basso2, bass2, sub2, acid | M8 1 | 3 |
+| 4 | RULLANTE | rullante, snare, sd, clap, rim | M8 2 | 4 |
+| 5 | HAT | hat, hats, hh, hihat, charleston | M8 2 | 5 |
+| 6 | PERC | perc, percussioni, shaker, tom, conga, bongo, cowbell | M8 2 | 6 |
+| 7 | TOP | top, ride, crash, cymbal, piatti | M8 2 | 7 |
+| 8 | LEAD | lead, melodia, melody, hook, synth | MicroDexed | 8 |
+| 9 | ACCORDI | accordi, chord, chords, stab, keys, piano | MicroDexed | 9 |
+| 10 | PAD | pad, atmo, atmosfera, drone, strings, archi | MicroDexed | 10 |
+| 11 | ARP | arp, arpeggio, seq, pluck | MicroDexed | 11 |
+| 12 | SAMPLE | sample, campione, intro, interludio, outro, vox, fx | Zynthian | 12 |
+
+I canali si cambiano dalla pagina (la tabella sotto il modulo, **Salva i canali**): restano nella libreria del Pi
+(`ableton.json`) e valgono dal progetto dopo. La matrice di RaspiMIDIHub manda i canali alle macchine. Le batterie sono
+tracce DRUM, i bassi del gruppo BASS, il resto MELODIC: i gruppi dell'FM-1 (mute per gruppo) funzionano subito.
+
+**Un clip di tutta la batteria** (`drums`, `batteria`, `beat`, `kit`, `groove` nel nome) si divide da solo per nota, come
+nei Drum Rack: 35-36 la cassa, 37-40 il rullante, 42 44 46 gli hat, i piatti su TOP, il resto su PERC.
+
+**Cosa diventa ogni clip:**
+
+- ogni nota va sul sedicesimo più vicino, e quanto era spostata resta nel **NUDGE** del passo (fino a mezzo passo): lo
+  swing e le spinte del clip restano come erano;
+- la stessa nota due o più volte in un sedicesimo (un rullo di 1/32) è un **RATCHET**;
+- fino a sei note insieme sono un accordo; di più: restano le sei più basse (le più forti, sulle batterie);
+- una nota che tiene oltre l'inizio della nota del sedicesimo dopo è un **TIE** (legato: un synth mono scivola); più
+  lontano, la nota dura quanto dice il clip (fino a 64 passi);
+- un clip di 1, 2 o 4 battute è un pattern. In una traccia più lunga i clip più corti ricominciano da capo: sono le
+  **copie** dell'FM-1, come quando allunghi una traccia. Un clip di 3 battute va bene da solo (traccia di 48 passi);
+- da 5 a 8 battute: una coppia di pattern (1+2, 3+4 ...), la traccia in **CHAIN**;
+- l'unico clip di una parte, più lungo di 8 battute (fino a 16): una traccia **TAPE**, con il suo tempo esatto;
+- il tempo è quello dei clip (se è diverso, quello della maggioranza; o lo scrivi tu nel campo BPM);
+- la **scena N** suona il clip N di ogni parte (una parte con meno clip: il suo ultimo).
+
+Non entrano i CC e il pitch bend dei clip, e un tempo diverso da 4/4 viene letto in 4/4: il rapporto lo dice, file per
+file. Un progetto con lo stesso nome lascia il vecchio fra le sue versioni (si ripristina dall'editor).
+
+Sugli M8 un campione di batteria con **TRANSP OFF** suona uguale con qualunque nota: le note del Drum Rack (36, 38 ...)
+vanno bene così. Una parte con suoni diversi sullo stesso canale (PERC con conga e shaker) sull'M8 vuole uno strumento a
+slice, o un clip per suono: il rapporto la segnala.
+
+Lo stesso da un terminale, anche sul PC (con `sagga_sgqjson` compilato):
+`python3 sagga_ableton.py -o PALETTE-A.sgq A-*.mid [--bpm 124] [--canali ableton.json]`.
+
 ## BREAK IN SLICE (0.13)
 
 Nella stessa pagina (porta 8090) la sezione **BREAK IN SLICE**: carichi un loop di batteria in WAV (PCM 8, 16, 24, 32 bit
@@ -340,4 +398,5 @@ dell'FM-1 verso il computer no. La porta PC porta MIDI, non audio.
 della porta PC su una pseudo-seriale, la pagina dei firmware con un installatore finto, l'aggiornamento del Pi, la
 sezione del banco. `python3 tests/sagga_banco_tests.py`: il programma del banco contro un FM-1, un RaspiMIDIHub e un
 systemctl finti. `python3 tests/sagga_celle_tests.py`: il custode delle celle contro un RaspiMIDIHub finto che le perde
-come il vero.
+come il vero. `python3 tests/sagga_ableton_tests.py` (0.32.3): DA ABLETON, i clip letti, le parti, i passi, e il progetto
+suonato dal firmware nel simulatore, nota per nota contro i clip.
