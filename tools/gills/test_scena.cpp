@@ -284,6 +284,15 @@ int main(int argc, char **argv) {
         for (size_t i = 12000; i < 24000; i++) d = std::max(d, (double)fabsf(o2[i] - in2[i]));
         check(d < 0.002, fmt("let go: the dry again (max diff %.4f)", d));
         check(S->lp == 0, "the loop player is off");
+        // no jump anywhere while it rolls, the first repeat too (it crossfades into what comes before the slice):
+        // the ramp climbs 1/40000 a sample, a jump back to the slice's start would be 0.3
+        double jump = 0;
+        for (size_t i = 1; i < o.size(); i++) {
+            long t = 48000 + (long)i;                                    // (where the ramp itself starts again)
+            if (t % 40000 < 4 || t % 40000 > 39996) continue;
+            jump = std::max(jump, (double)fabsf(o[i] - o[i - 1]));
+        }
+        check(jump < 0.01, fmt("no jump, not even at the first repeat (largest step %.4f)", jump));
     }
 
     printf("FREEZE: the beat just gone, over and over, until pressed again\n");
@@ -467,6 +476,36 @@ int main(int argc, char **argv) {
         double pk = 0;
         for (size_t i = 12000; i < 24000; i++) pk = std::max(pk, (double)fabsf(o2[i]));
         check(pk < 1e-6 && S->lp == 0, fmt("let go: silence (%.6f)", pk));
+    }
+
+    printf("aux with the way to the mixer and back (sc_rt): the repeats come that early, the attack whole\n");
+    {
+        for (int kind = 0; kind < 2; kind++) {                    // ROLL, then FREEZE
+            boot();
+            S->routing = 1;
+            S->sc_rt = 72;                                        // 1.5 ms
+            start_clock(120);
+            pot(3, 0.0); pot(9, 0.0); pot(1, 0.0);
+            auto ramp = [](long t, float &l, float &r) { l = r = (float)((t % 70000) / 70000.0 - 0.5); };
+            std::vector<float> o, in;
+            run(48000, ramp, &o, nullptr, &in);
+            g_btn[kind] = 1;
+            run(kind ? 48 * 16 : 48000, ramp, &o, nullptr, &in);
+            g_btn[kind] = 0;
+            if (kind) run(48000, ramp, &o, nullptr, &in);
+            // the loop's period: 1/8 beat for ROLL (12000), a beat for FREEZE (24000). Once it repeats, the output is
+            // the input of a period ago, 72 samples later in it: o[i] = in[i - period + 72]
+            const long per = kind ? 24000 : 12000;
+            size_t first = 0;
+            for (size_t i = 48000; i < o.size(); i++) if (fabsf(o[i]) > 0.01f) { first = i; break; }
+            double err = 0, err0 = 0; int n = 0;
+            for (size_t i = first + 300; i < first + per - 300 && i < o.size(); i++) {
+                err += fabs(o[i] - in[i - per + 72]); err0 += fabs(o[i] - in[i - per]); n++;
+            }
+            check(first > 48000 && n > 1000 && err / n < 0.0005 && err0 / n > err / n * 4,
+                  fmt(kind ? "FREEZE: a beat back, 72 samples on (mean diff %.5f, %.5f without them)"
+                           : "ROLL: a slice back, 72 samples on (mean diff %.5f, %.5f without them)", err / n, err0 / n));
+        }
     }
 
     printf("aux: FREEZE: the beat just gone, from the next beat at once; the filter shapes it on the break side\n");

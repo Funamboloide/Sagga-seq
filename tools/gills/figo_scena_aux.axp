@@ -1,0 +1,2527 @@
+<patch-1.0 appVersion="1.0.12">
+   <comment type="patch/comment" x="14" y="10" text="VARIAZIONI - FIGO + SCENA. Le istruzioni: Patch &gt; Notes."/>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_1" x="20" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="1"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_2" x="140" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="2"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_3" x="260" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="3"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_4" x="380" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="4"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_5" x="500" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="5"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_6" x="620" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="6"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_7" x="740" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="7"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_8" x="860" y="40">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="8"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_9" x="20" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="9"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/pot p" uuid="1c0c845ed2d7e06ae5f377ba13d9d09f4747ac89" name="pot_10" x="140" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="pot" selection="10"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/button" uuid="07be7a50-1051-436a-92aa-03e2fb9b1229" name="button_1" x="260" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="button" selection="1"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/button" uuid="07be7a50-1051-436a-92aa-03e2fb9b1229" name="button_2" x="380" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="button" selection="2"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/button" uuid="07be7a50-1051-436a-92aa-03e2fb9b1229" name="button_3" x="500" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="button" selection="3"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/button" uuid="07be7a50-1051-436a-92aa-03e2fb9b1229" name="button_4" x="620" y="100">
+      <params/>
+      <attribs>
+         <combo attributeName="button" selection="4"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/encoder" uuid="8d8c7129-cce1-491f-98b4-6ecb6355cfee" name="encoder_1" x="740" y="100">
+      <params/>
+      <attribs>
+         <spinner attributeName="min" value="-65536"/>
+         <spinner attributeName="max" value="65535"/>
+      </attribs>
+   </obj>
+   <obj type="audio/in stereo" uuid="99848ad6d90a8e615e83b2e619cfc806f28e7281" name="audio_in" x="900" y="100">
+      <params/>
+      <attribs/>
+   </obj>
+   <patchobj type="patch/object" uuid="b7a1c0de-5ce9-4a00-8000-00000000f160" name="variazioni" x="330" y="160">
+      <params/>
+      <attribs>
+         <combo attributeName="routing" selection="aux"/>
+         <combo attributeName="ingresso" selection="stereo"/>
+         <combo attributeName="frase" selection="16"/>
+         <combo attributeName="uscita" selection="auto"/>
+         <combo attributeName="anticipo" selection="1.5 ms"/>
+      </attribs>
+      <object id="patch/object" uuid="b7a1c0de-5ce9-4a00-8000-00000000f160">
+         <sDescription>VARIAZIONI: FIGO and SCENA, the variations on the loop</sDescription>
+         <author>SAGGA</author>
+         <license>GPL</license>
+         <inlets>
+            <frac32buffer name="inl" description="in left (the send)"/>
+            <frac32buffer name="inr" description="in right"/>
+            <frac32buffer name="fxl" description="the effect's out, left"/>
+            <frac32buffer name="fxr" description="the effect's out, right"/>
+            <frac32.positive name="p1" description="pot 1"/>
+            <frac32.positive name="p2" description="pot 2"/>
+            <frac32.positive name="p3" description="pot 3"/>
+            <frac32.positive name="p4" description="pot 4"/>
+            <frac32.positive name="p5" description="pot 5"/>
+            <frac32.positive name="p6" description="pot 6"/>
+            <frac32.positive name="p7" description="pot 7"/>
+            <frac32.positive name="p8" description="pot 8"/>
+            <frac32.positive name="p9" description="pot 9"/>
+            <frac32.positive name="p10" description="pot 10"/>
+            <bool32 name="b1" description="button 1"/>
+            <bool32 name="b2" description="button 2"/>
+            <bool32 name="b3" description="button 3"/>
+            <bool32 name="b4" description="button 4"/>
+            <int32 name="enc" description="encoder"/>
+            <bool32 name="esw" description="encoder switch"/>
+            <charptr32 name="pl1" description="the panel's screen line 1"/>
+            <charptr32 name="pl2" description="the panel's screen line 2"/>
+            <charptr32 name="pl3" description="the panel's screen line 3"/>
+            <charptr32 name="pl4" description="the panel's screen line 4"/>
+            <frac32.positive name="pled1" description="the panel's LED 1"/>
+            <frac32.positive name="pled2" description="the panel's LED 2"/>
+            <frac32.positive name="pled3b" description="the panel's LED 3b"/>
+            <frac32.positive name="pled3r" description="the panel's LED 3r"/>
+            <frac32.positive name="pled4b" description="the panel's LED 4b"/>
+            <frac32.positive name="pled4r" description="the panel's LED 4r"/>
+         </inlets>
+         <outlets>
+            <frac32buffer name="outl" description="out left"/>
+            <frac32buffer name="outr" description="out right"/>
+            <bool32 name="page" description="the variations' page is on (to the panel)"/>
+            <charptr32 name="l1" description="screen line 1"/>
+            <charptr32 name="l2" description="screen line 2"/>
+            <charptr32 name="l3" description="screen line 3"/>
+            <charptr32 name="l4" description="screen line 4"/>
+            <frac32.positive name="led1" description="LED 1"/>
+            <frac32.positive name="led2" description="LED 2"/>
+            <frac32.positive name="led3b" description="LED 3b"/>
+            <frac32.positive name="led3r" description="LED 3r"/>
+            <frac32.positive name="led4b" description="LED 4b"/>
+            <frac32.positive name="led4r" description="LED 4r"/>
+         </outlets>
+         <displays/>
+         <params/>
+         <attribs>
+            <combo name="routing" description="insert: in -&gt; FIGO -&gt; SCENA (beside an effect: after it); aux: send and return, no dry out">
+               <MenuEntries>
+                  <string>insert</string>
+                  <string>aux</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>0</string>
+                  <string>1</string>
+               </CEntries>
+            </combo>
+            <combo name="ingresso" description="stereo, or mono L (the left in on both sides)">
+               <MenuEntries>
+                  <string>stereo</string>
+                  <string>mono L</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>0</string>
+                  <string>1</string>
+               </CEntries>
+            </combo>
+            <combo name="frase" description="FIGO: the phrase, in beats">
+               <MenuEntries>
+                  <string>16</string>
+                  <string>8</string>
+                  <string>32</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>16</string>
+                  <string>8</string>
+                  <string>32</string>
+               </CEntries>
+            </combo>
+            <combo name="uscita" description="FIGO: the way out (PULITO)">
+               <MenuEntries>
+                  <string>auto</string>
+                  <string>tape stop</string>
+                  <string>backspin</string>
+                  <string>secca</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>0</string>
+                  <string>1</string>
+                  <string>2</string>
+                  <string>3</string>
+               </CEntries>
+            </combo>
+            <combo name="anticipo" description="aux: the way to the mixer and back, ms (SHIFT+encoder on the page changes it)">
+               <MenuEntries>
+                  <string>1.5 ms</string>
+                  <string>0 ms</string>
+                  <string>0.5 ms</string>
+                  <string>1.0 ms</string>
+                  <string>2.0 ms</string>
+                  <string>2.5 ms</string>
+                  <string>3.0 ms</string>
+               </MenuEntries>
+               <CEntries>
+                  <string>1.5f</string>
+                  <string>0.0f</string>
+                  <string>0.5f</string>
+                  <string>1.0f</string>
+                  <string>2.0f</string>
+                  <string>2.5f</string>
+                  <string>3.0f</string>
+               </CEntries>
+            </combo>
+         </attribs>
+         <includes/>
+         <code.declaration><![CDATA[#ifdef __clang__
+#define VR_SMALL __attribute__((noinline, minsize))
+#else
+#define VR_SMALL __attribute__((noinline, optimize("Os")))
+#endif
+#define VR_ALONE
+#define SC_COLD VR_SMALL
+#define FG_COLD VR_SMALL
+#define VR_COLD VR_SMALL
+#define SC_ECHO_BITS 18
+#define FG_BITS 21
+#define VR_FX_NAME "EFFETTO"
+/* SCENA - the engine (class-body code: it goes into the code.declaration of the patch's object, and into the host
+ * test's class). An insert effect for the Ksoloti Gills: one knob (SCENA) from a break-down (left) through clean
+ * (centre) to a build-up (right), like the Scene FX of a Pioneer RMX-1000, with the depth of every part set once on
+ * the other nine knobs, like a scene of an Octatrack; MOTO makes it move by itself, in time (MIDI clock or tap).
+ *
+ * routing (the object's attribute in the Patcher; scena_aux.axp has it set): 0 insert, the dry passes (bit for bit in
+ * the centre). 1 aux, for a mixer's send and return: the dry is on the mixer already, so it never comes out here (a
+ * copy of it a millisecond or two late would comb the sound like a phaser). Out come the noise, the echo and the
+ * reverb, and the loops of ROLL, FREEZE and the fills from their first repeat on (their first pass is the dry). The
+ * filter and the crush shape what goes into the echo and the reverb, and the loops.
+ *
+ * Platform: hw_adc(i), hw_btn(i), hw_led(i, on), hw_setup() come from the patch (scena_platform.h) or the test.
+ * No libm, no printf, no doubles: the Cortex-M4 has a single-precision FPU and the patch links almost nothing.
+ * SC_COLD marks the code that does not run sample by sample: the patches that hold SCENA beside another effect put
+ * it in the Gills' second RAM (SRAM3). SC_ECHO_BITS: the echo's length (18: 5.46 s).
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+#ifndef SC_COLD
+#define SC_COLD
+#endif
+#ifndef SC_HOT
+#define SC_HOT                           /* (the sample loop: where the patch wants it) */
+#endif
+#ifndef SC_FN
+#define SC_FN                            /* (the small ones: where the patch wants them, if not inlined) */
+#endif
+#ifndef SC_RO
+#define SC_RO                            /* (the tables) */
+#endif
+#ifndef SC_ECHO_BITS
+#define SC_ECHO_BITS 18
+#endif
+
+enum {
+    SC_SR = 48000,
+    SC_BS = 16,                          /* BUFSIZE */
+    SC_ECHO_N = 1 << SC_ECHO_BITS,       /* 5.46 s a channel (17: 2.73 s) */
+    SC_ROLL_N = 1 << 17,                 /* 2.73 s a channel: the last beats, for ROLL and FREEZE */
+    SC_RV_TOTAL = 2 * (1214 + 1293 + 1389 + 1475 + 605 + 480 + 4 * 23 + 2 * 23),
+    SC_FADE = 96                         /* 2 ms at every loop wrap */
+};
+
+/* ---------------------------------------------------------------------------------------------- small maths */
+SC_FN static inline float sc_clamp(float x, float a, float b) { return x < a ? a : (x > b ? b : x); }
+SC_FN static inline float sc_abs(float x) { return x < 0.f ? -x : x; }
+/* 2^x, x in [-24, 24] (error ~1e-4) */
+SC_FN static inline float sc_exp2(float x) {
+    x = sc_clamp(x, -24.f, 24.f);
+    int i = (int)x;
+    if ((float)i > x) i--;
+    float f = x - (float)i;
+    float p = 1.f + f * (0.6931472f + f * (0.2402265f + f * (0.0555041f + f * 0.0096181f)));
+    float s = 1.f;
+    if (i >= 0) { while (i--) s *= 2.f; } else { while (i++) s *= 0.5f; }
+    return p * s;
+}
+/* tan(x) for x in [0, 1.45]: Pade, good to 1.5 % at the top */
+SC_FN static inline float sc_tan(float x) {
+    float x2 = x * x;
+    return x * (15.f - x2) / (15.f - 6.f * x2);
+}
+/* a soft clip that stays near 1:1 below 0.5 and never passes 1 */
+SC_FN static inline float sc_soft(float x) {
+    x = sc_clamp(x, -3.f, 3.f);
+    return x * (27.f + x * x) / (27.f + 9.f * x * x);
+}
+
+/* the zero-delay-feedback state variable filter (Simper) */
+struct ScSvf { float ic1, ic2; };
+struct ScSvfC { float k, a1, a2, a3; };
+SC_FN static inline void sc_svf_set(ScSvfC &c, float fc, float q) {
+    fc = sc_clamp(fc, 10.f, 0.45f * SC_SR);
+    float g = sc_tan(3.14159265f * fc / SC_SR);
+    c.k = 1.f / q;
+    c.a1 = 1.f / (1.f + g * (g + c.k));
+    c.a2 = g * c.a1;
+    c.a3 = g * c.a2;
+}
+/* returns the low pass; band and high through the pointers */
+SC_FN static inline float sc_svf(ScSvf &s, const ScSvfC &c, float v0, float *band, float *high) {
+    float v3 = v0 - s.ic2;
+    float v1 = c.a1 * s.ic1 + c.a2 * v3;
+    float v2 = s.ic2 + c.a2 * s.ic1 + c.a3 * v3;
+    s.ic1 = 2.f * v1 - s.ic1;
+    s.ic2 = 2.f * v2 - s.ic2;
+    if (band) *band = v1;
+    if (high) *high = v0 - c.k * v1 - v2;
+    return v2;
+}
+
+/* --------------------------------------------------------------------------------------------------- state */
+int16_t *echo_l, *echo_r;                /* the echo lines (SDRAM) */
+int16_t *roll_l, *roll_r;                /* the last 2.7 s of input (SDRAM) */
+float *rv;                               /* the reverb's combs and allpasses (SDRAM) */
+uint32_t echo_w, roll_w;
+bool roll_rec;
+
+uint32_t rng;
+uint32_t blocks;                         /* blocks since start */
+
+/* the knobs */
+float pot[10], pot_raw[10], pot_last_move[10];
+uint32_t pot_moved_at[10];
+int last_pot;                            /* the knob moved last (for the screen), -1 none */
+int btn_state[4], btn_cnt[4];
+bool btn_down[4], btn_press[4], btn_release[4];
+
+/* MIDI */
+float cc_scene, cc_moto;
+bool cc_scene_on, cc_moto_on;
+float pot_at_cc_scene, pot_at_cc_moto;
+bool cc_roll, cc_freeze_toggle, cc_release;
+
+/* the clock */
+int32_t ticks;                           /* MIDI clock ticks since START (-1 before the first) */
+uint32_t tick_at;                        /* block of the last tick */
+float tick_len;                          /* samples per tick, averaged */
+uint32_t tick_seen;
+bool clk_run;
+int32_t ibeat;                           /* the internal clock: beats and fraction */
+float ifrac;
+float tap_len;                           /* samples per beat from the taps (0: none) */
+uint32_t tap_last;
+int tap_n;
+float beat_len;                          /* samples per beat now */
+int32_t beat;                            /* the beat now (since START or boot) */
+float frac;                              /* 0..1 inside the beat */
+int32_t last16;                          /* the sixteenth now (beat * 4 + n) */
+bool on16, onbeat;                       /* a sixteenth / a beat started in this block */
+int src;                                 /* 0 internal, 1 tap, 2 MIDI */
+
+/* the scene */
+float scene_t, scene;                    /* -1 .. 1 */
+float dead;
+bool released;
+float moto_off_t[3], moto_off[3];       /* MOTO's breathing: filter octaves, echo send, noise */
+int fill;                                /* 0 none, 1 roll, 2 echo throw, 3 filter dip */
+int32_t fill_end16;
+float throw_amt;
+float dip_amt, dip_t;
+
+/* the effects */
+ScSvf f_l, f_r, fb_l, fb_r, n_l, n_r;
+ScSvfC f_c, fb_c, n_c;
+float filt_mix, filt_mix_t;
+bool filt_hp;                            /* build: the filter is a high pass */
+float crush_amt, crush_rate, crush_q, crush_ph, crush_hl, crush_hr;
+float noise_lvl;
+float echo_time, echo_time_t;           /* samples */
+float send, send_t, fbk, fbk_t, ret;
+float rv_send, rv_send_t;
+float rv_fl[8];                          /* the combs' damping states */
+int rv_idx[12];
+int rv_len[12];
+int rv_base[12];
+
+/* the routing: 0 insert, 1 aux (no dry out) */
+int routing;
+ScSvf f2_l, f2_r;                        /* aux: the loop's own filter (the dry has f_l, f_r, for the sends) */
+float crush2_hl, crush2_hr;              /* aux: the loop's own crush hold */
+
+/* the loop player (ROLL, FREEZE, the fills) */
+int lp;                                  /* 0 off, 1 waiting for its start, 2 playing, 3 waiting for its end */
+int lp_kind;                             /* 1 roll, 2 freeze, 3 fill */
+uint32_t lp_start;
+float lp_len, lp_full, lp_pos, lp_rate, lp_gain, lp_gain_t;
+float lp_cut;                            /* aux: the first pass (the dry) this much shorter: the way back */
+uint32_t sc_rt;                          /* aux: the way to the mixer and back, samples (the loops repeat that early) */
+int lp_passes;
+int32_t lp_end16;
+int roll_div;                            /* sixteenths of a beat: 2 = 1/8, 1 = 1/16; 0 = 1/32 */
+int32_t roll_since;
+bool freeze_on;
+
+/* the screen */
+char line[4][12];
+uint32_t disp_at;
+
+/* ------------------------------------------------------------------------------------------------- helpers */
+SC_FN inline uint32_t sc_rand() {
+    rng ^= rng << 13; rng ^= rng >> 17; rng ^= rng << 5;
+    return rng;
+}
+SC_FN inline float sc_frand() { return (float)(sc_rand() >> 8) * (1.f / 16777216.f); }       /* 0..1 */
+SC_FN inline float sc_noise() { return (float)(int32_t)sc_rand() * (1.f / 2147483648.f); }   /* -1..1 */
+
+SC_FN inline float roll_get(const int16_t *b, float pos) {      /* linear interpolation on the roll buffer */
+    int i = (int)pos;
+    if ((float)i > pos) i--;
+    float f = pos - (float)i;
+    float a = b[(uint32_t)i & (SC_ROLL_N - 1)], c = b[(uint32_t)(i + 1) & (SC_ROLL_N - 1)];
+    return (a + f * (c - a)) * (1.f / 32768.f);
+}
+
+SC_FN inline float echo_get(const int16_t *b, float back) {     /* `back` samples behind the write head */
+    float pos = (float)echo_w - back;
+    int i = (int)pos;
+    if ((float)i > pos) i--;
+    float f = pos - (float)i;
+    float a = b[(uint32_t)i & (SC_ECHO_N - 1)], c = b[(uint32_t)(i + 1) & (SC_ECHO_N - 1)];
+    return (a + f * (c - a)) * (1.f / 32768.f);
+}
+
+SC_FN static inline int16_t sc_s16(float x) {
+    x = sc_clamp(x * 32767.f, -32767.f, 32767.f);
+    return (int16_t)x;
+}
+
+/* the echo divisions on knob 3, in beats */
+SC_FN static float sc_div(int i) {
+    switch (i) {
+        case 0: return 0.25f;   /* 1/16 */
+        case 1: return 0.5f;    /* 1/8 */
+        case 2: return 0.75f;   /* 1/8. */
+        case 3: return 1.f;     /* 1/4 */
+        case 4: return 1.5f;    /* 1/4. */
+        case 5: return 2.f;     /* 1/2 */
+        default: return 4.f;    /* 1 bar */
+    }
+}
+SC_FN static const char *sc_div_name(int i) {
+    switch (i) {
+        case 0: return "1/16"; case 1: return "1/8"; case 2: return "1/8."; case 3: return "1/4";
+        case 4: return "1/4."; case 5: return "1/2"; default: return "1 BAR";
+    }
+}
+SC_FN inline int echo_div_idx() { int i = (int)(pot[2] * 7.f); return i > 6 ? 6 : i; }
+
+/* ------------------------------------------------------------------------------------------------ the setup */
+SC_COLD void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
+    echo_l = el; echo_r = er; roll_l = rl; roll_r = rr; rv = rvb;
+    for (int i = 0; i < SC_ECHO_N; i++) { echo_l[i] = 0; echo_r[i] = 0; }
+    for (int i = 0; i < SC_ROLL_N; i++) { roll_l[i] = 0; roll_r[i] = 0; }
+    for (int i = 0; i < SC_RV_TOTAL; i++) rv[i] = 0.f;
+    SC_RO static const int lens[6] = {1214, 1293, 1389, 1475, 605, 480};
+    int base = 0;
+    for (int ch = 0; ch < 2; ch++) {
+        for (int k = 0; k < 6; k++) {
+            int n = lens[k] + (ch ? 23 : 0);
+            rv_len[ch * 6 + k] = n;
+            rv_base[ch * 6 + k] = base;
+            rv_idx[ch * 6 + k] = 0;
+            base += n;
+        }
+    }
+    for (int i = 0; i < 8; i++) rv_fl[i] = 0.f;
+    echo_w = roll_w = 0;
+    roll_rec = true;
+    rng = 0x9E3779B9u;
+    blocks = 0;
+    for (int i = 0; i < 10; i++) { pot[i] = pot_raw[i] = pot_last_move[i] = -1.f; pot_moved_at[i] = 0; }
+    last_pot = -1;
+    for (int i = 0; i < 4; i++) { btn_state[i] = 0; btn_cnt[i] = 0; btn_down[i] = btn_press[i] = btn_release[i] = false; }
+    cc_scene = cc_moto = 0.f; cc_scene_on = cc_moto_on = false; cc_roll = cc_freeze_toggle = cc_release = false;
+    ticks = -1; tick_at = 0; tick_len = SC_SR * 60.f / 120.f / 24.f; tick_seen = 0; clk_run = false;
+    ibeat = 0; ifrac = 0.f; tap_len = 0.f; tap_last = 0; tap_n = 0;
+    beat_len = SC_SR * 0.5f; beat = 0; frac = 0.f; last16 = -1; on16 = onbeat = false; src = 0;
+    scene_t = scene = 0.f; dead = 0.06f; released = false;
+    for (int i = 0; i < 3; i++) moto_off_t[i] = moto_off[i] = 0.f;
+    fill = 0; fill_end16 = 0; throw_amt = 0.f; dip_amt = dip_t = 0.f;
+    ScSvf z = {0.f, 0.f};
+    f_l = f_r = fb_l = fb_r = n_l = n_r = z;
+    routing = 0;
+    f2_l = f2_r = z;
+    crush2_hl = crush2_hr = 0.f;
+    lp_cut = 0.f;
+    sc_rt = 0;
+    sc_svf_set(f_c, 20000.f, 0.707f); sc_svf_set(fb_c, 8000.f, 0.707f); sc_svf_set(n_c, 1000.f, 0.707f);
+    filt_mix = filt_mix_t = 0.f; filt_hp = false;
+    crush_amt = 0.f; crush_rate = 1.f; crush_q = 0.f; crush_ph = 0.f; crush_hl = crush_hr = 0.f;
+    noise_lvl = 0.f;
+    echo_time = echo_time_t = beat_len * 0.5f;
+    send = send_t = fbk = fbk_t = 0.f; ret = 1.f; rv_send = rv_send_t = 0.f;
+    lp = 0; lp_kind = 0; lp_start = 0; lp_len = lp_full = 1.f; lp_pos = 0.f; lp_rate = 1.f; lp_gain = lp_gain_t = 0.f;
+    lp_passes = 0; lp_end16 = 0; roll_div = 2; roll_since = 0; freeze_on = false;
+    for (int i = 0; i < 4; i++) line[i][0] = 0;
+    disp_at = 0;
+    rv_tail = 0;
+    pwm = 0;
+}
+
+/* ------------------------------------------------------------------------------------------------------ MIDI */
+SC_COLD void sc_midi(uint8_t status, uint8_t d1, uint8_t d2) {
+    if (status == 0xF8) {                                    /* clock */
+        uint32_t now = blocks;
+        if (tick_seen && now > tick_at) {
+            float dt = (float)(now - tick_at) * SC_BS;
+            if (dt > 20.f && dt < 6000.f) {                  /* 20 .. 600 bpm */
+                if (blocks - tick_seen > 3000) tick_len = dt;        /* the first after a silence: take it */
+                else tick_len += (dt - tick_len) * 0.08f;
+            }
+        }
+        tick_at = now;
+        tick_seen = now ? now : 1;
+        if (clk_run) ticks++;
+    } else if (status == 0xFA) {                             /* start */
+        clk_run = true; ticks = -1;
+    } else if (status == 0xFB) {                             /* continue */
+        clk_run = true;
+    } else if (status == 0xFC) {                             /* stop */
+        clk_run = false;
+    } else if (status == 0xF2) {                             /* song position */
+        ticks = 6 * (((int32_t)d2 << 7) | d1) - 1;
+    } else if ((status & 0xF0) == 0xB0) {                    /* CC 20-24, any channel */
+        float v = d2 * (1.f / 127.f);
+        if (d1 == 20) { cc_scene = v * 2.f - 1.f; cc_scene_on = true; pot_at_cc_scene = pot[0]; }
+        else if (d1 == 21) { cc_moto = v; cc_moto_on = true; pot_at_cc_moto = pot[1]; }
+        else if (d1 == 22) { cc_roll = d2 >= 64; }
+        else if (d1 == 23) { if (d2 >= 64) cc_freeze_toggle = true; }
+        else if (d1 == 24) { if (d2 >= 64) cc_release = true; }
+    }
+}
+
+/* ------------------------------------------------------------------------------------------- knobs, buttons */
+SC_COLD void read_hw() {
+    for (int i = 0; i < 10; i++) {
+        float v = hw_adc(i) * (1.f / 4095.f);
+        if (pot_raw[i] < 0.f) { pot_raw[i] = pot[i] = pot_last_move[i] = v; continue; }
+        if (sc_abs(v - pot_raw[i]) > 0.004f) pot_raw[i] = v;          /* the ADC's noise stays out */
+        pot[i] += (pot_raw[i] - pot[i]) * 0.02f;
+        if (sc_abs(pot[i] - pot_last_move[i]) > 0.02f) {             /* a real move: the screen shows it */
+            pot_last_move[i] = pot[i];
+            pot_moved_at[i] = blocks;
+            if (blocks > 3000) last_pot = i;
+        }
+    }
+    if (cc_scene_on && pot_at_cc_scene < 0.f) pot_at_cc_scene = pot[0];   /* (a CC before the first read) */
+    if (cc_moto_on && pot_at_cc_moto < 0.f) pot_at_cc_moto = pot[1];
+    if (cc_scene_on && sc_abs(pot[0] - pot_at_cc_scene) > 0.03f) cc_scene_on = false;   /* the knob takes it back */
+    if (cc_moto_on && sc_abs(pot[1] - pot_at_cc_moto) > 0.03f) cc_moto_on = false;
+    for (int i = 0; i < 4; i++) {
+        int b = hw_btn(i) ? 1 : 0;
+        btn_press[i] = btn_release[i] = false;
+        if (b != btn_state[i]) {
+            if (++btn_cnt[i] >= 30) {                                   /* 10 ms steady */
+                btn_state[i] = b; btn_cnt[i] = 0;
+                if (b) btn_press[i] = true; else btn_release[i] = true;
+            }
+        } else btn_cnt[i] = 0;
+        btn_down[i] = btn_state[i] != 0;
+    }
+}
+
+/* ------------------------------------------------------------------------------------------------ the clock */
+SC_COLD void clock_block() {
+    bool midi = tick_seen && (blocks - tick_seen) < 1500;             /* a tick in the last half second */
+    int32_t prev16 = last16;
+    if (midi) {
+        src = 2;
+        beat_len = tick_len * 24.f;
+        if (clk_run && ticks >= 0) {
+            float sub = (float)(blocks - tick_at) * SC_BS / tick_len;
+            if (sub > 0.99f) sub = 0.99f;
+            beat = ticks / 24;
+            frac = ((float)(ticks % 24) + sub) * (1.f / 24.f);
+        } else {                                                         /* stopped: run free at its tempo */
+            ifrac += SC_BS / beat_len;
+            while (ifrac >= 1.f) { ifrac -= 1.f; ibeat++; }
+            beat = ibeat; frac = ifrac;
+        }
+    } else {
+        src = tap_len > 0.f ? 1 : 0;
+        beat_len = tap_len > 0.f ? tap_len : SC_SR * 0.5f;
+        ifrac += SC_BS / beat_len;
+        while (ifrac >= 1.f) { ifrac -= 1.f; ibeat++; }
+        beat = ibeat; frac = ifrac;
+    }
+    if (midi && clk_run && ticks >= 0) { ibeat = beat; ifrac = frac; }   /* free running goes on from here */
+    last16 = beat * 4 + (int32_t)(frac * 4.f);
+    if (prev16 >= 0 && last16 < prev16) {                                /* START or a jump back: the counters follow */
+        fill_end16 += last16 - prev16;
+        roll_since += last16 - prev16;
+        lp_end16 += last16 - prev16;
+    }
+    on16 = (last16 != prev16);
+    onbeat = on16 && (last16 % 4 == 0);
+}
+
+SC_COLD void tap() {
+    uint32_t now = blocks;
+    float dt = (float)(now - tap_last) * SC_BS;
+    if (tap_last && dt > SC_SR * 0.2f && dt < SC_SR * 2.f) {
+        tap_len = tap_n ? tap_len + (dt - tap_len) * 0.5f : dt;
+        tap_n++;
+        ibeat++; ifrac = 0.f;                                            /* the tap is the beat */
+    } else {
+        tap_n = 0;
+    }
+    tap_last = now;
+}
+
+/* ----------------------------------------------------------------------------------------- the loop player */
+/* past: the beat just gone, at once; else from now: the first pass is the input (the dry), then it repeats. In aux the
+   repeats come sc_rt early, what the way to the mixer and back takes: they land on the dry's grid there */
+SC_COLD void loop_start(int kind, float len, bool past) {
+    lp_kind = kind;
+    lp_len = lp_full = sc_clamp(len, 256.f, (float)(SC_ROLL_N / 2));
+    lp_start = past ? (roll_w - (uint32_t)lp_len) : roll_w;           /* past: the beat just gone; else from now */
+    float rt = routing ? (float)sc_rt : 0.f;
+    if (rt > lp_len * 0.5f) rt = lp_len * 0.5f;
+    lp_pos = past ? rt : 0.f;
+    lp_cut = past ? 0.f : rt;
+    lp_rate = 1.f; lp_passes = past ? 1 : 0;
+    lp_gain_t = 1.f;
+    lp = 2;
+}
+SC_COLD void loop_stop() { lp_gain_t = 0.f; lp = 3; }
+
+/* ------------------------------------------------------------------------------------------ the controls */
+SC_COLD void control_block() {
+    /* the scene: the knob (or CC 20), a dead zone in the middle; RELEASE holds it clean until the knob comes back */
+    float raw = cc_scene_on ? cc_scene : (pot[0] * 2.f - 1.f);
+    if (released) {
+        if (sc_abs(raw) < dead) released = false;
+        raw = 0.f;
+    }
+    float u = 0.f;
+    if (raw > dead) u = (raw - dead) / (1.f - dead);
+    else if (raw < -dead) u = (raw + dead) / (1.f - dead);
+    scene_t = u;
+    scene += (scene_t - scene) * (released ? 0.05f : 0.01f);
+    if (sc_abs(scene - scene_t) < 0.0005f) scene = scene_t;             /* it arrives: clean is exactly clean */
+    float b = scene > 0.f ? scene : 0.f;                                /* build */
+    float k = scene < 0.f ? -scene : 0.f;                               /* break */
+    float a = b + k;
+    float moto = cc_moto_on ? cc_moto : pot[1];
+
+    /* MOTO: a new breath every beat, and the fills at the end of bars and phrases */
+    if (onbeat) {
+        float m = moto * a;
+        moto_off_t[0] = (sc_frand() * 2.f - 1.f) * m * 1.2f;           /* filter, octaves */
+        moto_off_t[1] = (sc_frand() * 2.f - 1.f) * m * 0.35f;          /* echo send */
+        moto_off_t[2] = (sc_frand() * 2.f - 1.f) * m * 0.5f;           /* noise */
+        int pb = ((beat % 16) + 16) % 16;
+        float p = 0.f;
+        if (pb == 15) p = 0.8f; else if (pb % 4 == 3) p = 0.25f;
+        p *= moto * (0.4f + 0.6f * a);
+        if (!fill && lp == 0 && a > 0.001f && sc_frand() < p) {
+            if (b > 0.f && sc_frand() < 0.7f) {
+                fill = 1;                                                /* a roll of the last beat's 16ths */
+                roll_div = b > 0.6f ? 0 : 1;
+                float len = beat_len * (roll_div == 0 ? 0.125f : 0.25f);
+                loop_start(3, len, false);
+                fill_end16 = last16 + 4;
+            } else if (k > 0.f && sc_frand() < 0.6f) {
+                fill = 2; throw_amt = 1.f;                               /* an echo thrown */
+                fill_end16 = last16 + 2;
+            } else {
+                fill = 3; dip_t = 1.f;                                   /* the filter dives and comes back */
+                fill_end16 = last16 + 4;
+            }
+        }
+    }
+    float mo = 3.f / (beat_len / SC_BS);                                 /* about a beat to get there */
+    for (int i = 0; i < 3; i++) moto_off[i] += (moto_off_t[i] - moto_off[i]) * mo;
+    if (fill && on16 && last16 >= fill_end16) {
+        if (fill == 1 && lp_kind == 3 && lp == 2) loop_stop();
+        fill = 0; throw_amt = 0.f; dip_t = 0.f;
+    }
+    dip_amt += (dip_t - dip_amt) * 0.01f;
+
+    /* ROLL (button 1 or CC 22): from the next 16th, the slice repeats; on the build side it shortens every beat */
+    bool roll_held = btn_down[0] || cc_roll;
+    if (roll_held && (lp == 0 || (lp_kind == 3)) && !freeze_on) {
+        if (lp_kind != 1 || lp == 3) {
+            if (on16) {
+                roll_div = (moto > 0.5f) ? 1 : 2;
+                loop_start(1, beat_len * (roll_div == 2 ? 0.5f : 0.25f), false);
+                roll_since = last16;
+                fill = 0;
+            }
+        }
+    }
+    if (lp_kind == 1 && lp == 2) {
+        if (onbeat && b > 0.3f && last16 > roll_since && roll_div > 0) {
+            roll_div--;
+            lp_len = beat_len * (roll_div == 1 ? 0.25f : 0.125f);
+        }
+        if (!roll_held && on16) loop_stop();
+    }
+
+    /* FREEZE (button 2 or CC 23): on the next beat the beat just gone loops; with MOTO it varies by itself */
+    if (btn_press[1] || cc_freeze_toggle) {
+        cc_freeze_toggle = false;
+        freeze_on = !freeze_on;
+    }
+    if (freeze_on && onbeat && lp_kind != 2) {
+        loop_start(2, beat_len, true);
+        fill = 0;
+    } else if (freeze_on && lp_kind == 2 && lp == 2 && onbeat) {
+        float r = sc_frand();
+        if (r < moto * 0.6f) {
+            float r2 = sc_frand();
+            if (r2 < 0.4f) { lp_len = lp_full * 0.5f; lp_rate = 1.f; }
+            else if (r2 < 0.65f) { lp_len = lp_full * 0.25f; lp_rate = 1.f; }
+            else { lp_len = lp_full; lp_rate = -1.f; }
+        } else { lp_len = lp_full; lp_rate = 1.f; }
+        if (lp_pos >= lp_len) lp_pos = 0.f;
+    } else if (!freeze_on && lp_kind == 2 && lp == 2 && onbeat) {
+        loop_stop();
+    }
+
+    /* RELEASE (button 3 or CC 24): clean now, the echo rings out */
+    if (btn_press[2] || cc_release) {
+        cc_release = false;
+        released = true;
+        fill = 0; throw_amt = 0.f; dip_t = 0.f;
+        if (lp == 2 && lp_kind != 2) loop_stop();
+    }
+    /* TAP (button 4) */
+    if (btn_press[3]) tap();
+
+    /* the filter: build = a high pass going up, break = a low pass coming down; FILTRO says how far, MOTO breathes */
+    float depth = pot[4];
+    float q = 0.6f + pot[5] * pot[5] * 7.f * a;                          /* the resonance grows with the scene */
+    float dip = dip_amt * depth;
+    if (b > 0.f) {
+        filt_hp = true;
+        float oct = (b + dip) * depth * 7.f + moto_off[0] * b;          /* 20 Hz .. 2.5 kHz */
+        sc_svf_set(f_c, 20.f * sc_exp2(sc_clamp(oct, 0.f, 9.f)), q);
+    } else {
+        filt_hp = false;
+        float oct = (k + dip) * depth * 6.5f - moto_off[0] * k;         /* 20 kHz .. 220 Hz */
+        sc_svf_set(f_c, 20000.f * sc_exp2(-sc_clamp(oct, 0.f, 9.f)), q);
+    }
+    filt_mix_t = (a > 0.001f || dip_amt > 0.01f) ? 1.f : 0.f;
+
+    /* the crush (break): fewer bits, fewer samples */
+    float cr = pot[7] * k;
+    crush_amt = cr;
+    crush_rate = 1.f - cr * 0.92f;
+    crush_q = sc_exp2(15.f - cr * 11.f);                                 /* 32768 .. 16 steps */
+
+    /* the noise (build): a hiss that rises */
+    noise_lvl = pot[6] * b * b * 0.35f * (1.f + moto_off[2]);
+    if (noise_lvl < 0.f) noise_lvl = 0.f;
+    sc_svf_set(n_c, 300.f * sc_exp2(b * 5.f), 1.2f);
+
+    /* the echo: time from knob 3 in beats; feedback up to knob 4; build: thinner repeats, break: darker */
+    float div = sc_div(echo_div_idx());
+    echo_time_t = sc_clamp(div * beat_len, 32.f, (float)(SC_ECHO_N - 64));
+    float fbmax = pot[3] * 0.95f;
+    if (released) { send_t = 0.f; if (fbk_t > 0.85f) fbk_t = 0.85f; }
+    else if (a <= 0.001f) { send_t = 0.f; fbk_t = fbk_t > 0.3f ? fbk_t - 0.0002f : fbk_t; }   /* back to clean: the tail fades */
+    else if (b > 0.f) { send_t = b * 0.8f; fbk_t = fbmax * (0.25f + 0.75f * b); }
+    else { send_t = k * 0.9f; fbk_t = fbmax * (0.3f + 0.7f * k); }
+    if (a > 0.001f) send_t += moto_off[1];
+    if (throw_amt > 0.f) { send_t = 1.f; fbk_t = fbmax > 0.5f ? fbmax : 0.5f; }
+    send_t = sc_clamp(send_t, 0.f, 1.f);
+    if (b > 0.f) sc_svf_set(fb_c, 100.f * sc_exp2(b * 5.f), 0.8f);
+    else sc_svf_set(fb_c, 6000.f * sc_exp2(-k * 4.f), 0.8f);
+    ret = pot[9];
+
+    /* the reverb (break): the wash under the break-down */
+    rv_send_t = released ? 0.f : pot[8] * k;
+}
+
+/* ---------------------------------------------------------------------------------------------- the reverb */
+SC_FN inline float rv_comb(int i, float x, float fb, float damp) {
+    float *b = rv + rv_base[i];
+    int &ix = rv_idx[i];
+    float y = b[ix];
+    float &st = rv_fl[(i / 6) * 4 + (i % 6)];
+    st = y * (1.f - damp) + st * damp;
+    b[ix] = x + st * fb;
+    if (++ix >= rv_len[i]) ix = 0;
+    return y;
+}
+SC_FN inline float rv_ap(int i, float x) {
+    float *b = rv + rv_base[i];
+    int &ix = rv_idx[i];
+    float y = b[ix];
+    b[ix] = x + y * 0.5f;
+    if (++ix >= rv_len[i]) ix = 0;
+    return y - x;
+}
+
+/* ------------------------------------------------------------------------------------------- the audio block */
+/* once a block, before the audio: the knobs and buttons, the clock, what the controls say */
+SC_COLD void sc_krate() {
+    blocks++;
+    read_hw();
+    clock_block();
+    control_block();
+}
+SC_FN void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
+    sc_krate();
+    sc_audio(inl, inr, outl, outr);
+    leds();
+    if (blocks - disp_at >= 150) { disp_at = blocks; screen(); }          /* 20 times a second */
+}
+SC_HOT void sc_audio(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
+    const float IN = 1.f / 134217728.f, OUT = 134217728.f;
+    for (int j = 0; j < SC_BS; j++) {
+        float xl = inl[j] * IN, xr = inr[j] * IN;
+        float wl = 0.f, wr = 0.f;                                    /* aux: the loop alone, what comes out */
+        /* the roll buffer: the input, always (paused while a loop holds its slice) */
+        if (roll_rec) {
+            roll_w = (roll_w + 1) & (SC_ROLL_N - 1);
+            roll_l[roll_w] = sc_s16(xl);
+            roll_r[roll_w] = sc_s16(xr);
+        }
+        /* the loop player. At the end of every pass (the first too, the dry) it crossfades into the audio before the
+           loop's start: at the wrap the start plays whole, the attack is not cut. In aux the first pass is silent and
+           the crossfade fades the start in; the first pass is lp_cut shorter (the way to the mixer and back) */
+        if (lp) {
+            float p = (float)lp_start + lp_pos;
+            float yl = roll_get(roll_l, p), yr = roll_get(roll_r, p);
+            float end = lp_passes > 0 ? lp_len : lp_len - lp_cut;
+            float w = 0.f, ql = 0.f, qr = 0.f;
+            if (lp_rate > 0.f && lp_pos > end - SC_FADE) {
+                w = (lp_pos - (end - SC_FADE)) * (1.f / SC_FADE);
+                if (w > 1.f) w = 1.f;
+                float q = p - end;
+                ql = roll_get(roll_l, q); qr = roll_get(roll_r, q);
+            } else if (lp_passes > 0 && lp_rate < 0.f && lp_pos < SC_FADE) {
+                w = 1.f - lp_pos * (1.f / SC_FADE);
+                float q = p + lp_len;
+                ql = roll_get(roll_l, q); qr = roll_get(roll_r, q);
+            }
+            yl += w * (ql - yl); yr += w * (qr - yr);
+            lp_gain += (lp_gain_t - lp_gain) * 0.02f;
+            xl += lp_gain * (yl - xl); xr += lp_gain * (yr - xr);   /* (aux: what goes to the echo and the reverb) */
+            if (routing) {                                           /* aux: the first pass silent, then the loop */
+                if (lp_passes > 0) { wl = lp_gain * yl; wr = lp_gain * yr; }
+                else { wl = lp_gain * w * ql; wr = lp_gain * w * qr; }
+            }
+            lp_pos += lp_rate;
+            if (lp_pos >= end) { lp_pos -= end; while (lp_pos >= lp_len) lp_pos -= lp_len; lp_passes++; }
+            else if (lp_pos < 0.f) { while (lp_pos < 0.f) lp_pos += lp_len; lp_passes++; }
+            if (lp_passes > 0) roll_rec = false;
+            if (lp == 3 && lp_gain < 0.001f) { lp = 0; lp_kind = 0; roll_rec = true; }
+        }
+        /* the filter */
+        filt_mix += (filt_mix_t - filt_mix) * 0.002f;
+        float bl, hl, br, hr;
+        float ll = sc_svf(f_l, f_c, xl, &bl, &hl), lr = sc_svf(f_r, f_c, xr, &br, &hr);
+        if (filt_mix > 0.0001f) {
+            float yl = filt_hp ? hl : ll, yr = filt_hp ? hr : lr;
+            xl += filt_mix * (yl - xl); xr += filt_mix * (yr - xr);
+        }
+        if (routing) {                                               /* aux: the loop through the same filter */
+            float b2l, h2l, b2r, h2r;
+            float l2l = sc_svf(f2_l, f_c, wl, &b2l, &h2l), l2r = sc_svf(f2_r, f_c, wr, &b2r, &h2r);
+            if (filt_mix > 0.0001f) {
+                float yl = filt_hp ? h2l : l2l, yr = filt_hp ? h2r : l2r;
+                wl += filt_mix * (yl - wl); wr += filt_mix * (yr - wr);
+            }
+        }
+        /* the crush */
+        if (crush_amt > 0.001f) {
+            crush_ph += crush_rate;
+            if (crush_ph >= 1.f) {
+                crush_ph -= 1.f;
+                crush_hl = (float)(int32_t)(xl * crush_q) / crush_q;
+                crush_hr = (float)(int32_t)(xr * crush_q) / crush_q;
+                if (routing) {
+                    crush2_hl = (float)(int32_t)(wl * crush_q) / crush_q;
+                    crush2_hr = (float)(int32_t)(wr * crush_q) / crush_q;
+                }
+            }
+            xl += crush_amt * (crush_hl - xl); xr += crush_amt * (crush_hr - xr);
+            if (routing) { wl += crush_amt * (crush2_hl - wl); wr += crush_amt * (crush2_hr - wr); }
+        }
+        /* the noise */
+        float nl = 0.f, nr = 0.f;
+        if (noise_lvl > 0.0001f) {
+            float h1, h2;
+            sc_svf(n_l, n_c, sc_noise(), 0, &h1);
+            sc_svf(n_r, n_c, sc_noise(), 0, &h2);
+            nl = noise_lvl * h1; nr = noise_lvl * h2;
+            xl += nl; xr += nr;
+        }
+        /* what goes into the echo and the reverb: what an insert would give (the loop in place of the dry) */
+        float sl = xl, sr = xr;
+        /* the echo: ping-pong a little, filtered in the loop, soft-clipped so it never runs away */
+        send += (send_t - send) * 0.001f;
+        fbk += (fbk_t - fbk) * 0.0005f;
+        echo_time += (echo_time_t - echo_time) * 0.0002f;
+        float dl = echo_get(echo_l, echo_time), dr = echo_get(echo_r, echo_time);
+        float el, er;
+        if (b_side()) { sc_svf(fb_l, fb_c, dl, 0, &el); sc_svf(fb_r, fb_c, dr, 0, &er); }
+        else { el = sc_svf(fb_l, fb_c, dl, 0, 0); er = sc_svf(fb_r, fb_c, dr, 0, 0); }
+        echo_w = (echo_w + 1) & (SC_ECHO_N - 1);
+        echo_l[echo_w] = sc_s16(sc_soft(send * sl + fbk * (0.7f * el + 0.3f * er)));
+        echo_r[echo_w] = sc_s16(sc_soft(send * sr + fbk * (0.7f * er + 0.3f * el)));
+        /* the reverb */
+        rv_send += (rv_send_t - rv_send) * 0.0005f;
+        float rvl = 0.f, rvr = 0.f;
+        if (rv_send > 0.0005f || rv_tail > 0) {
+            float rin = (sl + sr) * 0.5f * rv_send * 0.3f;
+            for (int c = 0; c < 4; c++) { rvl += rv_comb(c, rin, 0.84f, 0.3f); rvr += rv_comb(6 + c, rin, 0.84f, 0.3f); }
+            rvl = rv_ap(5, rv_ap(4, rvl)); rvr = rv_ap(11, rv_ap(10, rvr));
+            rv_tail = rv_send > 0.0005f ? 3 * SC_SR : rv_tail - 1;
+        }
+        float ol = (routing ? wl + nl : xl) + ret * (dl + rvl * 0.5f);   /* aux: no dry */
+        float orr = (routing ? wr + nr : xr) + ret * (dr + rvr * 0.5f);
+        outl[j] = (int32_t)(sc_clamp(ol, -1.f, 0.9999999f) * OUT);
+        outr[j] = (int32_t)(sc_clamp(orr, -1.f, 0.9999999f) * OUT);
+    }
+}
+int32_t rv_tail;
+SC_FN inline bool b_side() { return scene > 0.f; }
+
+/* ------------------------------------------------------------------------------------------------ the LEDs */
+uint32_t pwm;
+SC_COLD void leds() {
+    pwm = (pwm + 1) & 15;
+    float b = scene > 0.f ? scene : 0.f, k = scene < 0.f ? -scene : 0.f;
+    hw_led(0, (float)pwm < b * 16.f);                                   /* LED 3 blue: build */
+    hw_led(1, (float)pwm < k * 16.f);                                   /* LED 3 red: break */
+    hw_led(2, frac < 0.12f);                                             /* LED 4 blue: the beat */
+    hw_led(3, lp == 2 || freeze_on || (released && (blocks & 512)));    /* LED 4 red: a loop, or RELEASE */
+}
+
+/* ---------------------------------------------------------------------------------------------- the screen */
+SC_FN static void sc_puts(char *d, const char *s, int at) {      /* writes s at column `at`, line is 11 wide */
+    while (*s && at < 11) d[at++] = *s++;
+}
+SC_FN static void sc_num(char *d, int v, int right) {             /* an integer, right-aligned ending at column `right` */
+    char tmp[8];
+    int n = 0;
+    bool neg = v < 0;
+    if (neg) v = -v;
+    do { tmp[n++] = (char)('0' + v % 10); v /= 10; } while (v && n < 6);
+    if (neg) tmp[n++] = '-';
+    for (int i = 0; i < n && right - i >= 0; i++) d[right - i] = tmp[i];
+}
+SC_FN static void sc_clear(char *d) { for (int i = 0; i < 11; i++) d[i] = ' '; d[11] = 0; }
+
+SC_COLD void screen() {
+    for (int i = 0; i < 4; i++) sc_clear(line[i]);
+    int s = (int)(scene * 100.f + (scene >= 0.f ? 0.5f : -0.5f));
+    if (released) sc_puts(line[0], "RELEASE", 0);
+    else if (s == 0) sc_puts(line[0], routing ? "MANDATA" : "PULITO", 0);
+    else { sc_puts(line[0], s > 0 ? "BUILD" : "BREAK", 0); sc_num(line[0], s > 0 ? s : -s, 10); }
+    int bpm10 = (int)(SC_SR * 600.f / beat_len + 0.5f);
+    sc_num(line[1], bpm10 / 10, 2);
+    line[1][3] = '.';
+    line[1][4] = (char)('0' + bpm10 % 10);
+    sc_puts(line[1], src == 2 ? "MIDI" : (src == 1 ? "TAP" : "INT"), 6);
+    SC_RO static const char *const names[10] = {"SCENA", "MOTO", "ECO", "FEEDBACK", "FILTRO", "RISON", "RUMORE", "CRUSH",
+                                          "RIVERB", "RITORNI"};   /* (const: read-only, with the code) */
+    if (last_pot >= 0 && blocks - pot_moved_at[last_pot] < 6000) {
+        sc_puts(line[2], names[last_pot], 0);
+        if (last_pot == 2) { const char *n = sc_div_name(echo_div_idx()); int l = 0; while (n[l]) l++; sc_puts(line[2], n, 11 - l); }
+        else sc_num(line[2], (int)(pot[last_pot] * 100.f + 0.5f), 10);
+    } else {
+        int pb = ((beat % 16) + 16) % 16;
+        sc_puts(line[2], "FRASE", 0);
+        line[2][7] = (char)('1' + pb / 4);
+        line[2][8] = '.';
+        line[2][9] = (char)('1' + pb % 4);
+    }
+    if (lp == 2 && lp_kind == 2) sc_puts(line[3], "FREEZE", 0);
+    else if (lp == 2 && lp_kind == 1) {
+        sc_puts(line[3], "ROLL", 0);
+        sc_puts(line[3], roll_div == 2 ? "1/8" : (roll_div == 1 ? "1/16" : "1/32"), 6);
+    } else if (fill == 1) sc_puts(line[3], "FILL ROLL", 0);
+    else if (fill == 2) sc_puts(line[3], "FILL ECO", 0);
+    else if (fill == 3) sc_puts(line[3], "FILL DIP", 0);
+    else if (freeze_on) sc_puts(line[3], "FREEZE..", 0);
+}
+
+/* FIGO for the Gills - the engine (class-body code: it goes into the variations object after scena_engine.h, and
+ * follows SCENA's clock). The same machine as FIGO on norns (tools/norns/figo/figo.lua): the loop comes in and it varies
+ * it by itself, in time, one decision a beat. FIGO says how often, CARATTERE goes from dub (long repeats, reverse at
+ * half speed, an octave down, tape stops, echoes thrown) to glitch (1/16 and 1/32, rolls that rise, sixteenths
+ * shuffled, gates, an octave up), MEMORIA brings back a bar of a few bars ago. Here it goes sample by sample: no
+ * softcut, nothing to wait for.
+ *
+ * The tape: the input, always (FG_N frames, L and R as 16 bits, SDRAM). Voice A is what is heard: the dry (insert; in
+ * aux silence, the dry is on the mixer already) or the tape somewhere, at some speed, in a loop. Voice B is MEMORIA,
+ * under it. A change is a crossfade that ends where it goes: what it goes to plays whole from its first sample, it
+ * fades in over what comes before it, so the attack of a beat is never faded. In aux all of it comes fg_rt samples
+ * early, what the way to the mixer and back takes: the repeats land on the dry's grid there.
+ *
+ * The decisions are taken a beat ahead (on SCENA's beat, for the next one): an event that takes the place of the dry
+ * has crossfaded before its beat. The times are frames of the tape (fg_now: the sample now), so a START from SAGGA
+ * (the beat count back to 0) changes nothing of what is going on.
+ * No libm, no doubles. FG_COLD marks what does not run sample by sample.
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+#ifndef FG_BITS
+#define FG_BITS 21                       /* 2^21 frames: 43.7 s */
+#endif
+#ifndef FG_COLD
+#define FG_COLD
+#endif
+#ifndef FG_HOT
+#define FG_HOT
+#endif
+#ifndef FG_FN
+#define FG_FN
+#endif
+#ifndef FG_RO
+#define FG_RO
+#endif
+
+enum {
+    FG_N = 1 << FG_BITS,
+    FG_XF = 96,                          /* the crossfade: 2 ms */
+    FG_LEAD = FG_XF + SC_BS,             /* a jump starts this early, in the block before */
+    /* what A does */
+    FG_NONE = 0, FG_R4, FG_R8, FG_R16, FG_R32, FG_ROLL, FG_REV, FG_HALF, FG_STOP, FG_OCT, FG_SHUF, FG_GATE, FG_SKIP,
+    FG_KINDS,
+    FG_HOLD = 20, FG_TSTOP, FG_SPIN, FG_DRY,
+    /* what B does */
+    FG_MEMO = 1, FG_ECO = 2
+};
+
+struct FgHead { uint32_t i; float f, r; bool dry; };
+struct FgVoice {
+    FgHead h, o;                         /* the head heard, and the one fading out */
+    int xf;                              /* samples of the crossfade left */
+    float xr;                            /* 1 / its length */
+    bool loop;                           /* h loops [ls, ls + len) */
+    uint32_t ls;
+    float len;
+    float g, gt, gk;                     /* the level of the tape: now, target, slew a sample */
+    float rt, rk;                        /* the speed: target, slew a sample (0: none) */
+};
+
+uint32_t *fg_tape;
+uint32_t fg_now;                         /* the frame of the sample now (written before the heads read) */
+uint32_t fg_fill;                        /* frames on the tape */
+float fg_xl, fg_xr;                      /* the input now, exact (the tape has it as 16 bits) */
+FgVoice fg_a, fg_b;
+bool fg_bon;                             /* B plays */
+float fg_gate, fg_gate_t;                /* GATE: the level of the dry */
+int fg_aux;                              /* 0 insert, 1 aux */
+uint32_t fg_rt;                          /* aux: the way to the mixer and back, samples */
+ScSvf fg_fl, fg_fr;                      /* B's filter */
+ScSvfC fg_fc;
+bool fg_fbp;                             /* B's filter: band pass (else low pass) */
+
+/* the knobs, 0..1 (fg_lv 0..1.5) */
+float fg_figo, fg_car, fg_mem, fg_lv, fg_lvm;
+int fg_phrase;                           /* 8 16 32 */
+int fg_out_kind;                         /* the way out (PULITO): 0 auto, 1 tape stop, 2 backspin, 3 dry */
+
+/* the brain */
+uint32_t fg_rng;
+int32_t fg_poff;                         /* the phrase starts at this beat */
+int fg_pb;                               /* the beat in the phrase now */
+bool fg_on;                              /* false: PULITO */
+bool fg_hold;
+bool fg_req_hold, fg_req_unhold, fg_req_out;
+int fg_ev;                               /* on A */
+uint32_t fg_t0, fg_t1;                   /* its beat, its end (frames of the tape) */
+float fg_L, fg_bl;                       /* its beats; the beat then, samples */
+int fg_step;
+uint32_t fg_tn;                          /* when its next step lands */
+int fg_lead;                             /* how early that step starts */
+uint32_t fg_ls;                          /* a slice (frames) */
+float fg_len;
+int fg_x;                                /* GATE's pattern; ROLL: it rises; HOLD: the loop's speed */
+int fg_nx;                               /* the next event, starting where this one ends */
+uint32_t fg_nx_t0;
+float fg_nx_L;
+int fg_bev;                              /* on B */
+uint32_t fg_bt0, fg_bt1, fg_btn;
+int fg_bstep, fg_breps, fg_bn;
+float fg_blv, fg_bfc, fg_bh;
+int fg_last;                             /* the event shown (a kind, or 0) */
+int fg_last_n;                           /* INDIETRO / MEMORIA: how many bars back */
+uint32_t fg_bts[64];                     /* the first frame of the last 64 beats */
+uint32_t fg_nbt;                         /* how many beats so far */
+
+/* ---------------------------------------------------------------------------------------------- small maths */
+FG_FN inline uint32_t fg_rand() { fg_rng ^= fg_rng << 13; fg_rng ^= fg_rng >> 17; fg_rng ^= fg_rng << 5; return fg_rng; }
+FG_FN inline float fg_frand() { return (float)(fg_rand() >> 8) * (1.f / 16777216.f); }   /* 0..1 */
+FG_FN inline int fg_irand(int n) { int k = (int)(fg_frand() * (float)n); return k >= n ? n - 1 : k; }
+/* log2 for x > 0 (error ~1e-4), x^y = 2^(y log2 x) */
+FG_FN static inline float fg_log2(float x) {
+    union { float f; uint32_t u; } v;
+    v.f = x;
+    int e = (int)((v.u >> 23) & 255u) - 127;
+    v.u = (v.u & 0x007FFFFFu) | 0x3F800000u;
+    float m = v.f;
+    return (float)e - 1.7417939f + (2.8212026f + (-1.4699568f + (0.44717955f - 0.056570851f * m) * m) * m) * m;
+}
+FG_FN static inline float fg_pow(float x, float y) { return x <= 0.f ? 0.f : sc_exp2(y * fg_log2(x)); }
+
+/* ------------------------------------------------------------------------------------------------- the tape */
+FG_FN static inline int32_t fg_s16(int32_t q27) {
+    q27 >>= 12;
+    return q27 > 32767 ? 32767 : (q27 < -32768 ? -32768 : q27);
+}
+FG_FN static inline uint32_t fg_pack(int32_t l, int32_t r) {
+    return (uint32_t)(uint16_t)(int16_t)fg_s16(l) | ((uint32_t)(uint16_t)(int16_t)fg_s16(r) << 16);
+}
+/* frame i: from the tape, or the input itself if it is the frame now (or not there yet) */
+#ifdef FG_TEST
+uint32_t fg_test_ahead;                  /* (the test: reads of frames not on the tape yet) */
+#endif
+FG_FN inline void fg_frame(uint32_t i, float &l, float &r) {
+    if ((int32_t)(i - fg_now) >= 0) {
+#ifdef FG_TEST
+        if (i != fg_now) fg_test_ahead++;
+#endif
+        l = fg_xl; r = fg_xr; return;
+    }
+    uint32_t w = fg_tape[i & (uint32_t)(FG_N - 1)];
+    l = (float)(int16_t)(w & 0xFFFFu) * (1.f / 32768.f);
+    r = (float)(int16_t)(w >> 16) * (1.f / 32768.f);
+}
+FG_FN inline void fg_read(const FgHead &h, float &l, float &r) {
+    fg_frame(h.i, l, r);
+    if (h.f > 0.f) {
+        float l1, r1;
+        fg_frame(h.i + 1, l1, r1);
+        l += h.f * (l1 - l); r += h.f * (r1 - r);
+    }
+}
+FG_FN static inline void fg_place(FgHead &h, uint32_t base, float off, float r) {   /* h at base + off, speed r */
+    int k = (int)off;
+    if ((float)k > off) k--;
+    h.i = base + (uint32_t)k; h.f = off - (float)k; h.r = r; h.dry = false;
+}
+FG_FN inline void fg_adv(FgHead &h) {
+    if (h.dry) return;
+    float f = h.f + h.r;
+    int k = (int)f;
+    if ((float)k > f) k--;
+    h.i += (uint32_t)k; h.f = f - (float)k;
+}
+
+/* --------------------------------------------------------------------------------- the voices, sample by sample */
+/* what voice v gives now: the dry (dg: how much of it is heard) or the tape (at its level), crossfaded */
+FG_FN inline void fg_out(FgVoice &v, float dg, float &l, float &r) {
+    v.g += (v.gt - v.g) * v.gk;
+    if (v.h.dry) { l = fg_xl * dg; r = fg_xr * dg; }
+    else { fg_read(v.h, l, r); l *= v.g; r *= v.g; }
+    if (v.xf > 0) {
+        float w = (float)v.xf * v.xr, l2, r2;
+        if (v.o.dry) { l2 = fg_xl * dg; r2 = fg_xr * dg; }
+        else { fg_read(v.o, l2, r2); l2 *= v.g; r2 *= v.g; }
+        l += w * (l2 - l); r += w * (r2 - r);
+    }
+}
+/* the loop: the head lands back on its start in FG_XF samples, so the start plays whole (reverse: on its end) */
+FG_FN inline void fg_wrap(FgVoice &v, float rel_after, float r) {
+    v.o = v.h;
+    fg_place(v.h, v.ls, rel_after - (float)FG_XF * r, r);
+    v.xf = FG_XF; v.xr = 1.f / (float)FG_XF;
+}
+/* after the sample: the heads on, the speed's slew, the loop. rd: where the dry is, ahead of the head (aux: fg_rt) */
+FG_FN inline void fg_next(FgVoice &v, uint32_t rd) {
+    if (!v.h.dry) {
+        if (v.rk != 0.f) v.h.r += (v.rt - v.h.r) * v.rk;
+        fg_adv(v.h);
+    }
+    if (v.xf > 0) { fg_adv(v.o); v.xf--; return; }          /* (no wrap while it crossfades: loops are longer) */
+    if (!v.loop) return;
+    float r = v.h.dry ? 1.f : v.h.r;
+    float rel = v.h.dry ? (float)(int32_t)(fg_now + 1 + rd - v.ls) : (float)(int32_t)(v.h.i - v.ls) + v.h.f;
+    float x = (float)FG_XF * r;                              /* where it is after the crossfade, minus where now */
+    if (r > 0.f) {
+        if (rel >= v.len - x) { float a = rel + x; while (a >= v.len) a -= v.len; fg_wrap(v, a, r); }
+    } else if (r < 0.f) {
+        if (rel <= -x) { float a = rel + x; while (a < 0.f) a += v.len; fg_wrap(v, a, r); }
+    }
+}
+
+/* ------------------------------------------------------------------------------- the voices, block by block */
+/* (the times here are where a change lands, in samples of the output: the grid minus fg_rt in aux) */
+FG_FN inline uint32_t fg_out_t(uint32_t t) { return t - (fg_aux ? fg_rt : 0u); }
+FG_FN static inline int fg_xlen(int32_t d) { return d > 16 ? (int)d : 16; }
+/* v lands on tape frame P (+pf) at time T, at speed r: from now it crossfades over what comes before it. No loop
+   (the caller sets one after) */
+FG_COLD void fg_go(FgVoice &v, uint32_t T, uint32_t P, float pf, float r) {
+    int32_t d = (int32_t)(T - fg_now);
+    v.o = v.h;
+    fg_place(v.h, P, pf - (float)d * r, r);                  /* (late: further on, where it would be) */
+    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
+    v.rk = 0.f; v.loop = false;
+}
+/* v plays from the head (what was just recorded) at speed r, whole by time T */
+FG_COLD void fg_go_head(FgVoice &v, uint32_t T, float r) {
+    int32_t d = (int32_t)(T - fg_now);
+    v.o = v.h;
+    fg_place(v.h, fg_now - 2u, 0.f, r);
+    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
+    v.rk = 0.f; v.loop = false;
+}
+/* v back to the dry by time T (B: to silence) */
+FG_COLD void fg_go_dry(FgVoice &v, uint32_t T) {
+    v.loop = false; v.rk = 0.f;
+    if (v.h.dry) return;
+    int32_t d = (int32_t)(T - fg_now);
+    v.o = v.h;
+    v.h.dry = true; v.h.i = fg_now; v.h.f = 0.f; v.h.r = 1.f;
+    v.xf = fg_xlen(d); v.xr = 1.f / (float)v.xf;
+}
+/* v's loop from now: [ls, ls + len). If at T the head would be past the new end it lands on its start then */
+FG_COLD void fg_loop_at(FgVoice &v, uint32_t T, uint32_t ls, float len) {
+    float r = v.h.dry ? 1.f : v.h.r;
+    int32_t d = (int32_t)(T - fg_now);
+    uint32_t rd = fg_aux ? fg_rt : 0u;
+    float rel = v.h.dry ? (float)(int32_t)(fg_now + rd - ls) : (float)(int32_t)(v.h.i - ls) + v.h.f;
+    float relT = rel + (float)d * r;
+    v.ls = ls; v.len = len < (float)(3 * FG_XF) ? (float)(3 * FG_XF) : len;
+    v.loop = true;
+    if (r > 0.f && relT >= v.len - (float)FG_XF * r) {
+        float a = relT;
+        while (a >= v.len) a -= v.len;
+        fg_go(v, T, ls, a, r);
+        v.loop = true;
+    }
+}
+FG_COLD void fg_level(FgVoice &v, float to, float samples) {
+    v.gt = to;
+    v.gk = samples > 1.f ? 6.9078f / samples : 1.f;          /* (one pole: -60 dB in that time) */
+    if (v.gk > 1.f) v.gk = 1.f;
+}
+FG_COLD void fg_speed(FgVoice &v, float to, float samples) {
+    v.rt = to;
+    v.rk = samples > 1.f ? 6.9078f / samples : 1.f;
+    if (v.rk > 1.f) v.rk = 1.f;
+}
+
+/* ------------------------------------------------------------------------------------------- the setup */
+FG_COLD void fg_init(uint32_t *tape) {
+    fg_tape = tape;
+    for (uint32_t i = 0; i < (uint32_t)FG_N; i++) fg_tape[i] = 0u;
+    fg_now = 0; fg_fill = 0; fg_xl = fg_xr = 0.f;
+    FgHead d = {0u, 0.f, 1.f, true};
+    fg_a.h = fg_a.o = d; fg_a.xf = 0; fg_a.xr = 1.f; fg_a.loop = false; fg_a.ls = 0; fg_a.len = 1.f;
+    fg_a.g = fg_a.gt = 1.f; fg_a.gk = 1.f; fg_a.rt = 1.f; fg_a.rk = 0.f;
+    fg_b = fg_a;
+    fg_b.g = fg_b.gt = 0.f;
+    fg_bon = false;
+    fg_gate = fg_gate_t = 1.f;
+    fg_aux = 0; fg_rt = 0;
+    ScSvf z = {0.f, 0.f};
+    fg_fl = fg_fr = z;
+    sc_svf_set(fg_fc, 2000.f, 0.7f);
+    fg_fbp = false;
+    fg_figo = 0.f; fg_car = 0.3f; fg_mem = 0.f; fg_lv = 1.f; fg_lvm = 0.6f;
+    fg_phrase = 16; fg_out_kind = 0;
+    fg_rng = 0x2545F491u;
+    fg_poff = 0; fg_pb = 0;
+    fg_on = true; fg_hold = false;
+    fg_req_hold = fg_req_unhold = fg_req_out = false;
+    fg_ev = FG_NONE; fg_t0 = fg_t1 = 0; fg_L = 1.f; fg_bl = (float)SC_SR * 0.5f;
+    fg_step = 0; fg_tn = 0; fg_lead = FG_LEAD; fg_ls = 0; fg_len = 1.f; fg_x = 0;
+    fg_nx = FG_NONE; fg_nx_t0 = 0; fg_nx_L = 1.f;
+    fg_bev = 0; fg_bt0 = fg_bt1 = fg_btn = 0; fg_bstep = 0; fg_breps = 0; fg_bn = 1;
+    fg_blv = 0.f; fg_bfc = 3000.f; fg_bh = 1.f;
+    fg_last = 0; fg_last_n = 0;
+    for (int i = 0; i < 64; i++) fg_bts[i] = 0;
+    fg_nbt = 0;
+#ifdef FG_TEST
+    fg_test_ahead = 0;
+#endif
+}
+
+/* the first frame of the beat k beats before frame nt (the next beat): where it really was, if the beats since then
+   kept the tempo; else as the tempo says */
+FG_COLD uint32_t fg_back(uint32_t nt, int k) {
+    if (k >= 1 && k <= 64 && (uint32_t)k <= fg_nbt) {
+        uint32_t f = fg_bts[(fg_nbt - (uint32_t)k) & 63u];
+        float d = (float)(int32_t)(nt - f) - (float)k * fg_bl;
+        if (d < 0.03f * fg_bl && d > -0.03f * fg_bl) return f;
+    }
+    return nt - (uint32_t)((float)k * fg_bl + 0.5f);
+}
+
+/* ------------------------------------------------------------------------------------- what can happen */
+/* each event's weight, dub to glitch, as on norns; f: it grows with FIGO to this power; minL: beats at least;
+   end: only at the end of a phrase (or, less, of a bar); dry: it cuts the dry (not in aux); div: a repeat */
+struct FgKind { float dub, gl, div; uint8_t f, minL, end, dry; };
+FG_FN static const FgKind &fg_kind(int k) {
+    FG_RO static const FgKind K[FG_KINDS] = {
+        {0.f, 0.f, 0.f, 0, 0, 0, 0},
+        {1.0f, 0.3f, 1.f, 0, 1, 0, 0},       /* 1/4 */
+        {0.8f, 0.8f, 0.5f, 0, 0, 0, 0},      /* 1/8 */
+        {0.2f, 1.0f, 0.25f, 1, 0, 0, 0},     /* 1/16 */
+        {0.0f, 0.6f, 0.125f, 2, 0, 0, 0},    /* 1/32 */
+        {0.2f, 0.8f, 0.f, 1, 1, 0, 0},       /* ROLL */
+        {1.0f, 0.5f, 0.f, 0, 0, 0, 0},       /* REVERSE */
+        {0.8f, 0.2f, 0.f, 0, 0, 0, 0},       /* OTTAVA - */
+        {0.6f, 0.0f, 0.f, 0, 1, 1, 0},       /* TAPE STOP */
+        {0.1f, 0.6f, 0.f, 0, 0, 0, 0},       /* OTTAVA + */
+        {0.0f, 1.0f, 0.f, 1, 0, 0, 0},       /* SHUFFLE */
+        {0.2f, 0.7f, 0.f, 0, 0, 0, 1},       /* GATE */
+        {0.5f, 0.5f, 0.f, 0, 1, 0, 0},       /* INDIETRO */
+    };
+    return K[k > 0 && k < FG_KINDS ? k : 0];
+}
+FG_FN static const char *fg_name(int k) {
+    FG_RO static const char *const N[FG_KINDS] = {"", "1/4", "1/8", "1/16", "1/32", "ROLL", "REVERSE", "OTTAVA -",
+                                            "TAPE STOP", "OTTAVA +", "SHUFFLE", "GATE", "INDIETRO"};
+    if (k == FG_HOLD) return "HOLD";
+    if (k == FG_TSTOP) return "TAPE STOP";
+    if (k == FG_SPIN) return "BACKSPIN";
+    return N[k > 0 && k < FG_KINDS ? k : 0];
+}
+
+/* how likely an event is on beat b of an n-beat phrase: few on the ones, more at the end of bars, most at the end
+   of the phrase. Then which, and how long (half a beat, one, two; never past the phrase's end). L: 0 = none */
+FG_COLD int fg_pick(int b, int n, float f, float c, float &L) {
+    FG_RO static const float W16[16] = {0.3f, 0.7f, 0.8f, 1.3f, 0.4f, 0.7f, 0.8f, 1.5f,
+                                  0.4f, 0.7f, 0.8f, 1.3f, 0.6f, 0.9f, 1.4f, 2.6f};
+    L = 0.f;
+    if (f <= 0.f) return FG_NONE;
+    float p = fg_pow(f, 1.6f) * 0.55f * W16[(b * 16 / n) & 15];
+    if (p > 0.9f) p = 0.9f;
+    if (fg_frand() >= p) return FG_NONE;
+    int left = n - b;
+    float wl[3] = {0.3f, 0.5f, left == 2 ? 0.9f : 0.2f};
+    float ls[3] = {0.5f, 1.f, 2.f};
+    float tot = 0.f;
+    int nc = 0;
+    for (int i = 0; i < 3; i++) if (ls[i] <= (float)(left < 2 ? left : 2)) { tot += wl[i]; nc = i + 1; }
+    if (nc == 0) return FG_NONE;
+    float r = fg_frand() * tot;
+    L = ls[nc - 1];
+    for (int i = 0; i < nc; i++) { r -= wl[i]; if (r <= 0.f) { L = ls[i]; break; } }
+    bool ends_phrase = (float)b + L == (float)n;
+    float eb = (float)b + L;
+    bool ends_bar = (eb == (float)(int)eb) && ((int)eb % 4 == 0);
+    float ws[FG_KINDS], sum = 0.f;
+    ws[0] = 0.f;
+    for (int k = 1; k < FG_KINDS; k++) {
+        const FgKind &e = fg_kind(k);
+        float w = e.dub * (1.f - c) + e.gl * c;
+        if (e.f == 1) w *= f; else if (e.f == 2) w *= f * f;
+        if (e.minL && L < (float)e.minL) w = 0.f;
+        if (e.end && !ends_phrase) w = ends_bar ? w * 0.3f : 0.f;
+        if (e.dry && fg_aux) w = 0.f;
+        if (e.div > 0.f && fg_aux && (L < 2.f * e.div || e.div * fg_bl < (float)(fg_rt + 3 * FG_XF))) w = 0.f;
+        ws[k] = w; sum += w;
+    }
+    if (sum <= 0.f) { L = 0.f; return FG_NONE; }
+    r = fg_frand() * sum;
+    for (int k = 1; k < FG_KINDS; k++) { r -= ws[k]; if (r <= 0.f && ws[k] > 0.f) return k; }
+    L = 0.f;
+    return FG_NONE;
+}
+/* MEMORIA or ECO, on the first beat of a bar: more likely in the phrase's last bar */
+FG_COLD int fg_pick_b(int b, int n, float m, float c, float &L) {
+    L = 0.f;
+    if (m <= 0.f || b % 4 != 0) return 0;
+    bool last = b >= n - 4;
+    float p = m * (last ? 0.7f : 0.45f);
+    if (p > 0.85f) p = 0.85f;
+    if (fg_frand() >= p) return 0;
+    float eco_w = (1.f - c) * (last ? 1.5f : 0.6f) + c * 0.3f;
+    if (fg_frand() * (1.f + eco_w) < eco_w) { L = (float)(n - b < 4 ? n - b : 4); return FG_ECO; }
+    FG_RO static const float ML[3] = {2.f, 4.f, 8.f};
+    float l = ML[fg_irand(3)];
+    L = l < (float)(n - b) ? l : (float)(n - b);
+    return FG_MEMO;
+}
+/* SHUFFLE, step i: may sixteenth j of the bar before play backwards? It starts at its end, which must be on the tape
+   when the crossfade into it starts (the last ones of the bar not at once) */
+FG_COLD bool fg_shuf_rev_ok(int j, int i, float sx, float bar) {
+    return (float)(j + 1 - i) * sx <= bar - (float)(2 * FG_LEAD) - (float)(fg_aux ? fg_rt : 0u) - 4.f;
+}
+/* the tape holds what an event wants, `back` frames behind and `ahead` beyond its start */
+FG_FN inline bool fg_has(float back) { return back + 4.f * (float)FG_LEAD < (float)fg_fill && back < (float)(FG_N - 4 * FG_LEAD); }
+
+/* -------------------------------------------------------------------------------------------- the events */
+/* event k starts at t0 for L beats: what A does, step by step. A step lands at fg_tn; it starts fg_lead early */
+FG_COLD bool fg_start(int k, uint32_t t0, float L) {
+    float bl = fg_bl, bar = 4.f * bl;
+    float dur = L * bl;
+    switch (k) {
+        case FG_ROLL: if (!fg_has(bl + dur)) return false; break;
+        case FG_REV: case FG_HALF: case FG_STOP: if (!fg_has(dur + bl)) return false; break;
+        case FG_OCT: if (!fg_has(bl)) return false; break;
+        case FG_SHUF: if (!fg_has(bar + dur)) return false; break;
+        case FG_SKIP: {
+            FG_RO static const int NB[3] = {1, 2, 4};
+            int n = NB[fg_irand(3)];
+            if (!fg_has((float)n * bar + dur)) { n = 1; if (!fg_has(bar + dur)) return false; }
+            fg_last_n = n; fg_ls = fg_back(t0, 4 * n);
+            break;
+        }
+        case FG_HOLD: if (!fg_has(2.f * bl)) return false; break;
+        default: if (k >= FG_R4 && k <= FG_R32 && !fg_has(dur)) return false; break;
+    }
+    fg_ev = k; fg_t0 = t0; fg_L = L; fg_t1 = t0 + (uint32_t)(dur + 0.5f);
+    fg_step = 0; fg_tn = t0; fg_lead = FG_LEAD;
+    fg_last = k;
+    fg_a.g = fg_a.gt = fg_lv; fg_a.gk = 1.f;
+    if (k == FG_ROLL) fg_x = (fg_car > 0.6f && fg_figo > 0.5f) ? 1 : 0;
+    if (k == FG_GATE) { fg_x = (int)(fg_rand() & 255u) | 0x11; fg_lead = 0; }
+    return true;
+}
+/* the end of what A does: the dry, or the next event if it starts right here (it goes there from what plays); one
+   that starts later is set up, A goes dry until then */
+FG_COLD void fg_end() {
+    fg_gate_t = 1.f;
+    fg_ev = FG_NONE;
+    int k = fg_nx;
+    fg_nx = FG_NONE;
+    int32_t gap = (int32_t)(fg_nx_t0 - fg_t1);
+    bool here = k != FG_NONE && gap <= 32 && gap >= -32;
+    if (!here) fg_go_dry(fg_a, fg_out_t(fg_t1));
+    if (k != FG_NONE && !fg_start(k, fg_nx_t0, fg_nx_L) && here) fg_go_dry(fg_a, fg_out_t(fg_t1));
+}
+/* one step of the event on A, when it is due */
+FG_COLD void fg_step_a() {
+    uint32_t T = fg_out_t(fg_tn);
+    float bl = fg_bl;
+    if (fg_tn == fg_t1 && fg_step >= 0 && fg_ev != FG_HOLD) {
+        if (fg_ev == FG_GATE) fg_gate_t = 1.f;
+        fg_end();
+        return;
+    }
+    switch (fg_ev) {
+        case FG_R4: case FG_R8: case FG_R16: case FG_R32: {
+            /* the slice that starts on the beat plays (it is the dry), then repeats until the end */
+            float s = fg_kind(fg_ev).div * bl;
+            fg_go_dry(fg_a, T);
+            fg_loop_at(fg_a, T, fg_t0, s);
+            fg_tn = fg_t1;
+            break;
+        }
+        case FG_ROLL: {
+            /* 1/4, 1/8, 1/16, 1/32 a quarter of the event each; with glitch it rises too, in the second half */
+            FG_RO static const float D[4] = {1.f, 0.5f, 0.25f, 0.125f};
+            if (fg_step == 0) fg_go_dry(fg_a, T);
+            fg_loop_at(fg_a, T, fg_t0, D[fg_step] * bl);
+            if (fg_step == 2 && fg_x) fg_speed(fg_a, 1.5f, fg_L * bl * 0.5f);
+            fg_step++;
+            fg_tn = fg_step < 4 ? fg_t0 + (uint32_t)(fg_L * bl * (float)fg_step * 0.25f + 0.5f) : fg_t1;
+            break;
+        }
+        case FG_REV: {
+            /* what was just played, backwards (dub: at half speed) */
+            fg_go_head(fg_a, T, fg_car < 0.35f ? -0.5f : -1.f);
+            fg_tn = fg_t1;
+            break;
+        }
+        case FG_HALF:
+            fg_go_head(fg_a, T, 0.5f);                       /* an octave down: it falls behind, never past the head */
+            fg_tn = fg_t1;
+            break;
+        case FG_STOP: case FG_TSTOP: {
+            /* the tape slows down to almost nothing; at the end the level goes too */
+            float d = fg_L * bl;
+            if (fg_step == 0) {
+                fg_go_head(fg_a, T, 1.f);
+                fg_speed(fg_a, 0.03f, d * 0.85f);
+                fg_step = 1;
+                fg_tn = fg_t0 + (uint32_t)(d * 0.75f + 0.5f);
+                fg_lead = 0;
+            } else {
+                fg_level(fg_a, 0.f, d * 0.22f);
+                fg_tn = fg_t1; fg_lead = FG_LEAD;
+            }
+            break;
+        }
+        case FG_SPIN:
+            /* backspin: backwards, faster and faster */
+            fg_go_head(fg_a, T, -1.f);
+            fg_speed(fg_a, -2.5f, bl * 0.15f);
+            fg_tn = fg_t1;
+            break;
+        case FG_OCT: {
+            /* an octave up: the last half beat at double speed, over and over */
+            float h = bl * 0.5f;
+            uint32_t ls = fg_t0 - (uint32_t)(h + 0.5f);
+            fg_go(fg_a, T, ls, 0.f, 2.f);
+            fg_a.ls = ls; fg_a.len = h; fg_a.loop = true;
+            fg_tn = fg_t1;
+            break;
+        }
+        case FG_SHUF: {
+            /* the sixteenths of the bar just gone, in a new order (some backwards) */
+            float sx = bl * 0.25f, bar = 4.f * bl;
+            int j = fg_irand(16);
+            uint32_t ls = fg_back(fg_t0, 4) + (uint32_t)((float)j * sx + 0.5f);
+            bool rev = fg_frand() < 0.15f && fg_shuf_rev_ok(j, fg_step, sx, bar);
+            if (rev) fg_go(fg_a, T, ls, sx, -1.f);
+            else fg_go(fg_a, T, ls, 0.f, 1.f);
+            fg_a.ls = ls; fg_a.len = sx; fg_a.loop = true;
+            fg_step++;
+            int steps = (int)(fg_L * 4.f + 0.5f);
+            fg_tn = fg_step < steps ? fg_t0 + (uint32_t)((float)fg_step * sx + 0.5f) : fg_t1;
+            break;
+        }
+        case FG_GATE: {
+            /* the dry cut in sixteenths: the first of each beat always plays */
+            float sx = bl * 0.25f;
+            fg_gate_t = ((fg_x >> (fg_step % 8)) & 1) ? 1.f : 0.f;
+            fg_step++;
+            int steps = (int)(fg_L * 4.f + 0.5f);
+            fg_tn = fg_step < steps ? fg_t0 + (uint32_t)((float)fg_step * sx + 0.5f) : fg_t1;
+            if (fg_tn == fg_t1) fg_lead = 256;                   /* (the dry whole again by the end: 5 ms before) */
+            break;
+        }
+        case FG_SKIP:
+            /* what played 1, 2 or 4 bars ago, in time, in place of the loop */
+            fg_go(fg_a, T, fg_ls, 0.f, 1.f);
+            fg_tn = fg_t1;
+            break;
+        case FG_HOLD: {
+            /* the beat just gone, over and over; with FIGO up it varies by itself on every beat. Let go: the dry on
+               this beat */
+            if (fg_req_unhold) {
+                fg_req_unhold = false; fg_hold = false;
+                fg_t1 = fg_tn;
+                fg_end();
+                break;
+            }
+            float L = bl;
+            uint32_t ls = fg_ls;
+            float r = 1.f, len = L;
+            if (fg_step > 0 && fg_frand() < fg_figo * 0.7f) {
+                float x = fg_frand();
+                if (x < 0.45f) { FG_RO static const float DV[3] = {0.5f, 0.25f, 0.125f}; len = L * DV[fg_irand(fg_car > 0.5f ? 3 : 2)]; }
+                else if (x < 0.7f) r = -1.f;
+                else if (x < 0.85f) r = fg_car > 0.5f ? 2.f : 0.5f;
+            }
+            if (r < 0.f) fg_go(fg_a, T, ls, len, r);
+            else fg_go(fg_a, T, ls, 0.f, r);
+            fg_a.ls = ls; fg_a.len = len; fg_a.loop = true;
+            fg_x = r > 1.5f ? 2 : (r < 0.f ? -1 : 1);
+            fg_step++;
+            fg_tn = fg_tn + (uint32_t)(bl + 0.5f);
+            fg_t1 = fg_tn;                                   /* (it goes on until it is let go) */
+            break;
+        }
+        case FG_DRY:
+            fg_end();
+            break;
+        default:
+            fg_end();
+            break;
+    }
+}
+
+/* MEMORIA (a bar of 1, 2, 4 or 8 bars ago, under, filtered, left and right swapped) and ECO (the coming half beat
+   repeated, darker and quieter each time) on B */
+FG_COLD bool fg_start_b(int k, uint32_t t0, float L) {
+    float bl = fg_bl, bar = 4.f * bl;
+    if (k == FG_MEMO) {
+        FG_RO static const int NB[4] = {1, 2, 4, 8};
+        int n = NB[fg_irand(4)];
+        while (n > 1 && !fg_has((float)n * bar + L * bl)) n >>= 1;
+        if (!fg_has((float)n * bar + L * bl)) return false;
+        float r = (fg_car > 0.8f && fg_frand() < 0.3f && (float)n * bar > L * bl + 0.1f * SC_SR) ? 2.f : 1.f;
+        fg_bn = n; fg_bh = r;
+    } else {
+        fg_bh = fg_car < 0.5f ? bl * 0.75f : bl * 0.5f;
+        if (!fg_has(fg_bh * 2.f)) return false;
+    }
+    fg_bev = k; fg_bt0 = t0; fg_bt1 = t0 + (uint32_t)(L * bl + 0.5f);
+    fg_bstep = 0; fg_btn = k == FG_ECO ? t0 + (uint32_t)(fg_bh + 0.5f) : t0;
+    fg_bon = true;
+    return true;
+}
+FG_COLD void fg_b_filter(bool bp, float fc, float q) {
+    fg_fbp = bp;
+    sc_svf_set(fg_fc, fc, q);
+}
+FG_COLD void fg_step_b() {
+    uint32_t T = fg_out_t(fg_btn);
+    float bl = fg_bl;
+    if (fg_bev == FG_MEMO) {
+        if (fg_bstep == 0) {
+            float c = fg_car;
+            if (c < 0.5f) fg_b_filter(false, 700.f + 2600.f * c, 0.667f);
+            else fg_b_filter(true, 1200.f + 3000.f * (c - 0.5f) * 2.f, 0.833f);
+            uint32_t P = fg_back(fg_bt0, 4 * fg_bn);
+            fg_go(fg_b, T, P, 0.f, fg_bh);
+            fg_b.g = 0.f;
+            fg_level(fg_b, fg_lvm * (0.4f + 0.6f * fg_mem), bl * 0.5f);
+            fg_bstep = 1;
+            float L = (float)(int32_t)(fg_bt1 - fg_bt0) / bl;
+            fg_btn = fg_bt0 + (uint32_t)((L - 1.f) * bl + 0.5f);
+        } else if (fg_bstep == 1) {
+            fg_level(fg_b, 0.f, bl);
+            fg_bstep = 2;
+            fg_btn = fg_bt1;
+        } else {
+            fg_go_dry(fg_b, T);
+            fg_bev = 0;
+        }
+        return;
+    }
+    /* ECO */
+    if (fg_bstep == 0) {
+        fg_b_filter(false, 3000.f, 0.667f);
+        fg_bfc = 3000.f;
+        fg_go(fg_b, T, fg_bt0, 0.f, 1.f);
+        fg_b.ls = fg_bt0; fg_b.len = fg_bh; fg_b.loop = true;
+        fg_blv = fg_lvm * (0.5f + 0.5f * fg_mem);
+        fg_b.g = 0.f;
+        fg_level(fg_b, fg_blv, 0.005f * SC_SR);
+        float span = (float)(int32_t)(fg_bt1 - fg_bt0) - fg_bh;
+        fg_breps = (int)(span / fg_bh);
+        if (fg_breps < 2) fg_breps = 2;
+        fg_bstep = 1;
+        fg_btn = fg_btn + (uint32_t)(fg_bh + 0.5f);
+    } else if (fg_bstep <= fg_breps) {
+        /* every repeat darker and quieter; the last one fades out */
+        fg_blv *= 0.7f; fg_bfc *= 0.75f;
+        if (fg_bstep == fg_breps) fg_level(fg_b, 0.f, fg_bh);
+        else fg_level(fg_b, fg_blv, fg_bh * 0.5f);
+        fg_b_filter(false, fg_bfc, 0.667f);
+        fg_bstep++;
+        fg_btn = fg_btn + (uint32_t)(fg_bh + 0.5f);
+    } else {
+        fg_go_dry(fg_b, T);
+        fg_bev = 0;
+    }
+    (void)bl;
+}
+FG_COLD void fg_stop_b(float samples) {
+    if (!fg_bon) return;
+    fg_level(fg_b, 0.f, samples);
+    fg_bev = 0;
+}
+
+/* --------------------------------------------------------------------------------------------- the brain */
+/* on SCENA's beat: what happens on the next one */
+FG_COLD void fg_brain() {
+    float blen = beat_len;
+    uint32_t bt = fg_now - (uint32_t)(frac * blen + 0.5f);   /* this beat's first frame */
+    fg_bts[fg_nbt & 63u] = bt;
+    fg_nbt++;
+    if (fg_nbt > 8) {                                        /* the beats' own pace, steadier than the ticks' */
+        float l8 = (float)(int32_t)(bt - fg_bts[(fg_nbt - 9u) & 63u]) * 0.125f;
+        float e = l8 - blen;
+        if (e < 0.02f * blen && e > -0.02f * blen) blen = l8;
+    }
+    uint32_t nt = bt + (uint32_t)(blen + 0.5f);              /* the next one's */
+    int n = fg_phrase;
+    int32_t pb = beat - fg_poff;
+    int b = (int)(((pb % n) + n) % n);
+    fg_pb = b;
+    int nb = (b + 1) % n;
+    fg_bl = blen;
+    if (fg_req_out) {                                        /* PULITO: out on the next beat, then the dry */
+        fg_req_out = false;
+        fg_nx = FG_NONE; fg_req_hold = false; fg_req_unhold = false; fg_hold = false;
+        fg_stop_b(0.2f * SC_SR);
+        int kind = fg_out_kind;
+        if (kind == 0) kind = fg_car < 0.5f ? 1 : 2;
+        fg_ev = FG_NONE;
+        if (kind == 1) { if (fg_start(FG_TSTOP, nt, 1.f)) return; }
+        else if (kind == 2) { if (fg_start(FG_SPIN, nt, 0.5f)) return; }
+        fg_ev = FG_DRY; fg_t0 = nt; fg_t1 = nt; fg_tn = nt; fg_step = 0; fg_lead = FG_LEAD; fg_last = 0;
+        return;
+    }
+    if (fg_req_hold) {                                       /* HOLD: from the next beat, the beat just gone */
+        fg_req_hold = false;
+        fg_nx = FG_NONE;
+        fg_ls = bt;
+        int was = fg_ev;
+        fg_ev = FG_NONE;
+        if (fg_start(FG_HOLD, nt, 1.f)) { fg_hold = true; fg_ls = bt; }
+        else fg_ev = was;
+        return;
+    }
+    if (fg_hold || fg_ev == FG_HOLD || fg_ev == FG_TSTOP || fg_ev == FG_SPIN || fg_ev == FG_DRY) return;
+    if (!fg_on || fg_nbt <= 4) return;                       /* (a few beats first: the tempo, some tape) */
+    if (fg_nx == FG_NONE && (fg_ev == FG_NONE || (int32_t)(fg_t1 - nt) <= 32)) {
+        float L;
+        int k = fg_pick(nb, n, fg_figo, fg_car, L);
+        if (k != FG_NONE) {
+            if (fg_ev == FG_NONE) fg_start(k, nt, L);
+            else { fg_nx = k; fg_nx_t0 = nt; fg_nx_L = L; }
+        }
+    }
+    if (!fg_bev && !(fg_bon && fg_b.g > 0.001f)) {
+        float L;
+        int k = fg_pick_b(nb, n, fg_mem, fg_car, L);
+        if (k) fg_start_b(k, nt, L);
+    }
+}
+
+/* once a block, after SCENA's clock: the brain on the beat, the steps that are due */
+FG_COLD void fg_krate() {
+    if (onbeat) fg_brain();
+    for (int g = 0; g < 4 && fg_ev != FG_NONE; g++) {
+        if ((int32_t)(fg_out_t(fg_tn) - fg_now) > fg_lead) break;
+        fg_step_a();
+    }
+    for (int g = 0; g < 4 && fg_bev; g++) {
+        if ((int32_t)(fg_out_t(fg_btn) - fg_now) > FG_LEAD) break;
+        fg_step_b();
+    }
+    if (fg_bon && !fg_bev && fg_b.h.dry && fg_b.xf == 0) fg_bon = false;
+    if (fg_bon && !fg_bev && fg_b.g < 0.0005f && fg_b.gt == 0.f) { fg_go_dry(fg_b, fg_now + 16); fg_b.xf = 0; fg_bon = false; }
+}
+
+/* HOLD (toggle), PULITO / VIA (toggle), the phrase from here */
+FG_COLD void fg_hold_toggle() {
+    if (fg_req_hold) fg_req_hold = false;                    /* (asked and not started yet: never mind) */
+    else if (fg_hold || fg_ev == FG_HOLD) fg_req_unhold = true;
+    else fg_req_hold = true;
+}
+FG_COLD void fg_pulito_toggle() {
+    if (fg_on) { fg_on = false; fg_req_out = true; fg_req_hold = false; }
+    else fg_on = true;
+}
+FG_COLD void fg_align() { fg_poff = beat; }
+
+/* ---------------------------------------------------------------------------------------------- the audio */
+/* in: what FIGO gets (insert: the chain; aux: the send). out: insert, the dry or the events in its place; aux, the
+   events alone. The tape records the input always. Nothing going on: the input comes out as it is (insert) */
+FG_HOT void fg_audio(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *outr) {
+    const float IN = 1.f / 134217728.f, OUT = 134217728.f;
+    bool aidle = fg_a.h.dry && fg_a.xf == 0 && !fg_a.loop && fg_gate == 1.f && fg_gate_t == 1.f;
+    uint32_t rd = fg_aux ? fg_rt : 0u;
+    float dg = fg_aux ? 0.f : 1.f;
+    for (int j = 0; j < SC_BS; j++) {
+        fg_tape[fg_now & (uint32_t)(FG_N - 1)] = fg_pack(inl[j], inr[j]);
+        if (aidle && !fg_bon) {
+            outl[j] = fg_aux ? 0 : inl[j];
+            outr[j] = fg_aux ? 0 : inr[j];
+            fg_now++;
+            continue;
+        }
+        fg_xl = inl[j] * IN; fg_xr = inr[j] * IN;
+        float al, ar;
+        if (aidle) { al = fg_xl * dg; ar = fg_xr * dg; }
+        else {
+            fg_gate += (fg_gate_t - fg_gate) * 0.036f;              /* (-60 dB in 4 ms) */
+            float d = fg_gate - fg_gate_t;
+            if (d < 0.0001f && d > -0.0001f) fg_gate = fg_gate_t;
+            fg_out(fg_a, dg * fg_gate, al, ar);
+            fg_next(fg_a, rd);
+        }
+        if (fg_bon) {
+            float bl, br, hb;
+            fg_out(fg_b, 0.f, bl, br);
+            fg_next(fg_b, rd);
+            float lp = sc_svf(fg_fl, fg_fc, bl, &hb, 0);
+            bl = fg_fbp ? hb : lp;
+            lp = sc_svf(fg_fr, fg_fc, br, &hb, 0);
+            br = fg_fbp ? hb : lp;
+            al += 0.15f * bl + 0.85f * br;                   /* the left of then on the right */
+            ar += 0.85f * bl + 0.15f * br;
+        }
+        outl[j] = (int32_t)(sc_clamp(al, -1.f, 0.9999999f) * OUT);
+        outr[j] = (int32_t)(sc_clamp(ar, -1.f, 0.9999999f) * OUT);
+        fg_now++;
+    }
+    fg_fill = fg_fill + SC_BS > (uint32_t)FG_N ? (uint32_t)FG_N : fg_fill + SC_BS;
+}
+
+/* VARIAZIONI - FIGO and SCENA in one object for the Gills, beside an effect (Microcosm, Chroma) or alone (class-body
+ * code, after scena_engine.h and figo_engine.h: it gives SCENA its knobs and buttons, and drives both).
+ *
+ * The page. Beside an effect the Gills' knobs and buttons belong to the effect (its panel) or to the variations: hold
+ * the encoder down for a second without touching anything else and let go, and you are on the other page. On the
+ * variations' page the knobs set them, with pick-up: a knob takes its value back when it passes where the value is
+ * (the screen shows ~ and an o until then), so nothing jumps; the effect's knobs do the same when you go back. The
+ * encoder held is SHIFT there too. MIDI CC 110-119 reach the variations from any page. The screen and the LEDs show
+ * the page you are on. Alone (VR_ALONE) the page is always the variations'.
+ *
+ * Knobs: 1 SCENA, 2 FIGO, 3 CARATTERE, 4 MEMORIA, 5 MOTO, 6 ECO, 7 FEEDBACK, 8 FILTRO, 9 RIVERB, 10 RITORNI; with
+ * SHIFT 6 RISON, 7 RUMORE, 8 CRUSH, 9 LIV.MEMORIA, 10 LIVELLO. Buttons: 1 ROLL (held), 2 FREEZE, 3 PULITO (FIGO out,
+ * SCENA RELEASE; again: FIGO back), 4 HOLD; SHIFT+1 the phrase starts here, SHIFT+4 TAP, SHIFT+encoder the way back
+ * (aux). CC 110 SCENA, 111 MOTO, 112 ROLL, 113 FREEZE, 114 RELEASE, 115 FIGO, 116 CARATTERE, 117 MEMORIA, 118 HOLD,
+ * 119 PULITO; alone also SCENA's own 20-24.
+ *
+ * The sound. insert: the effect -> FIGO -> SCENA -> out (alone: in -> FIGO -> SCENA). aux, a mixer's send and return:
+ * out = the effect + FIGO(in) + SCENA(in), each fed by the send; FIGO and SCENA give only what they add (no dry), and
+ * nothing at all when nothing happens. With the variations doing nothing the effect comes out as it is, bit for bit.
+ * SPDX-License-Identifier: GPL-3.0-only */
+
+#ifndef VR_COLD
+#define VR_COLD
+#endif
+#ifndef VR_HOT
+#define VR_HOT
+#endif
+#ifndef VR_FN
+#define VR_FN
+#endif
+#ifndef VR_RO
+#define VR_RO
+#endif
+#ifndef VR_FX_NAME
+#define VR_FX_NAME "EFFETTO"
+#endif
+
+enum { VR_NP = 10, VR_NV = 15, VR_LM = 0x7F80000 };
+
+/* SCENA's knobs and buttons: what the page gives it */
+int vr_sc_adc[10];
+int vr_sc_btn[4];
+VR_FN int hw_adc(int i) { return vr_sc_adc[i]; }
+VR_FN int hw_btn(int i) { return vr_sc_btn[i]; }
+VR_FN void hw_led(int i, bool on) { (void)i; (void)on; }
+
+/* the page */
+float vr_val[VR_NV];                     /* the values, 0..1 */
+uint8_t vr_pick[VR_NV];                  /* waiting for its knob to pass the value */
+float vr_pv[VR_NP], vr_plast[VR_NP], vr_pshow[VR_NP], vr_psh[VR_NP], vr_psnap[VR_NP];
+bool vr_page, vr_shift, vr_touched, vr_hint;
+uint8_t vr_bst[5], vr_braw[5], vr_bcnt[5];
+int32_t vr_bheld[5];
+int32_t vr_enc_last, vr_ticks;
+int vr_pop, vr_pop_t;                    /* the popup: which value (-1 none, 20 the way back), how long */
+char vr_ln[4][24];
+int vr_dline, vr_dtick, vr_blink;
+int vr_routing, vr_mono;
+float vr_rt_ms;                          /* aux: the way to the mixer and back, ms (SHIFT+encoder) */
+/* MIDI: the MIDI thread queues, the audio thread applies */
+volatile uint32_t vr_qw, vr_qr;
+volatile uint32_t vr_q[32];
+char vr_hl[24];                          /* the hint line */
+/* the audio between FIGO and SCENA */
+int32_t vr_tl[SC_BS], vr_tr[SC_BS], vr_fl[SC_BS], vr_fr[SC_BS], vr_xl[SC_BS], vr_xr[SC_BS];
+
+VR_FN static bool vr_has_sec(int i) { return i >= 5; }
+VR_FN static int vr_target(int i, bool sh) { return (sh && i >= 5) ? 10 + (i - 5) : i; }
+
+VR_COLD void vr_init(int routing, int mono, float rt_ms, int phrase, int out_kind) {
+    VR_RO static const float D[VR_NV] = {0.5f, 0.f, 0.3f, 0.f, 0.f, 1.5f / 7.f, 0.4f, 0.6f, 0.4f, 0.7f,
+                                   0.3f, 0.3f, 0.4f, 0.6f, 1.f / 1.5f};
+    for (int i = 0; i < VR_NV; i++) { vr_val[i] = D[i]; vr_pick[i] = 1; }
+    for (int i = 0; i < VR_NP; i++) vr_pv[i] = vr_plast[i] = vr_pshow[i] = vr_psh[i] = vr_psnap[i] = 0.f;
+#ifdef VR_ALONE
+    vr_page = true;
+#else
+    vr_page = false;
+#endif
+    vr_shift = vr_touched = vr_hint = false;
+    for (int k = 0; k < 5; k++) { vr_bst[k] = vr_braw[k] = vr_bcnt[k] = 0; vr_bheld[k] = 0; }
+    vr_enc_last = 0; vr_ticks = 0;
+    vr_pop = -1; vr_pop_t = 0;
+    for (int n = 0; n < 4; n++) { for (int i = 0; i < 21; i++) vr_ln[n][i] = ' '; vr_ln[n][21] = 0; }
+    for (int i = 0; i < 21; i++) vr_hl[i] = ' ';
+    vr_hl[21] = 0;
+    vr_dline = 0; vr_dtick = 0; vr_blink = 0;
+    vr_routing = routing; vr_mono = mono;
+    vr_rt_ms = rt_ms;
+    vr_qw = vr_qr = 0u;
+    for (int i = 0; i < 10; i++) vr_sc_adc[i] = 0;
+    for (int i = 0; i < 4; i++) vr_sc_btn[i] = 0;
+    fg_phrase = phrase; fg_out_kind = out_kind;
+    routing_set();
+}
+/* the routing into the engines; the way back in samples */
+VR_COLD void routing_set() {
+    routing = vr_routing;
+    fg_aux = vr_routing;
+    uint32_t rt = (uint32_t)(vr_rt_ms * 48.f + 0.5f);
+    sc_rt = rt; fg_rt = rt;
+}
+
+/* ------------------------------------------------------------------------------------------------- MIDI */
+/* from the MIDI thread: only into the queue */
+VR_FN void vr_midi(uint8_t status, uint8_t d1, uint8_t d2) {
+    uint8_t st = status & 0xF0;
+    bool clk = status == 0xF8 || status == 0xFA || status == 0xFB || status == 0xFC || status == 0xF2;
+    bool cc = st == 0xB0 && ((d1 >= 110 && d1 <= 119)
+#ifdef VR_ALONE
+                             || (d1 >= 20 && d1 <= 24)
+#endif
+                             );
+    if (!clk && !cc) return;
+    uint32_t w = vr_qw;
+    if (w - vr_qr >= 32u) return;
+    vr_q[w & 31u] = (uint32_t)status | ((uint32_t)d1 << 8) | ((uint32_t)d2 << 16);
+    vr_qw = w + 1u;
+}
+/* PULITO: FIGO out on the next beat and SCENA clean now; pressed again, FIGO back */
+VR_COLD void vr_pulito() {
+    if (fg_on) cc_release = true;
+    fg_pulito_toggle();
+}
+VR_COLD void vr_midi_apply() {
+    while (vr_qr != vr_qw) {
+        uint32_t e = vr_q[vr_qr & 31u];
+        vr_qr = vr_qr + 1u;
+        uint8_t status = (uint8_t)(e & 255u), d1 = (uint8_t)((e >> 8) & 255u), d2 = (uint8_t)((e >> 16) & 255u);
+        if (status >= 0xF0) { sc_midi(status, d1, d2); continue; }
+        if (d1 <= 24) { sc_midi(0xB0, d1, d2); continue; }           /* (alone: SCENA's own CCs) */
+        if (d1 <= 114) { sc_midi(0xB0, (uint8_t)(d1 - 90), d2); continue; }   /* 110-114: SCENA, as 20-24 */
+        float v = (float)d2 * (1.f / 127.f);
+        switch (d1) {
+            case 115: vr_val[1] = v; vr_pick[1] = 1; break;          /* (the knob takes it back when it passes) */
+            case 116: vr_val[2] = v; vr_pick[2] = 1; break;
+            case 117: vr_val[3] = v; vr_pick[3] = 1; break;
+            case 118: if (d2 >= 64) fg_hold_toggle(); break;
+            case 119: if (d2 >= 64) vr_pulito(); break;
+            default: break;
+        }
+    }
+}
+
+/* ------------------------------------------------------------------------------------- knobs and buttons */
+VR_COLD int vr_btn(int k, bool raw) {                       /* debounced: 1 pressed, -1 let go */
+    uint8_t r = raw ? 1 : 0;
+    if (r != vr_braw[k]) { vr_braw[k] = r; vr_bcnt[k] = 0; }
+    else if (vr_bcnt[k] < 12) vr_bcnt[k]++;
+    if (vr_bcnt[k] == 8 && vr_bst[k] != r) {
+        vr_bst[k] = r;
+        if (r) { vr_bheld[k] = 0; return 1; }
+        return -1;
+    }
+    if (vr_bst[k]) vr_bheld[k]++;
+    return 0;
+}
+/* on the page: every value waits for its knob, but where they already agree */
+VR_COLD void vr_pick_all() {
+    for (int i = 0; i < VR_NV; i++) vr_pick[i] = 1;
+    for (int i = 0; i < VR_NP; i++) {
+        float d = vr_pv[i] - vr_val[i];
+        if (d < 0.015f && d > -0.015f) vr_pick[i] = 0;
+        vr_plast[i] = vr_pshow[i] = vr_pv[i];
+    }
+}
+VR_COLD void vr_ui(const int32_t *pot, const bool *b, int32_t enc, bool esw) {
+    vr_ticks++;
+    for (int i = 0; i < VR_NP; i++) {
+        float raw = (float)pot[i] * (1.f / 134217728.f);
+        raw = raw < 0.f ? 0.f : (raw > 1.f ? 1.f : raw);
+        if (vr_ticks < 30) {
+            vr_pv[i] = vr_plast[i] = vr_pshow[i] = raw;
+#ifdef VR_ALONE
+            vr_val[i] = raw; vr_pick[i] = 0;                      /* alone: the knobs say it from the start */
+#endif
+            continue;
+        }
+        vr_pv[i] += (raw - vr_pv[i]) * 0.06f;
+    }
+    /* the encoder switch: SHIFT on the page; held a second alone, and let go: the other page */
+    int e = vr_btn(4, esw);
+    if (e == 1) {
+        vr_touched = false;
+        for (int i = 0; i < VR_NP; i++) vr_psnap[i] = vr_pv[i];
+    }
+    if (vr_bst[4]) {
+        for (int i = 0; i < VR_NP; i++) { float d = vr_pv[i] - vr_psnap[i]; if (d > 0.03f || d < -0.03f) vr_touched = true; }
+        for (int k = 0; k < 4; k++) if (b[k]) vr_touched = true;
+        if (enc != vr_enc_last) vr_touched = true;
+    }
+    bool toggled = false;
+    if (e == -1) {
+#ifndef VR_ALONE
+        if (!vr_touched && vr_bheld[4] >= 3000) {
+            vr_page = !vr_page;
+            toggled = true;
+            if (vr_page) vr_pick_all();
+            vr_pop = -1; vr_pop_t = 0;
+        }
+#endif
+    }
+#ifndef VR_ALONE
+    vr_hint = vr_bst[4] && !vr_touched && vr_bheld[4] >= 3000;
+#endif
+    if (!vr_page) {                                         /* the effect's page: the variations only listen to MIDI */
+        vr_enc_last = enc;
+        vr_shift = false;
+        for (int k = 0; k < 4; k++) { vr_btn(k, b[k]); vr_sc_btn[k] = 0; }
+        for (int i = 0; i < VR_NP; i++) vr_plast[i] = vr_pv[i];
+        return;
+    }
+    /* SHIFT: the second values wait for their knobs; let go, the first ones of the knobs turned meanwhile */
+    bool sh = vr_bst[4] != 0 && !toggled;
+    if (sh && !vr_shift) for (int i = 5; i < VR_NP; i++) { vr_pick[vr_target(i, true)] = 1; vr_psh[i] = vr_pv[i]; }
+    if (!sh && vr_shift) {
+        for (int i = 5; i < VR_NP; i++) {
+            float m = vr_pv[i] - vr_psh[i];
+            if (m > 0.015f || m < -0.015f) vr_pick[i] = 1;
+        }
+    }
+    vr_shift = sh;
+    for (int i = 0; i < VR_NP; i++) {
+        float c = vr_pv[i];
+        int t = vr_target(i, sh);
+        if (vr_pick[t]) {
+            float a = vr_plast[i] - vr_val[t], d = c - vr_val[t];
+            if ((a <= 0.f && d >= 0.f) || (a >= 0.f && d <= 0.f) || (d < 0.015f && d > -0.015f)) vr_pick[t] = 0;
+        }
+        if (!vr_pick[t]) vr_val[t] = c;
+        float mv = c - vr_pshow[i];
+        if ((mv > 0.012f || mv < -0.012f) && vr_ticks > 900) { vr_pshow[i] = c; vr_pop = t; vr_pop_t = 4500; }
+        vr_plast[i] = c;
+    }
+    /* the encoder: with SHIFT the way back (aux), a tenth of a millisecond a click */
+    int32_t d = enc - vr_enc_last;
+    vr_enc_last = enc;
+    if (d && sh) {
+        vr_rt_ms += 0.1f * (float)d;
+        if (vr_rt_ms < 0.f) vr_rt_ms = 0.f;
+        if (vr_rt_ms > 5.f) vr_rt_ms = 5.f;
+        routing_set();
+        vr_pop = 20; vr_pop_t = 4500;
+    }
+    /* the buttons */
+    int r0 = vr_btn(0, b[0]), r1 = vr_btn(1, b[1]), r2 = vr_btn(2, b[2]), r3 = vr_btn(3, b[3]);
+    vr_sc_btn[0] = (vr_bst[0] && !sh) ? 1 : 0;              /* ROLL, held */
+    vr_sc_btn[3] = (vr_bst[3] && sh) ? 1 : 0;               /* SHIFT+4: TAP */
+    if (r0 == 1 && sh) { fg_align(); vr_pop = 21; vr_pop_t = 3000; }
+    if (r1 == 1 && !sh) cc_freeze_toggle = true;            /* FREEZE */
+    if (r2 == 1 && !sh) vr_pulito();                        /* PULITO */
+    if (r3 == 1 && !sh) fg_hold_toggle();                   /* HOLD */
+    (void)r0;
+}
+/* the values into the engines */
+VR_COLD void vr_apply() {
+    VR_RO static const uint8_t SC[10] = {0, 4, 5, 6, 7, 10, 11, 12, 8, 9};   /* SCENA's knob i: which value */
+    for (int i = 0; i < 10; i++) {
+        int v = (int)(vr_val[SC[i]] * 4095.f + 0.5f);
+        vr_sc_adc[i] = v < 0 ? 0 : (v > 4095 ? 4095 : v);
+    }
+    fg_figo = vr_val[1]; fg_car = vr_val[2]; fg_mem = vr_val[3];
+    fg_lvm = vr_val[13]; fg_lv = vr_val[14] * 1.5f;
+}
+
+/* ---------------------------------------------------------------------------------------------- the screen */
+VR_FN static char *vr_put(char *p, const char *s) { while (*s) *p++ = *s++; return p; }
+VR_FN static char *vr_num(char *p, int32_t v, int w) {
+    char t[12];
+    int n = 0;
+    bool neg = v < 0;
+    uint32_t u = neg ? (uint32_t)(-v) : (uint32_t)v;
+    do { t[n++] = (char)('0' + u % 10u); u /= 10u; } while (u && n < 11);
+    if (neg) t[n++] = '-';
+    while (w-- > n) *p++ = ' ';
+    while (n) *p++ = t[--n];
+    return p;
+}
+VR_FN static void vr_end(char *l, char *p) { char *e = l + 21; while (p < e) *p++ = ' '; *e = 0; }
+VR_FN static void vr_right(char *l, const char *s) { int n = 0; while (s[n]) n++; char *p = l + 21 - n; while (*s) *p++ = *s++; }
+VR_FN static int32_t vr_pct(float v) { int32_t r = (int32_t)(v * 100.f + 0.5f); return r > 100 ? 100 : (r < 0 ? 0 : r); }
+
+VR_COLD const char *vr_name(int t) {
+    VR_RO static const char *const N[VR_NV] = {"SCENA", "FIGO", "CARATTERE", "MEMORIA", "MOTO", "ECO", "FEEDBACK", "FILTRO",
+                                         "RIVERB", "RITORNI", "RISON", "RUMORE", "CRUSH", "LIV.MEMORIA", "LIVELLO"};
+    return N[t < 0 ? 0 : (t >= VR_NV ? VR_NV - 1 : t)];
+}
+/* what SCENA does, on the left; its loop on the right */
+VR_COLD void vr_scena_line(char *l) {
+    char *p = l;
+    int s = (int)(scene * 100.f + (scene >= 0.f ? 0.5f : -0.5f));
+    if (released) p = vr_put(p, "RELEASE");
+    else if (s == 0) p = vr_put(p, routing ? "MANDATA" : "PULITO");
+    else { p = vr_put(p, s > 0 ? "BUILD " : "BREAK "); p = vr_num(p, s > 0 ? s : -s, 2); }
+    vr_end(l, p);
+    if (lp == 2 && lp_kind == 2) vr_right(l, "FREEZE");
+    else if (lp == 2 && lp_kind == 1) vr_right(l, roll_div == 2 ? "ROLL 1/8" : (roll_div == 1 ? "ROLL 1/16" : "ROLL 1/32"));
+    else if (fill == 1) vr_right(l, "FILL ROLL");
+    else if (fill == 2) vr_right(l, "FILL ECO");
+    else if (fill == 3) vr_right(l, "FILL DIP");
+    else if (freeze_on) vr_right(l, "FREEZE..");
+}
+/* what FIGO does, on the left; MEMORIA on the right */
+VR_COLD void vr_figo_line(char *l) {
+    char *p = l;
+    if (!fg_on && (fg_ev == FG_NONE || fg_ev == FG_DRY)) p = vr_put(p, routing ? "PULITO (MUTO)" : "PULITO");
+    else if (fg_hold || fg_ev == FG_HOLD) p = vr_put(p, "HOLD");
+    else if (fg_req_hold) p = vr_put(p, "HOLD..");
+    else if (fg_ev != FG_NONE && fg_ev != FG_DRY) {
+        p = vr_put(p, fg_name(fg_ev));
+        if (fg_ev == FG_SKIP) { *p++ = ' '; p = vr_num(p, fg_last_n, 1); }
+    }
+    vr_end(l, p);
+    if (fg_bev == FG_MEMO) { char t[12]; char *q = vr_put(t, "MEM -"); q = vr_num(q, fg_bn, 1); *q = 0; vr_right(l, t); }
+    else if (fg_bev == FG_ECO) vr_right(l, "ECO");
+}
+VR_COLD void vr_pop_lines(char *l3, char *l4) {
+    char *p = l3;
+    if (vr_pop == 20) {
+        p = vr_put(p, "ANTICIPO (AUX)");
+        vr_end(l3, p);
+        char t[12]; char *q = vr_num(t, (int32_t)(vr_rt_ms * 10.f + 0.5f) / 10, 1); *q++ = '.';
+        *q++ = (char)('0' + (int32_t)(vr_rt_ms * 10.f + 0.5f) % 10); q = vr_put(q, " ms"); *q = 0;
+        vr_right(l3, t);
+        p = vr_put(l4, routing ? "le ripetizioni prima" : "(solo su un bus)");
+        vr_end(l4, p);
+        return;
+    }
+    if (vr_pop == 21) {
+        p = vr_put(p, "FRASE: PARTE QUI");
+        vr_end(l3, p);
+        vr_end(l4, l4);
+        return;
+    }
+    int t = vr_pop;
+    float v = vr_val[t];
+    p = vr_put(p, vr_name(t));
+    vr_end(l3, p);
+    char s[16]; char *q = s;
+    if (t == 0) {
+        float u = v * 2.f - 1.f;
+        int n = (int)((u < 0.f ? -u : u) * 100.f + 0.5f);
+        if (n < 7) q = vr_put(q, "PULITO");
+        else { q = vr_put(q, u > 0.f ? "BUILD " : "BREAK "); q = vr_num(q, n, 2); }
+    } else if (t == 5) {
+        int i = (int)(v * 7.f); if (i > 6) i = 6;
+        q = vr_put(q, sc_div_name(i));
+    } else if (t == 14) {
+        q = vr_num(q, (int32_t)(v * 150.f + 0.5f), 3);
+    } else q = vr_num(q, vr_pct(v), 3);
+    if (vr_pick[t]) q = vr_put(q, " ~");
+    *q = 0;
+    vr_right(l3, s);
+    /* the bar, and where the knob is while it waits */
+    char *b = l4;
+    *b++ = '[';
+    int fill_n = (int)(v * 19.f + 0.5f);
+    int k = -1;
+    for (int i = 0; i < VR_NP; i++) if (vr_target(i, vr_shift) == t) k = i;
+    int at = k >= 0 ? (int)(vr_pv[k] * 19.f + 0.5f) : -1;
+    for (int i = 0; i < 19; i++) *b++ = (vr_pick[t] && i == at) ? 'o' : (i < fill_n ? '#' : '-');
+    *b++ = ']';
+    vr_end(l4, b);
+}
+VR_COLD void vr_draw(int n) {
+    char *l = vr_ln[n], *p = l;
+    if (n == 0) {
+        if (vr_shift) {
+            p = vr_put(p, "SHIFT RIS"); p = vr_num(p, vr_pct(vr_val[10]), 2);
+            p = vr_put(p, " RUM"); p = vr_num(p, vr_pct(vr_val[11]), 2);
+            p = vr_put(p, " CR"); p = vr_num(p, vr_pct(vr_val[12]), 2);
+            vr_end(l, p);
+        } else {
+            p = vr_put(p, "FIGO"); p = vr_num(p, vr_pct(vr_val[1]), 4);
+            p = vr_put(p, " C"); p = vr_num(p, vr_pct(vr_val[2]), 2);
+            p = vr_put(p, " M"); p = vr_num(p, vr_pct(vr_val[3]), 2);
+            vr_end(l, p);
+            vr_right(l, routing ? "AUX" : "INS");
+        }
+        return;
+    }
+    if (n == 1) {
+        if (vr_shift) {
+            p = vr_put(p, "LIV.MEM"); p = vr_num(p, vr_pct(vr_val[13]), 4);
+            p = vr_put(p, "  LIV"); p = vr_num(p, (int32_t)(vr_val[14] * 150.f + 0.5f), 4);
+            vr_end(l, p);
+        } else vr_scena_line(l);
+        return;
+    }
+    if (vr_pop_t > 0 && vr_pop >= 0) {
+        if (n == 2) vr_pop_lines(vr_ln[2], vr_ln[3]);
+        return;
+    }
+    if (n == 2) {
+        int bpm10 = (int)(SC_SR * 600.f / beat_len + 0.5f);
+        p = vr_num(p, bpm10 / 10, 3); *p++ = '.'; *p++ = (char)('0' + bpm10 % 10);
+        p = vr_put(p, src == 2 ? " MIDI" : (src == 1 ? " TAP" : " INT"));
+        vr_end(l, p);
+        char t[12]; char *q = vr_put(t, "FRASE ");
+        int nb = fg_pb;
+        *q++ = (char)('1' + nb / 4 % 8); *q++ = '.'; *q++ = (char)('1' + nb % 4); *q = 0;
+        vr_right(l, t);
+        return;
+    }
+    vr_figo_line(l);
+}
+/* the hint on line 4 while the encoder is held alone: let go and the page changes */
+VR_COLD void vr_hint_line(char *l) {
+    char *p = vr_put(l, vr_page ? "LASCIA: " VR_FX_NAME : "LASCIA: VARIAZIONI");
+    vr_end(l, p);
+}
+
+/* the LEDs of the page: 1 the beat, 2 FIGO plays (dim: MEMORIA), 3 SCENA build (blue) / break (red),
+   4 HOLD or a loop of SCENA (blue), SHIFT or PULITO (red, PULITO blinks) */
+VR_COLD void vr_leds(int32_t *led) {
+    float bb = scene > 0.f ? scene : 0.f, kk = scene < 0.f ? -scene : 0.f;
+    vr_blink = (vr_blink + 1) % 1500;
+    bool aon = !(fg_a.h.dry && fg_a.xf == 0 && !fg_a.loop) || fg_gate_t < 1.f;
+    led[0] = frac < 0.12f ? VR_LM : 0;
+    led[1] = aon ? VR_LM : (fg_bon ? VR_LM / 6 : 0);
+    led[2] = (int32_t)(bb * (float)VR_LM);
+    led[3] = (int32_t)(kk * (float)VR_LM);
+    led[4] = (fg_hold || fg_ev == FG_HOLD || lp == 2 || freeze_on) ? VR_LM : 0;
+    led[5] = (vr_shift || (!fg_on && vr_blink < 750) || (released && vr_blink < 750)) ? VR_LM : 0;
+}
+
+/* -------------------------------------------------------------------------------------------- the block */
+/* in: what comes in; fx: the effect's out (alone: nothing). lines and leds in: the effect's panel; out: what the
+   screen and the LEDs show */
+VR_HOT void vr_block(const int32_t *inl, const int32_t *inr, const int32_t *fxl, const int32_t *fxr,
+              int32_t *outl, int32_t *outr, const int32_t *pot, const bool *b, int32_t enc, bool esw,
+              char *const *pline, const int32_t *pled, char **line, int32_t *led) {
+    vr_midi_apply();
+    vr_ui(pot, b, enc, esw);
+    vr_apply();
+    sc_krate();
+    fg_krate();
+    const int32_t *xl = inl, *xr = vr_mono ? inl : inr;
+    if (vr_routing == 0) {
+#ifdef VR_ALONE
+        const int32_t *cl = xl, *cr = xr;
+#else
+        const int32_t *cl = fxl, *cr = fxr;
+#endif
+        fg_audio(cl, cr, vr_tl, vr_tr);
+        sc_audio(vr_tl, vr_tr, outl, outr);
+        /* SCENA doing nothing gives the same in float; then what came is what goes (bit for bit) */
+        const float IN = 1.f / 134217728.f, OUT = 134217728.f;
+        for (int j = 0; j < SC_BS; j++) {
+            if (outl[j] == (int32_t)(sc_clamp(vr_tl[j] * IN, -1.f, 0.9999999f) * OUT)) outl[j] = vr_tl[j];
+            if (outr[j] == (int32_t)(sc_clamp(vr_tr[j] * IN, -1.f, 0.9999999f) * OUT)) outr[j] = vr_tr[j];
+        }
+    } else {
+        fg_audio(xl, xr, vr_fl, vr_fr);
+        sc_audio(xl, xr, vr_xl, vr_xr);
+        for (int j = 0; j < SC_BS; j++) {
+#ifdef VR_ALONE
+            outl[j] = vr_fl[j] + vr_xl[j];
+            outr[j] = vr_fr[j] + vr_xr[j];
+#else
+            outl[j] = fxl[j] + vr_fl[j] + vr_xl[j];
+            outr[j] = fxr[j] + vr_fr[j] + vr_xr[j];
+#endif
+        }
+    }
+    /* the screen: one line every 40 blocks */
+    if (vr_pop_t > 0) vr_pop_t--;
+    if (++vr_dtick >= 40) {
+        vr_dtick = 0;
+        if (vr_page) vr_draw(vr_dline);
+        vr_dline = (vr_dline + 1) & 3;
+    }
+    if (vr_hint) vr_hint_line(vr_hl);
+    if (vr_page) {
+        for (int n = 0; n < 4; n++) line[n] = vr_ln[n];
+        vr_leds(led);
+    } else {
+        for (int n = 0; n < 4; n++) line[n] = pline[n];
+        for (int k = 0; k < 6; k++) led[k] = pled[k];
+    }
+    if (vr_hint) line[3] = vr_hl;
+}
+
+#undef SC_COLD
+#undef SC_HOT
+#undef SC_FN
+#undef SC_RO
+#undef FG_COLD
+#undef FG_HOT
+#undef FG_FN
+#undef FG_RO
+#undef VR_COLD
+#undef VR_HOT
+#undef VR_FN
+#undef VR_RO
+#undef VR_SMALL
+#undef SC_ECHO_BITS
+#undef FG_BITS
+#undef VR_FX_NAME
+#undef VR_ALONE
+]]></code.declaration>
+         <code.init><![CDATA[static int16_t vr_el[SC_ECHO_N] __attribute__ ((section (".sdram")));
+static int16_t vr_er[SC_ECHO_N] __attribute__ ((section (".sdram")));
+static int16_t vr_rl[SC_ROLL_N] __attribute__ ((section (".sdram")));
+static int16_t vr_rr[SC_ROLL_N] __attribute__ ((section (".sdram")));
+static float vr_rv[SC_RV_TOTAL] __attribute__ ((section (".sdram")));
+static uint32_t vr_tape[FG_N] __attribute__ ((section (".sdram")));
+sc_init(vr_el, vr_er, vr_rl, vr_rr, vr_rv);
+fg_init(vr_tape);
+vr_init(attr_routing, attr_ingresso, attr_anticipo, attr_frase, attr_uscita);]]></code.init>
+         <code.krate><![CDATA[{
+    int32_t pots[10] = {inlet_p1, inlet_p2, inlet_p3, inlet_p4, inlet_p5, inlet_p6, inlet_p7, inlet_p8, inlet_p9, inlet_p10};
+    bool bs[4] = {inlet_b1 != 0, inlet_b2 != 0, inlet_b3 != 0, inlet_b4 != 0};
+    char *pl[4] = {(char *)inlet_pl1, (char *)inlet_pl2, (char *)inlet_pl3, (char *)inlet_pl4};
+    int32_t pled[6] = {inlet_pled1, inlet_pled2, inlet_pled3b, inlet_pled3r, inlet_pled4b, inlet_pled4r};
+    char *ln[4];
+    int32_t led[6];
+    vr_block(inlet_inl, inlet_inr, inlet_fxl, inlet_fxr, outlet_outl, outlet_outr, pots, bs, inlet_enc, inlet_esw != 0,
+             pl, pled, ln, led);
+    outlet_page = vr_page ? (1 << 27) : 0;
+    outlet_l1 = ln[0]; outlet_l2 = ln[1]; outlet_l3 = ln[2]; outlet_l4 = ln[3];
+    outlet_led1 = led[0]; outlet_led2 = led[1]; outlet_led3b = led[2]; outlet_led3r = led[3];
+    outlet_led4b = led[4]; outlet_led4r = led[5];
+}]]></code.krate>
+         <code.midihandler><![CDATA[vr_midi(status, data1, data2);]]></code.midihandler>
+      </object>
+   </patchobj>
+   <obj type="ksoloti/gills/display" uuid="0c083e83-0280-4cf2-b747-8a00859bb904" name="oled" x="640" y="160">
+      <params/>
+      <attribs>
+         <combo attributeName="useScope" selection="off"/>
+         <objref attributeName="scope" obj=""/>
+         <combo attributeName="narrowFont" selection="on"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_1" x="640" y="320">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="1"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_2" x="640" y="370">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="2"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_3b" x="640" y="420">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="3 blue"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_3r" x="640" y="470">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="3 red"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_4b" x="640" y="520">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="4 blue"/>
+      </attribs>
+   </obj>
+   <obj type="ksoloti/gills/led pwm" uuid="e6534d2d-0815-4b4a-8351-99987f214822" name="led_4r" x="640" y="570">
+      <params/>
+      <attribs>
+         <combo attributeName="led" selection="4 red"/>
+      </attribs>
+   </obj>
+   <obj type="audio/out stereo" uuid="a1ca7a567f535acc21055669829101d3ee7f0189" name="audio_out" x="640" y="640">
+      <params/>
+      <attribs/>
+   </obj>
+   <nets>
+      <net>
+         <source obj="pot_1" outlet="out"/>
+         <dest obj="variazioni" inlet="p1"/>
+      </net>
+      <net>
+         <source obj="pot_2" outlet="out"/>
+         <dest obj="variazioni" inlet="p2"/>
+      </net>
+      <net>
+         <source obj="pot_3" outlet="out"/>
+         <dest obj="variazioni" inlet="p3"/>
+      </net>
+      <net>
+         <source obj="pot_4" outlet="out"/>
+         <dest obj="variazioni" inlet="p4"/>
+      </net>
+      <net>
+         <source obj="pot_5" outlet="out"/>
+         <dest obj="variazioni" inlet="p5"/>
+      </net>
+      <net>
+         <source obj="pot_6" outlet="out"/>
+         <dest obj="variazioni" inlet="p6"/>
+      </net>
+      <net>
+         <source obj="pot_7" outlet="out"/>
+         <dest obj="variazioni" inlet="p7"/>
+      </net>
+      <net>
+         <source obj="pot_8" outlet="out"/>
+         <dest obj="variazioni" inlet="p8"/>
+      </net>
+      <net>
+         <source obj="pot_9" outlet="out"/>
+         <dest obj="variazioni" inlet="p9"/>
+      </net>
+      <net>
+         <source obj="pot_10" outlet="out"/>
+         <dest obj="variazioni" inlet="p10"/>
+      </net>
+      <net>
+         <source obj="button_1" outlet="out"/>
+         <dest obj="variazioni" inlet="b1"/>
+      </net>
+      <net>
+         <source obj="button_2" outlet="out"/>
+         <dest obj="variazioni" inlet="b2"/>
+      </net>
+      <net>
+         <source obj="button_3" outlet="out"/>
+         <dest obj="variazioni" inlet="b3"/>
+      </net>
+      <net>
+         <source obj="button_4" outlet="out"/>
+         <dest obj="variazioni" inlet="b4"/>
+      </net>
+      <net>
+         <source obj="encoder_1" outlet="out"/>
+         <dest obj="variazioni" inlet="enc"/>
+      </net>
+      <net>
+         <source obj="encoder_1" outlet="sw"/>
+         <dest obj="variazioni" inlet="esw"/>
+      </net>
+      <net>
+         <source obj="audio_in" outlet="left"/>
+         <dest obj="variazioni" inlet="inl"/>
+      </net>
+      <net>
+         <source obj="audio_in" outlet="right"/>
+         <dest obj="variazioni" inlet="inr"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="outl"/>
+         <dest obj="audio_out" inlet="left"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="outr"/>
+         <dest obj="audio_out" inlet="right"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="l1"/>
+         <dest obj="oled" inlet="line1"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="l2"/>
+         <dest obj="oled" inlet="line2"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="l3"/>
+         <dest obj="oled" inlet="line3"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="l4"/>
+         <dest obj="oled" inlet="line4"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led1"/>
+         <dest obj="led_1" inlet="in"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led2"/>
+         <dest obj="led_2" inlet="in"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led3b"/>
+         <dest obj="led_3b" inlet="in"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led3r"/>
+         <dest obj="led_3r" inlet="in"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led4b"/>
+         <dest obj="led_4b" inlet="in"/>
+      </net>
+      <net>
+         <source obj="variazioni" outlet="led4r"/>
+         <dest obj="led_4r" inlet="in"/>
+      </net>
+   </nets>
+   <settings>
+      <subpatchmode>no</subpatchmode>
+   </settings>
+   <notes><![CDATA[VARIAZIONI: FIGO + SCENA
+========================
+Le variazioni di FIGO (ripetizioni, roll, reverse, ottave, tape stop, shuffle, gate, indietro, memoria) e di SCENA
+(build-up, break-down, roll, freeze) sullo stesso suono.
+
+LA PAGINA: le manopole e i pulsanti sono delle variazioni.
+MANOPOLE: 1 SCENA (sinistra break-down, centro pulito, destra build-up), 2 FIGO (quanto interviene), 3 CARATTERE
+  (da dub a glitch), 4 MEMORIA, 5 MOTO (SCENA si muove da sola), 6 ECO, 7 FEEDBACK, 8 FILTRO, 9 RIVERB, 10 RITORNI.
+  Con SHIFT (encoder tenuto): 6 RISON, 7 RUMORE, 8 CRUSH, 9 LIV.MEMORIA, 10 LIVELLO (degli interventi di FIGO).
+  Pick-up: una manopola riprende il suo valore quando ci passa sopra ("~" e "o" sullo schermo finche' non lo aggancia).
+PULSANTI: 1 ROLL (tenuto), 2 FREEZE, 3 PULITO (FIGO esce a tempo e SCENA torna pulita; di nuovo: FIGO riparte),
+  4 HOLD (ripete il battito appena passato; di nuovo: torna il loop).
+  SHIFT+1: la frase di FIGO parte da qui. SHIFT+4: TAP (se non arriva il clock MIDI).
+  SHIFT+encoder: l'anticipo in aux (la strada fino al mixer e ritorno), un decimo di millisecondo a scatto.
+SCHERMO: riga 1 FIGO, CARATTERE, MEMORIA e INS/AUX; riga 2 SCENA; riga 3 il tempo e la frase; riga 4 l'intervento
+  di FIGO e la MEMORIA. Quando giri una manopola le righe 3-4 mostrano il suo valore.
+LED (sulla pagina): 1 il battito, 2 FIGO interviene (tenue: la memoria), 3 blu build-up / rosso break-down,
+  4 blu HOLD o un loop di SCENA, rosso SHIFT (lampeggia: PULITO o RELEASE).
+
+MIDI (qualsiasi canale, da qualsiasi pagina): CC 110 SCENA, 111 MOTO, 112 ROLL (tenuto), 113 FREEZE, 114 RELEASE,
+  115 FIGO, 116 CARATTERE, 117 MEMORIA, 118 HOLD, 119 PULITO. Anche i CC 20-24 di SCENA (20 SCENA, 21 MOTO, 22 ROLL, 23 FREEZE, 24 RELEASE). Clock, START e STOP: il tempo.
+
+IL SUONO (attributo routing dell'oggetto "variazioni", nel Patcher):
+  aux: per mandata e ritorno del mixer. Escono gli interventi di FIGO, la memoria, il fruscio, l'eco, il riverbero e i loop di SCENA: niente pulito (e' gia' sul mixer). Quando non succede niente le
+       variazioni non danno niente.
+  insert: in serie, l'ingresso passa da FIGO e poi da SCENA. Quando non succede niente il suono passa identico, bit per bit.
+  Gli altri attributi: ingresso (stereo o mono L), frase (16, 8 o 32 battiti), uscita (il modo di uscire di PULITO:
+  auto, tape stop, backspin, secca), anticipo (in aux: di quanto le ripetizioni partono prima, 1.5 ms).
+  In aux le ripetizioni partono l'anticipo prima: cosi' cadono sulla griglia del pulito al mixer. Per tararlo: una
+  cassa dritta, FIGO 100, CARATTERE 0, e gira SHIFT+encoder finche' le ripetizioni non si fondono con i colpi.
+]]></notes>
+   <windowPos>
+      <x>40</x>
+      <y>40</y>
+      <width>1100</width>
+      <height>760</height>
+   </windowPos>
+</patch-1.0>
