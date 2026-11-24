@@ -4,7 +4,10 @@ In questa cartella:
 
 * **SCENA** (`scena.axp`, `scena_aux.axp`): una manopola dal break-down al build-up. È la prima parte qui sotto.
 * **VARIAZIONI** (`figo_scena.axp`, `figo_scena_aux.axp`): FIGO e SCENA insieme in un solo oggetto, da sole sulla
-  Gills; e `make_bus.py`, che le aggiunge alle tue patch di **Microcosm** e **Chroma Console**. È la seconda parte.
+  Gills; e accanto a **Microcosm** e **Chroma Console** (`microcosm_figo_scena.axp`, `chroma_console_figo_scena.axp`).
+  È la seconda parte.
+* **Gli effetti da soli** (`effetti/microcosm_gills.axp`, `effetti/chroma_console_gills.axp`): Microcosm e Chroma
+  Console per la Gills, come li usavi prima. Le loro versioni per norns, con Caramello, sono in `tools/norns/effetti/`.
 
 # SCENA - una manopola dal break-down al build-up
 
@@ -136,13 +139,16 @@ Due modi di usarle:
 * **Da sole**: `figo_scena.axp` (insert) e `figo_scena_aux.axp` (aux, mandata e ritorno). Le manopole e i pulsanti
   sono delle variazioni.
 * **Microcosm + FIGO + SCENA** e **Chroma Console + FIGO + SCENA**, per un bus del mixer: l'effetto e le variazioni
-  nella stessa Gills, sulla stessa mandata. Il ritorno è l'effetto più le variazioni. Queste due patch le fa
-  `make_bus.py` partendo dalle tue patch dell'effetto, che non sono in questo repository:
+  nella stessa Gills, sulla stessa mandata. Il ritorno è l'effetto più le variazioni: `microcosm_figo_scena.axp` e
+  `chroma_console_figo_scena.axp`. L'effetto resta com'era: quando le variazioni non fanno niente, dal ritorno esce
+  l'effetto bit per bit.
 
-      python3 tools/gills/make_bus.py --fx microcosm_gills.axp --fx chroma_console_gills.axp --out cartella
+  Queste due patch le fa `make_bus.py` dagli effetti di `effetti/`. Se cambi un effetto (o ne aggiungi uno con il suo
+  `panel`), rifalle:
 
-  scrive `microcosm_figo_scena.axp` e `chroma_console_figo_scena.axp` nella cartella (senza `--out`, accanto alle
-  tue). L'effetto resta com'era: quando le variazioni non fanno niente, dal ritorno esce l'effetto bit per bit.
+      python3 tools/gills/make_bus.py
+
+  Con `--fx tua_patch.axp` lavora su un'altra patch e scrive la versione con le variazioni accanto a lei.
 
 ## Le due pagine (con un effetto)
 
@@ -245,9 +251,8 @@ Le patch da sole (`figo_scena.axp`, `figo_scena_aux.axp`) non la usano.
 * `tools/gills/test_bus.cpp`: le patch con Microcosm e Chroma, come le compila il Patcher, accanto all'effetto da solo.
   Controlla che con le variazioni ferme il suono sia identico, bit per bit (anche girando manopole e premendo tasti
   sull'effetto); che la pagina delle variazioni non muova l'effetto; che tornando le manopole riprendano i loro valori;
-  che il CC 115 lanci FIGO anche dalla pagina dell'effetto; che un GESTURE del Chroma continui. Ha bisogno delle tue
-  patch: `tests/run_sagga_tests.sh` lo fa girare con `GILLS_FX=` la cartella che le contiene (`make_bus.py --cpp`
-  scrive il C++ da provare).
+  che il CC 115 lanci FIGO anche dalla pagina dell'effetto; che un GESTURE del Chroma continui. `make_bus.py --cpp`
+  scrive il C++ da provare; `tests/run_sagga_tests.sh` lo fa ogni volta.
 * `tools/gills/armcheck/check_bus.py` (con `KSOLOTI=` una copia del repository di Ksoloti, e se c'è `KOBJ=` una di
   ksoloti-objects) compila e collega le patch per il Cortex-M4 con il linker del firmware, e dice quanta memoria
   prende ciascuna. Lo fa con clang, non con il GCC del Patcher: le misure sono indicative. La prova è che accanto a un

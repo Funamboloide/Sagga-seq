@@ -61,8 +61,8 @@ tabella dei canali in quella sezione la prima volta (deve essere come la matrice
 (`tools/norns/figo/README.md`), sulla Gills carica `scena_aux.axp` se la usi su un bus o `scena.axp` in insert
 (`tools/gills/LEGGIMI.md`).
 **La 0.32.5 è solo della Gills**: FIGO e SCENA insieme (VARIAZIONI). Sul bus carica la patch del tuo effetto con le
-variazioni (`microcosm_figo_scena.axp` o `chroma_console_figo_scena.axp`, fatte da `tools/gills/make_bus.py` dalle tue
-patch), o `figo_scena_aux.axp` da sola. La prima volta con **Live**, guardando il carico DSP; poi **Upload to Internal
+variazioni (`tools/gills/microcosm_figo_scena.axp` o `chroma_console_figo_scena.axp`), o `figo_scena_aux.axp` da
+sola. Gli effetti da soli sono in `tools/gills/effetti/` (Gills) e `tools/norns/effetti/` (norns). La prima volta con **Live**, guardando il carico DSP; poi **Upload to Internal
 Flash** (`tools/gills/LEGGIMI.md`). L'FM-1, il Pi e norns restano come sono.
 
 ## La prima volta sul Pi

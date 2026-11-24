@@ -8,6 +8,8 @@ SDRAM 32 MB: the buffers) and fails if one does not fit. The Patcher compiles wi
 
     KSOLOTI=/path/to/ksoloti [KOBJ=/path/to/ksoloti-objects] python3 tools/gills/armcheck/check_bus.py [--fx X.axp ...]
 
+Without --fx: the effect patches in tools/gills/effetti/.
+
 KOBJ: the Gills' objects (knobs, buttons, screen, LEDs) with their own code; without it, small stand-ins.
 With --fx it also builds the effect patch as it is: clang makes bigger code than GCC (here the effect patches alone
 measure more than 44 kB), so beside an effect the test is that the patch with the variations takes no more of SRAM1
@@ -148,6 +150,9 @@ def main(argv):
         a = rest.pop(0)
         if a == '--fx':
             fxs.append(rest.pop(0))
+    if not fxs:
+        ed = os.path.join(GILLS, 'effetti')
+        fxs = sorted(os.path.join(ed, f) for f in os.listdir(ed) if f.endswith('_gills.axp')) if os.path.isdir(ed) else []
     tmp = tempfile.mkdtemp()
     cmd = [sys.executable, os.path.join(GILLS, 'make_bus.py'), '--out', tmp, '--cpp']
     for fx in fxs:

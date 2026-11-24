@@ -8,17 +8,19 @@ della 0.32.4).
 
 | il pezzo | il file |
 | --- | --- |
-| la Gills con Microcosm, su un bus | `microcosm_figo_scena.axp` (vedi sotto: si fa dalla tua patch) |
-| la Gills con Chroma Console, su un bus | `chroma_console_figo_scena.axp` (lo stesso) |
+| la Gills con Microcosm, su un bus | `tools/gills/microcosm_figo_scena.axp` |
+| la Gills con Chroma Console, su un bus | `tools/gills/chroma_console_figo_scena.axp` |
 | la Gills da sola, su un bus | `tools/gills/figo_scena_aux.axp` |
 | la Gills da sola, in insert | `tools/gills/figo_scena.axp` |
 | SCENA da sola | `tools/gills/scena_aux.axp`, `tools/gills/scena.axp` (rifatte: un click tolto, l'anticipo) |
 | l'FM-1, il Pi, norns | niente da fare |
 
-Le due patch con l'effetto **non sono nel repository**: le patch di Microcosm e Chroma per la Gills sono tue. Le fa
-`tools/gills/make_bus.py` partendo dalle tue:
+Le due patch con l'effetto le fa `tools/gills/make_bus.py` dalle patch di Microcosm e Chroma per la Gills, che adesso
+sono anche loro nel repository (`tools/gills/effetti/`), con le versioni per norns di Microcosmo, Chroma e Caramello
+(`tools/norns/effetti/`).
 
-    python3 tools/gills/make_bus.py --fx microcosm_gills.axp --fx chroma_console_gills.axp --out cartella
+**I numeri delle versioni** sono quelli del repository: salgono a ogni rilascio, anche quando cambia solo un effetto.
+Le patch della Gills e gli script di norns funzionano con qualsiasi versione dell'FM-1 e del Pi.
 
 ## VARIAZIONI
 
