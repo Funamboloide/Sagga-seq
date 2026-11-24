@@ -5,8 +5,11 @@
 
     python3 tools/gills/make_scena.py [OUT.axp] [--cpp TEST.cpp]
 
---cpp also writes the C++ the Ksoloti Patcher generates for the object (a class with Init, dsp, MidiInHandler), to
-compile it against the firmware's headers (tests/run_sagga_tests.sh does it with clang when the headers are there).
+It writes two patches, the same but for the object's attribute `routing`: OUT.axp (insert, the dry passes) and, next
+to it, OUT_aux.axp (aux, for a mixer's send and return: no dry out). In the Patcher the attribute can be changed on
+either. --cpp also writes the C++ the Ksoloti Patcher generates for the object (a class with Init, dsp,
+MidiInHandler), to compile it against the firmware's headers (tests/run_sagga_tests.sh does it with clang when the
+headers are there).
 """
 import os
 import sys
@@ -26,7 +29,8 @@ static int16_t sc_rl[SC_ROLL_N] __attribute__ ((section (".sdram")));
 static int16_t sc_rr[SC_ROLL_N] __attribute__ ((section (".sdram")));
 static float sc_rv[SC_RV_TOTAL] __attribute__ ((section (".sdram")));
 hw_setup();
-sc_init(sc_el, sc_er, sc_rl, sc_rr, sc_rv);'''
+sc_init(sc_el, sc_er, sc_rl, sc_rr, sc_rv);
+routing = attr_routing;'''
 
 KRATE = '''sc_block(inlet_inl, inlet_inr, outlet_outl, outlet_outr);
 outlet_l1 = line[0];
@@ -58,7 +62,14 @@ scena dell'Octatrack: le imposti a casa. MOTO lo fa muovere da solo, a tempo.
 <br>S4 TAP: il tempo, se non arriva il clock MIDI
 <br><br><b>MIDI</b> (qualsiasi canale): clock, start, stop; CC 20 SCENA, CC 21 MOTO, CC 22 ROLL, CC 23 FREEZE, CC 24 RELEASE.
 La manopola si riprende il controllo appena la muovi.
-<br><br>LED 3: blu build-up, rosso break-down. LED 4: blu il battito, rosso ROLL / FREEZE (lampeggia: RELEASE).'''
+<br><br>LED 3: blu build-up, rosso break-down. LED 4: blu il battito, rosso ROLL / FREEZE (lampeggia: RELEASE).
+<br><br><b>routing</b> (l'attributo dell'oggetto scena, nel Patcher; poi di nuovo Upload):
+<br>insert: in serie, il pulito passa (al centro bit per bit). La latenza e' solo quella della scheda, circa 1-2 ms.
+<br>aux (scena_aux.axp): per mandata e ritorno del mixer. Il pulito non esce mai (e' gia' sul mixer: una sua copia
+in ritardo di 1-2 ms farebbe un effetto phaser). Escono il rumore, l'eco e il riverbero, e i loop di ROLL, FREEZE e
+dei fill dalla loro prima ripetizione (il primo passaggio e' il pulito). Filtro e crush agiscono su quello che va
+nell'eco e nel riverbero, e sui loop; il pulito sul mixer resta com'e'. Al centro il ritorno e' muto: sul display
+MANDATA al posto di PULITO.'''
 
 
 def read(name):
@@ -75,7 +86,11 @@ def cdata(s):
     return '<![CDATA[' + s + ']]>'
 
 
-def axp():
+ROUTINGS = ('insert', 'aux')
+
+
+def axp(routing='insert'):
+    assert routing in ROUTINGS
     decl = declaration()
     io = []
     io.append('      <inlets>')
@@ -93,13 +108,29 @@ def axp():
     o.append('   <obj type="audio/in stereo" uuid="99848ad6d90a8e615e83b2e619cfc806f28e7281" name="audio_in" x="14" y="70">')
     o.append('      <params/>\n      <attribs/>\n   </obj>')
     o.append('   <patchobj type="patch/object" uuid="%s" name="scena" x="168" y="70">' % OBJ_UUID)
-    o.append('      <params/>\n      <attribs/>')
+    o.append('      <params/>')
+    o.append('      <attribs>')
+    o.append('         <combo attributeName="routing" selection="%s"/>' % routing)
+    o.append('      </attribs>')
     o.append('      <object id="patch/object" uuid="%s">' % OBJ_UUID)
     o.append('         <sDescription>SCENA: one knob from break-down to build-up (Pioneer RMX-1000 Scene FX, Octatrack scenes)</sDescription>')
     o.append('         <author>SAGGA</author>')
     o.append('         <license>GPL</license>')
     o.extend('   ' + x for x in io)
-    o.append('         <displays/>\n         <params/>\n         <attribs/>\n         <includes/>')
+    o.append('         <displays/>\n         <params/>')
+    o.append('         <attribs>')
+    o.append('            <combo name="routing" description="insert: the dry passes; aux: send and return, no dry out">')
+    o.append('               <MenuEntries>')
+    for r in ROUTINGS:
+        o.append('                  <string>%s</string>' % r)
+    o.append('               </MenuEntries>')
+    o.append('               <CEntries>')
+    for i in range(len(ROUTINGS)):
+        o.append('                  <string>%d</string>' % i)
+    o.append('               </CEntries>')
+    o.append('            </combo>')
+    o.append('         </attribs>')
+    o.append('         <includes/>')
     o.append('         <code.declaration>%s</code.declaration>' % cdata(decl))
     o.append('         <code.init>%s</code.init>' % cdata(INIT))
     o.append('         <code.krate>%s</code.krate>' % cdata(KRATE))
@@ -133,8 +164,9 @@ def axp():
     return '\n'.join(o) + '\n'
 
 
-def patcher_cpp():
-    """the class the Ksoloti Patcher writes for the object (AxoObjectInstance.GenerateClass)"""
+def patcher_cpp(routing='insert'):
+    """the class the Ksoloti Patcher writes for the object (AxoObjectInstance.GenerateClass); the Patcher puts each
+    attribute's C value in place of attr_<name> everywhere in the code"""
     args = ['const int32buffer inlet_inl', 'const int32buffer inlet_inr', 'int32buffer &outlet_outl',
             'int32buffer &outlet_outr', 'char* &outlet_l1', 'char* &outlet_l2', 'char* &outlet_l3', 'char* &outlet_l4']
     return '''/* the Patcher's shape for the SCENA object (make_scena.py --cpp) */
@@ -164,7 +196,7 @@ extern "C" void scena_entry(void) {
     scena_i.dsp(t_in_l, t_in_r, t_out_l, t_out_r, t_l1, t_l2, t_l3, t_l4);
     scena_i.MidiInHandler(MIDI_DEVICE_DIN, 0, 0xF8, 0, 0);
 }
-''' % (declaration(), INIT, ', '.join(args), KRATE, MIDI)
+''' % (declaration(), INIT.replace('attr_routing', str(ROUTINGS.index(routing))), ', '.join(args), KRATE, MIDI)
 
 
 def main(argv):
@@ -178,12 +210,21 @@ def main(argv):
         else:
             out = a
     with open(out, 'w') as f:
-        f.write(axp())
+        f.write(axp('insert'))
     print('wrote %s' % out)
+    root, ext = os.path.splitext(out)
+    out_aux = root + '_aux' + (ext or '.axp')
+    with open(out_aux, 'w') as f:
+        f.write(axp('aux'))
+    print('wrote %s' % out_aux)
     if cpp:
         with open(cpp, 'w') as f:
             f.write(patcher_cpp())
         print('wrote %s' % cpp)
+        croot, cext = os.path.splitext(cpp)
+        with open(croot + '_aux' + (cext or '.cpp'), 'w') as f:
+            f.write(patcher_cpp('aux'))
+        print('wrote %s' % (croot + '_aux' + (cext or '.cpp')))
     return 0
 
 

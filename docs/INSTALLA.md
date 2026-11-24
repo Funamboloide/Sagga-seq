@@ -8,7 +8,8 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**, con una eccezione: **la 0.32.2 e la 0.32.3 sono solo del Pi**. L'FM-1 resta
+I due file vanno **della stessa versione**, con una eccezione: **la 0.32.2 e la 0.32.3 sono solo del Pi** (e la 0.32.4 solo
+di FIGO e SCENA). L'FM-1 resta
 alla 0.32.1 (`sagga-0.32.1.fwsc`, quello che hai già dentro) e sul Pi va `sagga-hub-0.32.3.zip`. Il manuale d'uso è il documento
 "SAGGA SEQ 0.32 — Il manuale" (vale per la 0.32.1); il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
@@ -56,6 +57,9 @@ vecchio.
 **La 0.32.3 è solo del Pi** anche lei: fai solo il passo 1 (`sagga-hub-0.32.3.zip`). Porta **DA ABLETON** sulla pagina:
 i clip MIDI esportati da Ableton diventano un progetto a passi, ogni parte sul canale della sua macchina. Controlla la
 tabella dei canali in quella sezione la prima volta (deve essere come la matrice di RaspiMIDIHub).
+**La 0.32.4 non tocca né l'FM-1 né il Pi**: cambiano solo gli effetti del live. Su norns copia il nuovo `figo.lua`
+(`tools/norns/figo/README.md`), sulla Gills carica `scena_aux.axp` se la usi su un bus o `scena.axp` in insert
+(`tools/gills/LEGGIMI.md`).
 
 ## La prima volta sul Pi
 

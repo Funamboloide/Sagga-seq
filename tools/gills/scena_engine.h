@@ -3,6 +3,12 @@
  * (centre) to a build-up (right), like the Scene FX of a Pioneer RMX-1000, with the depth of every part set once on
  * the other nine knobs, like a scene of an Octatrack; MOTO makes it move by itself, in time (MIDI clock or tap).
  *
+ * routing (the object's attribute in the Patcher; scena_aux.axp has it set): 0 insert, the dry passes (bit for bit in
+ * the centre). 1 aux, for a mixer's send and return: the dry is on the mixer already, so it never comes out here (a
+ * copy of it a millisecond or two late would comb the sound like a phaser). Out come the noise, the echo and the
+ * reverb, and the loops of ROLL, FREEZE and the fills from their first repeat on (their first pass is the dry). The
+ * filter and the crush shape what goes into the echo and the reverb, and the loops.
+ *
  * Platform: hw_adc(i), hw_btn(i), hw_led(i, on), hw_setup() come from the patch (scena_platform.h) or the test.
  * No libm, no printf, no doubles: the Cortex-M4 has a single-precision FPU and the patch links almost nothing.
  * SPDX-License-Identifier: GPL-3.0-only */
@@ -130,11 +136,17 @@ int rv_idx[12];
 int rv_len[12];
 int rv_base[12];
 
+/* the routing: 0 insert, 1 aux (no dry out) */
+int routing;
+ScSvf f2_l, f2_r;                        /* aux: the loop's own filter (the dry has f_l, f_r, for the sends) */
+float crush2_hl, crush2_hr;              /* aux: the loop's own crush hold */
+
 /* the loop player (ROLL, FREEZE, the fills) */
 int lp;                                  /* 0 off, 1 waiting for its start, 2 playing, 3 waiting for its end */
 int lp_kind;                             /* 1 roll, 2 freeze, 3 fill */
 uint32_t lp_start;
 float lp_len, lp_full, lp_pos, lp_rate, lp_gain, lp_gain_t;
+float lp_open;                           /* aux: 0 in the loop's first pass (the dry), 1 from its first repeat */
 int lp_passes;
 int32_t lp_end16;
 int roll_div;                            /* sixteenths of a beat: 2 = 1/8, 1 = 1/16; 0 = 1/32 */
@@ -229,6 +241,10 @@ void sc_init(int16_t *el, int16_t *er, int16_t *rl, int16_t *rr, float *rvb) {
     fill = 0; fill_end16 = 0; throw_amt = 0.f; dip_amt = dip_t = 0.f;
     ScSvf z = {0.f, 0.f};
     f_l = f_r = fb_l = fb_r = n_l = n_r = z;
+    routing = 0;
+    f2_l = f2_r = z;
+    crush2_hl = crush2_hr = 0.f;
+    lp_open = 0.f;
     sc_svf_set(f_c, 20000.f, 0.707f); sc_svf_set(fb_c, 8000.f, 0.707f); sc_svf_set(n_c, 1000.f, 0.707f);
     filt_mix = filt_mix_t = 0.f; filt_hp = false;
     crush_amt = 0.f; crush_rate = 1.f; crush_q = 0.f; crush_ph = 0.f; crush_hl = crush_hr = 0.f;
@@ -360,6 +376,7 @@ void loop_start(int kind, float len, bool past) {
     lp_start = past ? (roll_w - (uint32_t)lp_len) : roll_w;           /* past: the beat just gone; else from now */
     lp_pos = 0.f; lp_rate = 1.f; lp_passes = past ? 1 : 0;
     lp_gain_t = 1.f;
+    lp_open = 0.f;
     lp = 2;
 }
 void loop_stop() { lp_gain_t = 0.f; lp = 3; }
@@ -542,6 +559,7 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
     const float IN = 1.f / 134217728.f, OUT = 134217728.f;
     for (int j = 0; j < SC_BS; j++) {
         float xl = inl[j] * IN, xr = inr[j] * IN;
+        float wl = 0.f, wr = 0.f;                                    /* aux: the loop alone, what comes out */
         /* the roll buffer: the input, always (paused while a loop holds its slice) */
         if (roll_rec) {
             roll_w = (roll_w + 1) & (SC_ROLL_N - 1);
@@ -564,7 +582,12 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
                 }
             }
             lp_gain += (lp_gain_t - lp_gain) * 0.02f;
-            xl += lp_gain * (yl - xl); xr += lp_gain * (yr - xr);
+            xl += lp_gain * (yl - xl); xr += lp_gain * (yr - xr);   /* (aux: what goes to the echo and the reverb) */
+            if (routing) {                                           /* aux: out from its first repeat (1 ms in) */
+                lp_open += ((lp_passes > 0 ? 1.f : 0.f) - lp_open) * 0.02f;
+                float g = lp_gain * lp_open;
+                wl = g * yl; wr = g * yr;
+            }
             lp_pos += lp_rate;
             if (lp_pos >= lp_len) { while (lp_pos >= lp_len) lp_pos -= lp_len; lp_passes++; }
             else if (lp_pos < 0.f) { while (lp_pos < 0.f) lp_pos += lp_len; lp_passes++; }
@@ -579,6 +602,14 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
             float yl = filt_hp ? hl : ll, yr = filt_hp ? hr : lr;
             xl += filt_mix * (yl - xl); xr += filt_mix * (yr - xr);
         }
+        if (routing) {                                               /* aux: the loop through the same filter */
+            float b2l, h2l, b2r, h2r;
+            float l2l = sc_svf(f2_l, f_c, wl, &b2l, &h2l), l2r = sc_svf(f2_r, f_c, wr, &b2r, &h2r);
+            if (filt_mix > 0.0001f) {
+                float yl = filt_hp ? h2l : l2l, yr = filt_hp ? h2r : l2r;
+                wl += filt_mix * (yl - wl); wr += filt_mix * (yr - wr);
+            }
+        }
         /* the crush */
         if (crush_amt > 0.001f) {
             crush_ph += crush_rate;
@@ -586,16 +617,25 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
                 crush_ph -= 1.f;
                 crush_hl = (float)(int32_t)(xl * crush_q) / crush_q;
                 crush_hr = (float)(int32_t)(xr * crush_q) / crush_q;
+                if (routing) {
+                    crush2_hl = (float)(int32_t)(wl * crush_q) / crush_q;
+                    crush2_hr = (float)(int32_t)(wr * crush_q) / crush_q;
+                }
             }
             xl += crush_amt * (crush_hl - xl); xr += crush_amt * (crush_hr - xr);
+            if (routing) { wl += crush_amt * (crush2_hl - wl); wr += crush_amt * (crush2_hr - wr); }
         }
         /* the noise */
+        float nl = 0.f, nr = 0.f;
         if (noise_lvl > 0.0001f) {
             float h1, h2;
             sc_svf(n_l, n_c, sc_noise(), 0, &h1);
             sc_svf(n_r, n_c, sc_noise(), 0, &h2);
-            xl += noise_lvl * h1; xr += noise_lvl * h2;
+            nl = noise_lvl * h1; nr = noise_lvl * h2;
+            xl += nl; xr += nr;
         }
+        /* what goes into the echo and the reverb: what an insert would give (the loop in place of the dry) */
+        float sl = xl, sr = xr;
         /* the echo: ping-pong a little, filtered in the loop, soft-clipped so it never runs away */
         send += (send_t - send) * 0.001f;
         fbk += (fbk_t - fbk) * 0.0005f;
@@ -605,19 +645,19 @@ void sc_block(const int32_t *inl, const int32_t *inr, int32_t *outl, int32_t *ou
         if (b_side()) { sc_svf(fb_l, fb_c, dl, 0, &el); sc_svf(fb_r, fb_c, dr, 0, &er); }
         else { el = sc_svf(fb_l, fb_c, dl, 0, 0); er = sc_svf(fb_r, fb_c, dr, 0, 0); }
         echo_w = (echo_w + 1) & (SC_ECHO_N - 1);
-        echo_l[echo_w] = sc_s16(sc_soft(send * xl + fbk * (0.7f * el + 0.3f * er)));
-        echo_r[echo_w] = sc_s16(sc_soft(send * xr + fbk * (0.7f * er + 0.3f * el)));
+        echo_l[echo_w] = sc_s16(sc_soft(send * sl + fbk * (0.7f * el + 0.3f * er)));
+        echo_r[echo_w] = sc_s16(sc_soft(send * sr + fbk * (0.7f * er + 0.3f * el)));
         /* the reverb */
         rv_send += (rv_send_t - rv_send) * 0.0005f;
         float rvl = 0.f, rvr = 0.f;
         if (rv_send > 0.0005f || rv_tail > 0) {
-            float rin = (xl + xr) * 0.5f * rv_send * 0.3f;
+            float rin = (sl + sr) * 0.5f * rv_send * 0.3f;
             for (int c = 0; c < 4; c++) { rvl += rv_comb(c, rin, 0.84f, 0.3f); rvr += rv_comb(6 + c, rin, 0.84f, 0.3f); }
             rvl = rv_ap(5, rv_ap(4, rvl)); rvr = rv_ap(11, rv_ap(10, rvr));
             rv_tail = rv_send > 0.0005f ? 3 * SC_SR : rv_tail - 1;
         }
-        float ol = xl + ret * (dl + rvl * 0.5f);
-        float orr = xr + ret * (dr + rvr * 0.5f);
+        float ol = (routing ? wl + nl : xl) + ret * (dl + rvl * 0.5f);   /* aux: no dry */
+        float orr = (routing ? wr + nr : xr) + ret * (dr + rvr * 0.5f);
         outl[j] = (int32_t)(sc_clamp(ol, -1.f, 0.9999999f) * OUT);
         outr[j] = (int32_t)(sc_clamp(orr, -1.f, 0.9999999f) * OUT);
     }
@@ -657,7 +697,7 @@ void screen() {
     for (int i = 0; i < 4; i++) sc_clear(line[i]);
     int s = (int)(scene * 100.f + (scene >= 0.f ? 0.5f : -0.5f));
     if (released) sc_puts(line[0], "RELEASE", 0);
-    else if (s == 0) sc_puts(line[0], "PULITO", 0);
+    else if (s == 0) sc_puts(line[0], routing ? "MANDATA" : "PULITO", 0);
     else { sc_puts(line[0], s > 0 ? "BUILD" : "BREAK", 0); sc_num(line[0], s > 0 ? s : -s, 10); }
     int bpm10 = (int)(SC_SR * 600.f / beat_len + 0.5f);
     sc_num(line[1], bpm10 / 10, 2);
