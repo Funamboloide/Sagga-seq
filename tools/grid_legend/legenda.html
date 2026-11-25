@@ -1,0 +1,388 @@
+<!doctype html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<title>SAGGA GRID · legenda</title>
+<style>
+@page { size: 297mm 210mm; margin: 0; }
+:root {
+  --bg: #f1ede4; --ink: #1c2025; --muted: #5c626b; --panel: #fbfaf6; --edge: #dcd4c4;
+  --body: #22252b; --pad: #3b4049; --pad-off: #2a2e35; --btn: #363b44; --shift: #dd6a28; --tag: #e6dfd0;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; background: var(--bg); }
+body { font-family: Inter, "DejaVu Sans", sans-serif; color: var(--ink); font-feature-settings: "tnum" 1, "cv11" 1;
+       -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+a { color: inherit; text-decoration: none; }
+.page { position: relative; width: 1122px; height: 793px; overflow: hidden; background: var(--bg);
+        break-after: page; page-break-after: always; }
+.page:last-child { break-after: auto; page-break-after: auto; }
+.wires { position: absolute; left: 0; top: 0; pointer-events: none; overflow: visible; }
+.sh { color: var(--shift); font-weight: 700; }
+code { font-family: "DejaVu Sans Mono", monospace; font-size: 0.88em; background: var(--tag); padding: 0 4px;
+       border-radius: 4px; }
+.foot { position: absolute; left: 36px; right: 36px; bottom: 16px; display: flex; justify-content: space-between;
+        font-size: 12px; color: var(--muted); }
+.foot a { font-weight: 700; color: var(--ink); }
+
+/* page 1 */
+.p1h { position: absolute; left: 36px; top: 26px; width: 1050px; }
+.p1h h1 { margin: 0; font-size: 34px; font-weight: 800; letter-spacing: -0.3px; }
+.p1h p { margin: 6px 0 0; font-size: 15px; color: var(--muted); line-height: 1.4; }
+.stage { position: absolute; left: 36px; top: 128px; width: 1434px; height: 640px; }
+.dev { position: absolute; background: linear-gradient(160deg, #2a2e35, var(--body)); border-radius: 22px;
+       box-shadow: 0 2px 0 #111317, 0 12px 26px rgba(0,0,0,.18); }
+.usb { position: absolute; background: #9aa0a8; border-radius: 3px; }
+.pad { position: absolute; border-radius: 7px; background: linear-gradient(150deg, #454b55, var(--pad)); }
+.btn { position: absolute; border-radius: 50%; background: var(--btn); color: #d9dde3; font-weight: 700;
+       display: flex; align-items: center; justify-content: center; font-size: 14px;
+       box-shadow: inset 0 -2px 0 rgba(0,0,0,.4), 0 0 0 2px #4a505a; }
+.btn.top { font-size: 16px; }
+.btn.shiftbtn { box-shadow: inset 0 -2px 0 rgba(0,0,0,.4), 0 0 0 3px var(--shift); }
+.nm { position: absolute; font-size: 19px; font-weight: 800; text-align: center; white-space: nowrap; }
+.side { position: absolute; font-size: 18px; line-height: 24px; }
+.side b { display: block; font-size: 19px; }
+.bracket { position: absolute; border: 3px solid #3a3f47; }
+.nav { position: absolute; background: rgba(250,248,242,.97); border-radius: 16px; padding: 22px 28px;
+       box-shadow: 0 8px 24px rgba(0,0,0,.35); }
+.nav h2 { margin: 0 0 12px; font-size: 25px; }
+.nav table { border-collapse: collapse; font-size: 20px; }
+.nav td { padding: 5px 10px 5px 0; white-space: nowrap; }
+.nav td.gap { padding-left: 30px; }
+.nav .v { font-weight: 700; }
+.nav .v a { border-bottom: 2px solid #c9c0ae; }
+.nav .fine { margin-top: 10px; font-size: 16px; color: var(--muted); line-height: 1.4; }
+.key { display: inline-block; border-radius: 12px; background: var(--body); color: #fff; font-weight: 700;
+       font-size: 0.78em; padding: 1px 9px; margin-right: 3px; vertical-align: 1px; }
+.key.sk { background: var(--shift); }
+.notes { position: absolute; left: 36px; top: 612px; width: 1050px; display: grid;
+         grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.note { background: var(--panel); border: 1px solid var(--edge); border-radius: 10px; padding: 10px 12px;
+        font-size: 13px; line-height: 18px; }
+.note b { display: block; font-size: 14px; margin-bottom: 3px; }
+
+/* page 2 */
+.ph2 { position: absolute; left: 36px; top: 26px; width: 1050px; }
+.ph2 h2 { margin: 0; font-size: 30px; font-weight: 800; }
+.ph2 p { margin: 5px 0 0; font-size: 15px; color: var(--muted); }
+.bt { position: absolute; left: 36px; top: 98px; width: 1050px; border-collapse: collapse; font-size: 14px;
+      line-height: 19px; }
+.bt th { text-align: left; font-size: 12px; text-transform: uppercase; letter-spacing: .5px; color: var(--muted);
+         padding: 0 10px 6px 0; border-bottom: 2px solid var(--ink); }
+.bt td { padding: 4px 12px 4px 0; border-bottom: 1px solid var(--edge); vertical-align: middle; }
+.bt td.n { font-weight: 800; white-space: nowrap; font-size: 15px; }
+.bt td.i { width: 88px; }
+.bt td.i svg { display: block; }
+.bt th:nth-child(2) { width: 132px; }
+.bt th:nth-child(3) { width: 520px; }
+.idx { position: absolute; left: 36px; width: 1050px; font-size: 14px; line-height: 22px; }
+.idx b { margin-right: 8px; }
+.idx a { display: inline-block; margin-right: 14px; white-space: nowrap; }
+.idx a span { color: var(--muted); margin-left: 3px; }
+
+/* the view pages */
+.vh { position: absolute; left: 36px; top: 24px; width: 1050px; display: flex; align-items: center; gap: 14px; }
+.vh h2 { margin: 0; font-size: 34px; font-weight: 800; }
+.vh .how { font-size: 16px; font-weight: 600; }
+.vh .w { font-size: 16px; color: var(--muted); }
+.vh .mini { margin-left: auto; }
+.sect { position: absolute; left: 36px; top: 72px; font-size: 13px; color: var(--muted); font-weight: 600; }
+.gwrap { position: absolute; left: 36px; padding: 20px 0 0 22px; }
+.mg { display: grid; grid-template-columns: repeat(16, 26px); grid-auto-rows: 26px; gap: 4px; padding: 10px;
+      background: var(--body); border-radius: 11px; }
+.mp { border-radius: 4px; background: var(--pad-off); }
+.colno { position: absolute; top: 0; left: 32px; display: grid; grid-template-columns: repeat(16, 26px); gap: 4px;
+         font-size: 12px; color: var(--muted); text-align: center; font-weight: 600; }
+.rowno { position: absolute; left: 0; top: 30px; display: grid; grid-auto-rows: 26px; gap: 4px; font-size: 12px;
+         color: var(--muted); font-weight: 600; width: 16px; text-align: right; line-height: 26px; }
+.b2 { position: absolute; border: 2px dashed #f4f0e6; border-radius: 6px; }
+.vfoot { margin-top: 14px; font-size: 13.5px; color: var(--muted); line-height: 1.45; width: 500px; }
+.labs { position: absolute; left: 612px; width: 474px; display: flex; flex-direction: column; gap: 9px; }
+.pl { font-size: 15px; line-height: 20px; }
+.tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 0 8px; border-radius: 9px;
+       background: var(--tag); color: #4a4f57; margin-right: 6px; line-height: 19px; vertical-align: 1px; }
+.tag.dk { background: #2b2f36; color: #f1ede4; }
+.lead { margin-right: 6px; }
+.chip { margin-right: 10px; }
+.nb { white-space: nowrap; }
+.sw { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+.rng { font-weight: 700; margin-right: 3px; }
+.pnote { color: var(--muted); display: block; margin-top: 1px; }
+</style>
+</head>
+<body>
+<div id="book"></div>
+<script src="legend_data.js"></script>
+<script>
+const PALETTE = ["#27a596", "#e1a23a", "#9a7ce4", "#e0607e", "#86bf3e", "#4b9fe6", "#e5793b", "#cf6ad4",
+                 "#c2a96f", "#6d84d8", "#3fbfd0", "#d9c34a"];
+const PW = 1122, PH = 793;
+const NS = "http://www.w3.org/2000/svg";
+const VIEWS = [];
+for (const s of SECTIONS) for (const v of s.views) VIEWS.push(Object.assign({section: s.title}, v));
+const PAGE_OF = {};
+VIEWS.forEach((v, i) => { PAGE_OF[v.key] = i + 3; });
+const NPAGES = VIEWS.length + 2;
+const NUMW = ["", "", "due volte", "tre volte", "quattro volte"];
+
+function el(tag, cls, parent, html) {
+  const e = document.createElement(tag);
+  if (cls) e.className = cls;
+  if (html !== undefined) e.innerHTML = html;
+  if (parent) parent.appendChild(e);
+  return e;
+}
+function esc(s) { return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
+function fmt(s) {
+  return esc(s).replace(/SHIFT(?=:| \+)/g, '<span class="sh">SHIFT</span>')
+    .replace(/ %/g, "&nbsp;%").replace(/([÷×]) /g, "$1&nbsp;").replace(/ ([÷×])/g, "&nbsp;$1")
+    .replace(/--frame/g, "<code>--frame</code>");
+}
+function rng(a, b) { return a === b ? String(a) : a + "–" + b; }
+function box(e, x, y, w, h) {
+  e.style.left = x + "px"; e.style.top = y + "px";
+  if (w !== undefined) e.style.width = w + "px";
+  if (h !== undefined) e.style.height = h + "px";
+}
+function vid(key) { return "v-" + key.replace(/ /g, "_"); }
+function vlink(key) { return '<a href="#' + vid(key) + '">' + esc(key) + "</a>"; }
+function keys(ks) { return ks.map(k => '<span class="key' + (k === "SHIFT" ? " sk" : "") + '">' + k + "</span>").join(""); }
+
+function newPage(n, id) {
+  const p = el("section", "page", document.getElementById("book"));
+  p.id = id || "p-" + n;
+  const svg = document.createElementNS(NS, "svg");
+  svg.setAttribute("class", "wires");
+  svg.setAttribute("width", PW); svg.setAttribute("height", PH);
+  svg.innerHTML = '<defs><marker id="ah' + n + '" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" ' +
+    'markerHeight="8" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a3f47"/></marker></defs>';
+  p.appendChild(svg);
+  p._wires = [];
+  p._n = n;
+  const f = el("div", "foot", p);
+  el("span", "", f, "SAGGA GRID · legenda" + (n > 1 ? ' &nbsp;·&nbsp; <a href="#p-1">↩ la mappa</a>' : ""));
+  el("span", "", f, n + " / " + NPAGES);
+  return p;
+}
+function wire(p, d, dot, arrow = true) { p._wires.push({d, dot, arrow}); }
+function drawWires(p) {
+  const svg = p.querySelector("svg.wires");
+  for (const w of p._wires) {
+    const o = typeof w.d === "function" ? w.d() : w;
+    if (!o) continue;
+    const path = document.createElementNS(NS, "path");
+    path.setAttribute("d", o.d);
+    path.setAttribute("fill", "none"); path.setAttribute("stroke", "#3a3f47"); path.setAttribute("stroke-width", "2");
+    path.setAttribute("stroke-linejoin", "round");
+    if (o.arrow !== false) path.setAttribute("marker-end", "url(#ah" + p._n + ")");
+    svg.appendChild(path);
+    if (o.dot) {
+      const c = document.createElementNS(NS, "circle");
+      c.setAttribute("cx", o.dot[0]); c.setAttribute("cy", o.dot[1]); c.setAttribute("r", "3.5");
+      c.setAttribute("fill", "#3a3f47");
+      svg.appendChild(c);
+    }
+  }
+}
+
+/* a small picture of the frame with some buttons in orange */
+function miniFrame(ids, w = 104) {
+  const hs = new Set(ids);
+  let s = '<svg xmlns="' + NS + '" width="' + w + '" height="' + Math.round(w * 62 / 116) + '" viewBox="0 0 116 62">';
+  s += '<rect x="0.5" y="0.5" width="57" height="61" rx="6" fill="#22252b"/>';
+  s += '<rect x="58.5" y="0.5" width="57" height="61" rx="6" fill="#22252b"/>';
+  s += '<rect x="10" y="10" width="96" height="48" rx="2" fill="#3b4049"/>';
+  const dot = (x, y, id) => {
+    const on = hs.has(id);
+    s += '<circle cx="' + x + '" cy="' + y + '" r="' + (on ? 3 : 1.8) + '" fill="' + (on ? "#dd6a28" : "#8a9099") + '"/>';
+  };
+  for (let i = 0; i < 16; i++) dot(13 + 6 * i, 5, i);
+  for (let j = 0; j < 8; j++) dot(5, 13 + 6 * j, 16 + j);
+  for (let j = 0; j < 8; j++) dot(111, 13 + 6 * j, 24 + j);
+  return s + "</svg>";
+}
+
+/* ---------------- page 1: the map ---------------- */
+function pageMap() {
+  const p = newPage(1);
+  const h = el("div", "p1h", p);
+  el("h1", "", h, "SAGGA GRID · legenda");
+  el("p", "", h, fmt(SUBTITLE) + " Tocca il nome di una vista per andare alla sua pagina.");
+
+  const S = 1050 / 1434;
+  const st = el("div", "stage", p);
+  const PAD = 46, GAP = 8, PITCH = 54, SPAN = 424, BTN = 34, LANE = 36;
+  const X0 = 270, Y0 = 186, X1 = X0 + SPAN + 46, BTN_Y = Y0 - LANE;
+  const top = Y0 - 70, bottom = Y0 + SPAN + 18;
+  const d1 = el("div", "dev", st); box(d1, X0 - 70, top, SPAN + 88, bottom - top);
+  const d2 = el("div", "dev", st); box(d2, X1 - 18, top, SPAN + 88, bottom - top);
+  box(el("div", "usb", st), X0 - 70 + 26, top - 7, 30, 8);
+  box(el("div", "usb", st), X1 + SPAN + 70 - 1, top + 34, 8, 30);
+  for (const x of [X0, X1]) for (let r = 0; r < 8; r++) for (let c = 0; c < 8; c++)
+    box(el("div", "pad", st), x + c * PITCH, Y0 + r * PITCH, PAD, PAD);
+  const bxy = id => id < 8 ? [X0 + 23 + PITCH * id, BTN_Y] : id < 16 ? [X1 + 23 + PITCH * (id - 8), BTN_Y]
+    : id < 24 ? [X0 - LANE, Y0 + 23 + PITCH * (id - 16)] : [X1 + SPAN + LANE, Y0 + 23 + PITCH * (id - 24)];
+  for (let id = 0; id < 32; id++) {
+    const [cx, cy] = bxy(id);
+    const txt = id < 8 ? String(id) : id < 16 ? "T" + (id - 7) : id < 24 ? "P" + (id - 15) : "S" + (id - 23);
+    box(el("div", "btn" + (id < 8 ? " top" : "") + (id === 7 ? " shiftbtn" : ""), st, txt), cx - BTN / 2, cy - BTN / 2, BTN, BTN);
+  }
+  // the names of buttons 0-7, on two rows so that they never touch
+  const sw = [];   // wires in stage coordinates, drawn in an svg inside the stage
+  for (let i = 0; i < 8; i++) {
+    const [cx] = bxy(i);
+    const nb = i % 2 ? 66 : 100;
+    const n = el("div", "nm", st, SHORT_NAMES[i]);
+    n.style.left = "0px"; n.style.top = (nb - 26) + "px";
+    n.style.left = (cx - n.offsetWidth / 2) + "px";
+    sw.push(`M${cx},${nb + 2} V${BTN_Y - BTN / 2 - 4}`);
+  }
+  // tracks, patterns, scenes
+  const tl = el("div", "side", st, "<b>8–15 · le tracce 1–8 del banco</b>");
+  tl.style.textAlign = "center"; box(tl, X1, 50, SPAN);
+  const br = el("div", "bracket", st); box(br, X1 + 4, 98, SPAN - 8, 10);
+  br.style.borderBottom = "none"; br.style.borderRadius = "6px 6px 0 0";
+  sw.push(`M${X1 + SPAN / 2},${78} V${96}`);
+  const mid = Y0 + SPAN / 2;
+  const pl = el("div", "side", st, "<b>16–23</b>i pattern 1–8 della traccia selezionata");
+  box(pl, 0, 0, 150); pl.style.top = (mid - pl.offsetHeight / 2) + "px";
+  const pb = el("div", "bracket", st); box(pb, 176, Y0 + 4, 10, SPAN - 8);
+  pb.style.borderRight = "none"; pb.style.borderRadius = "6px 0 0 6px";
+  sw.push(`M156,${mid} H${172}`);
+  const sl = el("div", "side", st, "<b>24–31</b>le scene 1–8 del banco del cursore");
+  box(sl, 1284, 0, 150); sl.style.top = (mid - sl.offsetHeight / 2) + "px";
+  const sb = el("div", "bracket", st); box(sb, X1 + SPAN + 70 + 12, Y0 + 4, 10, SPAN - 8);
+  sb.style.borderLeft = "none"; sb.style.borderRadius = "0 6px 6px 0";
+  sw.push(`M1280,${mid} H${X1 + SPAN + 70 + 26}`);
+  // the map of the views, in the pads
+  const nc = el("div", "nav", st);
+  box(nc, X0 + 34, Y0 + 30, (X1 + SPAN - 34) - (X0 + 34));
+  el("h2", "", nc, "I 128 pad cambiano con la vista");
+  const tb = el("table", "", nc);
+  const chain = s => s.replace("*", "").split(" → ").map(k => vlink(k)).join(" → ") + (s.includes("*") ? "*" : "");
+  for (const [k1, v1, k2, v2] of NAV) {
+    const tr = el("tr", "", tb);
+    el("td", "", tr, keys(k1)); el("td", "v", tr, chain(v1));
+    el("td", "gap", tr, keys(k2)); el("td", "v", tr, chain(v2));
+  }
+  el("div", "fine", nc, "→ premi di nuovo lo stesso tasto &nbsp;·&nbsp; * REGIA solo quando il regista del Pi ha parlato");
+  const ssvg = document.createElementNS(NS, "svg");
+  ssvg.setAttribute("width", 1434); ssvg.setAttribute("height", 640);
+  ssvg.setAttribute("style", "position:absolute;left:0;top:0;overflow:visible");
+  ssvg.innerHTML = '<defs><marker id="ahs" viewBox="0 0 10 10" refX="8.5" refY="5" markerWidth="8" markerHeight="8" ' +
+    'orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#3a3f47"/></marker></defs>' +
+    sw.map(d => '<path d="' + d + '" fill="none" stroke="#3a3f47" stroke-width="2.5" marker-end="url(#ahs)"/>').join("");
+  st.appendChild(ssvg);
+  st.style.zoom = S;      // zoom, not transform: the layout box must fit the page, or Chromium shrinks the PDF
+
+  const notes = el("div", "notes", p);
+  for (const n of NOTES) el("div", "note", notes, "<b>" + esc(n.h) + "</b>" + fmt(n.t));
+}
+
+/* ---------------- page 2: the 32 buttons ---------------- */
+function pageButtons() {
+  const p = newPage(2);
+  const h = el("div", "ph2", p);
+  el("h2", "", h, "I 32 tasti tondi");
+  el("p", "", h, "Fanno sempre la stessa cosa, in ogni vista. Da fermo, pattern e scene cambiano subito. Il disegnino " +
+     "dice dove sono: in arancio.");
+  const t = el("table", "bt", p);
+  t.innerHTML = "<tr><th></th><th>tasto</th><th>da solo</th><th>con SHIFT</th></tr>";
+  for (const [ids, name, alone, shift] of BUTTON_TABLE) {
+    const tr = el("tr", "", t);
+    el("td", "i", tr, miniFrame(ids, 76));
+    el("td", "n", tr, esc(name));
+    el("td", "", tr, fmt(alone));
+    el("td", "", tr, shift ? fmt(shift) : "—");
+  }
+  const idx = el("div", "idx", p);
+  idx.style.top = (98 + t.offsetHeight + 14) + "px";
+  idx.innerHTML = "<b>Le viste, pagina per pagina:</b>" +
+    VIEWS.map(v => '<a href="#' + vid(v.key) + '">' + esc(v.key) + "<span>p. " + PAGE_OF[v.key] + "</span></a>").join("");
+}
+
+/* ---------------- the views, one a page ---------------- */
+function pageView(v) {
+  const n = PAGE_OF[v.key];
+  const p = newPage(n, vid(v.key));
+  const hd = el("div", "vh", p);
+  el("h2", "", hd, esc(v.key));
+  const [b, s, times] = KEYS[v.key];
+  el("span", "how", hd, "premi " + keys(s ? ["SHIFT", String(b)] : [String(b)]) + (NUMW[times] ? " " + NUMW[times] : ""));
+  el("span", "w", hd, esc(v.what));
+  el("span", "mini", hd, miniFrame(s ? [b, 7] : [b], 96));
+  el("div", "sect", p, esc(v.section));
+
+  const gw = el("div", "gwrap", p);
+  const cn = el("div", "colno", gw);
+  for (let c = 1; c <= 16; c++) el("div", "", cn, String(c));
+  const rn = el("div", "rowno", gw);
+  for (let r = 1; r <= 8; r++) el("div", "", rn, String(r));
+  const mg = el("div", "mg", gw);
+  const pads = [];
+  for (let r = 0; r < 8; r++) { pads.push([]); for (let c = 0; c < 16; c++) pads[r].push(el("div", "mp", mg)); }
+  if (v.foot) el("div", "vfoot", gw, fmt(v.foot));
+
+  const labs = el("div", "labs", p);
+  let ci = 0;
+  const L = [];
+  for (const g of v.groups) {
+    const d = el("div", "pl", labs);
+    let h = '<span class="tag">' + (g.r[0] === g.r[1] ? "riga " + g.r[0] : "righe " + rng(g.r[0], g.r[1])) + "</span>";
+    if (g.bank2) h += '<span class="tag dk">banco 2</span>';
+    if (g.lead) h += '<span class="lead">' + fmt(g.lead) + "</span>";
+    for (const [a, bb, text] of g.segs) {
+      const col = PALETTE[ci++ % PALETTE.length];
+      for (let r = g.r[0] - 1; r < g.r[1]; r++) for (let c = a - 1; c < bb; c++) pads[r][c].style.background = col;
+      const range = (a === 1 && bb === 16) ? "" : '<span class="rng">' + rng(a, bb) + "</span>";
+      const cut = text.indexOf(" "), first = cut < 0 ? text : text.slice(0, cut), rest = cut < 0 ? "" : text.slice(cut);
+      h += '<span class="chip"><span class="nb"><span class="sw" style="background:' + col + '"></span>' + range +
+           fmt(first) + "</span>" + fmt(rest) + "</span>";
+    }
+    if (g.note) h += '<span class="pnote">' + fmt(g.note) + "</span>";
+    d.innerHTML = h;
+    L.push([d, g]);
+  }
+  // fit: the labels between the header and the footer, smaller type only if they do not fit
+  const TOP = 104, BOTTOM = PH - 46;
+  let fs = 15;
+  while (labs.offsetHeight > BOTTOM - TOP && fs > 11.5) {
+    fs -= 0.5;
+    labs.querySelectorAll(".pl").forEach(e => { e.style.fontSize = fs + "px"; e.style.lineHeight = (fs + 5) + "px"; });
+  }
+  const lh = labs.offsetHeight, gh = gw.offsetHeight;
+  const mid = TOP + (BOTTOM - TOP) / 2;
+  labs.style.top = Math.max(TOP, mid - lh / 2) + "px";
+  gw.style.top = Math.max(TOP - 8, mid - gh / 2 - 10) + "px";
+
+  if (v.groups.some(g => g.bank2)) {
+    const rows = v.groups.filter(g => g.bank2).map(g => g.r);
+    const r1 = Math.min(...rows.map(r => r[0])), r2 = Math.max(...rows.map(r => r[1]));
+    const a = pads[r1 - 1][0].getBoundingClientRect(), b2 = pads[r2 - 1][15].getBoundingClientRect();
+    const G = gw.getBoundingClientRect();
+    box(el("div", "b2", gw), a.left - G.left - 4, a.top - G.top - 4, b2.right - a.left + 8, b2.bottom - a.top + 8);
+  }
+  for (const [d, g] of L) {
+    wire(p, () => {
+      const P = p.getBoundingClientRect();
+      const a = pads[g.r[0] - 1][15].getBoundingClientRect(), b = pads[g.r[1] - 1][15].getBoundingClientRect();
+      const gr = mg.getBoundingClientRect(), lr = d.getBoundingClientRect();
+      const xg = gr.right - P.left + 2, yr = (a.top + b.bottom) / 2 - P.top;
+      const xl = lr.left - P.left - 6, yl = lr.top - P.top + 10;
+      return {d: `M${xl},${yl} H${xl - 12} L${xg + 16},${yr} H${xg + 1}`, dot: [xl, yl]};
+    });
+  }
+}
+
+document.fonts.ready.then(() => {
+  pageMap();
+  pageButtons();
+  for (const v of VIEWS) pageView(v);
+  requestAnimationFrame(() => requestAnimationFrame(() => {
+    document.querySelectorAll(".page").forEach(drawWires);
+    document.body.dataset.ready = "1";
+  }));
+});
+</script>
+</body>
+</html>
