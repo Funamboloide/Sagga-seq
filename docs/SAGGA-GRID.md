@@ -21,6 +21,10 @@ of every LED cleared at start; only SysEx sent to the Launchpad; the second USB 
 What is different: here the "script" that draws on the grid is the FM-1 itself, and the Pi is the norns.
 Not taken over: rotating a Launchpad by 90 degrees, and 2 x 2 (16 x 16) layouts.
 
+**The legend**, to leaf through or to print: [SAGGA-GRID-LEGENDA.pdf](SAGGA-GRID-LEGENDA.pdf) (Italian, 19 A4
+pages). The two Launchpads in the `--frame` layout with all 32 buttons, then every view on a page of its own, with an
+arrow for each row of pads. It is made from section 3 by `tools/grid_legend/`.
+
 Status (0.9): tested in the host simulator (the real firmware code) and with fake MIDI ports. The bridge with `--model mini
 --frame` runs on a Raspberry Pi 4 with two first-generation Launchpad Minis and the FM-1 (0.7). Three drivers:
 
@@ -268,6 +272,10 @@ the palette colours in `MK2_PALETTE`.)
 | 18 | GHOST (0.24) | a **copy** that plays: the pattern going round again in a track longer than it is (a dim blue-green; on the red-green Launchpads a medium green). A copy at rest is a rest as any other. A bridge older than 0.24 shows it DIM |
 
 ## 3. What the pads do
+
+[![The legend's first page: the two Launchpads in the --frame layout, the 32 buttons and the map of the views](grid-legenda.png)](SAGGA-GRID-LEGENDA.pdf)
+
+*The views one page each, with an arrow for every row: [the legend](SAGGA-GRID-LEGENDA.pdf) (Italian).*
 
 Seventeen views share the 128 pads; the 32 buttons never change. **SHIFT** is button 7 (hold): with it, every button
 does its second job, and the buttons that have one turn orange while SHIFT is held. **0.5.1: SHIFT tapped twice

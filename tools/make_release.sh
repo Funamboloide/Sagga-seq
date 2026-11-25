@@ -8,6 +8,7 @@
 #     sagga-hub-X.Y.zip            the Raspberry Pi side: install_hub.sh and everything it installs (the grid bridge,
 #                                  the hub page, the .sgq <-> .mid converter's sources, the M8 link, the plugins)
 #     INSTALLA.md                  the installation sheet (Italian: docs/INSTALLA.md, the one of today's set),
+#     SAGGA-GRID-LEGENDA.pdf       the grid's legend, to print (Italian: tools/grid_legend/ makes it),
 #     RELEASE-NOTES-X.Y.md         and the release notes (the root's; a past version's: docs/storia/)
 set -e
 VER=${1:?version, e.g. 0.10}
@@ -54,12 +55,12 @@ cp -r tools/raspimidihub/. "$H/raspimidihub/"
 cp tools/sgqmid/sagga_sgqmid.c tools/sgqmid/sagga_sgqjson.c firmware/src/sagga_seq_core.c firmware/src/sagga_seq_core.h firmware/src/sagga_beats.c \
    firmware/src/sagga_beats.h firmware/src/sagga_beats_data.h firmware/src/sagga_setgenre_data.h firmware/src/sagga_devices.h \
    firmware/src/sagga_img27.h "$H/sgqmid/"                                      # (0.28: the layouts of 0.27's images, the core reads and writes them)
-cp docs/SAGGA-GRID.md docs/SAGGA-GRID-ZYNTHIAN.md docs/INSTALLA.md "$H/"
+cp docs/SAGGA-GRID.md docs/SAGGA-GRID-LEGENDA.pdf docs/grid-legenda.png docs/SAGGA-GRID-ZYNTHIAN.md docs/INSTALLA.md "$H/"   # (0.32.5: the grid's legend, which its manual links)
 find "$H" -name __pycache__ -prune -exec rm -rf {} + 2>/dev/null || true
 (cd "$T" && rm -f "$OUT/$HUB.zip" && zip -qr "$OUT/$HUB.zip" "$HUB")
 
 # 3. the sheets
-cp docs/INSTALLA.md "$OUT/"
+cp docs/INSTALLA.md docs/SAGGA-GRID-LEGENDA.pdf "$OUT/"
 for n in "RELEASE-NOTES-$VER.md" "docs/storia/RELEASE-NOTES-$VER.md"; do [ -f "$n" ] && cp "$n" "$OUT/" && break; done || true
 
 # the converter must build from the zip's own files (the Pi does exactly this)

@@ -13,6 +13,7 @@ della 0.32.4).
 | la Gills da sola, su un bus | `tools/gills/figo_scena_aux.axp` |
 | la Gills da sola, in insert | `tools/gills/figo_scena.axp` |
 | SCENA da sola | `tools/gills/scena_aux.axp`, `tools/gills/scena.axp` (rifatte: un click tolto, l'anticipo) |
+| la legenda del grid: i 32 tasti e una vista per pagina, da sfogliare o stampare | `docs/SAGGA-GRID-LEGENDA.pdf` |
 | l'FM-1, il Pi, norns | niente da fare |
 
 Le due patch con l'effetto le fa `tools/gills/make_bus.py` dalle patch di Microcosm e Chroma per la Gills, che adesso
