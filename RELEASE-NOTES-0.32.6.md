@@ -80,3 +80,7 @@ girare il codice dell'FM-1 stesso, e con la pagina del Pi in un browser vero (Ch
 
 Prima del live del 29 dicembre prova sull'FM-1 vero un cambio di scena con un DELAY negativo su una traccia, e
 ascolta la batteria di una palette sugli M8 con la tua N.
+
+## La dimensione
+
+DIMENSIONE
