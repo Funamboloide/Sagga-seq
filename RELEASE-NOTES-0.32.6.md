@@ -85,4 +85,6 @@ ascolta la batteria di una palette sugli M8 con la tua N.
 
 ## La dimensione
 
-DIMENSIONE
+Il firmware cresce di 2.192 byte: 501.516 su 581.564 (la 0.32.1: 499.324). La RAM fissa cresce di 288 byte:
+85.280 su 98.304 (la 0.32.1: 84.992): è quello che ogni traccia ricorda del passo deciso in anticipo. Lo spazio
+grande, dove sta il progetto, non cambia: 341.980 su 344.064 byte.
