@@ -67,6 +67,8 @@ sistemate a mano, con il TRANSPOSE di ogni traccia.
 * La tabella delle parti adesso dice la **macchina del canale** che scrivi: 1-3 l'M8 1, 4-7 e 13-16 l'M8 2, 8-11 il
   MicroDexed, 12 lo Zynthian.
 * Da un terminale: `python3 sagga_ableton.py ... --nota-m8 48`.
+* Il `LEGGIMI.md` del Pi corregge quello che diceva la 0.32.3: sull'M8 **TRANSP OFF** non fa suonare uguali tutte le
+  note che arrivano (toglie solo le trasposizioni dell'M8 stesso). Per questo serve la nota M8.
 
 ## Cosa non è provato
 
