@@ -3206,6 +3206,25 @@ static void song_bar_tick(void)
     song_play_entry(next);
     ui_dirty = grid_dirty = 1u;
 }
+/* 0.32.6: the scene the song plays from the next bar line (255: none - the entry goes on, or no song plays). What
+ * song_bar_tick will do there, not done: a step decided ahead of that line looks at it (dinghy.c: bound_look) */
+static uint8_t song_scene_next_line(void)
+{
+    uint8_t next, s;
+    if (song_skip_bar || !song_on || !project.song.len) return 255u;
+    if (song_wait) next = 0u;
+    else {
+        if ((uint32_t)song_bar + 1u < project.song.e[song_pos].bars) return 255u;
+        next = (uint8_t)(song_pos + 1u);
+        if (next >= project.song.len) {
+            if (!project.song.loop) return 255u;
+            next = 0u;
+        }
+    }
+    s = project.song.e[next].scene;
+    return s < SQ_SCENES ? s : 255u;
+}
+static uint8_t song_runs(void) { return (uint8_t)(song_on && project.song.len); }
 
 /* a project is loaded: what was going on is over */
 static void gen_reset(void)

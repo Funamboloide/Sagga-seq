@@ -16,12 +16,18 @@ clips'. Scene N plays the N-th clip of every part.
 
 The project is written by sagga_sgqjson, the converter built from the firmware's own core: what the FM-1 loads.
 
-    python3 sagga_ableton.py [-o OUT.sgq] [--nome NAME] [--bpm N] [--canali ableton.json] FILE.mid ...
+    python3 sagga_ableton.py [-o OUT.sgq] [--nome NAME] [--bpm N] [--canali ableton.json] [--nota-m8 N] FILE.mid ...
 
 The rig (the set of 29 December 2026): SAGGA sequences, M8 1 plays the kick and the basses, M8 2 the top drums and the
 percussion, the MicroDexed Touch the synths (leads, chords, pads, arps), the Zynthian the long samples (intros,
-interludes) besides the mix. The channels are 1-12, track = channel: the Pi's matrix sends them to the machines;
-ableton.json (in the library) changes them: {"canali": {"basso": 3, ...}}.
+interludes) besides the mix. The channels are 1-12, track = channel: the Pi's matrix sends them to the machines (1-3
+M8 1, 4-7 and 13-16 M8 2, 8-11 the MicroDexed, 12 the Zynthian); ableton.json (in the library) changes them:
+{"canali": {"basso": 3, ...}}.
+
+0.32.6, THE M8'S NOTE (N): the M8 plays a sample at its own pitch on the note it calls C-4, and every other note higher
+or lower - a Drum Rack's 36, 38, 42 come out tuned. With "nota_m8": N in ableton.json (the box on the page, or
+--nota-m8) every drum part that goes to an M8 arrives on N: its most used note becomes N, the others move with it (as
+the TRANSPOSE of the track would move them), and N is the track's PEN. Without it the notes are the clip's.
 """
 import argparse
 import collections
@@ -68,6 +74,10 @@ PARTS = (
                                                             'outro', 'vox', 'voce', 'fx', 'riser'), 60),
 )
 KIT_WORDS = ('drums', 'drum', 'batteria', 'beat', 'kit', 'groove', 'loop')   # a clip of the whole kit: split by note
+# 0.32.6: the machine each channel goes to, as the Pi's cells send them in the set (LEGGIMI: the cells)
+MACHINES = dict([(c, 'M8 1') for c in (1, 2, 3)] + [(c, 'M8 2') for c in (4, 5, 6, 7, 13, 14, 15, 16)] +
+                [(c, 'MicroDexed') for c in (8, 9, 10, 11)] + [(12, 'Zynthian')])
+NOTE_NAMES = ('C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B')
 GM_SPLIT = {35: 'kick', 36: 'kick', 37: 'rullante', 38: 'rullante', 39: 'rullante', 40: 'rullante', 42: 'hat',
             44: 'hat', 46: 'hat', 49: 'top', 51: 'top', 52: 'top', 53: 'top', 55: 'top', 57: 'top', 59: 'top'}
 NUM_WORDS = re.compile(r'^\d{1,2}$')
@@ -183,16 +193,37 @@ def read_midi(data):
 
 
 # ------------------------------------------------------------------------------------------------ the parts
+def machine_of(channel):
+    """0.32.6: the machine a MIDI channel (1-16) goes to in the set"""
+    return MACHINES.get(channel, 'canale %d' % channel)
+
+
+def note_name(n):
+    """a MIDI note as the FM-1 names it (60 = C4)"""
+    return '%s%d' % (NOTE_NAMES[n % 12], n // 12 - 1)
+
+
+def _note_ok(n):
+    return isinstance(n, int) and not isinstance(n, bool) and 0 <= n <= 127
+
+
 def rig(config=None):
-    """the parts with the channels of the config (a dict: {"canali": {part: 1-16}}) -> [Part]"""
+    """the parts with the channels of the config (a dict: {"canali": {part: 1-16}}) -> [Part], each with the machine
+    its channel goes to (0.32.6)"""
     ch = (config or {}).get('canali') or {}
     out = []
     for p in PARTS:
         c = ch.get(p.key)
         if isinstance(c, int) and not isinstance(c, bool) and 1 <= c <= 16:
             p = p._replace(channel=c - 1)
-        out.append(p)
+        out.append(p._replace(machine=machine_of(p.channel + 1)))
     return out
+
+
+def m8_note(config=None):
+    """0.32.6: the M8's note N of the config (the note the M8 calls C-4), or None"""
+    n = (config or {}).get('nota_m8')
+    return n if _note_ok(n) else None
 
 
 def load_config(folder):
@@ -204,10 +235,22 @@ def load_config(folder):
         return {}
 
 
-def config_from_page(items):
-    """the page's table [{"key": part, "canale": 1-16}] -> the config to save; AbletonError if a value is wrong"""
+def config_from_page(items, old=None):
+    """what the page saves -> the config; AbletonError if a value is wrong. The page sends {"canali": [{"key": part,
+    "canale": 1-16}, ...], "nota_m8": 0-127 or null}; a page of 0.32.3-0.32.5 only the list of the channels (the M8's
+    note of `old`, the config there was, stays)"""
     keys = {p.key for p in PARTS}
     ch = {}
+    nota = m8_note(old)
+    if isinstance(items, dict):
+        n = items.get('nota_m8')
+        if n is None or n == '':
+            nota = None
+        elif _note_ok(n):
+            nota = n
+        else:
+            raise AbletonError('la nota M8 è un numero da 0 a 127 (vuota: le note del clip)')
+        items = items.get('canali')
     if not isinstance(items, list):
         raise AbletonError('canali non validi')
     for it in items:
@@ -217,7 +260,10 @@ def config_from_page(items):
         if isinstance(c, bool) or not isinstance(c, int) or not 1 <= c <= 16:
             raise AbletonError('%s: il canale va da 1 a 16' % it['key'])
         ch[it['key']] = c
-    return {'canali': ch}
+    cfg = {'canali': ch}
+    if nota is not None:
+        cfg['nota_m8'] = nota
+    return cfg
 
 
 def _words(text):
@@ -329,11 +375,12 @@ def build(files, name='ABLETON', config=None, bpm=None):
     warnings [...]; AbletonError when nothing can be made"""
     parts = rig(config)
     by_key = {p.key: p for p in parts}
+    nota = m8_note(config)
     if not files:
         raise AbletonError('nessun file')
     if len(files) > MAX_FILES:
         raise AbletonError('troppi file (al massimo %d)' % MAX_FILES)
-    report = dict(name=name, bpm=None, tracks=[], files=[], warnings=[])
+    report = dict(name=name, bpm=None, tracks=[], files=[], warnings=[], nota_m8=nota)
     clips = collections.defaultdict(list)            # part -> [dict(num, file, notes (steps), bars, warn)]
     tempos = collections.Counter()
     for fname, data in sorted(files, key=lambda f: f[0].lower()):
@@ -396,6 +443,7 @@ def build(files, name='ABLETON', config=None, bpm=None):
         base.append('ext - name %d %d' % (i, ord(nm[i]) if i < len(nm) else 0))
     lines = []
     scenes = 0
+    m8_plain = False                                  # (0.32.6: drums for the M8s with the clip's notes: said once)
     for p in parts:
         t = p.track
         cl = clips.get(p.key, [])
@@ -406,10 +454,34 @@ def build(files, name='ABLETON', config=None, bpm=None):
         if cl:
             if p.drum:
                 common = collections.Counter(n[2] for c in cl for n in c['notes']).most_common()
+                if nota is not None and p.machine.startswith('M8'):
+                    # 0.32.6: the M8's note: the part's most used note on N, the others moved with it (an octave in, at
+                    # the ends of 0-127)
+                    main, shift, out_of = common[0][0], nota - common[0][0], 0
+                    for c in cl:
+                        moved = []
+                        for on, off, n, v in c['notes']:
+                            m = n + shift
+                            out_of += not 0 <= m <= 127
+                            while m > 127:
+                                m -= 12
+                            while m < 0:
+                                m += 12
+                            moved.append((on, off, m, v))
+                        c['notes'] = moved
+                    info['m8'] = ('nota M8: la %d del clip %s la %d (N)' % (main, 'è già' if not shift else 'diventa', nota)
+                                  + (', le altre note si spostano con lei (%+d)' % shift if len(common) > 1 and shift else '')
+                                  + (', %s fuori da 0-127: dentro di un\'ottava' % _n(out_of, 'nota', 'note') if out_of else ''))
+                    common = collections.Counter(n[2] for c in cl for n in c['notes']).most_common()
+                elif nota is not None:
+                    info['m8'] = 'canale %d, %s: non va a un M8, le note restano quelle del clip' % (p.channel + 1, p.machine)
+                elif p.machine.startswith('M8'):
+                    m8_plain = True
                 tr['pen'] = common[0][0]
                 if len(common) > 1 and p.key not in ('kick',):
                     others = ' '.join(str(n) for n, _ in common[:8])
-                    info['note'] = 'note diverse sullo stesso canale (%s): sull\'M8 uno strumento a slice, o un clip per suono' % others
+                    info['note'] = 'note diverse sullo stesso canale (%s): %s' % (
+                        others, 'sull\'M8 uno strumento a slice, o un clip per suono' if p.machine.startswith('M8') else 'un clip per suono')
             # the patterns: the clip's number, else the next free; a number taken: the next free
             longest = max(c['bars'] for c in cl)
             mode = 'tape' if longest > 8 and len(cl) == 1 else 'chain' if longest > 4 else 'steps'
@@ -506,6 +578,9 @@ def build(files, name='ABLETON', config=None, bpm=None):
         tr['flags'] = flags
         for k, v in tr.items():
             base.append('track %d %s - %d' % (t, k, v))
+    if m8_plain:
+        report['warnings'].append('le batterie per gli M8 arrivano con le note del clip (36 la cassa, 38 il rullante, 42 '
+                                  'l\'hat ...): con la tua nota M8 (N) nella casella di DA ABLETON arrivano già su N')
     # the scenes: scene N plays the N-th clip of every part (a part with fewer: its last)
     for s in range(scenes):
         for info in report['tracks']:
@@ -572,11 +647,14 @@ def report_text(rep):
     """the report, for a terminal"""
     L = ['%s: %d tracce, %d scene, %s BPM' % (rep['name'], len(rep['tracks']), rep.get('scenes', 0),
                                               '%g' % rep['bpm'] if rep['bpm'] else '128 (non nei file)')]
+    if rep.get('nota_m8') is not None:
+        L.append('  nota M8 (N): %d (%s sull\'FM-1)' % (rep['nota_m8'], note_name(rep['nota_m8'])))
     for t in rep['tracks']:
         L.append('  traccia %2d %-9s %-11s canale %2d  %s %s' % (t['track'], t['name'], t['machine'], t['channel'], t['mode'],
                                                                 ' '.join(t['patterns'])))
-        if t.get('note'):
-            L.append('      ' + t['note'])
+        for k in ('m8', 'note'):
+            if t.get(k):
+                L.append('      ' + t[k])
     for f in rep['files']:
         if f['warnings'] or not f['patterns']:
             L.append('  %s: %s' % (f['file'], '; '.join(f['warnings']) or 'non importato'))
@@ -591,12 +669,18 @@ def main(argv=None):
     ap.add_argument('-o', '--out')
     ap.add_argument('--nome', default=None)
     ap.add_argument('--bpm', type=float, default=None)
-    ap.add_argument('--canali', default=None, help='ableton.json: {"canali": {"basso": 3, ...}}')
+    ap.add_argument('--canali', default=None, help='ableton.json: {"canali": {"basso": 3, ...}, "nota_m8": 48}')
+    ap.add_argument('--nota-m8', type=int, default=None, help='the note the M8 calls C-4 (0-127): the drums for the M8s on it')
     a = ap.parse_args(argv)
     cfg = {}
     if a.canali:
         with open(a.canali) as f:
             cfg = json.load(f)
+    if a.nota_m8 is not None:
+        if not 0 <= a.nota_m8 <= 127:
+            print('errore: --nota-m8 va da 0 a 127', file=sys.stderr)
+            return 2
+        cfg = dict(cfg, nota_m8=a.nota_m8)
     name = a.nome or (os.path.splitext(os.path.basename(a.out))[0] if a.out else 'ABLETON')
     files = []
     for p in a.files:

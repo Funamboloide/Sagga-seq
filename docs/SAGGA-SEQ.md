@@ -157,6 +157,22 @@ too, that line says what PICK does, as before; SAVE (on its pages 2-5: page 1 sh
 
 (VIAGGIO's knobs, HOME 8 until 0.11, are **GLO 3**: 0.17 the MOSSE.)
 
+**0.32.6, a step that starts early at a boundary.** A step that starts before its slot (a negative DELAY, NUDGE or
+humanise, the GROOVE or an LFO that pushes it) is decided a step ahead and goes out before its slot begins. Until
+0.32.5 that decision did not see what the boundary its slot begins on brings: at a scene's bar line the step went out
+before the scene's Program Change and from the pattern before, and a track the scene switched on lost its first step
+(a mute that waited for the bar, a pattern, RESTART: the same). Now it looks: the song's next entry, the scene queued,
+the mutes, the patterns and RESTART that wait for that moment. The step goes out from the scene's pattern, the scene's
+program just before it on its channel, and a track the scene switches on plays it; a track the scene mutes does not.
+What cannot be decided ahead - another key with the scene for a track in the key, another metre, a SNAPSHOT, the key's
+TRANSPOSE, STOP at the bar, a length that waits for the bar - makes that one step play in its slot, on the grid, without
+its lead. The step is looked at again when its early time comes: changed since it was decided (a scene queued late, a
+scene with QUANTISE NOW, a mute, the step written), it is decided again there, as things are, and goes out early all the
+same. A step that has gone out stays - never two notes for one step; it stops only if its track is silent when its
+slot begins. When the slot begins, a step that was decided silent and should play now (a track VIAGGIO switched on, a
+pattern EVOLVE changed on the line) is decided there and plays, on the grid. (A polyrhythm's track does not look at the
+boundary ahead: it gets the two later looks only.)
+
 MIDI FX amounts: HARM -7 .. +7 steps of the key (a FREE track: -12 .. +12 semitones); OCTAVE -2 .. +2 octaves, on
 ALT (every other step), RANDOM, 3RD, 4TH; ECHO 0-4 repeats, every 1/32, 1/16, 1/8T, 1/16 dotted, 1/8, 1/4T, 1/8 dotted
 (the default), 1/4, each keeping 10-100 % of the velocity of the one before; VEL -8 .. +8 (soft .. hard). The

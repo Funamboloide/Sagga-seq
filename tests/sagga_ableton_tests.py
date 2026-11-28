@@ -252,6 +252,62 @@ def t_build(A):
             check(True, '')
 
 
+def t_nota(A):
+    """0.32.6: the M8's note (N, the note the M8 calls C-4): the drums that go to an M8 arrive on it"""
+    group('0.32.6 the M8\'s note: the drums for the M8s on N')
+
+    def ons(S, t, p):
+        return sorted({st['note'][0] for (tt, pp, s), st in S.items() if tt == t and pp == p and st['flags'] & 1})
+    data, rep = A.build(clips(), 'palette-a', {'nota_m8': 48})
+    d = read_project(data)
+    S = steps_of(d)
+    tr = d['track']
+    check([tr[t]['pen'] for t in (0, 3, 4, 5)] == [48] * 4, 'the PEN of every drum track for the M8s: N (%s)' % [tr[t]['pen'] for t in (0, 3, 4, 5)])
+    check(ons(S, 0, 0) == [48] and ons(S, 0, 1) == [48] and ons(S, 4, 0) == [48], 'the kick (36) and the hats (42) on 48 (%s %s)' % (ons(S, 0, 0), ons(S, 4, 0)))
+    check([ons(S, t, 2) for t in (0, 3, 4, 5)] == [[48]] * 4, 'the kit split by its notes first, then each part on 48 (%s)' % [ons(S, t, 2) for t in (0, 3, 4, 5)])
+    check(ons(S, 1, 0) == [29, 31, 32, 36, 39, 41] and tr[1]['pen'] == 36, 'the bass keeps its notes (%s)' % ons(S, 1, 0))
+    k = [x for x in rep['tracks'] if x['part'] == 'kick'][0]
+    check(rep['nota_m8'] == 48 and 'la 36 del clip diventa la 48' in k.get('m8', '') and "nota M8 (N): 48 (C3 sull'FM-1)" in A.report_text(rep),
+          'the report says it, with the FM-1\'s name of N (%s)' % k.get('m8'))
+    check(not any('casella' in w for w in rep['warnings']), 'with N: no word about the box')
+    perc = [(b * .5, .1, 63, 90) for b in range(6)] + [(3.5, .1, 64, 90), (3.75, .1, 70, 90)]
+    d, rep = A.build([('A-perc-1.mid', smf(perc, 1))], 'x', {'nota_m8': 48})
+    d = read_project(d)
+    check(ons(steps_of(d), 5, 0) == [48, 49, 55] and d['track'][5]['pen'] == 48 and 'si spostano con lei (-15)' in rep['tracks'][0]['m8'],
+          'PERC: the most used (63) on 48, 64 and 70 with it (%s %s)' % (ons(steps_of(d), 5, 0), rep['tracks'][0].get('m8')))
+    d, rep = A.build([('A-perc-1.mid', smf([(0, .1, 36, 90), (1, .1, 36, 90), (2, .1, 100, 90)], 1))], 'x', {'nota_m8': 120})
+    check(ons(steps_of(read_project(d)), 5, 0) == [120, 124] and 'fuori da 0-127' in rep['tracks'][0]['m8'],
+          'past 127: an octave in, said (%s)' % rep['tracks'][0].get('m8'))
+    d, rep = A.build([('A-perc-1.mid', smf(perc, 1))], 'x', {'nota_m8': 48, 'canali': {'perc': 12}})
+    t = rep['tracks'][0]
+    check(ons(steps_of(read_project(d)), 5, 0) == [63, 64, 70] and t['machine'] == 'Zynthian' and 'non va a un M8' in t['m8']
+          and 'slice' not in t.get('note', ''), 'a drum part on channel 12 (the Zynthian): the clip\'s notes, said (%s / %s)' % (t.get('m8'), t.get('note')))
+    _, rep = A.build(clips()[:1], 'x')
+    check(any('casella' in w for w in rep['warnings']) and rep['nota_m8'] is None, 'no N and drums for an M8: the report says where N goes')
+    _, rep = A.build([('A-basso-1.mid', smf([(0, 1, 36, 90)], 1))], 'x')
+    check(not any('casella' in w for w in rep['warnings']), 'no drums: nothing said')
+    check([p.machine for p in A.rig({'canali': {'perc': 12, 'lead': 2, 'pad': 13}})][5:10] == ['Zynthian', 'M8 2', 'M8 1', 'MicroDexed', 'M8 2'],
+          'the machine of each part is its channel\'s')
+    check(A.config_from_page({'canali': [{'key': 'basso', 'canale': 3}], 'nota_m8': 48}) == {'canali': {'basso': 3}, 'nota_m8': 48}, 'the page: the channels and N')
+    check(A.config_from_page([{'key': 'basso', 'canale': 3}], {'nota_m8': 50}) == {'canali': {'basso': 3}, 'nota_m8': 50}, 'a page of 0.32.3 (the channels only): N stays')
+    check(A.config_from_page({'canali': [], 'nota_m8': None}, {'nota_m8': 50}) == {'canali': {}}, 'N emptied: the clip\'s notes again')
+    for bad in (128, -1, True, 'x', 4.5):
+        try:
+            A.config_from_page({'canali': [], 'nota_m8': bad})
+            check(False, 'N %r refused' % (bad,))
+        except A.AbletonError:
+            check(True, '')
+    check(A.m8_note({'nota_m8': 200}) is None and A.m8_note({'nota_m8': True}) is None and A.m8_note({'nota_m8': 0}) == 0, 'a wrong N in the file: none')
+    check([A.note_name(n) for n in (0, 36, 48, 60, 61, 127)] == ['C-1', 'C2', 'C3', 'C4', 'C#4', 'G9'], 'the notes as the FM-1 names them (60 C4)')
+    with tempfile.TemporaryDirectory() as dd:
+        src, out = os.path.join(dd, 'A-kick-1.mid'), os.path.join(dd, 'k.sgq')
+        with open(src, 'wb') as f:
+            f.write(smf([(b, .25, 36, 120) for b in range(4)], 1))
+        rc = A.main([src, '-o', out, '--nota-m8', '50'])
+        check(rc == 0 and ons(steps_of(read_project(open(out, 'rb').read())), 0, 0) == [50], 'the command line: --nota-m8 50')
+        check(A.main([src, '-o', out, '--nota-m8', '200']) == 2, '--nota-m8 200: refused')
+
+
 def t_firmware(A):
     """the project in the FM-1's own code: every note of the clips comes out, on its channel, when the clip says"""
     group('the firmware plays it (the simulator)')
@@ -356,6 +412,26 @@ def t_page(A):
         check(code == 200 and json.load(open(os.path.join(pr, 'ableton.json'))) == {'canali': {'basso': 5}}, 'the channels saved in the library')
         code, _ = req('/api/ableton/canali', json.dumps([{'key': 'basso', 'canale': 0}]).encode(), {'Content-Type': 'application/json', 'X-Sagga-Hub': '1'})
         check(code == 400, 'a channel 0: refused')
+        # 0.32.6: the M8's note, with the channels
+        hub = {'Content-Type': 'application/json', 'X-Sagga-Hub': '1'}
+        js = json.loads(req('/api/ableton/canali')[1])
+        check(js.get('nota_m8') is None and js.get('macchine', {}).get('12') == 'Zynthian' and js['macchine']['14'] == 'M8 2'
+              and js['parti'][1]['machine'] == 'M8 2', 'no N yet; the machine of every channel; the bass on 5 is on M8 2 (%s)' % js['parti'][1]['machine'])
+        code, _ = req('/api/ableton/canali', json.dumps({'canali': [{'key': 'basso', 'canale': 5}], 'nota_m8': 48}).encode(), hub)
+        check(code == 200 and json.load(open(os.path.join(pr, 'ableton.json'))) == {'canali': {'basso': 5}, 'nota_m8': 48}
+              and json.loads(req('/api/ableton/canali')[1])['nota_m8'] == 48, 'N saved with the channels')
+        code, _ = req('/api/ableton/canali', json.dumps([{'key': 'basso', 'canale': 5}]).encode(), hub)
+        check(code == 200 and json.load(open(os.path.join(pr, 'ableton.json'))).get('nota_m8') == 48, 'a page of 0.32.3 saves its channels: N stays')
+        code, out = req('/api/ableton/canali', json.dumps({'canali': [], 'nota_m8': 300}).encode(), hub)
+        check(code == 400 and '0 a 127' in out and json.load(open(os.path.join(pr, 'ableton.json'))).get('nota_m8') == 48, 'N 300: refused, nothing saved')
+        body, h = multipart({'nome': 'con n', 'bpm': ''}, clips()[:1])
+        code, out = req('/api/ableton', body, h)
+        p = os.path.join(pr, 'con n.sgq')
+        kick = sorted({st['note'][0] for t, pp, s, st in read_project(open(p, 'rb').read())['steps'] if t == 0 and st['flags'] & 1}) if os.path.isfile(p) else []
+        check(code == 200 and 'Nota M8 (N): <b>48</b> (C3' in out and 'diventa la 48' in out and kick == [48],
+              'a project made with N: the kick on 48, the report says so (%s)' % kick)
+        code, _ = req('/api/ableton/canali', json.dumps({'canali': [{'key': 'basso', 'canale': 5}], 'nota_m8': None}).encode(), hub)
+        check(code == 200 and json.load(open(os.path.join(pr, 'ableton.json'))) == {'canali': {'basso': 5}}, 'N emptied')
         body, h = multipart({'nome': 'palette a', 'bpm': ''}, clips()[:4])
         code, out = req('/api/ableton', body, h)
         p = os.path.join(pr, 'palette a.sgq')
@@ -399,12 +475,16 @@ def t_browser(base, pr):
         pg.wait_for_function("document.querySelectorAll('#abl input').length == 12", timeout=10000)
         vals = pg.eval_on_selector_all('#abl input', 'els => els.map(e => [e.dataset.k, e.value])')
         check(vals[1] == ['basso', '5'] and vals[0] == ['kick', '1'], 'in the browser: the twelve parts, the channel saved before (%s)' % vals[:2])
+        check(pg.input_value('#abln') == '' and 'note del clip' in pg.inner_text('#ablnn'), '0.32.6: the M8\'s note, empty (%r)' % pg.inner_text('#ablnn'))
         pg.fill('#abl input[data-k="pad"]', '13')
-        pg.click('text=Salva i canali')
+        check(pg.inner_text('[data-m="pad"]') == 'M8 2', '0.32.6: the pad on 13: the machine it goes to, as it is typed (%s)' % pg.inner_text('[data-m="pad"]'))
+        pg.fill('#abln', '50')
+        check("D3 sull'FM-1" in pg.inner_text('#ablnn'), '0.32.6: N 50 is D3 on the FM-1 (%s)' % pg.inner_text('#ablnn'))
+        pg.click('text=Salva canali e nota')
         pg.wait_for_function("document.getElementById('ablm').textContent.length > 0", timeout=10000)
         saved = json.load(open(os.path.join(pr, 'ableton.json')))
-        check(saved['canali'].get('pad') == 13 and saved['canali'].get('basso') == 5 and 'salvati' in pg.inner_text('#ablm'),
-              'a channel changed and saved from the page (%s)' % saved)
+        check(saved['canali'].get('pad') == 13 and saved['canali'].get('basso') == 5 and saved.get('nota_m8') == 50 and 'salvati' in pg.inner_text('#ablm'),
+              'a channel and the M8\'s note changed and saved from the page (%s)' % saved)
         wide = pg.evaluate('document.documentElement.scrollWidth')
         check(wide <= 390 and not errs, 'on a phone: no sideways scroll, no script errors (%s %s)' % (wide, errs[:1]))
         b.close()
@@ -425,6 +505,7 @@ def main():
         t_midi(A)
         t_names(A)
         t_build(A)
+        t_nota(A)
         t_firmware(A)
         t_page(A)
     finally:
