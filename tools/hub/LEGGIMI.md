@@ -341,9 +341,13 @@ nei Drum Rack: 35-36 la cassa, 37-40 il rullante, 42 44 46 gli hat, i piatti su 
 Non entrano i CC e il pitch bend dei clip, e un tempo diverso da 4/4 viene letto in 4/4: il rapporto lo dice, file per
 file. Un progetto con lo stesso nome lascia il vecchio fra le sue versioni (si ripristina dall'editor).
 
-Sugli M8 un campione di batteria con **TRANSP OFF** suona uguale con qualunque nota: le note del Drum Rack (36, 38 ...)
-vanno bene così. Una parte con suoni diversi sullo stesso canale (PERC con conga e shaker) sull'M8 vuole uno strumento a
-slice, o un clip per suono: il rapporto la segnala.
+Sugli M8 ogni nota suona il campione alla sua altezza: **TRANSP OFF** toglie solo le trasposizioni dell'M8 stesso (la
+scala, il transpose della chain e del progetto), non quella della nota che arriva. (Fino a novembre qui c'era scritto il
+contrario: per il manuale dell'M8 non è così.) Le note del Drum Rack (36, 38, 42 ...) arrivano come sono, quindi il
+rullante può uscire più alto o più basso di come lo senti in Ableton: ascolta la batteria della palette sugli M8, e se
+serve porta ogni traccia di batteria sulla nota che l'M8 chiama C-4 con il TRANSPOSE della traccia sull'FM-1 (HOME 1 K4).
+Il manuale (capitolo «Il tuo set») ha la prova per trovare quella nota. Una parte con suoni diversi sullo stesso canale
+(PERC con conga e shaker) sull'M8 vuole uno strumento a slice, o un clip per suono: il rapporto la segnala.
 
 Lo stesso da un terminale, anche sul PC (con `sagga_sgqjson` compilato):
 `python3 sagga_ableton.py -o PALETTE-A.sgq A-*.mid [--bpm 124] [--canali ableton.json]`.
