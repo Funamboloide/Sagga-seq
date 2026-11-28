@@ -1250,6 +1250,10 @@ static void vg_panel_toggle(void)
     else vg_mosse_open();
 }
 
+static uint8_t vg_pattern_brings(uint32_t t, uint8_t pat)   /* 0.32.6: that pattern, when it comes in, brings its settings */
+{
+    return (uint8_t)(t < SQ_TRACKS && pat < SQ_PATTERNS && (vg_pcfg_has[t] & (1u << pat)));
+}
 /* 0.17: a track's pattern changed by the hands (PRESETS, at the QUANTISE, at the loop's end): a proposal entering
  * brings its settings, once (as when the journey brings it in) */
 static void vg_pattern_in(uint32_t t)

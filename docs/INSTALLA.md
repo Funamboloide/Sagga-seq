@@ -8,10 +8,9 @@ SAGGA SEQ è fatto di tre pezzi, e si installa con **due file**:
 | **il Pi** (la pagina, l'editor, la libreria, le pagine SAGGA di RaspiMIDIHub, il custode delle celle) | `sagga-hub-X.zip` | nel Pi |
 | **il grid** (i due Launchpad) | lo stesso `sagga-hub-X.zip`: il bridge dei Launchpad è lì dentro | nel Pi |
 
-I due file vanno **della stessa versione**, con una eccezione: **la 0.32.2 e la 0.32.3 sono solo del Pi** (e la 0.32.4 e la
-0.32.5 solo degli effetti del live: FIGO, SCENA, le VARIAZIONI della Gills). L'FM-1 resta
-alla 0.32.1 (`sagga-0.32.1.fwsc`, quello che hai già dentro) e sul Pi va `sagga-hub-0.32.3.zip`. Il manuale d'uso è il documento
-"SAGGA SEQ 0.32 — Il manuale" (vale per la 0.32.1); il riferimento
+I due file vanno **della stessa versione**. Oggi è la **0.32.6**: `sagga-0.32.6.fwsc` nell'FM-1 e `sagga-hub-0.32.6.zip`
+sul Pi (dalla 0.32.2 alla 0.32.5 l'FM-1 era rimasto alla 0.32.1: quelle versioni cambiavano solo il Pi o gli effetti
+del live). Il manuale d'uso è il documento "SAGGA SEQ 0.32.1 — Il manuale" (vale anche per la 0.32.6); il riferimento
 completo di ogni comando è [SAGGA-SEQ.md](SAGGA-SEQ.md); il grid è in [SAGGA-GRID.md](SAGGA-GRID.md); la pagina del Pi
 in `tools/hub/LEGGIMI.md` (nello zip: `LEGGIMI.md`).
 
@@ -64,6 +63,11 @@ tabella dei canali in quella sezione la prima volta (deve essere come la matrice
 variazioni (`tools/gills/microcosm_figo_scena.axp` o `chroma_console_figo_scena.axp`), o `figo_scena_aux.axp` da
 sola. Gli effetti da soli sono in `tools/gills/effetti/` (Gills) e `tools/norns/effetti/` (norns). La prima volta con **Live**, guardando il carico DSP; poi **Upload to Internal
 Flash** (`tools/gills/LEGGIMI.md`). L'FM-1, il Pi e norns restano come sono.
+**La 0.32.6 è dell'FM-1 e del Pi**: fai tutti e due i passi (`sagga-hub-0.32.6.zip`, poi `sagga-0.32.6.fwsc`).
+L'FM-1: un passo che parte in anticipo (un DELAY, un NUDGE o un humanize negativo) arriva giusto al cambio di scena,
+con il Program Change della scena prima di lui, dal pattern della scena; una traccia che la scena accende suona il suo
+primo passo. Da qui i DELAY negativi si possono usare. Il Pi: in **DA ABLETON** la casella **nota M8 (N)**, e le
+batterie per gli M8 arrivano già su N. I progetti non cambiano; se torni alla 0.32.1, si aprono come sono.
 
 ## La prima volta sul Pi
 

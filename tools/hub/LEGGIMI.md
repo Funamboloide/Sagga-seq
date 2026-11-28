@@ -290,7 +290,7 @@ tornava di quattro, con le note ripetute (e una nota che cambiavi restava quella
 premere *Salva*, anche senza toccare niente. La scheda **Tape** dell'editor fa le stesse cose e scrive le note così
 come l'FM-1 le tiene, traccia per traccia. Un vecchio indirizzo `/roll/...` apre l'editor sulla scheda Tape.
 
-## DA ABLETON (0.32.3)
+## DA ABLETON (0.32.3; la nota M8: 0.32.6)
 
 Nella pagina (porta 8090), sotto PROGETTI, la sezione **DA ABLETON**: i clip MIDI esportati da Ableton diventano un
 progetto **a passi** nella libreria, già pronto per il set. Una traccia per parte, un pattern per clip, ogni traccia sul
@@ -316,9 +316,11 @@ e in inglese:
 | 11 | ARP | arp, arpeggio, seq, pluck | MicroDexed | 11 |
 | 12 | SAMPLE | sample, campione, intro, interludio, outro, vox, fx | Zynthian | 12 |
 
-I canali si cambiano dalla pagina (la tabella sotto il modulo, **Salva i canali**): restano nella libreria del Pi
-(`ableton.json`) e valgono dal progetto dopo. La matrice di RaspiMIDIHub manda i canali alle macchine. Le batterie sono
-tracce DRUM, i bassi del gruppo BASS, il resto MELODIC: i gruppi dell'FM-1 (mute per gruppo) funzionano subito.
+I canali si cambiano dalla pagina (la tabella sotto il modulo, **Salva canali e nota**): restano nella libreria del Pi
+(`ableton.json`) e valgono dal progetto dopo. La matrice di RaspiMIDIHub manda i canali alle macchine: 1-3 l'M8 1, 4-7 e
+13-16 l'M8 2, 8-11 il MicroDexed, 12 lo Zynthian. Dalla 0.32.6 la tabella dice la macchina del canale che scrivi (la
+PERC sul 12 dice Zynthian). Le batterie sono tracce DRUM, i bassi del gruppo BASS, il resto MELODIC: i gruppi dell'FM-1
+(mute per gruppo) funzionano subito.
 
 **Un clip di tutta la batteria** (`drums`, `batteria`, `beat`, `kit`, `groove` nel nome) si divide da solo per nota, come
 nei Drum Rack: 35-36 la cassa, 37-40 il rullante, 42 44 46 gli hat, i piatti su TOP, il resto su PERC.
@@ -341,12 +343,25 @@ nei Drum Rack: 35-36 la cassa, 37-40 il rullante, 42 44 46 gli hat, i piatti su 
 Non entrano i CC e il pitch bend dei clip, e un tempo diverso da 4/4 viene letto in 4/4: il rapporto lo dice, file per
 file. Un progetto con lo stesso nome lascia il vecchio fra le sue versioni (si ripristina dall'editor).
 
-Sugli M8 un campione di batteria con **TRANSP OFF** suona uguale con qualunque nota: le note del Drum Rack (36, 38 ...)
-vanno bene così. Una parte con suoni diversi sullo stesso canale (PERC con conga e shaker) sull'M8 vuole uno strumento a
-slice, o un clip per suono: il rapporto la segnala.
+Sugli M8 ogni nota suona il campione alla sua altezza: **TRANSP OFF** toglie solo le trasposizioni dell'M8 stesso (la
+scala, il transpose della chain e del progetto), non quella della nota che arriva. (Fino a novembre qui c'era scritto il
+contrario: per il manuale dell'M8 non è così.) Il campione suona alla sua altezza vera sulla nota che l'M8 chiama
+**C-4**: quel numero è la tua **nota M8 (N)**. Il manuale (capitolo «Il tuo set», «La nota giusta») ha la prova per
+trovarla.
+
+**La nota M8 (0.32.6).** Sotto la tabella c'è la casella **nota M8 (N)**: scrivi N (accanto compare come la chiama
+l'FM-1: 48 è C3) e premi **Salva canali e nota**. Da lì ogni parte di batteria che va a un M8 (canali 1-7 e 13-16)
+arriva su N: la sua nota più usata diventa N, le altre si spostano con lei della stessa distanza (come farebbe il
+TRANSPOSE della traccia), e la PEN della traccia è N, così anche i passi nuovi che scrivi sull'FM-1 suonano giusti. Una
+nota che uscirebbe da 0-127 rientra di un'ottava. Una parte di batteria su un canale che non va a un M8 resta com'è, e
+il rapporto lo dice traccia per traccia. Casella vuota: le note restano quelle del clip (36, 38, 42 ...), e il rullante
+può uscire più alto o più basso di come lo senti in Ableton; il rapporto te lo ricorda.
+
+Una parte con suoni diversi sullo stesso canale (PERC con conga e shaker) sull'M8 vuole uno strumento a slice, o un clip
+per suono: il rapporto la segnala. Con N le note diverse restano diverse (la più usata su N, le altre intorno).
 
 Lo stesso da un terminale, anche sul PC (con `sagga_sgqjson` compilato):
-`python3 sagga_ableton.py -o PALETTE-A.sgq A-*.mid [--bpm 124] [--canali ableton.json]`.
+`python3 sagga_ableton.py -o PALETTE-A.sgq A-*.mid [--bpm 124] [--canali ableton.json] [--nota-m8 48]`.
 
 ## BREAK IN SLICE (0.13)
 
@@ -399,4 +414,5 @@ della porta PC su una pseudo-seriale, la pagina dei firmware con un installatore
 sezione del banco. `python3 tests/sagga_banco_tests.py`: il programma del banco contro un FM-1, un RaspiMIDIHub e un
 systemctl finti. `python3 tests/sagga_celle_tests.py`: il custode delle celle contro un RaspiMIDIHub finto che le perde
 come il vero. `python3 tests/sagga_ableton_tests.py` (0.32.3): DA ABLETON, i clip letti, le parti, i passi, e il progetto
-suonato dal firmware nel simulatore, nota per nota contro i clip.
+suonato dal firmware nel simulatore, nota per nota contro i clip; dalla 0.32.6 anche la nota M8 (le batterie su N, la
+casella della pagina in un browser vero).

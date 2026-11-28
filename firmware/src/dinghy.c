@@ -31,7 +31,7 @@
  * Package identity FM-1_95N (N = the minor version, tools/build.py): SAGGA SEQ's own, apart from Dinghy's 99N.
  */
 #define APP_NAME "SAGGA SEQ"
-#define SQ_VERSION "0.32.1"
+#define SQ_VERSION "0.32.6"
 #define APP_SILENT 1                           /* 0.22: no sound comes out of this app (platform.c: the audio interrupt only acknowledges) -
                                                 * 0.26: but the metronome's click, when it is the FM-1's own sound (app_audio_wants) */
 #include "platform.c"
@@ -116,10 +116,19 @@ typedef struct {
     uint8_t state;                 /* 0 nothing, 1 armed, 2 decided not to play */
     uint8_t idx;
     sq_step_t buf;
+    /* 0.32.6: what it was decided on, looked at again when its slot begins (arm_step: pre_still) */
+    uint32_t at;                   /* the clock tick its slot begins on (a polyrhythm's: 0xFFFFFFFF, not known): a RESTART
+                                    * on that very tick leaves it to pre_still */
+    uint32_t slot_at_us, slot_len_us;   /* when its slot begins, how long it is (decided again: prearm_make) */
+    uint8_t wait;                  /* its early time (start_us) has not come yet: looked at again then, silent or not */
+    uint8_t heard;                 /* the track was to be heard there */
+    uint8_t notes[SQ_POLY];        /* the step's own notes (it was written ON) */
+    uint8_t pc;                    /* the scene's Program Change its channel gets just before it (255: none) */
 } pre_event_t;
 
 static track_event_t ev[SQ_TRACKS];
 static pre_event_t pre[SQ_TRACKS];
+static uint16_t pre_heard;                 /* 0.32.6: tracks whose early step a scene that comes switches on: heard before it */
 static uint32_t sq_rng_state = 0x53414747u;
 static uint32_t global_clock;
 static uint32_t lfo_carry;                 /* ticks of the earlier runs: LFOs without RETRIG do not start over */
@@ -290,13 +299,17 @@ static uint32_t bar_bt(void) { metre_sync(); return metre_bt; }            /* it
 static uint8_t metre_id_now(void) { metre_sync(); return metre_idn; }
 static uint8_t metre_44(void) { return (uint8_t)(metre_id_now() == 0u); }
 static uint32_t bar_ticks(void) { return (uint32_t)bar_st() * 6u; }
-static uint32_t bar_into(void) { return (global_clock - bar_origin) % bar_ticks(); }            /* ticks since the bar's line */
-static uint32_t bar_no(void) { return bar_base + (global_clock - bar_origin) / bar_ticks(); }   /* the bars since PLAY */
-static uint8_t bar_beat_now(void)          /* this tick is a beat's first (a bar line is one) */
+/* 0.32.6: the same at a tick to come (`at`, not before the bar's line): what a step decided ahead looks at */
+static uint32_t bar_into_at(uint32_t at) { return (at - bar_origin) % bar_ticks(); }
+static uint32_t bar_no_at(uint32_t at) { return bar_base + (at - bar_origin) / bar_ticks(); }
+static uint8_t bar_beat_at(uint32_t at)
 {
-    uint32_t in = bar_into();
+    uint32_t in = bar_into_at(at);
     return (uint8_t)(in % 6u == 0u && ((bar_bt() >> (in / 6u)) & 1u));
 }
+static uint32_t bar_into(void) { return bar_into_at(global_clock); }   /* ticks since the bar's line */
+static uint32_t bar_no(void) { return bar_no_at(global_clock); }       /* the bars since PLAY */
+static uint8_t bar_beat_now(void) { return bar_beat_at(global_clock); }   /* this tick is a beat's first (a bar line is one) */
 static uint8_t bar_beat_le(uint8_t s)      /* the first step of the beat step s of the bar is in (4/4: s & ~3) */
 {
     uint32_t b = bar_bt();
@@ -812,12 +825,14 @@ static void project_runtime_reset(uint8_t boot)
         ev[t].slot_start_us = 0u;
         ev[t].slot_dur_us = 0u;
         pre[t].state = 0u;
+        pre[t].at = 0xFFFFFFFFu;
         for (n = 0; n < SQ_POLY_OUT; n++) { ev[t].active_note[n] = SQ_NOTE_NONE; ev[t].active_ch[n] = 0u; ev[t].off_us[n] = 0u; }
         for (n = 0; n < SQ_HOLD_MAX; n++) { hold_note[t][n] = SQ_NOTE_NONE; hold_ch[t][n] = 0u; hold_off_us[t][n] = 0u; }
     }
     global_clock = 0u;
     clk_next = 0u;                                     /* 0.26: no click asked yet */
     tup_wait = 0u;
+    pre_heard = 0u;                                    /* 0.32.6 */
     bar_origin = 0u; bar_base = 0u;                    /* 0.25: the bars are counted from here */
     if (boot) { bar_pend_steps = 0u; bar_pend_beats = 0u; }
     loop_on = 0u; loop_latched = 0u; lp_held = 0u;
@@ -968,13 +983,14 @@ static void panic_all_x(uint8_t sound)      /* sound: All Sound Off too (the PAN
 }
 static void panic_all(void) { panic_all_x(0u); }
 
-static uint8_t track_audible(uint32_t t)
+static uint8_t audible_with(uint32_t t, uint16_t mutes)   /* 0.32.6: ... were the mutes these (a scene that comes) */
 {
     if (fx_now() & (1u << FX_KILL)) return 0u;
     if ((grid_kill | remote_kill) & (1u << t)) return 0u;
     if (solo_mask) return (solo_mask & (1u << t)) ? 1u : 0u;
-    return (mute_mask & (1u << t)) == 0u;
+    return (mutes & (1u << t)) == 0u;
 }
+static uint8_t track_audible(uint32_t t) { return audible_with(t, mute_mask); }
 
 /* 0.8: a track that goes silent (MUTE, SOLO of another, KILL, a scene, a snapshot) stops every note it has at once:
  * the ones of the step, the long ones, a strum that has not finished, its echoes. 0.7 let a 16-step note ring on. */
@@ -1540,6 +1556,113 @@ static uint16_t expo_span(uint8_t span, uint32_t *into)
     if (in - *into + x > bt) x = bt - (in - *into);
     return (uint16_t)x;
 }
+
+/* ---- 0.32.6 THE STEP DECIDED AHEAD AND THE BOUNDARY. A step that starts before its slot (a negative DELAY, NUDGE or
+ * humanise, the GROOVE or an LFO that push it) is decided a step ahead (prearm_next) and goes out before its slot
+ * begins - before the boundary its slot begins on has done what waits for it. Until 0.32.5 the decision did not know
+ * it: at a scene's bar line the first step went out before the scene's Program Change, from the pattern before, and a
+ * track the scene switched on lost its first step (a mute, a pattern, RESTART that waited: the same). Now the decision
+ * looks at what that boundary brings (bound_look) and the step goes out as the boundary will have it - the scene's
+ * program just before it, on its channel (pre_pc). What it was decided on is looked at again (pre_still) when it is
+ * about to go out - changed in between (a scene with QUANTISE NOW, a mute, the step written): it does not go out, its
+ * slot decides it, on the grid - and when its slot begins: a step decided silent that is not (a track VIAGGIO switched
+ * on, a pattern changed on the line) is decided there and plays, on the grid. A step that went out stays: never two
+ * notes for one step (it stops only if the track is silent now). */
+static uint8_t song_scene_next_line(void);                    /* sagga_gen.c */
+static uint8_t song_runs(void);
+static uint8_t vg_pattern_brings(uint32_t t, uint8_t pat);    /* sagga_viaggio.c */
+static uint8_t scene_metre_moves(uint8_t s);                  /* (below, with the metre) */
+static uint8_t len_waits(uint32_t t);                         /* (below, with the lengths) */
+static uint8_t quant_at(uint32_t at);                         /* (below, with QUANTISE) */
+static uint8_t quant_waits(uint32_t t)                        /* something of track t waits for a QUANTISE moment */
+{
+    return (uint8_t)(pending_scene < SQ_SCENES || pending_mute || restart_pend || snap_pend < SQ_SNAPS || ktrans_pend != SQ_KT_NONE ||
+                     (project.live.quant != SQ_Q_AUTO && tr[t].pending_pattern < SQ_PATTERNS));
+}
+static uint8_t line_waits(uint32_t t)                         /* ... or for a bar line */
+{
+    return (uint8_t)(song_runs() || stop_at_bar || bar_pend_steps || lens_pend || len_waits(t));
+}
+/* what the boundary at clock tick `at` brings the step of track t that begins there (`from`: the first tick still to
+ * come - its boundaries have not been done). 0: nothing waits for it (the track as it is). 1: the song's next entry, a
+ * scene, the mutes, a pattern, RESTART - *pat, *idx, *heard, *pc, *rs are the track there (its pattern, its step, heard
+ * or not, the program its channel gets, begun again). 2: what would change how the step sounds and cannot be decided
+ * ahead (another key for a track in the key, another metre, a SNAPSHOT, the key's TRANSPOSE, STOP at the bar, a length
+ * that waits for the bar, a pattern that brings VIAGGIO's settings, a boundary on the way when the step is longer than
+ * a bar or a beat): the step is decided in its slot, and plays on the grid that one time, without its lead. */
+static uint8_t bound_look(uint32_t t, uint32_t at, uint32_t from, uint8_t *pat, uint8_t *idx, uint8_t *heard, uint8_t *pc, uint8_t *rs)
+{
+    const sq_track_cfg_t *c = &project.track[t];
+    uint8_t s = 255u, sc_restart = 0u, ch = track_ch(t), qw = quant_waits(t), lw = line_waits(t), q;
+    uint16_t mutes = mute_mask;
+    uint32_t k;
+    *pat = tr[t].pattern; *idx = tr[t].step; *heard = track_audible(t); *pc = 255u; *rs = 0u;
+    if ((!qw && !lw) || at < from) return 0u;
+    for (k = from; k < at; k++)
+        if ((lw && bar_into_at(k) == 0u) || (qw && quant_at(k))) return 2u;
+    q = qw ? quant_at(at) : 0u;
+    if (lw && bar_into_at(at) == 0u) {                                     /* the bar line: what waits for it, the song */
+        if (stop_at_bar || bar_pend_steps || lens_pend || len_waits(t)) return 2u;
+        s = song_scene_next_line();                                        /* (it comes before a scene queued: seq_clock_tick) */
+    }
+    if (q) {                                                                /* the QUANTISE moment: as quant_tick does it */
+        if (snap_pend < SQ_SNAPS || ktrans_pend != SQ_KT_NONE) return 2u;
+        if (restart_pend) *rs = 1u;
+        if (s >= SQ_SCENES && pending_scene < SQ_SCENES) { s = pending_scene; sc_restart = (uint8_t)(project.live.quant != SQ_Q_AUTO); }
+    }
+    if (s < SQ_SCENES) {                                                    /* a scene: as apply_scene_x does it */
+        const sq_scene_t *sc = &project.scene[s];
+        uint8_t p = sc->pattern[t] < SQ_PATTERNS ? sc->pattern[t] : 0u;
+        if (sc->key_slot < SQ_KEYS && sc->key_slot != project.key_cur && track_in_key(t)) return 2u;
+        if (scene_metre_moves(s)) return 2u;
+        if (sc_restart && p != tr[t].pattern) *rs = 1u;
+        *pat = p;
+        mutes = sc->mute_mask;                                              /* (and the mutes that waited are gone) */
+        if (sc->pc[ch] <= 127u && pc_last[ch] != sc->pc[ch]) *pc = sc->pc[ch];
+    } else if (q) {
+        mutes = (uint16_t)(mutes ^ pending_mute);
+        if (project.live.quant != SQ_Q_AUTO && tr[t].pending_pattern < SQ_PATTERNS) {   /* (AUTO: at the track's own wrap) */
+            if (vg_pattern_brings(t, tr[t].pending_pattern)) return 2u;
+            *pat = tr[t].pending_pattern;
+            *rs = 1u;
+        }
+    }
+    if (*rs) *idx = c->direction == SQ_DIR_REV ? (uint8_t)(c->length - 1u) : c->start;
+    *heard = audible_with(t, mutes);
+    return (uint8_t)(*rs || *pat != tr[t].pattern || *idx != tr[t].step || *heard != track_audible(t) || *pc <= 127u);
+}
+/* the step decided ahead is still the step of its slot: the same step of the loop, still ON with the same notes (of
+ * whatever pattern), the track heard (or not) as it was to be. `ahead`: it is about to go out, before the boundary -
+ * the track as the boundary will have it (bound_look again; between two ticks: the next one is still to come); else its
+ * slot has begun: the track as it is. */
+static uint8_t pre_still(uint32_t t, uint8_t ahead)
+{
+    uint8_t pat = tr[t].pattern, idx = tr[t].step, heard = track_audible(t), pc = pre[t].pc, rs;
+    const sq_step_t *s;
+    if (ahead && pre[t].at != 0xFFFFFFFFu) {
+        if (bound_look(t, pre[t].at, global_clock, &pat, &idx, &heard, &pc, &rs) == 2u) return 0u;
+        pre[t].pc = pc;                                    /* (a scene queued since: its program goes first too) */
+    }
+    s = &project.step[t][pat][idx];
+    return (uint8_t)(idx == pre[t].idx && heard == pre[t].heard && (s->flags & SQ_STEP_ON) && !memcmp(pre[t].notes, s->note, SQ_POLY));
+}
+static void pre_pc(uint32_t t)                    /* the program of the scene that comes, on the step's channel, first */
+{
+    uint8_t ch = track_ch(t), pc = pre[t].pc;
+    pre[t].pc = 255u;
+    if (pc > 127u || pc_last[ch] == pc) return;
+    midi_send(0xC0u | ch, pc, 0u);
+    pc_last[ch] = pc;                             /* (scene_send_pc, on the line, does not send it again) */
+}
+static void pre_promote(uint32_t t)
+{
+    track_all_off(t);                        /* the step before ends where this one begins */
+    pre_pc(t);                               /* 0.32.6 */
+    if (pre[t].heard && !track_audible(t)) pre_heard |= (uint16_t)(1u << t);   /* 0.32.6: the scene that comes switches it on */
+    event_begin(t, pre[t].step, pre[t].idx, pre[t].start_us, pre[t].dur_us);
+    pre[t].step = 0;                        /* (state stays 1 until its slot begins: arm_step finishes it) */
+}
+
 static void arm_step(uint32_t t, uint32_t now)
 {
     sq_step_t tmp, lbuf;
@@ -1552,6 +1675,7 @@ static void arm_step(uint32_t t, uint32_t now)
     ev[t].slot_start_us = now;
     ev[t].slot_dur_us = dur;
     ev[t].step_index = tr[t].step; /* UI playhead follows empty steps too */
+    pre_heard &= (uint16_t)~(1u << t);       /* 0.32.6: its slot begins: heard or not as the track is now */
     if (lane_rec[t]) {                       /* 0.10: REC + an ENV knob: the knob's value is written on the steps as they play */
         if (!record_arm || (uint32_t)(fm1_ms - lane_rec_ms) > 400u) lane_rec[t] = 0u;
         else {
@@ -1568,8 +1692,11 @@ static void arm_step(uint32_t t, uint32_t now)
     if (xspan && xin == 0u)                                  /* 0.10: a span begins: on a plain step (EDIT + black 5) the steps play as written */
         expo_plain[t] = ((s->flags & SQ_STEP_ON) && (s->flags & SQ_STEP_XOFF)) ? 1u : 0u;
 
+    if (pre[t].state == 1u && !pre[t].step) {   /* 0.32.6: it went out early: it stays - never two notes for one step - */
+        if (!track_audible(t)) { track_all_off(t); pre[t].state = 0u; }   /* unless the track is silent now */
+    } else if (pre[t].state && !pre_still(t, 0u)) pre[t].state = 0u;   /* decided on what this slot is not: decided now */
     if (pre[t].state == 1u) {                /* it was decided a step ago, and has started (or starts now) */
-        if (pre[t].step) { track_all_off(t); event_begin(t, pre[t].step, pre[t].idx, pre[t].start_us, pre[t].dur_us); }
+        if (pre[t].step) pre_promote(t);
         pre[t].state = 0u;
         tr[t].prev_hit = 1u;
         return;
@@ -1605,37 +1732,73 @@ static void arm_step(uint32_t t, uint32_t now)
 }
 
 /* The track has moved on to its next step. If that step starts before its slot, decide it now and schedule it:
- * boundary is where the next slot begins. */
-static void prearm_next(uint32_t t, uint32_t slot_start, uint32_t dur)
+ * boundary is where the next slot begins. (0.32.6: the track as it is there - tr[t] as it is now, or as bound_look says
+ * the boundary will have it: pre[t].heard says whether it is heard) */
+static void prearm_decide(uint32_t t, uint32_t slot_start, uint32_t dur)
 {
     sq_step_t tmp, lbuf;
     const sq_step_t *s = play_step(t, &tmp);
     int32_t off;
     uint8_t hit;
-    pre[t].state = 0u;
     if (!(s->flags & SQ_STEP_ON)) return;
     if (project.track[t].expo.shape != SQ_XS_OFF && sq_expo_span_ticks(project.track[t].expo.span)) return;   /* 0.10: spans start on the grid */
     off = step_offset_us(t, s, tr[t].step, dur);
     if (off >= 0) return;
-    if (!track_audible(t)) { pre[t].state = 2u; return; }
+    pre[t].idx = tr[t].step;
+    memcpy(pre[t].notes, project.step[t][tr[t].pattern][tr[t].step].note, SQ_POLY);   /* (the step's own: pre_still) */
+    pre[t].start_us = slot_start + dur - (uint32_t)(-off);
+    pre[t].wait = 1u;                        /* 0.32.6 (service_track_events) */
+    if (!pre[t].heard) { pre[t].state = 2u; return; }
     s = live_step(t, s, &lbuf, &hit);
     if (!step_should_play(t, s, hit)) { pre[t].state = 2u; return; }
     pre[t].buf = *s;
     pre[t].step = &pre[t].buf;
-    pre[t].idx = tr[t].step;
     pre[t].dur_us = dur;
     /* 0.10: an EXPO step (span STEP) that starts early spans from where it starts to the end of its slot: its hits
      * fall where the curve says (a grace hit 86 ms before the beat, the main one on it) */
     if (project.track[t].expo.shape != SQ_XS_OFF && !(s->flags & SQ_STEP_XOFF) && !expo_plain[t]) pre[t].dur_us = dur + (uint32_t)(-off);
-    pre[t].start_us = slot_start + dur - (uint32_t)(-off);
     pre[t].state = 1u;
 }
-
-static void pre_promote(uint32_t t)
+/* 0.32.6: the decision, for the slot that begins on tick `at` (0xFFFFFFFF: not known), at slot_start + dur - with what
+ * that boundary brings, from tick `from` on (bound_look) */
+static void prearm_make(uint32_t t, uint32_t at, uint32_t from, uint32_t slot_start, uint32_t dur)
 {
-    track_all_off(t);                        /* the step before ends where this one begins */
-    event_begin(t, pre[t].step, pre[t].idx, pre[t].start_us, pre[t].dur_us);
-    pre[t].step = 0;                        /* (state stays 1 until its slot begins: arm_step finishes it) */
+    uint8_t look = 0u, pat = 0u, idx = 0u, heard = 0u, pc = 255u, rs = 0u;
+    pre[t].state = 0u;
+    pre[t].wait = 0u;
+    pre[t].pc = 255u;
+    pre[t].at = at;
+    pre[t].slot_at_us = slot_start + dur;
+    pre[t].slot_len_us = dur;
+    pre[t].heard = track_audible(t);
+    if (at != 0xFFFFFFFFu) {                 /* what that boundary brings */
+        look = bound_look(t, at, from, &pat, &idx, &heard, &pc, &rs);
+        if (look == 2u) return;              /* (decided in its slot) */
+    }
+    if (look) {                              /* the step as the boundary will have it: the track there, for the decision */
+        sq_track_rt_t keep = tr[t];
+        tr[t].pattern = pat;
+        if (rs) {                            /* (begun again: as track_restart has it) */
+            tr[t].step = idx;
+            tr[t].ping_dir = 1;
+            tr[t].advances = 0u;
+            memset(tr[t].ppos, 0, sizeof tr[t].ppos);
+            tr[t].prev_hit = 0u;
+        }
+        pre[t].heard = heard;
+        pre[t].pc = pc;
+        prearm_decide(t, slot_start, dur);
+        tr[t] = keep;
+    } else prearm_decide(t, slot_start, dur);
+}
+static void prearm_next(uint32_t t, uint32_t slot_start, uint32_t dur)
+{
+    uint32_t at = 0xFFFFFFFFu;
+    if (!track_tuplet(t)) {                  /* 0.32.6: the tick its slot begins on */
+        uint8_t div = eff_div_ticks(t);
+        at = global_clock + (tr[t].div_accum < div ? (uint32_t)(div - tr[t].div_accum) : 1u);
+    }
+    prearm_make(t, at, global_clock + 1u, slot_start, dur);   /* (this tick's boundaries are done) */
 }
 
 /* a track starts its loop again on this clock tick (QUANTISE: a new pattern from its first step) */
@@ -1650,7 +1813,8 @@ static void track_restart(uint32_t t)
     tup_wait &= (uint16_t)~(1u << t);
     tr[t].anchor = global_clock;                             /* 0.10: from here the track's time is counted */
     tr[t].prev_hit = 0u;
-    pre[t].state = 0u;
+    if (pre[t].at != global_clock) pre[t].state = 0u;        /* 0.32.6: a step decided for the slot that begins on this very
+                                                              * tick stays: pre_still says if it is the step begun again */
 }
 
 /* 0.10: the track's step of `div` ticks without the time FX (VIAGGIO's HALF / DOUBLE count: they last a phrase) */
@@ -1786,13 +1950,14 @@ static const char *const QUANT_NAME[SQ_QUANTS] = {"AUTO", "NOW", "BEAT", "BAR", 
 /* 0.25: the bars are the metre's (bar_into, bar_no), the beat is one of its beats - a quarter, or three eighths, as the
  * bar divides. Until 0.24: `global_clock % 96`, `% 24`. */
 static const uint8_t QUANT_BARS[SQ_QUANTS] = {1u, 0u, 0u, 1u, 2u, 4u, 8u};   /* AUTO NOW BEAT BAR 2 4 8 */
-static uint8_t quant_now(void)                         /* this tick is one where the queued changes happen */
+static uint8_t quant_at(uint32_t at)                   /* tick `at` is one where the queued changes happen */
 {
     uint8_t q = project.live.quant < SQ_QUANTS ? project.live.quant : 0u;
     if (q == SQ_Q_NOW) return 0u;
-    if (q == SQ_Q_BEAT) return bar_beat_now();
-    return (uint8_t)(bar_into() == 0u && (bar_no() % QUANT_BARS[q]) == 0u);
+    if (q == SQ_Q_BEAT) return bar_beat_at(at);
+    return (uint8_t)(bar_into_at(at) == 0u && (bar_no_at(at) % QUANT_BARS[q]) == 0u);
 }
+static uint8_t quant_now(void) { return quant_at(global_clock); }   /* this tick is one */
 static void ktrans_apply(int32_t target);
 static void quant_tick(void)
 {
@@ -2042,7 +2207,10 @@ static void fire_slice(uint32_t t, uint32_t now)
     uint8_t slice_no = (uint8_t)(ev[t].ratchet_total - ev[t].ratchet_left), vel, held = 0u;
     int32_t v, fxt = 0;
 
-    if (!track_audible(t)) { ev[t].ratchet_left = 0u; return; }   /* (gone silent in the middle of a step) */
+    if (!track_audible(t) && !((pre_heard & (1u << t)) && audible_with(t, (uint16_t)(mute_mask & ~(1u << t))))) {
+        ev[t].ratchet_left = 0u;                       /* (gone silent in the middle of a step; 0.32.6: not the early step */
+        return;                                        /*  of a track the scene that comes switches on - pre_promote) */
+    }
     lfo_hit(t, now);                                   /* 0.13: the LFOs this track triggers start their cycle */
     if (ev[t].expo == 1u) {                            /* 0.10: this hit lasts until the next one (the last: the span's end) */
         uint32_t end = slice_no + 1u < ev[t].ratchet_total ? ev[t].expo_t[slice_no + 1u] : ev[t].span_us;
@@ -2188,7 +2356,12 @@ static void service_track_events(uint32_t now)
     uint32_t t, n;
     tup_service(now, 0u);                              /* 0.25: the polyrhythms' steps, at their own time */
     for (t = 0; t < SQ_TRACKS; t++) {
-        if (pre[t].state == 1u && pre[t].step && time_due(now, pre[t].start_us)) pre_promote(t);
+        if (pre[t].state && pre[t].wait && time_due(now, pre[t].start_us)) {   /* its early time */
+            pre[t].wait = 0u;
+            if (!pre_still(t, 1u))                     /* 0.32.6: changed since it was decided (to play or not): decided again, as it is now */
+                prearm_make(t, pre[t].at, global_clock, pre[t].slot_at_us - pre[t].slot_len_us, pre[t].slot_len_us);
+            if (pre[t].state == 1u && pre[t].step && time_due(now, pre[t].start_us)) { pre[t].wait = 0u; pre_promote(t); }
+        }
         for (n = 0; n < SQ_POLY_OUT; n++)
             if (ev[t].active_note[n] != SQ_NOTE_NONE && time_due(now, ev[t].off_us[n]))
                 midi_note_off_track(t, n);
@@ -2876,6 +3049,7 @@ static void set_loop(uint8_t t, uint8_t first, uint8_t last)
  * the knob began to turn", in the pattern that played only: 16, 19 at a bar, then 32 repeated the nineteen). */
 static uint8_t len_pend[SQ_TRACKS];        /* the length that waits for the bar (0: none) */
 static uint8_t len_shown(uint8_t t) { return len_pend[t] ? len_pend[t] : project.track[t].length; }
+static uint8_t len_waits(uint32_t t) { return (uint8_t)(t < SQ_TRACKS && len_pend[t]); }   /* 0.32.6 (bound_look) */
 static uint8_t length_apply(uint8_t t, uint8_t len)      /* returns the copies in the pattern that plays */
 {
     sq_track_cfg_t *c = &project.track[t];
@@ -3035,6 +3209,15 @@ static void scene_metre_bring(uint8_t s)
     if (st == sq_bar_steps(&project.gen) && bt == sq_bar_beats(&project.gen)) { bar_pend_steps = 0u; return; }   /* (it is the bar already: none waits) */
     if (!playing || bar_into() == 0u) metre_apply(st, bt);
     else metre_ask(st, bt);
+}
+static uint8_t scene_metre_moves(uint8_t s)            /* 0.32.6: scene s, when it comes, brings another metre (bound_look) */
+{
+    uint8_t st = 16u, id;
+    uint32_t bt = SQ_BEATS_44;
+    if (s >= SQ_SCENES || !project.ext.scene_metre_on) return 0u;
+    id = project.ext.scene_metre[s];
+    if (!id || !sq_metre_of((uint8_t)(id - 1u), &st, &bt)) return 0u;
+    return (uint8_t)(st != sq_bar_steps(&project.gen) || bt != sq_bar_beats(&project.gen));
 }
 static uint8_t scene_metre_now(void)                   /* what a scene stored now keeps: the metre shown (the one that waits for the bar, if one does) */
 {

@@ -9,8 +9,9 @@ back as a zip. 0.20.1: a package away (Elimina), and the Pi updates itself from 
 (checked, unpacked in /run, install_hub.sh run in a unit of its own: it restarts this page). 0.20.3: the ESPLORATORE
 DEL BANCO (sagga_banco.py, in a unit of its own too): the matrix checked, the FM-1, the pages and the grid tested
 together; its log here, its files to download. 0.32.3: DA ABLETON, the MIDI clips exported from Ableton made a project of
-steps in the library (sagga_ableton.py), each part on the channel of its machine (the table on the page). Standard library
-only.
+steps in the library (sagga_ableton.py), each part on the channel of its machine (the table on the page). 0.32.6: its box
+for the M8's note (N): the drums for the M8s arrive on it; the table says the machine of the channel written. Standard
+library only.
 
     sudo python3 sagga_fw.py [--dir /boot/firmware/sagga/firmware] [--projects /boot/firmware/sagga] [--port 8090]
 """
@@ -675,7 +676,9 @@ input[type=file]{color:#ccc}a{color:#9cf}button.del{background:#833}header small
 <form method="post" action="/api/ableton" enctype="multipart/form-data" class="row" style="flex-wrap:wrap"><input name="nome" placeholder="nome del progetto" size="16" required><input type="file" name="f" accept=".mid,.midi" multiple required><label><small>BPM</small> <input name="bpm" size="5" placeholder="dai clip"></label><button>Fai il progetto</button></form>
 <small>I clip MIDI esportati da Ableton (tasto destro sul clip, <b>Export MIDI Clip</b>), anche tutti insieme: diventano un progetto <b>a passi</b> nella libreria, una traccia per parte, un pattern per clip; la scena N suona il clip N di ogni parte. Il nome del file dice la parte e il pattern: <b>A-basso-2.mid</b> &egrave; il basso, pattern 2. Un clip di tutta la batteria (drums, batteria, beat) si divide da solo. Lo swing del clip resta (il NUDGE dei passi). Le parti, la macchina che le suona e il canale MIDI (cambialo e salva):</small>
 <div id="abl"></div>
-<div class="row"><button onclick="ablsave()">Salva i canali</button><small id="ablm"></small></div>
+<div class="row"><label><small>nota M8 (N)</small> <input id="abln" type="number" min="0" max="127" style="width:5em" placeholder="vuota" oninput="ablnote()"></label><small id="ablnn"></small></div>
+<small>La <b>nota M8</b> &egrave; il numero della nota che l'M8 chiama C-4: l&igrave; suona i campioni alla loro altezza (la prova per trovarla &egrave; nel manuale, &laquo;La nota giusta&raquo;). Con N, le batterie che vanno a un M8 (canali 1-7 e 13-16) arrivano su N: la nota pi&ugrave; usata di ogni parte diventa N, le altre si spostano con lei, e la PEN della traccia &egrave; N. Vuota: le note del clip.</small>
+<div class="row"><button onclick="ablsave()">Salva canali e nota</button><small id="ablm"></small></div>
 <h2>BREAK IN SLICE</h2>
 <form method="post" action="/api/slice" enctype="multipart/form-data" class="row" style="flex-wrap:wrap"><input type="file" name="f" accept=".wav" required>
 <label><small>slice</small> <select name="slices"><option>8</option><option selected>16</option><option>32</option></select></label>
@@ -732,10 +735,15 @@ document.getElementById('ql').innerHTML=l.map(([x,i])=>`<div class="row"><span c
 async function pdel(g,i){if(!confirm('Eliminare la progressione '+(i+1)+' di '+g+'?'))return;await fetch('/api/progressions/delete?genre='+g+'&i='+i,{method:'POST'});progs();}
 async function padd(){const g=document.getElementById('qg').value||'TECHNO',m=document.getElementById('am').value||'ANY',c=document.getElementById('ac').value;
 const r=await fetch('/api/progressions/add?genre='+g+'&mood='+m+'&chords='+encodeURIComponent(c),{method:'POST'});if(!r.ok){alert(await r.text());return;}document.getElementById('ac').value='';progs();}
-async function abl(){const r=await fetch('/api/ableton/canali');if(!r.ok)return;const s=await r.json();
-document.getElementById('abl').innerHTML=s.parti.map(p=>`<div class="row"><span class="mono">${p.track}. ${h(p.name)} <small>${h(p.machine)} &middot; ${h(p.words.join(' '))}</small></span><label><small>canale</small> <input type="number" min="1" max="16" style="width:4em" data-k="${p.key}" value="${p.canale}"></label></div>`).join('');}
-async function ablsave(){const it=[...document.querySelectorAll('#abl input')].map(i=>({key:i.dataset.k,canale:parseInt(i.value,10)}));
-const r=await fetch('/api/ableton/canali',{method:'POST',headers:{'Content-Type':'application/json','X-Sagga-Hub':'1'},body:JSON.stringify(it)});
+let ablM={};
+async function abl(){const r=await fetch('/api/ableton/canali');if(!r.ok)return;const s=await r.json();ablM=s.macchine||{};
+document.getElementById('abl').innerHTML=s.parti.map(p=>`<div class="row"><span class="mono">${p.track}. ${h(p.name)} <small><span data-m="${p.key}">${h(p.machine)}</span> &middot; ${h(p.words.join(' '))}</small></span><label><small>canale</small> <input type="number" min="1" max="16" style="width:4em" data-k="${p.key}" value="${p.canale}" oninput="ablch(this)"></label></div>`).join('');
+document.getElementById('abln').value=s.nota_m8==null?'':s.nota_m8;ablnote();}
+function ablch(i){const m=document.querySelector(`[data-m="${i.dataset.k}"]`);if(m)m.textContent=ablM[i.value]||('canale '+i.value);}
+function ablnote(){const v=document.getElementById('abln').value,n=parseInt(v,10),N=['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+document.getElementById('ablnn').textContent=v===''?'vuota: le note del clip':n>=0&&n<=127?'= '+N[n%12]+(Math.floor(n/12)-1)+" sull'FM-1":'da 0 a 127';}
+async function ablsave(){const it=[...document.querySelectorAll('#abl input')].map(i=>({key:i.dataset.k,canale:parseInt(i.value,10)}));const v=document.getElementById('abln').value;
+const r=await fetch('/api/ableton/canali',{method:'POST',headers:{'Content-Type':'application/json','X-Sagga-Hub':'1'},body:JSON.stringify({canali:it,nota_m8:v===''?null:parseInt(v,10)})});
 document.getElementById('ablm').textContent=r.ok?'salvati: valgono dal prossimo progetto':await r.text();}
 tick();setInterval(tick,2000);pats();progs();abl();</script></body></html>'''
 
@@ -798,8 +806,10 @@ def ableton_page(file_name, rep):
     """0.32.3: what DA ABLETON made, as a page: the tracks, the files, what to look at"""
     rows = ''.join('<tr><td>%d</td><td>%s</td><td>%s</td><td>%d</td><td>%s %s</td></tr>%s' % (
         t['track'], esc(t['name']), esc(t['machine']), t['channel'], esc(t['mode']), esc(' '.join(t['patterns'])),
-        '<tr><td></td><td colspan="4"><small>%s</small></td></tr>' % esc(t['note']) if t.get('note') else '')
+        ''.join('<tr><td></td><td colspan="4"><small>%s</small></td></tr>' % esc(t[k]) for k in ('m8', 'note') if t.get(k)))
         for t in rep['tracks'])
+    n = rep.get('nota_m8')                                   # 0.32.6: the M8's note
+    nota = (' Nota M8 (N): <b>%d</b> (%s sull\'FM-1).' % (n, esc(sagga_ableton.note_name(n)))) if n is not None else ''
     files = ''.join('<li><span class="mono">%s</span> <small>%s%s</small></li>' % (
         esc(f['file']), esc(f['part'] or '') + (' &middot; pattern ' + esc(', '.join(f['patterns'])) if f['patterns'] else ''),
         ''.join('<br><b>%s</b>' % esc(w) for w in f['warnings'])) for f in rep['files'])
@@ -812,13 +822,13 @@ def ableton_page(file_name, rep):
             'table{border-collapse:collapse;width:100%%}td{padding:6px 4px;border-bottom:1px solid #333;vertical-align:top}'
             'small{color:#999}b{color:#fc6}a{color:#9cf}.mono{font-family:ui-monospace,monospace;font-size:13px;overflow-wrap:anywhere}'
             'li{margin:6px 0}</style></head><body><main>'
-            '<h2>DA ABLETON: %s</h2><p>Nella libreria: <span class="mono">%s</span>, %s, %d scene.</p>'
+            '<h2>DA ABLETON: %s</h2><p>Nella libreria: <span class="mono">%s</span>, %s, %d scene.%s</p>'
             '<p><a href="/edit/%s"><b>Apri nell\'editor</b></a> (da l&igrave;: Manda all\'FM-1) &middot; <a href="/projects/%s">scarica il .sgq</a>'
             ' &middot; <a href="/">torna al Pi</a></p>'
             '<h2>LE TRACCE</h2><table><tr><td><small>traccia</small></td><td></td><td><small>macchina</small></td>'
             '<td><small>canale</small></td><td><small>pattern</small></td></tr>%s</table>'
             '<h2>I FILE</h2><ul>%s</ul>%s</main></body></html>'
-            % (esc(rep['name']), esc(file_name), bpm, rep.get('scenes', 0), q, q, rows, files,
+            % (esc(rep['name']), esc(file_name), bpm, rep.get('scenes', 0), nota, q, q, rows, files,
                ('<h2>DA GUARDARE</h2><ul>%s</ul>' % warns) if warns else ''))
 
 
@@ -863,10 +873,13 @@ def make_handler(state):
                 return self.send(200, PAGE)
             if u.path == '/api/state':
                 return self.send(200, json.dumps(state.snapshot()), 'application/json')
-            if u.path == '/api/ableton/canali' and sagga_ableton:   # 0.32.3: the parts and their channels
-                parts = sagga_ableton.rig(sagga_ableton.load_config(state.proj_dir))
+            if u.path == '/api/ableton/canali' and sagga_ableton:   # 0.32.3: the parts and their channels (0.32.6: the M8's note)
+                cfg = sagga_ableton.load_config(state.proj_dir)
+                parts = sagga_ableton.rig(cfg)
                 return self.send(200, json.dumps(dict(parti=[dict(key=p.key, name=p.name, track=p.track + 1, machine=p.machine,
-                                                                  canale=p.channel + 1, words=list(p.words[:5])) for p in parts])),
+                                                                  canale=p.channel + 1, words=list(p.words[:5])) for p in parts],
+                                                      nota_m8=sagga_ableton.m8_note(cfg),
+                                                      macchine={str(c): sagga_ableton.machine_of(c) for c in range(1, 17)})),
                                  'application/json')
             if u.path == '/api/patterns':                         # 0.11: the patterns of a genre, part by part
                 q = urllib.parse.parse_qs(u.query)
@@ -1069,9 +1082,10 @@ def make_handler(state):
             if u.path == '/api/ableton/canali':                    # 0.32.3: the channels of the parts, kept in the library
                 n = int(self.headers.get('Content-Length', '0') or 0)
                 try:
-                    cfg = sagga_ableton.config_from_page(json.loads(self.rfile.read(min(n, 65536)).decode('utf-8') or 'null'))
+                    cfg = sagga_ableton.config_from_page(json.loads(self.rfile.read(min(n, 65536)).decode('utf-8') or 'null'),
+                                                         sagga_ableton.load_config(state.proj_dir))
                 except (ValueError, sagga_ableton.AbletonError) as e:
-                    return self.send(400, 'canali non validi: %s' % e, 'text/plain; charset=utf-8')
+                    return self.send(400, 'non salvati: %s' % e, 'text/plain; charset=utf-8')
                 try:
                     state.writer.write(os.path.join(state.proj_dir, sagga_ableton.CONFIG), json.dumps(cfg, indent=1).encode())
                 except Exception as e:

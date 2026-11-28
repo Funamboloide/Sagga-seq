@@ -13398,6 +13398,92 @@ def t032_maps():
 
 
 
+def t0326_early_bound():
+    group("0.32.6 A STEP THAT STARTS EARLY AT A BOUNDARY (DELAY -20, a negative NUDGE): the scene's program goes just before it, "
+          "it is the scene's pattern, a track the scene switches on plays its first step - a scene queued, the song, QUANTISE "
+          "BAR with its RESTART, a mute that waits; another key with the scene: on the grid; a scene that comes before the "
+          "step goes out: decided again, early; after: the step stays, never two")
+    LINE = 2000.0                                           # a bar at 120 BPM
+
+    def image(extra=(), delay=-20, nudge=0):
+        P = ["project - bpm - 120"]
+        for s in (0, 4, 8, 12):                             # track 1: 60 in pattern 1, 62 in pattern 2; track 2: 64 on its step 1
+            P += ["step 0,0,%d note 0 60" % s, "step 0,0,%d flags - 3" % s, "step 0,1,%d note 0 62" % s, "step 0,1,%d flags - 3" % s]
+        P += ["step 1,0,0 note 0 64", "step 1,0,0 flags - 3"]
+        if delay:
+            P += ["track 0 delay_ms - %d" % delay, "track 1 delay_ms - %d" % delay]
+        if nudge:
+            P += ["step 0,0,0 nudge - %d" % nudge, "step 0,1,0 nudge - %d" % nudge, "step 1,0,0 nudge - %d" % nudge]
+        # scene 1: track 2 muted, program 5 on channel 1; scene 2: pattern 2, nothing muted, program 9
+        P += ["scene 0 mute_mask - 2", "scene 0 pc 0 4", "scene 1 pattern 0 1", "scene 1 mute_mask - 0", "scene 1 pc 0 8"]
+        return sgq_image(P + list(extra))
+
+    def play(img, events, until=5000, song=False):
+        s = Script()
+        t0 = sx_import(s, 300, img) + 700
+        s.raw(t0 - 300, "scene 0")                          # (stopped: scene 1 at once)
+        if song:
+            s.press(t0 - 200, HOME); s.tap_btn(t0 - 180, GLO); s.release(t0 - 120, HOME)   # HOME + GLO: the song on
+        for dt, f in events:
+            f(s, t0 + dt)
+        s.tap_btn(t0, PLAY)
+        log = run(s, t0 + until)
+        return [(round(t - t0), (st & 15) + 1, "PC" if st & 0xF0 == 0xC0 else "ON", a) for t, st, a, b in log.msgs
+                if (st & 15) in (0, 1) and (st & 0xF0 == 0xC0 or (st & 0xF0 == 0x90 and b))]
+
+    def at(evs, lo, hi):
+        return [e for e in evs if lo <= e[0] <= hi]
+
+    def scene(n):
+        return lambda s, t: s.raw(t, "scene %d" % n)
+    ev = play(image(), [(2500, scene(1))])
+    check(at(ev, 3900, 4100) == [(3980, 1, "PC", 8), (3980, 1, "ON", 62), (3980, 2, "ON", 64)],
+          "a scene queued (AUTO), DELAY -20: at its bar line the program first, then pattern 2's note, 20 ms early, and the track the "
+          "scene switches on plays its first step - 0.32.5: 60 of pattern 1 before the program, track 2's step lost (%s)" % at(ev, 3900, 4100))
+    ev = play(image(), [(2500, scene(0))])
+    check(at(ev, 3900, 4100) == [(3980, 1, "ON", 60)], "the same scene again: the step as it was, early, once (%s)" % at(ev, 3900, 4100))
+    ev = play(image(["scene 1 mute_mask - 1"]), [(2500, scene(1))])
+    check(at(ev, 3900, 4100) == [(3980, 2, "ON", 64), (4000, 1, "PC", 8)],
+          "a scene that mutes track 1: its early step does not go out, its program comes on the line (%s)" % at(ev, 3900, 4100))
+    song = ["song - len - 2", "song - loop - 1", "song_e 0 scene - 0", "song_e 0 bars - 1", "song_e 1 scene - 1", "song_e 1 bars - 1"]
+    ev = play(image(song), [], song=True)
+    check(at(ev, 1900, 2100) == [(1980, 1, "PC", 8), (1980, 1, "ON", 62), (1980, 2, "ON", 64)] and at(ev, 3900, 4100) == [(3980, 1, "PC", 4), (3980, 1, "ON", 60)],
+          "the song (scene 2 a bar, scene 1 a bar): each entry's program before its first step, its pattern, its mutes (%s %s)" % (at(ev, 1900, 2100), at(ev, 3900, 4100)))
+    ev = play(image(song, delay=0, nudge=-20), [], song=True)
+    check(at(ev, 1900, 2100) == [(1975, 1, "PC", 8), (1975, 1, "ON", 62), (1975, 2, "ON", 64)] and at(ev, 3900, 4100) == [(3975, 1, "PC", 4), (3975, 1, "ON", 60)],
+          "the same with a NUDGE of -20 %% on the steps 1 instead of the DELAY (%s %s)" % (at(ev, 1900, 2100), at(ev, 3900, 4100)))
+    two = ["track 0 length - 32", "step 0,1,16 note 0 70", "step 0,1,16 flags - 3"]
+    ev = play(image(two + ["live - quant - 3"]), [(500, scene(1))], until=2600)
+    check(at(ev, 1900, 2100) == [(1980, 1, "PC", 8), (1980, 1, "ON", 62), (1980, 2, "ON", 64)],
+          "QUANTISE BAR, a track of two bars: the scene begins it again - its step 1 of pattern 2, early, once (0.32.5: 60 early, then 62 "
+          "on the line) (%s)" % at(ev, 1900, 2100))
+    ev = play(image(two), [(500, scene(1))], until=2600)
+    check(at(ev, 1900, 2100) == [(1980, 1, "PC", 8), (1980, 1, "ON", 70), (1980, 2, "ON", 64)],
+          "AUTO, the same track: it goes on, at step 17 of pattern 2 (%s)" % at(ev, 1900, 2100))
+    ev = play(image(["scene 1 key_slot - 1", "key 1 root - 2", "track 0 flags - 1"]), [(2500, scene(1))])
+    check(at(ev, 3900, 4100) == [(3980, 2, "ON", 64), (4000, 1, "PC", 8), (4000, 1, "ON", 62)],
+          "a scene with another key, a track in the key: that one step is decided in its slot - on the line, after the program (%s)" % at(ev, 3900, 4100))
+    ev = play(image(["live - quant - 1"]), [(3990, scene(1))])
+    check(at(ev, 3900, 4100) == [(3980, 1, "ON", 60), (3990, 1, "PC", 8), (4000, 2, "ON", 64)],
+          "QUANTISE NOW, the scene 10 ms after the early step went out: that step stays - never two notes for one step - and the "
+          "track the scene switched on plays its first step on the line (0.32.5: lost) (%s)" % at(ev, 3900, 4100))
+    ev = play(image(["live - quant - 1"]), [(3900, scene(1))])
+    check(at(ev, 3800, 4100) == [(3900, 1, "PC", 8), (3980, 1, "ON", 62), (3980, 2, "ON", 64)],
+          "... the scene after the step was decided, before it went out: decided again at its time - the new pattern's step, "
+          "and the track the scene switched on, early (0.32.5: 60 of the old pattern, track 2 lost) (%s)" % at(ev, 3800, 4100))
+    late = [(3900, lambda s, t: s.raw(t, "scene 1"))]
+    ev = play(image(["live - quant - 3"]), late)
+    check(at(ev, 3800, 4100) == [(3980, 1, "PC", 8), (3980, 1, "ON", 62), (3980, 2, "ON", 64)],
+          "QUANTISE BAR, the scene queued after the step was decided, before it went out: it goes out as the scene has it, "
+          "its program first (%s)" % at(ev, 3800, 4100))
+
+    def unmute(s, t):                                       # PERF, white 2 (QUANTISE THE MUTES on: at the bar), PERF off
+        s.tap_btn(t, GLO); s.tap_key(t + 80, wk(1)); s.tap_btn(t + 200, GLO)
+    ev = play(image(["live - mute_q - 1"]), [(2500, unmute)])
+    check(at(ev, 3900, 4100) == [(3980, 1, "ON", 60), (3980, 2, "ON", 64)],
+          "a mute that waits for the bar: the track it switches on plays its first step there, early (0.32.5: lost) (%s)" % at(ev, 3900, 4100))
+
+
 TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t_tracks16, t_loop_between_steps, t_dj_loop, t_fx,
          t_key, t_lfo, t_lanes, t_rec, t_slots, t_perf, t_beat_cook, t_scope_dice, t_evolve, t_song_tap_rec, t_grid_drum, t_usb_page,
          t_rec_fresh_step, t_ui_stalls,
@@ -13420,7 +13506,7 @@ TESTS = [t_basic, t_swing_nudge, t_arp, t_direction_pen, t_tools, t_slave_spp, t
          t027_keyless_band, t027_random_dice, t027_evolve_return, t027_who_acts, t027_semplice, t027_mark, t028_panel, t0281_mod_page, t0281_proposal_start,
     t026_smooth, t026_live_chords, t026_scene_metre, t026_click, t026_expression, t029_more,
     t029_viaggio_progs, t030_banks, t030_tape, t031_panel, t031_lfo_group, t031_grid, t031_group_retrig,
-    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps, t0321_tablet_banks, t0321_chord_names, t0321_knobs_far]
+    t032_panel, t032_grid, t032_grid2, t032_grid3, t032_maps, t0321_tablet_banks, t0321_chord_names, t0321_knobs_far, t0326_early_bound]
 if os.environ.get("SAGGA_ONLY"):                           # SAGGA_ONLY=t05 runs the tests whose name starts so
     TESTS = [t for t in TESTS if t.__name__.startswith(os.environ["SAGGA_ONLY"])]
 
